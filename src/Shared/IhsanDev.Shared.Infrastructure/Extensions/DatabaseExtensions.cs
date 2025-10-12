@@ -1,0 +1,154 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using IhsanDev.Shared.Infrastructure.Persistence;
+
+namespace IhsanDev.Shared.Infrastructure.Extensions;
+
+public static class DatabaseExtensions
+{
+    /// <summary>
+    /// Configures DbContext with the specified database provider
+    /// Modern approach: Uses IConfiguration binding + Options pattern
+    /// </summary>
+    public static IServiceCollection AddDatabaseContext<TContext>(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        string? migrationAssembly = null) 
+        where TContext : DbContext
+    {
+        // Register DatabaseSettings as IOptions<DatabaseSettings>
+        services.Configure<DatabaseSettings>(
+            configuration.GetSection(DatabaseSettings.SectionName));
+
+        // Register DbContext
+        services.AddDbContext<TContext>((serviceProvider, options) =>
+        {
+            var dbSettings = serviceProvider
+                .GetRequiredService<IOptions<DatabaseSettings>>()
+                .Value;
+
+            // Validate connection string
+            if (string.IsNullOrWhiteSpace(dbSettings.ConnectionString))
+            {
+                throw new InvalidOperationException(
+                    $"Connection string is not configured in {DatabaseSettings.SectionName}");
+            }
+
+            ConfigureDbContext(options, dbSettings, migrationAssembly, serviceProvider);
+        });
+
+        return services;
+    }
+
+    private static void ConfigureDbContext(
+        DbContextOptionsBuilder options,
+        DatabaseSettings settings,
+        string? migrationAssembly,
+        IServiceProvider serviceProvider)
+    {
+        // Common configurations
+        if (settings.EnableSensitiveDataLogging)
+        {
+            options.EnableSensitiveDataLogging();
+        }
+
+        if (settings.EnableDetailedErrors)
+        {
+            options.EnableDetailedErrors();
+        }
+
+        // Provider-specific configuration
+        switch (settings.Provider)
+        {
+            case DatabaseProvider.PostgreSql:
+                options.UseNpgsql(
+                    settings.ConnectionString,
+                    npgsqlOptions =>
+                    {
+                        if (!string.IsNullOrEmpty(migrationAssembly))
+                        {
+                            npgsqlOptions.MigrationsAssembly(migrationAssembly);
+                        }
+                        
+                        npgsqlOptions.CommandTimeout(settings.CommandTimeout);
+                        npgsqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: settings.MaxRetryCount,
+                            maxRetryDelay: TimeSpan.FromSeconds(settings.MaxRetryDelay),
+                            errorCodesToAdd: null);
+                        
+                        // Modern PostgreSQL features
+                        npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+                    });
+                break;
+
+            case DatabaseProvider.Sqlite:
+                options.UseSqlite(
+                    settings.ConnectionString,
+                    sqliteOptions =>
+                    {
+                        if (!string.IsNullOrEmpty(migrationAssembly))
+                        {
+                            sqliteOptions.MigrationsAssembly(migrationAssembly);
+                        }
+                        
+                        sqliteOptions.CommandTimeout(settings.CommandTimeout);
+                    });
+                break;
+
+            default:
+                throw new NotSupportedException($"Database provider '{settings.Provider}' is not supported");
+        }
+
+        // Use logger factory from DI
+        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+        if (loggerFactory != null)
+        {
+            options.UseLoggerFactory(loggerFactory);
+        }
+    }
+
+    /// <summary>
+    /// Applies pending migrations and seeds data (Development only)
+    /// Modern approach: Async initialization with retry logic
+    /// </summary>
+    public static async Task InitializeDatabaseAsync<TContext>(
+        this IServiceProvider serviceProvider,
+        bool applyMigrations = true,
+        bool seedData = false) 
+        where TContext : DbContext
+    {
+        using var scope = serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<TContext>>();
+
+        try
+        {
+            if (applyMigrations)
+            {
+                logger.LogInformation("Applying database migrations for {Context}...", typeof(TContext).Name);
+                await context.Database.MigrateAsync();
+                logger.LogInformation("Database migrations applied successfully");
+            }
+
+            if (seedData)
+            {
+                logger.LogInformation("Seeding database for {Context}...", typeof(TContext).Name);
+                // Call seed method if exists
+                var seedMethod = context.GetType().GetMethod("SeedAsync");
+                if (seedMethod != null)
+                {
+                    await (Task)seedMethod.Invoke(context, null)!;
+                }
+                logger.LogInformation("Database seeded successfully");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while initializing the database");
+            throw;
+        }
+    }
+}

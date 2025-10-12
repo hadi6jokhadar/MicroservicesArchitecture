@@ -1,0 +1,941 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\Identity.API.csproj": {}
+  },
+  "projects": {
+    "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\Identity.API.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\Identity.API.csproj",
+        "projectName": "Identity.API",
+        "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\Identity.API.csproj",
+        "packagesPath": "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\obj\\",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "CentralPackageTransitivePinningEnabled": true,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\YOUR_USERNAME\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Infrastructure\\Identity.Infrastructure.csproj": {
+                "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Infrastructure\\Identity.Infrastructure.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "Microsoft.AspNetCore.Authentication.JwtBearer": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.OpenApi": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[6.5.0, )",
+              "versionCentrallyManaged": true
+            }
+          },
+          "centralPackageVersions": {
+            "AutoMapper": "12.0.1",
+            "AutoMapper.Extensions.Microsoft.DependencyInjection": "12.0.1",
+            "BCrypt.Net-Next": "4.0.3",
+            "FluentAssertions": "6.12.0",
+            "FluentValidation": "12.0.0",
+            "FluentValidation.DependencyInjectionExtensions": "12.0.0",
+            "MediatR": "12.2.0",
+            "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics.Abstractions": "2.3.0",
+            "Microsoft.AspNetCore.Http.Abstractions": "8.0.0",
+            "Microsoft.AspNetCore.Http.Extensions": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Core": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
+            "Microsoft.AspNetCore.OpenApi": "8.0.0",
+            "Microsoft.EntityFrameworkCore": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Design": "8.0.0",
+            "Microsoft.EntityFrameworkCore.InMemory": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Relational": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Sqlite": "8.0.0",
+            "Microsoft.EntityFrameworkCore.SqlServer": "8.0.0",
+            "Microsoft.Extensions.Configuration.Abstractions": "8.0.0",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Options.ConfigurationExtensions": "8.0.0",
+            "Moq": "4.20.70",
+            "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.0",
+            "Pomelo.EntityFrameworkCore.MySql": "8.0.0",
+            "Swashbuckle.AspNetCore": "6.5.0",
+            "System.IdentityModel.Tokens.Jwt": "7.3.1",
+            "System.Security.Claims": "4.3.0",
+            "xunit": "2.6.6",
+            "xunit.runner.visualstudio": "2.5.6"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\Identity.Application.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\Identity.Application.csproj",
+        "projectName": "Identity.Application",
+        "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\Identity.Application.csproj",
+        "packagesPath": "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\obj\\",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "CentralPackageTransitivePinningEnabled": true,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\YOUR_USERNAME\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Domain\\Identity.Domain.csproj": {
+                "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Domain\\Identity.Domain.csproj"
+              },
+              "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj": {
+                "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "AutoMapper": {
+              "target": "Package",
+              "version": "[12.0.1, )",
+              "versionCentrallyManaged": true
+            },
+            "FluentValidation": {
+              "target": "Package",
+              "version": "[12.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "FluentValidation.DependencyInjectionExtensions": {
+              "target": "Package",
+              "version": "[12.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "MediatR": {
+              "target": "Package",
+              "version": "[12.2.0, )",
+              "versionCentrallyManaged": true
+            }
+          },
+          "centralPackageVersions": {
+            "AutoMapper": "12.0.1",
+            "AutoMapper.Extensions.Microsoft.DependencyInjection": "12.0.1",
+            "BCrypt.Net-Next": "4.0.3",
+            "FluentAssertions": "6.12.0",
+            "FluentValidation": "12.0.0",
+            "FluentValidation.DependencyInjectionExtensions": "12.0.0",
+            "MediatR": "12.2.0",
+            "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics.Abstractions": "2.3.0",
+            "Microsoft.AspNetCore.Http.Abstractions": "8.0.0",
+            "Microsoft.AspNetCore.Http.Extensions": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Core": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
+            "Microsoft.AspNetCore.OpenApi": "8.0.0",
+            "Microsoft.EntityFrameworkCore": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Design": "8.0.0",
+            "Microsoft.EntityFrameworkCore.InMemory": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Relational": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Sqlite": "8.0.0",
+            "Microsoft.EntityFrameworkCore.SqlServer": "8.0.0",
+            "Microsoft.Extensions.Configuration.Abstractions": "8.0.0",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Options.ConfigurationExtensions": "8.0.0",
+            "Moq": "4.20.70",
+            "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.0",
+            "Pomelo.EntityFrameworkCore.MySql": "8.0.0",
+            "Swashbuckle.AspNetCore": "6.5.0",
+            "System.IdentityModel.Tokens.Jwt": "7.3.1",
+            "System.Security.Claims": "4.3.0",
+            "xunit": "2.6.6",
+            "xunit.runner.visualstudio": "2.5.6"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Domain\\Identity.Domain.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Domain\\Identity.Domain.csproj",
+        "projectName": "Identity.Domain",
+        "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Domain\\Identity.Domain.csproj",
+        "packagesPath": "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Domain\\obj\\",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "CentralPackageTransitivePinningEnabled": true,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\YOUR_USERNAME\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Infrastructure\\IhsanDev.Shared.Infrastructure.csproj": {
+                "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Infrastructure\\IhsanDev.Shared.Infrastructure.csproj"
+              },
+              "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj": {
+                "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "centralPackageVersions": {
+            "AutoMapper": "12.0.1",
+            "AutoMapper.Extensions.Microsoft.DependencyInjection": "12.0.1",
+            "BCrypt.Net-Next": "4.0.3",
+            "FluentAssertions": "6.12.0",
+            "FluentValidation": "12.0.0",
+            "FluentValidation.DependencyInjectionExtensions": "12.0.0",
+            "MediatR": "12.2.0",
+            "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics.Abstractions": "2.3.0",
+            "Microsoft.AspNetCore.Http.Abstractions": "8.0.0",
+            "Microsoft.AspNetCore.Http.Extensions": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Core": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
+            "Microsoft.AspNetCore.OpenApi": "8.0.0",
+            "Microsoft.EntityFrameworkCore": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Design": "8.0.0",
+            "Microsoft.EntityFrameworkCore.InMemory": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Relational": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Sqlite": "8.0.0",
+            "Microsoft.EntityFrameworkCore.SqlServer": "8.0.0",
+            "Microsoft.Extensions.Configuration.Abstractions": "8.0.0",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Options.ConfigurationExtensions": "8.0.0",
+            "Moq": "4.20.70",
+            "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.0",
+            "Pomelo.EntityFrameworkCore.MySql": "8.0.0",
+            "Swashbuckle.AspNetCore": "6.5.0",
+            "System.IdentityModel.Tokens.Jwt": "7.3.1",
+            "System.Security.Claims": "4.3.0",
+            "xunit": "2.6.6",
+            "xunit.runner.visualstudio": "2.5.6"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Infrastructure\\Identity.Infrastructure.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Infrastructure\\Identity.Infrastructure.csproj",
+        "projectName": "Identity.Infrastructure",
+        "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Infrastructure\\Identity.Infrastructure.csproj",
+        "packagesPath": "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Infrastructure\\obj\\",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "CentralPackageTransitivePinningEnabled": true,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\YOUR_USERNAME\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\Identity.Application.csproj": {
+                "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\Identity.Application.csproj"
+              },
+              "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Infrastructure\\IhsanDev.Shared.Infrastructure.csproj": {
+                "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Infrastructure\\IhsanDev.Shared.Infrastructure.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "BCrypt.Net-Next": {
+              "target": "Package",
+              "version": "[4.0.3, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Authentication.JwtBearer": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore.Relational": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore.Sqlite": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "System.IdentityModel.Tokens.Jwt": {
+              "target": "Package",
+              "version": "[7.3.1, )",
+              "versionCentrallyManaged": true
+            }
+          },
+          "centralPackageVersions": {
+            "AutoMapper": "12.0.1",
+            "AutoMapper.Extensions.Microsoft.DependencyInjection": "12.0.1",
+            "BCrypt.Net-Next": "4.0.3",
+            "FluentAssertions": "6.12.0",
+            "FluentValidation": "12.0.0",
+            "FluentValidation.DependencyInjectionExtensions": "12.0.0",
+            "MediatR": "12.2.0",
+            "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics.Abstractions": "2.3.0",
+            "Microsoft.AspNetCore.Http.Abstractions": "8.0.0",
+            "Microsoft.AspNetCore.Http.Extensions": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Core": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
+            "Microsoft.AspNetCore.OpenApi": "8.0.0",
+            "Microsoft.EntityFrameworkCore": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Design": "8.0.0",
+            "Microsoft.EntityFrameworkCore.InMemory": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Relational": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Sqlite": "8.0.0",
+            "Microsoft.EntityFrameworkCore.SqlServer": "8.0.0",
+            "Microsoft.Extensions.Configuration.Abstractions": "8.0.0",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Options.ConfigurationExtensions": "8.0.0",
+            "Moq": "4.20.70",
+            "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.0",
+            "Pomelo.EntityFrameworkCore.MySql": "8.0.0",
+            "Swashbuckle.AspNetCore": "6.5.0",
+            "System.IdentityModel.Tokens.Jwt": "7.3.1",
+            "System.Security.Claims": "4.3.0",
+            "xunit": "2.6.6",
+            "xunit.runner.visualstudio": "2.5.6"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj",
+        "projectName": "IhsanDev.Shared.Application",
+        "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj",
+        "packagesPath": "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\obj\\",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "CentralPackageTransitivePinningEnabled": true,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\YOUR_USERNAME\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj": {
+                "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "AutoMapper": {
+              "target": "Package",
+              "version": "[12.0.1, )",
+              "versionCentrallyManaged": true
+            },
+            "AutoMapper.Extensions.Microsoft.DependencyInjection": {
+              "target": "Package",
+              "version": "[12.0.1, )",
+              "versionCentrallyManaged": true
+            },
+            "FluentValidation": {
+              "target": "Package",
+              "version": "[12.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "FluentValidation.DependencyInjectionExtensions": {
+              "target": "Package",
+              "version": "[12.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "MediatR": {
+              "target": "Package",
+              "version": "[12.2.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            }
+          },
+          "centralPackageVersions": {
+            "AutoMapper": "12.0.1",
+            "AutoMapper.Extensions.Microsoft.DependencyInjection": "12.0.1",
+            "BCrypt.Net-Next": "4.0.3",
+            "FluentAssertions": "6.12.0",
+            "FluentValidation": "12.0.0",
+            "FluentValidation.DependencyInjectionExtensions": "12.0.0",
+            "MediatR": "12.2.0",
+            "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics.Abstractions": "2.3.0",
+            "Microsoft.AspNetCore.Http.Abstractions": "8.0.0",
+            "Microsoft.AspNetCore.Http.Extensions": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Core": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
+            "Microsoft.AspNetCore.OpenApi": "8.0.0",
+            "Microsoft.EntityFrameworkCore": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Design": "8.0.0",
+            "Microsoft.EntityFrameworkCore.InMemory": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Relational": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Sqlite": "8.0.0",
+            "Microsoft.EntityFrameworkCore.SqlServer": "8.0.0",
+            "Microsoft.Extensions.Configuration.Abstractions": "8.0.0",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Options.ConfigurationExtensions": "8.0.0",
+            "Moq": "4.20.70",
+            "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.0",
+            "Pomelo.EntityFrameworkCore.MySql": "8.0.0",
+            "Swashbuckle.AspNetCore": "6.5.0",
+            "System.IdentityModel.Tokens.Jwt": "7.3.1",
+            "System.Security.Claims": "4.3.0",
+            "xunit": "2.6.6",
+            "xunit.runner.visualstudio": "2.5.6"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Infrastructure\\IhsanDev.Shared.Infrastructure.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Infrastructure\\IhsanDev.Shared.Infrastructure.csproj",
+        "projectName": "IhsanDev.Shared.Infrastructure",
+        "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Infrastructure\\IhsanDev.Shared.Infrastructure.csproj",
+        "packagesPath": "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Infrastructure\\obj\\",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "CentralPackageTransitivePinningEnabled": true,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\YOUR_USERNAME\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj": {
+                "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj"
+              },
+              "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj": {
+                "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "FluentValidation": {
+              "target": "Package",
+              "version": "[12.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "FluentValidation.DependencyInjectionExtensions": {
+              "target": "Package",
+              "version": "[12.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Diagnostics.Abstractions": {
+              "target": "Package",
+              "version": "[2.3.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore.Relational": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore.Sqlite": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.Extensions.Configuration.Abstractions": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.Extensions.DependencyInjection.Abstractions": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.Extensions.Logging.Abstractions": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.Extensions.Options.ConfigurationExtensions": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "System.Security.Claims": {
+              "target": "Package",
+              "version": "[4.3.0, )",
+              "versionCentrallyManaged": true
+            }
+          },
+          "centralPackageVersions": {
+            "AutoMapper": "12.0.1",
+            "AutoMapper.Extensions.Microsoft.DependencyInjection": "12.0.1",
+            "BCrypt.Net-Next": "4.0.3",
+            "FluentAssertions": "6.12.0",
+            "FluentValidation": "12.0.0",
+            "FluentValidation.DependencyInjectionExtensions": "12.0.0",
+            "MediatR": "12.2.0",
+            "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics.Abstractions": "2.3.0",
+            "Microsoft.AspNetCore.Http.Abstractions": "8.0.0",
+            "Microsoft.AspNetCore.Http.Extensions": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Core": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
+            "Microsoft.AspNetCore.OpenApi": "8.0.0",
+            "Microsoft.EntityFrameworkCore": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Design": "8.0.0",
+            "Microsoft.EntityFrameworkCore.InMemory": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Relational": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Sqlite": "8.0.0",
+            "Microsoft.EntityFrameworkCore.SqlServer": "8.0.0",
+            "Microsoft.Extensions.Configuration.Abstractions": "8.0.0",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Options.ConfigurationExtensions": "8.0.0",
+            "Moq": "4.20.70",
+            "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.0",
+            "Pomelo.EntityFrameworkCore.MySql": "8.0.0",
+            "Swashbuckle.AspNetCore": "6.5.0",
+            "System.IdentityModel.Tokens.Jwt": "7.3.1",
+            "System.Security.Claims": "4.3.0",
+            "xunit": "2.6.6",
+            "xunit.runner.visualstudio": "2.5.6"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj",
+        "projectName": "IhsanDev.Shared.Kernel",
+        "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj",
+        "packagesPath": "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\obj\\",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "CentralPackageTransitivePinningEnabled": true,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\YOUR_USERNAME\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "centralPackageVersions": {
+            "AutoMapper": "12.0.1",
+            "AutoMapper.Extensions.Microsoft.DependencyInjection": "12.0.1",
+            "BCrypt.Net-Next": "4.0.3",
+            "FluentAssertions": "6.12.0",
+            "FluentValidation": "12.0.0",
+            "FluentValidation.DependencyInjectionExtensions": "12.0.0",
+            "MediatR": "12.2.0",
+            "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics": "8.0.0",
+            "Microsoft.AspNetCore.Diagnostics.Abstractions": "2.3.0",
+            "Microsoft.AspNetCore.Http.Abstractions": "8.0.0",
+            "Microsoft.AspNetCore.Http.Extensions": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Core": "8.0.0",
+            "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
+            "Microsoft.AspNetCore.OpenApi": "8.0.0",
+            "Microsoft.EntityFrameworkCore": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Design": "8.0.0",
+            "Microsoft.EntityFrameworkCore.InMemory": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Relational": "8.0.0",
+            "Microsoft.EntityFrameworkCore.Sqlite": "8.0.0",
+            "Microsoft.EntityFrameworkCore.SqlServer": "8.0.0",
+            "Microsoft.Extensions.Configuration.Abstractions": "8.0.0",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+            "Microsoft.Extensions.Options.ConfigurationExtensions": "8.0.0",
+            "Moq": "4.20.70",
+            "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.0",
+            "Pomelo.EntityFrameworkCore.MySql": "8.0.0",
+            "Swashbuckle.AspNetCore": "6.5.0",
+            "System.IdentityModel.Tokens.Jwt": "7.3.1",
+            "System.Security.Claims": "4.3.0",
+            "xunit": "2.6.6",
+            "xunit.runner.visualstudio": "2.5.6"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
