@@ -9,3 +9,4 @@ C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Shared\Ihs
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Shared\IhsanDev.Shared.Notifications\obj\Debug\net9.0\refint\IhsanDev.Shared.Notifications.dll
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Shared\IhsanDev.Shared.Notifications\obj\Debug\net9.0\IhsanDev.Shared.Notifications.pdb
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Shared\IhsanDev.Shared.Notifications\obj\Debug\net9.0\ref\IhsanDev.Shared.Notifications.dll
+C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Shared\IhsanDev.Shared.Notifications\obj\Debug\net9.0\IhsanDev.Shared.Notifications.sourcelink.json

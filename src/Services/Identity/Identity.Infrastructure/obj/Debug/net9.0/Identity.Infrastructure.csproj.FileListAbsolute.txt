@@ -21,3 +21,4 @@ C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\I
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Infrastructure\obj\Debug\net9.0\refint\Identity.Infrastructure.dll
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Infrastructure\obj\Debug\net9.0\Identity.Infrastructure.pdb
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Infrastructure\obj\Debug\net9.0\ref\Identity.Infrastructure.dll
+C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Infrastructure\obj\Debug\net9.0\Identity.Infrastructure.sourcelink.json

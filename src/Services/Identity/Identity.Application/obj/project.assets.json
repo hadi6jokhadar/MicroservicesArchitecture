@@ -2786,11 +2786,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\Identity.Application.csproj",
+      "projectUniqueName": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\Identity.Application.csproj",
       "projectName": "Identity.Application",
-      "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\Identity.Application.csproj",
+      "projectPath": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\Identity.Application.csproj",
       "packagesPath": "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\obj\\",
+      "outputPath": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Application\\obj\\",
       "projectStyle": "PackageReference",
       "centralPackageVersionsManagementEnabled": true,
       "CentralPackageTransitivePinningEnabled": true,
@@ -2813,11 +2813,11 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Domain\\Identity.Domain.csproj": {
-              "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Domain\\Identity.Domain.csproj"
+            "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Domain\\Identity.Domain.csproj": {
+              "projectPath": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Domain\\Identity.Domain.csproj"
             },
-            "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj": {
-              "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj"
+            "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj": {
+              "projectPath": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj"
             }
           }
         }

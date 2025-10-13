@@ -153,3 +153,4 @@ C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\I
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.API\obj\Debug\net9.0\Identity.API.pdb
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.API\obj\Debug\net9.0\Identity.API.genruntimeconfig.cache
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.API\obj\Debug\net9.0\ref\Identity.API.dll
+C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.API\obj\Debug\net9.0\Identity.API.sourcelink.json

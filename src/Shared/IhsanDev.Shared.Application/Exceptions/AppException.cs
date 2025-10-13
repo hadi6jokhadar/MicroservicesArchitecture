@@ -61,3 +61,12 @@ public class ConflictException : AppException
     {
     }
 }
+
+// ✅ 500 Internal Server Error - General Error
+public class GeneralException : AppException
+{
+    public GeneralException(string message = "An unexpected error occurred") 
+        : base(message, 500, "Internal Server Error")
+    {
+    }
+}

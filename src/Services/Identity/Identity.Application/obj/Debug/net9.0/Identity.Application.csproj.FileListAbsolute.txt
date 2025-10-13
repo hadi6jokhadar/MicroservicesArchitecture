@@ -19,3 +19,4 @@ C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\I
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Application\obj\Debug\net9.0\refint\Identity.Application.dll
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Application\obj\Debug\net9.0\Identity.Application.pdb
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Application\obj\Debug\net9.0\ref\Identity.Application.dll
+C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Application\obj\Debug\net9.0\Identity.Application.sourcelink.json

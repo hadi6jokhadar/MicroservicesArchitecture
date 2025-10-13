@@ -11,7 +11,7 @@ public record RegisterCommand(
     string FirstName,
     string LastName,
     string? PhoneNumber
-) : IRequest<Result<AuthenticationResult>>;
+) : IRequest<UserDtoIncludesToken>;
 
 
 public class RegisterCommandValidator : AbstractValidator<RegisterCommand>

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "bSMk367KWfg=",
+  "dgSpecHash": "TSu03+apWK4=",
   "success": true,
-  "projectFilePath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj",
+  "projectFilePath": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Application\\IhsanDev.Shared.Application.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\automapper\\12.0.1\\automapper.12.0.1.nupkg.sha512",
     "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\automapper.extensions.microsoft.dependencyinjection\\12.0.1\\automapper.extensions.microsoft.dependencyinjection.12.0.1.nupkg.sha512",

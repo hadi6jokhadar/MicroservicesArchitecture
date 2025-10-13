@@ -1,8 +1,10 @@
 // Program.cs
 using System.Text;
+using FluentValidation;
 using Identity.Application.Commands;
 using Identity.Application.Services;
 using Identity.Domain.Repositories;
+using Identity.Infrastructure.Extensions;
 using Identity.Infrastructure.Persistence;
 using Identity.Infrastructure.Repositories;
 using Identity.Infrastructure.Services;
@@ -11,29 +13,41 @@ using IhsanDev.Shared.Application.Extensions;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Services;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
+using Identity.API.Extensions;
+using Identity.API.Filters;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================
-// 1. Shared Services (Reusable across all microservices)
+// Shared Services (Reusable across all microservices)
 // ============================================
-builder.Services.AddApplicationServices(typeof(RegisterCommand).Assembly);
+// MediatR and FluentValidation (without AutoMapper from shared extension)
+var applicationAssembly = typeof(RegisterCommand).Assembly; // Identity.Application assembly
+
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(applicationAssembly);
+    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+});
+builder.Services.AddValidatorsFromAssembly(applicationAssembly);
 builder.Services.AddGlobalExceptionHandler();
 
 // ============================================
-// 1. Database Configuration (Multi-Provider)
+// Database Configuration (Multi-Provider)
 // ============================================
 builder.Services.AddDatabaseContext<IdentityDbContext>(
     builder.Configuration,
     migrationAssembly: typeof(IdentityDbContext).Assembly.FullName);
 
 // ============================================
-// 2. Authentication & Authorization
+// Authentication & Authorization
 // ============================================
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSettings["Secret"]
-    ?? throw new InvalidOperationException("JWT Secret is not configured");
+var secretKey = jwtSettings["Key"] ?? jwtSettings["Secret"]
+    ?? throw new InvalidOperationException("JWT Key/Secret is not configured");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -56,7 +70,7 @@ builder.Services.AddAuthentication(options =>
 });
 builder.Services.AddAuthorization();
 // ============================================
-// 3. CORS Configuration
+// CORS Configuration
 // ============================================
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
     ?? Array.Empty<string>();
@@ -72,9 +86,11 @@ builder.Services.AddCors(options =>
     });
 });
 // ============================================
-// 4. Application Services
+// Application Services
 // ============================================
-builder.Services.AddControllers();
+// Note: AddControllers() removed since we're using Minimal APIs
+// Only add it back if you have controllers that haven't been converted yet
+// builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -107,27 +123,23 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// MediatR (CQRS)
-builder.Services.AddMediatR(cfg =>
-{
-    cfg.RegisterServicesFromAssembly(typeof(RegisterCommand).Assembly);
-    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
-    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
-});
+// AutoMapper - Using specific assemblies to ensure all mappings are found
+builder.Services.AddAutoMapper(
+    applicationAssembly,  // Identity.Application
+    typeof(IhsanDev.Shared.Application.Common.Mappings.MappingProfile).Assembly  // Shared.Application
+);
 
-// AutoMapper
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
-
-// Repositories & Services
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
-builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+// Infrastructure Services
+builder.Services.AddInfrastructureServices();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
+// Register validation filters
+builder.Services.AddScoped(typeof(ValidationFilter<>));
+
 // ============================================
-// 5. Build & Configure Pipeline
+// Build & Configure Pipeline
 // ============================================
 var app = builder.Build();
 
@@ -147,6 +159,21 @@ app.UseHttpsRedirection();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
+
+// ============================================
+// Map API Endpoints (Grouped Minimal APIs)
+// ============================================
+
+// Map user-related endpoints (profile management)
+app.MapUserEndpoints();
+
+// Map admin-related endpoints (user management)
+app.MapAdminEndpoints();
+
+// Map auth-related endpoints (authentication)
+app.MapAuthEndpoints();
+
+// Keep controllers if you still have other controllers that haven't been converted
+// app.MapControllers();
 
 app.Run();

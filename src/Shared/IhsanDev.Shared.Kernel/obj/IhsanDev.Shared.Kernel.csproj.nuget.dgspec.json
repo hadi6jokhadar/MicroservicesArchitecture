@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj": {}
+    "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj": {}
   },
   "projects": {
-    "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj": {
+    "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj",
+        "projectUniqueName": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj",
         "projectName": "IhsanDev.Shared.Kernel",
-        "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj",
+        "projectPath": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\IhsanDev.Shared.Kernel.csproj",
         "packagesPath": "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\obj\\",
+        "outputPath": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Shared\\IhsanDev.Shared.Kernel\\obj\\",
         "projectStyle": "PackageReference",
         "centralPackageVersionsManagementEnabled": true,
         "CentralPackageTransitivePinningEnabled": true,

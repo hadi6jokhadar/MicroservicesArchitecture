@@ -17,3 +17,4 @@ C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\I
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Domain\obj\Debug\net9.0\ref\Identity.Domain.dll
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Domain\bin\Debug\net9.0\IhsanDev.Shared.Application.dll
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Domain\bin\Debug\net9.0\IhsanDev.Shared.Application.pdb
+C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.Domain\obj\Debug\net9.0\Identity.Domain.sourcelink.json

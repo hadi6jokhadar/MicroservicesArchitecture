@@ -15,3 +15,4 @@ C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Shared\Ihs
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Shared\IhsanDev.Shared.Infrastructure\obj\Debug\net9.0\ref\IhsanDev.Shared.Infrastructure.dll
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Shared\IhsanDev.Shared.Infrastructure\bin\Debug\net9.0\IhsanDev.Shared.Application.dll
 C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Shared\IhsanDev.Shared.Infrastructure\bin\Debug\net9.0\IhsanDev.Shared.Application.pdb
+C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Shared\IhsanDev.Shared.Infrastructure\obj\Debug\net9.0\IhsanDev.Shared.Infrastructure.sourcelink.json

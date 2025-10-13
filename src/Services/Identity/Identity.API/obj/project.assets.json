@@ -4987,11 +4987,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\Identity.API.csproj",
+      "projectUniqueName": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\Identity.API.csproj",
       "projectName": "Identity.API",
-      "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\Identity.API.csproj",
+      "projectPath": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\Identity.API.csproj",
       "packagesPath": "C:\\Users\\YOUR_USERNAME\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\obj\\",
+      "outputPath": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.API\\obj\\",
       "projectStyle": "PackageReference",
       "centralPackageVersionsManagementEnabled": true,
       "CentralPackageTransitivePinningEnabled": true,
@@ -5014,8 +5014,8 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Infrastructure\\Identity.Infrastructure.csproj": {
-              "projectPath": "C:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Infrastructure\\Identity.Infrastructure.csproj"
+            "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Infrastructure\\Identity.Infrastructure.csproj": {
+              "projectPath": "c:\\Users\\YOUR_USERNAME\\Desktop\\Projects\\MicroservicesArchitecture\\src\\Services\\Identity\\Identity.Infrastructure\\Identity.Infrastructure.csproj"
             }
           }
         }
