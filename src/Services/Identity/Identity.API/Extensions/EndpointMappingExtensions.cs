@@ -65,7 +65,7 @@ public static class EndpointMappingExtensions
             .WithName("AuthRegister")
             .WithSummary("Register a new user account")
             .WithDescription("Create a new user account with email and password")
-            .Produces<UserDtoIncludesToken>(201)
+            .Produces<UserDtoIncludesToken>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<RegisterCommand>>();
 
@@ -122,7 +122,7 @@ public static class EndpointMappingExtensions
             .WithName("CreateUser")
             .WithSummary("Create new user")
             .WithDescription("Create a new user account (Admin only)")
-            .Produces<object>(201)
+            .Produces<object>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<CreateUserCommand>>();
 

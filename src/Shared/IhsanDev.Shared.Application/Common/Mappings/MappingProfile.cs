@@ -10,7 +10,12 @@ public class MappingProfile : Profile
         ApplyMappingsFromAssembly(Assembly.GetExecutingAssembly());
     }
 
-    private void ApplyMappingsFromAssembly(Assembly assembly)
+    protected MappingProfile(Assembly assembly)
+    {
+        ApplyMappingsFromAssembly(assembly);
+    }
+
+    protected void ApplyMappingsFromAssembly(Assembly assembly)
     {
         var mapFromType = typeof(IMapFrom<>);
         var mappingMethodName = nameof(IMapFrom<object>.Mapping);
