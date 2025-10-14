@@ -19,14 +19,12 @@ public static class EndpointMappingExtensions
 
         // Profile endpoints
         userGroup.MapGet("/profile", UserApiHandlers.GetProfileHandler)
-            .RequireAuthorization()
             .WithName("GetProfile")
             .WithSummary("Get current user profile")
             .WithDescription("Get the profile information of the authenticated user")
             .Produces<object>(200);
 
         userGroup.MapPut("/profile", UserApiHandlers.UpdateProfileHandler)
-            .RequireAuthorization()
             .WithName("UpdateProfile")
             .WithSummary("Update current user profile")
             .WithDescription("Update the profile information of the authenticated user")
@@ -35,7 +33,6 @@ public static class EndpointMappingExtensions
             .AddEndpointFilter<ValidationFilter<UpdateProfileCommand>>();
 
         userGroup.MapDelete("/me", UserApiHandlers.DeleteUserHandler)
-            .RequireAuthorization()
             .WithName("DeleteUser")
             .WithSummary("Delete current user account")
             .WithDescription("Permanently delete the authenticated user's account")

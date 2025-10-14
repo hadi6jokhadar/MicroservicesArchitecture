@@ -30,7 +30,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
         try
         {
             // Check if email exists
-            if (await _userRepository.EmailExistsAsync(request.Email, cancellationToken))
+            bool emailExists = await _userRepository.EmailExistsAsync(request.Email, cancellationToken);
+            if (emailExists)
             {
                 throw new ConflictException("Email is already registered");
             }

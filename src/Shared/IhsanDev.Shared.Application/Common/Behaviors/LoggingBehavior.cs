@@ -1,20 +1,21 @@
 using MediatR;
-using Microsoft.Extensions.Logging;
 using System.Diagnostics;
+using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Common.Interfaces;
 
 namespace IhsanDev.Shared.Application.Common.Behaviors;
 
 /// <summary>
-/// Logs all MediatR requests with execution time
+/// Logs all MediatR requests with execution time using custom logger
 /// </summary>
 public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
-    private readonly ILogger<LoggingBehavior<TRequest, TResponse>> _logger;
+    private readonly ILoggerManager _loggerManager;
 
-    public LoggingBehavior(ILogger<LoggingBehavior<TRequest, TResponse>> logger)
+    public LoggingBehavior(ILoggerManager loggerManager)
     {
-        _logger = logger;
+        _loggerManager = loggerManager;
     }
 
     public async Task<TResponse> Handle(
@@ -25,28 +26,39 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         var requestName = typeof(TRequest).Name;
         var stopwatch = Stopwatch.StartNew();
 
-        _logger.LogInformation("Handling {RequestName}", requestName);
+        // Use custom logger for enhanced logging
+        _loggerManager.LogInfo($"Handling {requestName}", "MediatR");
 
         try
         {
             var response = await next();
 
             stopwatch.Stop();
-            _logger.LogInformation(
-                "Handled {RequestName} in {ElapsedMilliseconds}ms",
-                requestName,
-                stopwatch.ElapsedMilliseconds);
+            _loggerManager.LogInfo(
+                $"Handled {requestName} in {stopwatch.ElapsedMilliseconds}ms", 
+                "MediatR");
 
             return response;
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
-            _logger.LogError(
-                ex,
-                "Error handling {RequestName} after {ElapsedMilliseconds}ms",
-                requestName,
-                stopwatch.ElapsedMilliseconds);
+            
+            // Don't log full stack traces for expected business exceptions
+            if (ex is AppException appException)
+            {
+                _loggerManager.LogWarn(
+                    $"Business exception in {requestName} after {stopwatch.ElapsedMilliseconds}ms: {appException.Message}",
+                    "MediatR");
+            }
+            else
+            {
+                _loggerManager.LogError(
+                    ex,
+                    $"Unexpected error handling {requestName} after {stopwatch.ElapsedMilliseconds}ms",
+                    "MediatR");
+            }
+            
             throw;
         }
     }

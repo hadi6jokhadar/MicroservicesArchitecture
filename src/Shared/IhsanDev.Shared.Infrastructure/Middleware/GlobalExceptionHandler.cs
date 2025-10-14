@@ -21,12 +21,25 @@ public class GlobalExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        _logger.LogError(
-            exception,
-            "Exception occurred: {Message} | Path: {Path} | Method: {Method}",
-            exception.Message,
-            httpContext.Request.Path,
-            httpContext.Request.Method);
+        // Use different log levels for different exception types
+        if (exception is AppException appException)
+        {
+            _logger.LogWarning(
+                "Business exception occurred: {Message} | Path: {Path} | Method: {Method} | StatusCode: {StatusCode}",
+                appException.Message,
+                httpContext.Request.Path,
+                httpContext.Request.Method,
+                appException.StatusCode);
+        }
+        else
+        {
+            _logger.LogError(
+                exception,
+                "Unexpected exception occurred: {Message} | Path: {Path} | Method: {Method}",
+                exception.Message,
+                httpContext.Request.Path,
+                httpContext.Request.Method);
+        }
 
         var problemDetails = CreateProblemDetails(exception, httpContext);
 

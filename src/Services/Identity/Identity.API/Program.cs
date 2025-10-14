@@ -36,6 +36,11 @@ builder.Services.AddValidatorsFromAssembly(applicationAssembly);
 builder.Services.AddGlobalExceptionHandler();
 
 // ============================================
+// Custom Logging
+// ============================================
+builder.Services.AddCustomLogging(builder.Configuration, "Identity");
+
+// ============================================
 // Database Configuration (Multi-Provider)
 // ============================================
 builder.Services.AddDatabaseContext<IdentityDbContext>(
