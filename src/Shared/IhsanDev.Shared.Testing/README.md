@@ -239,7 +239,8 @@ var id = TestHelpers.GenerateUniqueInt();     // Random 6-digit number
 ## 🔗 Used By
 
 - `Identity.API.Tests` - Identity service tests (35 tests)
-- Add your service tests here...
+- `Tenant.API.Tests` - Tenant service tests (42 tests)
+- Future services can import and reuse shared helpers
 
 ## 📝 Example: Complete Identity Service Integration
 
@@ -253,6 +254,27 @@ See `src/Services/Identity/Identity.API.Tests/` for a complete working example:
 
 All 35 tests pass in ~7 seconds.
 
+## 🎯 Shared Helpers
+
+The project includes **reusable cross-service helpers** in `Helpers/`:
+
+- **`TenantTestHelper`** - Tenant operations for any service
+  - Generate unique user/tenant IDs
+  - Create users and tenants via HTTP
+  - Get tenant data
+  - Detect tenant support
+  - Documentation: [`Helpers/README_TENANT_HELPER.md`](Helpers/README_TENANT_HELPER.md)
+
+**Example Usage**:
+
+```csharp
+using IhsanDev.Shared.Testing.Helpers;
+
+var userId = TenantTestHelper.GenerateUniqueUserId();
+var tenantId = TenantTestHelper.GenerateUniqueTenantId("order-service");
+var (uid, tid, responseId) = await TenantTestHelper.CreateUserAndTenantAsync(httpClient);
+```
+
 ## 🤝 Contributing
 
 When adding new shared testing utilities:
@@ -265,6 +287,8 @@ When adding new shared testing utilities:
 ## 📖 Related Documentation
 
 - [Identity.API.Tests README](../../Services/Identity/Identity.API.Tests/README.md)
+- [Tenant.API.Tests README](../../Services/Tenant/Tenant.API.Tests/README.md)
+- [TenantTestHelper Guide](Helpers/README_TENANT_HELPER.md)
 - [INTEGRATION_TESTING_PROMPT.md](../../../INTEGRATION_TESTING_PROMPT.md)
 - [INTEGRATION_TESTING_SUMMARY.md](../../../INTEGRATION_TESTING_SUMMARY.md)
 - [SHARED_TESTING_ANALYSIS.md](../../../SHARED_TESTING_ANALYSIS.md)

@@ -63,6 +63,9 @@ This solution implements a **microservices architecture** with a focus on:
 - 🌐 **CORS Support**: Cross-origin resource sharing
 - 🔍 **Role-Based Authorization**: Admin and User role management
 - 🔄 **Database Migrations**: Automatic schema management
+- 🏢 **Multi-Tenancy Support**: Optional per-tenant configuration (NEW!)
+- 🔧 **Configuration-Driven Architecture**: Single build for multiple deployment modes
+- 💾 **Configuration Caching**: High-performance tenant config with in-memory caching
 
 ## 🛠️ Technology Stack
 
@@ -97,11 +100,16 @@ This solution implements a **microservices architecture** with a focus on:
 MicroservicesArchitecture/
 ├── 📁 src/
 │   ├── 📁 Services/
-│   │   └── 📁 Identity/                    # Identity & Authentication Service
-│   │       ├── Identity.API/              # 🌐 API Layer (Controllers, Program.cs)
-│   │       ├── Identity.Application/      # 📋 Application Layer (Commands, Handlers)
-│   │       ├── Identity.Domain/           # 🏛️ Domain Layer (Entities, Repositories)
-│   │       └── Identity.Infrastructure/   # 🔧 Infrastructure Layer (Data, Services)
+│   │   ├── 📁 Identity/                    # Identity & Authentication Service
+│   │   │   ├── Identity.API/              # 🌐 API Layer (Controllers, Program.cs)
+│   │   │   ├── Identity.Application/      # 📋 Application Layer (Commands, Handlers)
+│   │   │   ├── Identity.Domain/           # 🏛️ Domain Layer (Entities, Repositories)
+│   │   │   └── Identity.Infrastructure/   # 🔧 Infrastructure Layer (Data, Services)
+│   │   └── 📁 Tenant/                      # 🏢 Tenant Management Service (NEW!)
+│   │       ├── Tenant.API/                # 🌐 API Layer (Endpoints, Configuration)
+│   │       ├── Tenant.Application/        # 📋 Application Layer (Commands, Handlers)
+│   │       ├── Tenant.Domain/             # 🏛️ Domain Layer (Entities, Repositories)
+│   │       └── Tenant.Infrastructure/     # 🔧 Infrastructure Layer (Data, Services)
 │   └── 📁 Shared/                          # 🤝 Shared Libraries
 │       ├── IhsanDev.Shared.Application/   # 📋 Application abstractions
 │       ├── IhsanDev.Shared.Authentication/ # 🔐 Auth components
@@ -112,7 +120,13 @@ MicroservicesArchitecture/
 ├── 📄 Directory.Packages.props            # 📦 Centralized package management
 ├── 📄 MicroservicesArchitecture.sln       # 🏗️ Solution file
 ├── 📄 update-csproj.ps1                   # 🔄 Package update utility
-└── 📄 MINIMAL_API_MIGRATION.md            # 📋 Migration documentation
+├── 📄 MINIMAL_API_MIGRATION.md            # 📋 Migration documentation
+├── 📄 MULTI_TENANCY_GUIDE.md              # 🏢 Multi-tenancy comprehensive guide (NEW!)
+├── 📄 MULTI_TENANCY_QUICK_START.md        # 🚀 Quick start guide (NEW!)
+├── 📄 MULTI_TENANT_DEPLOYMENT_GUIDE.md    # 🐳 Deployment guide (NEW!)
+├── 📄 SINGLE_BUILD_MULTIPLE_DEPLOYMENTS.md # 📦 Single build guide (NEW!)
+├── 📄 ARCHITECTURE_DIAGRAMS.md            # 🎨 Visual architecture (NEW!)
+└── 📄 MULTI_TENANCY_SUMMARY.md            # 📊 Implementation summary (NEW!)
 ```
 
 ### Layer Responsibilities
@@ -307,6 +321,84 @@ The Identity service provides comprehensive user authentication, authorization, 
 - 📖 **Detailed Documentation**: [`src/Services/Identity/README.md`](src/Services/Identity/README.md)
 - 🔧 **API Specifications**: [`src/Services/Identity/IDENTITY_API_DOCUMENTATION.md`](src/Services/Identity/IDENTITY_API_DOCUMENTATION.md)
 - 🌐 **Swagger UI**: `https://localhost:5001/swagger` (when running)
+
+## 🏢 Tenant Service & Multi-Tenancy (NEW!)
+
+The Tenant service enables optional multi-tenancy support, allowing different projects or customers to have isolated configurations while sharing the same Identity Service binary. **This is completely optional and disabled by default**.
+
+### Key Features
+
+- ✅ **Optional Multi-Tenancy**: Disabled by default, zero breaking changes
+- ✅ **Single Binary Deployment**: Same code works for tenant and non-tenant modes
+- ✅ **Per-Tenant Configuration**: Custom JWT, Database, and CORS settings
+- ✅ **Configuration Caching**: High-performance in-memory caching
+- ✅ **Automatic Fallback**: Always works even if tenant config fails
+- ✅ **Clean Architecture**: Shared abstractions with minimal overhead
+
+### Multi-Tenancy Documentation
+
+- 📖 **Comprehensive Guide**: [`MULTI_TENANCY_GUIDE.md`](MULTI_TENANCY_GUIDE.md) - Full documentation
+- 🚀 **Quick Start Guide**: [`MULTI_TENANCY_QUICK_START.md`](MULTI_TENANCY_QUICK_START.md) - Get started in minutes
+- 🐳 **Deployment Guide**: [`MULTI_TENANT_DEPLOYMENT_GUIDE.md`](MULTI_TENANT_DEPLOYMENT_GUIDE.md) - Docker, K8s, environments
+- 📦 **Single Build Guide**: [`SINGLE_BUILD_MULTIPLE_DEPLOYMENTS.md`](SINGLE_BUILD_MULTIPLE_DEPLOYMENTS.md) - One binary, multiple modes
+- 🎨 **Architecture Diagrams**: [`ARCHITECTURE_DIAGRAMS.md`](ARCHITECTURE_DIAGRAMS.md) - Visual architecture
+- 📊 **Implementation Summary**: [`MULTI_TENANCY_SUMMARY.md`](MULTI_TENANCY_SUMMARY.md) - What was built
+
+### How It Works
+
+**Single Binary, Multiple Modes:**
+
+```bash
+# Deploy without multi-tenancy (Project A)
+docker run -e MultiTenancy__Enabled=false identity-service:1.0.0
+
+# Deploy with multi-tenancy (Project B)
+docker run -e MultiTenancy__Enabled=true identity-service:1.0.0
+```
+
+**Configuration-Driven:**
+
+- When `MultiTenancy:Enabled = false`: Uses appsettings.json (traditional mode)
+- When `MultiTenancy:Enabled = true`: Supports per-tenant configuration via Tenant Service
+- Automatic fallback to appsettings.json if tenant config is unavailable
+
+**Use Cases:**
+
+- **Without Tenants**: Single application, all users share same configuration
+- **With Tenants**: SaaS platform where each customer/tenant has isolated settings
+
+### Quick Example
+
+#### Without Multi-Tenancy (Default)
+
+```json
+{
+  "MultiTenancy": { "Enabled": false },
+  "Jwt": {
+    "Secret": "your-secret",
+    "Issuer": "YourApp"
+  }
+}
+```
+
+All requests use this configuration.
+
+#### With Multi-Tenancy (Optional)
+
+```json
+{
+  "MultiTenancy": {
+    "Enabled": true,
+    "TenantServiceUrl": "http://tenant-service:80"
+  },
+  "Jwt": {
+    "Secret": "default-secret",
+    "Issuer": "Platform"
+  }
+}
+```
+
+Requests with `x-tenant-id` header use tenant-specific config, others use default.
 
 ### API Endpoints
 

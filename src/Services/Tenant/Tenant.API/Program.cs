@@ -1,31 +1,24 @@
-// Program.cs
 using System.Text;
 using FluentValidation;
-using Identity.Application.Commands;
-using Identity.Application.Services;
-using Identity.Domain.Repositories;
-using Identity.Infrastructure.Extensions;
-using Identity.Infrastructure.Persistence;
-using Identity.Infrastructure.Repositories;
-using Identity.Infrastructure.Services;
+using Tenant.Application.Commands.Tenant;
+using Tenant.Infrastructure.Extensions;
+using Tenant.Infrastructure.Persistence;
 using IhsanDev.Shared.Application.Common.Behaviors;
-using IhsanDev.Shared.Application.Extensions;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Services;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
-using IhsanDev.Shared.Kernel.Interfaces.Tenant;
-using Identity.API.Extensions;
-using Identity.API.Filters;
+using Tenant.API.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================
 // Shared Services (Reusable across all microservices)
 // ============================================
-// MediatR and FluentValidation (without AutoMapper from shared extension)
-var applicationAssembly = typeof(RegisterCommand).Assembly; // Identity.Application assembly
+// MediatR and FluentValidation
+var applicationAssembly = typeof(CreateTenantCommand).Assembly; // Tenant.Application assembly
 
 builder.Services.AddMediatR(cfg =>
 {
@@ -39,25 +32,18 @@ builder.Services.AddGlobalExceptionHandler();
 // ============================================
 // Custom Logging
 // ============================================
-builder.Services.AddCustomLogging(builder.Configuration, "Identity");
-
-// ============================================
-// Multi-Tenancy Support (Optional)
-// ============================================
-builder.Services.AddMultiTenancy(builder.Configuration);
+builder.Services.AddCustomLogging(builder.Configuration, "Tenant");
 
 // ============================================
 // Database Configuration (Multi-Provider)
 // ============================================
-builder.Services.AddDatabaseContext<IdentityDbContext>(
+builder.Services.AddDatabaseContext<TenantDbContext>(
     builder.Configuration,
-    migrationAssembly: typeof(IdentityDbContext).Assembly.GetName().Name);
+    migrationAssembly: typeof(TenantDbContext).Assembly.GetName().Name);
 
 // ============================================
 // Authentication & Authorization
 // ============================================
-// Note: JWT configuration will be resolved per-tenant if multi-tenancy is enabled
-// Otherwise, it falls back to appsettings.json
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtSettings["Key"] ?? jwtSettings["Secret"]
     ?? throw new InvalidOperationException("JWT Key/Secret is not configured");
@@ -80,30 +66,9 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
-    
-    // Support per-tenant JWT validation when multi-tenancy is enabled
-    options.Events = new JwtBearerEvents
-    {
-        OnMessageReceived = context =>
-        {
-            // Resolve tenant-specific JWT settings if available
-            var tenantContext = context.HttpContext.RequestServices.GetService<ITenantContext>();
-            if (tenantContext?.HasTenant == true && tenantContext.CurrentTenant?.Configuration?.Jwt != null)
-            {
-                var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
-                if (!string.IsNullOrEmpty(tenantJwt.Secret))
-                {
-                    context.Options.TokenValidationParameters.IssuerSigningKey = 
-                        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret));
-                    context.Options.TokenValidationParameters.ValidIssuer = tenantJwt.Issuer;
-                    context.Options.TokenValidationParameters.ValidAudience = tenantJwt.Audience;
-                }
-            }
-            return Task.CompletedTask;
-        }
-    };
 });
 builder.Services.AddAuthorization();
+
 // ============================================
 // CORS Configuration
 // ============================================
@@ -120,16 +85,14 @@ builder.Services.AddCors(options =>
             .AllowCredentials();
     });
 });
+
 // ============================================
 // Application Services
 // ============================================
-// Note: AddControllers() removed since we're using Minimal APIs
-// Only add it back if you have controllers that haven't been converted yet
-// builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new() { Title = "Identity Service API", Version = "v1" });
+    options.SwaggerDoc("v1", new() { Title = "Tenant Service API", Version = "v1" });
     
     // JWT Authentication in Swagger
     options.AddSecurityDefinition("Bearer", new()
@@ -158,20 +121,16 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// AutoMapper - Using specific assemblies to ensure all mappings are found
+// AutoMapper - Using specific assemblies
 builder.Services.AddAutoMapper(
-    applicationAssembly,  // Identity.Application
+    applicationAssembly,  // Tenant.Application
     typeof(IhsanDev.Shared.Application.Common.Mappings.MappingProfile).Assembly  // Shared.Application
 );
 
 // Infrastructure Services
 builder.Services.AddInfrastructureServices();
 builder.Services.AddHttpContextAccessor();
-
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-
-// Register validation filters
-builder.Services.AddScoped(typeof(ValidationFilter<>));
 
 // ============================================
 // Build & Configure Pipeline
@@ -181,9 +140,9 @@ var app = builder.Build();
 // Initialize database (Development only)
 if (app.Environment.IsDevelopment())
 {
-    await app.Services.InitializeDatabaseAsync<IdentityDbContext>(
+    await app.Services.InitializeDatabaseAsync<TenantDbContext>(
         applyMigrations: true,
-        seedData: true);
+        seedData: false); // No seed data for tenant service
     
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -192,28 +151,13 @@ if (app.Environment.IsDevelopment())
 app.UseGlobalExceptionHandler();
 app.UseHttpsRedirection();
 app.UseCors();
-
-// Multi-tenancy middleware (must be before authentication)
-app.UseTenantResolution();
-
 app.UseAuthentication();
 app.UseAuthorization();
 
 // ============================================
 // Map API Endpoints (Grouped Minimal APIs)
 // ============================================
-
-// Map user-related endpoints (profile management)
-app.MapUserEndpoints();
-
-// Map admin-related endpoints (user management)
-app.MapAdminEndpoints();
-
-// Map auth-related endpoints (authentication)
-app.MapAuthEndpoints();
-
-// Keep controllers if you still have other controllers that haven't been converted
-// app.MapControllers();
+app.MapTenantEndpoints();
 
 app.Run();
 

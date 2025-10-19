@@ -1,0 +1,109 @@
+using MediatR;
+using Tenant.Application.Commands.Tenant;
+
+namespace Tenant.API.Handlers;
+
+public static class TenantApiHandlers
+{
+    /// <summary>
+    /// Get tenant configuration by tenant ID (includes sensitive Data field)
+    /// </summary>
+    public static async Task<IResult> GetTenantConfigHandler(
+        string tenantId,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var query = new GetTenantConfigQuery(tenantId);
+        var result = await mediator.Send(query, ct);
+        
+        return result != null ? Results.Ok(result) : Results.NotFound(new { message = $"Tenant '{tenantId}' not found" });
+    }
+
+    /// <summary>
+    /// Get tenant by tenant ID (excludes sensitive Data field)
+    /// </summary>
+    public static async Task<IResult> GetTenantByIdHandler(
+        string tenantId,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var query = new GetTenantByIdQuery(tenantId);
+        var result = await mediator.Send(query, ct);
+        
+        return result != null ? Results.Ok(result) : Results.NotFound(new { message = $"Tenant '{tenantId}' not found" });
+    }
+
+    /// <summary>
+    /// Get tenant by user ID
+    /// </summary>
+    public static async Task<IResult> GetTenantByUserHandler(
+        int userId,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var query = new GetTenantByUserQuery(userId);
+        var result = await mediator.Send(query, ct);
+        
+        return result != null ? Results.Ok(result) : Results.NotFound(new { message = $"Tenant for user '{userId}' not found" });
+    }
+
+    /// <summary>
+    /// Get all active tenants with pagination
+    /// </summary>
+    public static async Task<IResult> GetAllActiveTenantsHandler(
+        int pageNumber,
+        int pageSize,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var query = new GetAllActiveTenantsQuery(pageNumber, pageSize);
+        var result = await mediator.Send(query, ct);
+        
+        return Results.Ok(result);
+    }
+
+    /// <summary>
+    /// Create new tenant
+    /// </summary>
+    public static async Task<IResult> CreateTenantHandler(
+        CreateTenantCommand command,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(command, ct);
+        return Results.Created($"/api/tenant/{result.TenantId}", result);
+    }
+
+    /// <summary>
+    /// Update tenant settings
+    /// </summary>
+    public static async Task<IResult> UpdateTenantHandler(
+        string tenantId,
+        UpdateTenantCommand command,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        // Ensure tenantId from route matches command
+        if (tenantId != command.TenantId)
+        {
+            return Results.BadRequest(new { message = "Tenant ID in URL does not match request body" });
+        }
+
+        var result = await mediator.Send(command, ct);
+        return Results.Ok(result);
+    }
+
+    /// <summary>
+    /// Delete tenant
+    /// </summary>
+    public static async Task<IResult> DeleteTenantHandler(
+        string tenantId,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var command = new DeleteTenantCommand(tenantId);
+        var result = await mediator.Send(command, ct);
+        
+        return Results.Ok(new { message = "Tenant deleted successfully" });
+    }
+}

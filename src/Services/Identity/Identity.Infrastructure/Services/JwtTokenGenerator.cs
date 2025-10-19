@@ -4,22 +4,29 @@ using System.Security.Cryptography;
 using System.Text;
 using Identity.Application.Services;
 using Identity.Domain.Entities;
+using Identity.Infrastructure.Helpers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 
 namespace Identity.Infrastructure.Services;
 
 public class JwtTokenGenerator : IJwtTokenGenerator
 {
     private readonly IConfiguration _configuration;
+    private readonly ITenantContext _tenantContext;
 
-    public JwtTokenGenerator(IConfiguration configuration)
+    public JwtTokenGenerator(IConfiguration configuration, ITenantContext tenantContext)
     {
         _configuration = configuration;
+        _tenantContext = tenantContext;
     }
 
     public (string AccessToken, string RefreshToken, DateTime ExpiresAt) GenerateTokens(User user)
     {
+        // ✨ Single line to get JWT settings - handles tenant/default automatically!
+        var jwtSettings = ConfigurationHelper.GetJwtSettings(_configuration, _tenantContext);
+
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
@@ -28,13 +35,19 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Secret"]!));
+        // Add tenant ID to claims if in multi-tenant mode
+        if (_tenantContext.HasTenant && _tenantContext.TenantId != null)
+        {
+            claims = claims.Append(new Claim("tenant_id", _tenantContext.TenantId)).ToArray();
+        }
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var expiresAt = DateTime.UtcNow.AddHours(1);
+        var expiresAt = DateTime.UtcNow.AddMinutes(jwtSettings.AccessTokenExpirationMinutes);
 
         var token = new JwtSecurityToken(
-            issuer: _configuration["Jwt:Issuer"],
-            audience: _configuration["Jwt:Audience"],
+            issuer: jwtSettings.Issuer,
+            audience: jwtSettings.Audience,
             claims: claims,
             expires: expiresAt,
             signingCredentials: creds
@@ -48,8 +61,11 @@ public class JwtTokenGenerator : IJwtTokenGenerator
 
     public ClaimsPrincipal? ValidateToken(string token)
     {
+        // ✨ Single line to get JWT settings - handles tenant/default automatically!
+        var jwtSettings = ConfigurationHelper.GetJwtSettings(_configuration, _tenantContext);
+
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Secret"]!);
+        var key = Encoding.UTF8.GetBytes(jwtSettings.Secret);
 
         try
         {
@@ -58,9 +74,9 @@ public class JwtTokenGenerator : IJwtTokenGenerator
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(key),
                 ValidateIssuer = true,
-                ValidIssuer = _configuration["Jwt:Issuer"],
+                ValidIssuer = jwtSettings.Issuer,
                 ValidateAudience = true,
-                ValidAudience = _configuration["Jwt:Audience"],
+                ValidAudience = jwtSettings.Audience,
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
             }, out _);
