@@ -45,7 +45,7 @@ builder.Services.AddCustomLogging(builder.Configuration, "Identity");
 // ============================================
 builder.Services.AddDatabaseContext<IdentityDbContext>(
     builder.Configuration,
-    migrationAssembly: typeof(IdentityDbContext).Assembly.FullName);
+    migrationAssembly: typeof(IdentityDbContext).Assembly.GetName().Name);
 
 // ============================================
 // Authentication & Authorization
@@ -182,3 +182,6 @@ app.MapAuthEndpoints();
 // app.MapControllers();
 
 app.Run();
+
+// Make the implicit Program class public for testing
+public partial class Program { }

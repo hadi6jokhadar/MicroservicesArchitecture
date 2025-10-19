@@ -1,0 +1,5 @@
+C:\Program Files\PostgreSQL\17\bin>pg_dump -h localhost -p 5432 -d identity -U postgres -s -F p -E UTF-8 -f d:\pg_schema.sql
+
+dotnet user-secrets                   
+
+PS C:\Users\YOUR_USERNAME\Desktop\Projects\MicroservicesArchitecture\src\Services\Identity\Identity.API> dotnet ef migrations add init --project ..\Identity.Infrastructure          

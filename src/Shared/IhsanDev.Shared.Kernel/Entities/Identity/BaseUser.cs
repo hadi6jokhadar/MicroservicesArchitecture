@@ -1,18 +1,20 @@
+using IhsanDev.Shared.Kernel.Enums.Identity;
+
 namespace IhsanDev.Shared.Kernel.Entities.Identity;
 
 public abstract class BaseUser : BaseEntity
-{
-    public required string Email { get; set; }
-    
-    public required string PasswordHash { get; set; }
-    
+{    
     public required string FirstName { get; set; }
     
     public required string LastName { get; set; }
+
+    public UserRole Role { get; set; } = UserRole.User;
     
-    public string? PhoneNumber { get; set; }
+    public string? RefreshToken { get; set; }
     
-    public bool EmailConfirmed { get; set; } = false;
+    public DateTime? RefreshTokenExpiryTime { get; set; }
+    
+    public string? FirebaseToken { get; set; }
     
     public DateTime? LastLogin { get; set; }
 }
