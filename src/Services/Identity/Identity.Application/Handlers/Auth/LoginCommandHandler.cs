@@ -30,7 +30,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, UserDtoIncludes
             if (!user.Status)
                 throw new ForbiddenException("Account is disabled");
 
-            if (!_userService.VerifyPassword(request.Password, user.PasswordHash))
+            if (string.IsNullOrEmpty(user.PasswordHash) || !_userService.VerifyPassword(request.Password, user.PasswordHash))
                 throw new UnauthorizedException("Invalid email or password");
 
             user.LastLogin = DateTime.UtcNow;

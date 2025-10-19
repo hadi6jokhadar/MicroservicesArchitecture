@@ -13,7 +13,7 @@ namespace Identity.Infrastructure.Migrations
 {
     [DbContext(typeof(IdentityDbContext))]
     [Migration("20251019053443_init")]
-    partial class init
+    partial class Init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

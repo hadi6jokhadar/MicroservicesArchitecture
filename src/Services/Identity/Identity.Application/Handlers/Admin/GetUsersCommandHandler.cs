@@ -32,12 +32,12 @@ public class GetUsersCommandHandler : IRequestHandler<GetUsersCommand, Paginated
                 Command = Command.Where(u =>
                     u.FirstName.ToLower().Contains(searchTerm) ||
                     u.LastName.ToLower().Contains(searchTerm) ||
-                    u.Email.ToLower().Contains(searchTerm));
+                    (u.Email != null && u.Email.ToLower().Contains(searchTerm)));
             }
 
             if (request.Role.HasValue)
             {
-                Command = Command.Where(u => u.Role == request.Role.Value);
+                Command = Command.Where(u => u.Role == request.Role);
             }
 
             if (request.Status.HasValue)
