@@ -53,9 +53,20 @@ public static class MultiTenancyExtensions
     /// <summary>
     /// Add tenant middleware to the request pipeline
     /// Must be called before authentication middleware
+    /// Only adds middleware if multi-tenancy is enabled
     /// </summary>
-    public static IApplicationBuilder UseTenantResolution(this IApplicationBuilder app)
+    public static IApplicationBuilder UseTenantResolution(
+        this IApplicationBuilder app,
+        IConfiguration configuration)
     {
+        var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+        
+        if (!multiTenancyEnabled)
+        {
+            // Skip tenant middleware if multi-tenancy is disabled
+            return app;
+        }
+        
         return app.UseMiddleware<TenantMiddleware>();
     }
 }

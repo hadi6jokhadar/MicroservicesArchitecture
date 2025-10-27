@@ -5,7 +5,7 @@
     <ProjectReference Include="..\IhsanDev.Shared.Kernel\IhsanDev.Shared.Kernel.csproj" />
   </ItemGroup>
 
-<ItemGroup>
+  <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   
@@ -21,10 +21,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
     <PackageReference Include="System.Security.Claims" />
-  </ItemGroup>
-
-  <PropertyGroup>
+  </ItemGroup>  <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

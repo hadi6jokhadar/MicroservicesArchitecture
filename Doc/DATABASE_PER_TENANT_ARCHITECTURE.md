@@ -76,6 +76,17 @@
 
 ## How It Works
 
+### **Implementation Status**
+
+✅ **FULLY IMPLEMENTED** - This architecture is now active in the codebase!
+
+The Identity Service dynamically routes database connections based on tenant configuration:
+
+- When `MultiTenancy:Enabled = false`: Uses static connection from appsettings.json
+- When `MultiTenancy:Enabled = true`: Checks tenant configuration for database settings
+- If tenant has custom database: Connects to tenant-specific database
+- If tenant has no custom database: Falls back to default database from appsettings.json
+
 ### **Step-by-Step Flow**
 
 #### **1. User Registration (New Tenant)**
@@ -88,12 +99,13 @@
 
 2. Identity Service:
    → Creates tenant in Tenant Service
-   → Tenant Service creates new database (or uses shared DB with schema)
+   → Tenant Service stores configuration (includes DB connection string)
    → Returns: TenantId: 123
 
 3. Identity Service:
    → Fetches tenant config (includes DB connection string)
-   → Connects to Tenant 123's database
+   → DbContext.OnConfiguring checks tenant settings
+   → Connects to Tenant 123's database dynamically
    → Creates user record: john@acme.com
    → Returns: JWT token with TenantId: 123
 ```
@@ -305,6 +317,152 @@ private IdentityDbContext CreateTenantDbContext(string connectionString)
 
 ---
 
+## JWT Mode Examples
+
+### **Example 1: Superadmin with Shared JWT**
+
+**Scenario:** Company has a superadmin who needs to access all tenant data for support/maintenance.
+
+**Configuration:**
+
+```json
+{
+  "MultiTenancy": {
+    "Enabled": true,
+    "JwtMode": "Shared"
+  },
+  "Jwt": {
+    "Secret": "superadmin-shared-secret-key",
+    "Issuer": "IdentityService",
+    "Audience": "MicroservicesApp",
+    "ExpiryInMinutes": 120
+  }
+}
+```
+
+**Flow:**
+
+```
+1. Superadmin logs in
+   → Identity Service generates JWT using Jwt.Secret from appsettings.json
+   → JWT contains: { "sub": "superadmin", "role": "superadmin" }
+
+2. Superadmin accesses Tenant 123
+   → Request: GET /api/tenant/123/users
+   → Header: x-tenant-id: 123
+   → Authorization: Bearer <JWT>
+
+3. Service validates JWT
+   → Uses Jwt.Secret from appsettings.json (all tenants share same secret)
+   → JWT is valid ✅
+   → Connects to Tenant 123's database
+   → Returns users
+
+4. Superadmin accesses Tenant 456 (same token!)
+   → Request: GET /api/tenant/456/orders
+   → Header: x-tenant-id: 456
+   → Authorization: Bearer <same JWT>
+
+5. Service validates JWT
+   → Uses Jwt.Secret from appsettings.json
+   → JWT is valid ✅
+   → Connects to Tenant 456's database
+   → Returns orders
+```
+
+**Benefits:**
+
+- ✅ Superadmin can access all tenants with one token
+- ✅ Simpler token management
+- ✅ Easier for internal tools and support staff
+
+---
+
+### **Example 2: Per-Tenant JWT (Maximum Isolation)**
+
+**Scenario:** SaaS platform with enterprise customers who require complete data isolation.
+
+**Configuration:**
+
+```json
+{
+  "MultiTenancy": {
+    "Enabled": true,
+    "JwtMode": "PerTenant"
+  }
+}
+```
+
+**Tenant 123 Configuration (in Tenant Service):**
+
+```json
+{
+  "tenantId": "123",
+  "configuration": {
+    "jwt": {
+      "secret": "tenant-123-unique-secret-abc123xyz",
+      "issuer": "IdentityService",
+      "audience": "MicroservicesApp"
+    }
+  }
+}
+```
+
+**Tenant 456 Configuration (in Tenant Service):**
+
+```json
+{
+  "tenantId": "456",
+  "configuration": {
+    "jwt": {
+      "secret": "tenant-456-different-secret-def456uvw",
+      "issuer": "IdentityService",
+      "audience": "MicroservicesApp"
+    }
+  }
+}
+```
+
+**Flow:**
+
+```
+1. User from Tenant 123 logs in
+   → Identity Service fetches Tenant 123 config
+   → Generates JWT using tenant-123-unique-secret
+   → JWT contains: { "sub": "user-1", "tenantId": "123" }
+
+2. User accesses Tenant 123 API
+   → Request: GET /api/orders
+   → Header: x-tenant-id: 123
+   → Authorization: Bearer <JWT>
+
+3. Service validates JWT
+   → Fetches Tenant 123 config
+   → Validates JWT using tenant-123-unique-secret
+   → JWT is valid ✅
+   → Returns orders
+
+4. User tries to access Tenant 456 (with Tenant 123 token)
+   → Request: GET /api/orders
+   → Header: x-tenant-id: 456
+   → Authorization: Bearer <JWT from Tenant 123>
+
+5. Service validates JWT
+   → Fetches Tenant 456 config
+   → Tries to validate JWT using tenant-456-different-secret
+   → JWT is INVALID ❌ (signed with different secret)
+   → Returns 401 Unauthorized
+```
+
+**Benefits:**
+
+- 🔒 Complete JWT isolation between tenants
+- 🔒 Tenant 123 token cannot be used for Tenant 456
+- 🔒 Compromised secret only affects one tenant
+- 🔒 Each tenant can rotate their JWT secret independently
+
+---
+
 ## Tenant Service Role
 
 ### **Tenant Service Stores Connection Strings**
@@ -440,98 +598,298 @@ public async Task<IActionResult> GetTenantConfig(string tenantId)
 
 ## Implementation Details
 
-### **Dynamic DbContext Creation**
+### **Dynamic DbContext Creation (IMPLEMENTED)**
 
-**Option A: DbContext Factory (Recommended)**
+The current implementation uses **OnConfiguring override** to dynamically resolve database connections based on tenant context. This approach is elegant and leverages EF Core's built-in configuration pipeline.
 
-```csharp
-public interface ITenantDbContextFactory<TContext> where TContext : DbContext
-{
-    TContext CreateDbContext(string tenantId);
-}
+**How It Works:**
 
-public class TenantDbContextFactory<TContext> : ITenantDbContextFactory<TContext>
-    where TContext : DbContext
-{
-    private readonly ITenantConfigurationProvider _tenantConfigProvider;
+1. **Multi-Tenancy Enabled Check**: `DatabaseExtensions.AddDatabaseContext()` checks if multi-tenancy is enabled
+2. **Minimal Registration**: When enabled, DbContext is registered without pre-configured options
+3. **Dynamic Configuration**: `IdentityDbContext.OnConfiguring()` resolves the connection at runtime
+4. **Tenant-Aware**: Checks `ITenantContext` for tenant-specific database settings
+5. **Automatic Fallback**: Uses appsettings.json if no tenant database is configured
 
-    public TenantDbContextFactory(ITenantConfigurationProvider tenantConfigProvider)
-    {
-        _tenantConfigProvider = tenantConfigProvider;
-    }
-
-    public TContext CreateDbContext(string tenantId)
-    {
-        var tenantConfig = await _tenantConfigProvider.GetTenantConfigurationAsync(tenantId);
-        if (tenantConfig?.Configuration?.Database == null)
-            throw new Exception($"Tenant {tenantId} database configuration not found");
-
-        var connectionString = tenantConfig.Configuration.Database.ConnectionString;
-        var optionsBuilder = new DbContextOptionsBuilder<TContext>();
-
-        optionsBuilder.UseNpgsql(connectionString);
-
-        return (TContext)Activator.CreateInstance(typeof(TContext), optionsBuilder.Options);
-    }
-}
-```
-
-**Usage in Identity Service:**
+**Implementation in IdentityDbContext:**
 
 ```csharp
-public class AuthService
+public class IdentityDbContext : BaseDbContext
 {
-    private readonly ITenantDbContextFactory<IdentityDbContext> _dbContextFactory;
-    private readonly ITenantContext _tenantContext;
-
-    public async Task<LoginResponse> LoginAsync(LoginRequest request)
-    {
-        var tenantId = _tenantContext.TenantId ?? throw new Exception("Tenant ID required");
-
-        // Create DbContext for this tenant
-        using var dbContext = _dbContextFactory.CreateDbContext(tenantId);
-
-        var user = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email == request.Email);
-
-        // ... validate password, generate token
-    }
-}
-```
-
-**Option B: Scoped DbContext with Tenant Resolution**
-
-```csharp
-public class IdentityDbContext : DbContext
-{
-    private readonly ITenantContext _tenantContext;
-    private readonly ITenantConfigurationProvider _tenantConfigProvider;
+    private readonly ITenantContext? _tenantContext;
+    private readonly IConfiguration? _configuration;
+    private readonly ILogger<IdentityDbContext>? _logger;
 
     public IdentityDbContext(
-        ITenantContext tenantContext,
-        ITenantConfigurationProvider tenantConfigProvider)
+        DbContextOptions<IdentityDbContext> options,
+        ICurrentUserService? currentUserService = null,
+        ITenantContext? tenantContext = null,
+        IConfiguration? configuration = null,
+        ILogger<IdentityDbContext>? logger = null)
+        : base(options, currentUserService)
     {
         _tenantContext = tenantContext;
-        _tenantConfigProvider = tenantConfigProvider;
+        _configuration = configuration;
+        _logger = logger;
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
+        // If already configured (from DI), skip
         if (optionsBuilder.IsConfigured)
+        {
+            base.OnConfiguring(optionsBuilder);
             return;
+        }
 
-        var tenantId = _tenantContext.TenantId;
-        if (string.IsNullOrEmpty(tenantId))
-            throw new Exception("Tenant ID not set");
+        string? connectionString = null;
+        string? provider = null;
 
-        var tenantConfig = _tenantConfigProvider.GetTenantConfigurationAsync(tenantId).Result;
-        var connectionString = tenantConfig?.Configuration?.Database?.ConnectionString
-            ?? throw new Exception($"Tenant {tenantId} database not configured");
+        // Check if multi-tenancy is enabled and tenant has custom database settings
+        if (_tenantContext?.HasTenant == true &&
+            _tenantContext.CurrentTenant?.Configuration?.Database != null)
+        {
+            var tenantDb = _tenantContext.CurrentTenant.Configuration.Database;
 
-        optionsBuilder.UseNpgsql(connectionString);
+            if (!string.IsNullOrWhiteSpace(tenantDb.ConnectionString))
+            {
+                connectionString = tenantDb.ConnectionString;
+                provider = tenantDb.Provider ?? "PostgreSql";
+
+                _logger?.LogInformation(
+                    "Using tenant-specific database connection for tenant: {TenantId}",
+                    _tenantContext.CurrentTenant.TenantId);
+            }
+        }
+
+        // Fallback to appsettings.json if no tenant-specific database
+        if (string.IsNullOrWhiteSpace(connectionString) && _configuration != null)
+        {
+            connectionString = _configuration["DatabaseSettings:ConnectionString"];
+            provider = _configuration["DatabaseSettings:Provider"] ?? "PostgreSql";
+
+            _logger?.LogDebug("Using default database connection from appsettings.json");
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Database connection string is not configured");
+        }
+
+        // Configure database provider
+        switch (provider)
+        {
+            case "PostgreSql":
+                optionsBuilder.UseNpgsql(connectionString, npgsqlOptions =>
+                {
+                    npgsqlOptions.MigrationsAssembly(typeof(IdentityDbContext).Assembly.GetName().Name);
+                    npgsqlOptions.EnableRetryOnFailure(maxRetryCount: 3);
+                });
+                break;
+
+            case "Sqlite":
+                optionsBuilder.UseSqlite(connectionString);
+                break;
+
+            default:
+                throw new NotSupportedException($"Database provider '{provider}' is not supported");
+        }
+
+        base.OnConfiguring(optionsBuilder);
     }
 }
 ```
+
+**Key Features:**
+
+✅ **Automatic Tenant Detection**: Checks `ITenantContext.HasTenant` to determine if tenant database should be used  
+✅ **Graceful Fallback**: Uses appsettings.json if tenant doesn't have custom database settings  
+✅ **Multi-Provider Support**: Supports PostgreSQL and SQLite  
+✅ **Logging**: Logs which database connection is being used for debugging  
+✅ **Error Handling**: Clear error messages if configuration is missing
+
+### **Service Registration (IMPLEMENTED)**
+
+**In DatabaseExtensions.cs (Shared Infrastructure):**
+
+```csharp
+public static IServiceCollection AddDatabaseContext<TContext>(
+    this IServiceCollection services,
+    IConfiguration configuration) where TContext : DbContext
+{
+    var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled");
+
+    if (multiTenancyEnabled)
+    {
+        // Multi-tenancy mode: Register DbContext with minimal config
+        // Connection will be resolved dynamically in OnConfiguring
+        services.AddDbContext<TContext>(options =>
+        {
+            // Minimal configuration - actual connection determined at runtime
+        });
+    }
+    else
+    {
+        // Single-tenant mode: Use static connection from appsettings.json
+        var connectionString = configuration["DatabaseSettings:ConnectionString"]
+            ?? throw new InvalidOperationException("Database connection string is not configured");
+
+        var provider = configuration["DatabaseSettings:Provider"] ?? "PostgreSql";
+
+        services.AddDbContext<TContext>(options =>
+        {
+            switch (provider)
+            {
+                case "PostgreSql":
+                    options.UseNpgsql(connectionString, npgsqlOptions =>
+                    {
+                        npgsqlOptions.MigrationsAssembly(typeof(TContext).Assembly.GetName().Name);
+                        npgsqlOptions.EnableRetryOnFailure(maxRetryCount: 3);
+                    });
+                    break;
+
+                case "Sqlite":
+                    options.UseSqlite(connectionString);
+                    break;
+
+                default:
+                    throw new NotSupportedException($"Database provider '{provider}' is not supported");
+            }
+        });
+    }
+
+    return services;
+}
+```
+
+**In Program.cs (Identity.API):**
+
+```csharp
+// Register database with multi-tenancy support
+builder.Services.AddDatabaseContext<IdentityDbContext>(builder.Configuration);
+```
+
+**Key Features:**
+
+✅ **Configuration-Driven**: Checks `MultiTenancy:Enabled` flag from appsettings.json  
+✅ **Two Modes**: Supports both single-tenant and multi-tenant deployments  
+✅ **Lazy Resolution**: In multi-tenant mode, connection resolved per-request in OnConfiguring  
+✅ **Static Configuration**: In single-tenant mode, connection set once at startup
+
+### **Configuration Setup**
+
+**appsettings.json (Identity Service):**
+
+```json
+{
+  "MultiTenancy": {
+    "Enabled": true, // Set to false for single-tenant mode
+    "JwtMode": "Shared", // "Shared" or "PerTenant"
+    "TenantServiceUrl": "https://localhost:5002",
+    "CacheExpirationMinutes": 5
+  },
+  "DatabaseSettings": {
+    "Provider": "PostgreSql",
+    "ConnectionString": "Host=localhost;Database=identity_default;Username=postgres;Password=postgres"
+  },
+  "Jwt": {
+    "Secret": "your-secret-key-minimum-32-characters",
+    "Issuer": "IdentityService",
+    "Audience": "MicroservicesApp",
+    "ExpiryInMinutes": 60
+  }
+}
+```
+
+**JWT Mode Configuration:**
+
+### **Option 1: Shared JWT Mode (Recommended for Superadmin Access)** ✅
+
+When `JwtMode = "Shared"`:
+
+- All tenants use the **same JWT secret** from the `Jwt` section in appsettings.json
+- Superadmin can access all tenants with a single token
+- Token contains `tenantId` claim to identify which tenant the user belongs to
+- Simpler configuration, easier management
+
+**Use Cases:**
+
+- Superadmin needs to access multiple tenants
+- Internal tools that work across tenants
+- Simpler multi-tenant setups
+
+**Configuration:**
+
+```json
+{
+  "MultiTenancy": {
+    "JwtMode": "Shared"
+  },
+  "Jwt": {
+    "Secret": "shared-secret-for-all-tenants-32-chars-minimum",
+    "Issuer": "IdentityService",
+    "Audience": "MicroservicesApp",
+    "ExpiryInMinutes": 60
+  }
+}
+```
+
+---
+
+### **Option 2: Per-Tenant JWT Mode (Maximum Isolation)** 🔒
+
+When `JwtMode = "PerTenant"`:
+
+- Each tenant has their **own JWT secret** stored in Tenant Service
+- Token issued for Tenant A cannot be used for Tenant B
+- Complete JWT isolation between tenants
+- Enhanced security (compromised secret affects only one tenant)
+
+**Use Cases:**
+
+- Maximum security and tenant isolation required
+- Regulatory compliance (GDPR, HIPAA)
+- Enterprise customers who want their own JWT secrets
+- Need to rotate JWT secrets per tenant
+
+**Configuration:**
+
+```json
+{
+  "MultiTenancy": {
+    "JwtMode": "PerTenant"
+  }
+}
+```
+
+**Tenant Configuration (stored in Tenant Service):**
+
+```json
+{
+  "tenantId": "123",
+  "configuration": {
+    "jwt": {
+      "secret": "tenant-123-unique-secret-key",
+      "issuer": "IdentityService",
+      "audience": "MicroservicesApp",
+      "accessTokenExpirationMinutes": 60
+    },
+    "database": {
+      "connectionString": "Host=tenant-db-1;Database=tenant_123;..."
+    }
+  }
+}
+```
+
+---
+
+**Configuration Behavior:**
+
+| Scenario                         | JWT Source                               | Behavior                                                       |
+| -------------------------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| **JwtMode = Shared**             | `Jwt` section from appsettings.json      | All tenants use same secret, superadmin can access all tenants |
+| **JwtMode = PerTenant**          | Tenant configuration from Tenant Service | Each tenant uses own secret, complete isolation                |
+| **MultiTenancy:Enabled = false** | `Jwt` section from appsettings.json      | Single-tenant mode, no multi-tenancy                           |
 
 ---
 
@@ -789,14 +1147,35 @@ public async Task MigrateAllTenantsAsync()
 
 ### **Key Takeaways**
 
-| Aspect                 | Implementation                                                       |
-| ---------------------- | -------------------------------------------------------------------- |
-| **Identity Service**   | ONE deployment, dynamically connects to different DBs                |
-| **Tenant Service**     | Stores DB connection strings per tenant                              |
-| **Isolation Level**    | Database-per-tenant (complete isolation)                             |
-| **User Accounts**      | One user account per tenant (shared across projects)                 |
-| **Project Separation** | ProjectId column (soft filter within same DB)                        |
-| **Same Email?**        | ✅ john@acme.com in Tenant 123 DB, john@example.com in Tenant 456 DB |
+| Aspect                 | Implementation                                                            |
+| ---------------------- | ------------------------------------------------------------------------- |
+| **Identity Service**   | ONE deployment, dynamically connects to different DBs                     |
+| **Tenant Service**     | Stores DB connection strings per tenant                                   |
+| **Isolation Level**    | Database-per-tenant (complete isolation)                                  |
+| **JWT Mode**           | Configurable: "Shared" (superadmin access) or "PerTenant" (max isolation) |
+| **User Accounts**      | One user account per tenant (shared across projects)                      |
+| **Project Separation** | ProjectId column (soft filter within same DB)                             |
+| **Same Email?**        | ✅ john@acme.com in Tenant 123 DB, john@example.com in Tenant 456 DB      |
+
+### **JWT Configuration Summary**
+
+| JWT Mode      | Secret Source                          | Use Case                               | Isolation Level                   |
+| ------------- | -------------------------------------- | -------------------------------------- | --------------------------------- |
+| **Shared**    | `Jwt` section in appsettings.json      | Superadmin access, internal tools      | All tenants share same JWT secret |
+| **PerTenant** | Tenant configuration in Tenant Service | Enterprise customers, maximum security | Each tenant has unique JWT secret |
+
+**When to use Shared JWT:**
+
+- ✅ Superadmin needs to access all tenants
+- ✅ Internal support tools
+- ✅ Simpler configuration and management
+
+**When to use PerTenant JWT:**
+
+- 🔒 Maximum security and isolation required
+- 🔒 Regulatory compliance (GDPR, HIPAA)
+- 🔒 Enterprise customers who demand separate secrets
+- 🔒 Need to rotate JWT secrets per tenant
 
 ### **Impact on File Manager Service**
 

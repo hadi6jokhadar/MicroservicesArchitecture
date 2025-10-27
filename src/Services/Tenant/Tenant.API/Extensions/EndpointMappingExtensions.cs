@@ -33,20 +33,20 @@ public static class EndpointMappingExtensions
 
         // Tenant management endpoints (Admin only)
         var adminGroup = app.MapGroup("/api/admin/tenant")
-            .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"))
-            .WithTags("Tenant Management (Admin)")
+            .RequireAuthorization(policy => policy.RequireRole("SuperAdmin"))
+            .WithTags("Tenant Management (Super Admin)")
             .WithOpenApi();
 
         adminGroup.MapGet("/", TenantApiHandlers.GetAllActiveTenantsHandler)
             .WithName("GetAllActiveTenants")
             .WithSummary("Get all active tenants")
-            .WithDescription("Get paginated list of all active tenants (Admin only)")
+            .WithDescription("Get paginated list of all active tenants (SuperAdmin only)")
             .Produces<object>(200);
 
         adminGroup.MapGet("/user/{userId:int}", TenantApiHandlers.GetTenantByUserHandler)
             .WithName("GetTenantByUser")
             .WithSummary("Get tenant by user ID")
-            .WithDescription("Get tenant associated with a specific user (Admin only)")
+            .WithDescription("Get tenant associated with a specific user (SuperAdmin only)")
             .Produces<object>(200)
             .Produces(404);
 

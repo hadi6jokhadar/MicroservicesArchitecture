@@ -2,12 +2,14 @@
 
 ## Overview
 
-This microservices architecture now supports **optional multi-tenancy**, allowing each tenant (organization/customer) to have their own isolated configuration including JWT settings, database connections, and CORS policies.
+This microservices architecture supports **optional multi-tenancy** with **configurable JWT mode**, allowing each tenant (organization/customer) to have their own isolated configuration including database connections, JWT settings (optional), and CORS policies.
 
 ### Key Features
 
 - ✅ **Optional Multi-Tenancy**: Easily enable/disable via configuration
-- ✅ **Per-Tenant Configuration**: Isolated JWT, Database, and CORS settings
+- ✅ **Configurable JWT Mode**: Choose between Shared JWT (superadmin) or PerTenant JWT (isolation)
+- ✅ **Per-Tenant Database**: Each tenant can have separate database
+- ✅ **Per-Tenant Configuration**: Isolated Database, JWT (optional), and CORS settings
 - ✅ **Tenant Service**: Dedicated microservice for tenant management
 - ✅ **Configuration Caching**: Optimized performance with memory caching
 - ✅ **Backward Compatible**: Zero breaking changes when disabled
@@ -30,6 +32,7 @@ This microservices architecture now supports **optional multi-tenancy**, allowin
    - `ITenantContext`: Access current tenant in request
    - `ITenantConfigurationProvider`: Fetch tenant configuration
    - `TenantInfo`: Tenant data model
+   - `JwtMode`: Enum for JWT validation modes (Shared or PerTenant)
 
 3. **Tenant Middleware** (`/src/Shared/IhsanDev.Shared.Infrastructure/`)
 
@@ -38,15 +41,15 @@ This microservices architecture now supports **optional multi-tenancy**, allowin
    - Populates tenant context for the request
 
 4. **Multi-Tenant Aware Services**
-   - JWT Token Generator: Uses tenant-specific JWT settings
-   - Database Context: Can use tenant-specific connections
+   - Database Context: Uses tenant-specific database connections
+   - JWT Token Validator: Uses shared or tenant-specific JWT settings (configurable)
    - CORS Configuration: Tenant-specific allowed origins
 
 ---
 
 ## Configuration
 
-### Enable Multi-Tenancy
+### Enable Multi-Tenancy with Shared JWT (Recommended for Superadmin Access)
 
 Update `appsettings.json` in services (e.g., Identity.API):
 
@@ -54,11 +57,37 @@ Update `appsettings.json` in services (e.g., Identity.API):
 {
   "MultiTenancy": {
     "Enabled": true,
+    "JwtMode": "Shared",
+    "TenantServiceUrl": "https://localhost:5002",
+    "CacheExpirationMinutes": 5
+  },
+  "Jwt": {
+    "Secret": "your-shared-secret-key-minimum-32-characters",
+    "Issuer": "IdentityService",
+    "Audience": "MicroservicesApp",
+    "ExpiryInMinutes": 60
+  }
+}
+```
+
+**Note:** In Shared mode, all tenants use the JWT settings from the `Jwt` section in appsettings.json.
+
+### Enable Multi-Tenancy with PerTenant JWT (Maximum Isolation)
+
+Update `appsettings.json` in services (e.g., Identity.API):
+
+```json
+{
+  "MultiTenancy": {
+    "Enabled": true,
+    "JwtMode": "PerTenant",
     "TenantServiceUrl": "https://localhost:5002",
     "CacheExpirationMinutes": 5
   }
 }
 ```
+
+**Note:** In PerTenant mode, each tenant must have their own JWT secret configured in the Tenant Service.
 
 ### Disable Multi-Tenancy (Default)
 
@@ -70,7 +99,14 @@ Update `appsettings.json` in services (e.g., Identity.API):
 }
 ```
 
-When disabled, the system behaves exactly as before with no tenant resolution.
+When disabled, the system behaves exactly as before with no tenant resolution and uses static configuration from appsettings.json.
+
+### JWT Mode Comparison
+
+| JWT Mode      | Configuration                         | Use Case                           | Isolation                         |
+| ------------- | ------------------------------------- | ---------------------------------- | --------------------------------- |
+| **Shared**    | `"JwtMode": "Shared"` + `Jwt` section | Superadmin access, internal tools  | All tenants share JWT secret      |
+| **PerTenant** | `"JwtMode": "PerTenant"`              | Enterprise customers, max security | Each tenant has unique JWT secret |
 
 ---
 

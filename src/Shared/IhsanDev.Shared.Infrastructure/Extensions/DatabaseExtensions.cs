@@ -11,7 +11,8 @@ public static class DatabaseExtensions
 {
     /// <summary>
     /// Configures DbContext with the specified database provider
-    /// Modern approach: Uses IConfiguration binding + Options pattern
+    /// Supports multi-tenancy: If tenant has custom database settings, they will be used via OnConfiguring
+    /// Otherwise, falls back to appsettings.json configuration
     /// </summary>
     public static IServiceCollection AddDatabaseContext<TContext>(
         this IServiceCollection services,
@@ -23,22 +24,34 @@ public static class DatabaseExtensions
         services.Configure<DatabaseSettings>(
             configuration.GetSection(DatabaseSettings.SectionName));
 
-        // Register DbContext
-        services.AddDbContext<TContext>((serviceProvider, options) =>
+        // Check if multi-tenancy is enabled
+        var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+
+        if (multiTenancyEnabled)
         {
-            var dbSettings = serviceProvider
-                .GetRequiredService<IOptions<DatabaseSettings>>()
-                .Value;
-
-            // Validate connection string
-            if (string.IsNullOrWhiteSpace(dbSettings.ConnectionString))
+            // When multi-tenancy is enabled, register DbContext with minimal configuration
+            // The actual database connection will be resolved in OnConfiguring based on tenant context
+            services.AddDbContext<TContext>(ServiceLifetime.Scoped);
+        }
+        else
+        {
+            // Traditional approach: Configure DbContext at startup with static connection string
+            services.AddDbContext<TContext>((serviceProvider, options) =>
             {
-                throw new InvalidOperationException(
-                    $"Connection string is not configured in {DatabaseSettings.SectionName}");
-            }
+                var dbSettings = serviceProvider
+                    .GetRequiredService<IOptions<DatabaseSettings>>()
+                    .Value;
 
-            ConfigureDbContext(options, dbSettings, migrationAssembly, serviceProvider);
-        });
+                // Validate connection string
+                if (string.IsNullOrWhiteSpace(dbSettings.ConnectionString))
+                {
+                    throw new InvalidOperationException(
+                        $"Connection string is not configured in {DatabaseSettings.SectionName}");
+                }
+
+                ConfigureDbContext(options, dbSettings, migrationAssembly, serviceProvider);
+            });
+        }
 
         return services;
     }

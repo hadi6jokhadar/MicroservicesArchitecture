@@ -34,11 +34,11 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
             }
 
             // Check if user already has a tenant
-            var userHasTenant = await _tenantRepository.UserHasTenantAsync(request.UserId, cancellationToken);
-            if (userHasTenant)
-            {
-                throw new ConflictException($"User with ID '{request.UserId}' already has a tenant");
-            }
+            // var userHasTenant = await _tenantRepository.UserHasTenantAsync(request.UserId, cancellationToken);
+            // if (userHasTenant)
+            // {
+            //     throw new ConflictException($"User with ID '{request.UserId}' already has a tenant");
+            // }
 
             // Create tenant
             var tenantSettings = new TenantSettings

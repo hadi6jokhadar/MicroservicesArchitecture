@@ -11,9 +11,11 @@ using Identity.Infrastructure.Services;
 using IhsanDev.Shared.Application.Common.Behaviors;
 using IhsanDev.Shared.Application.Extensions;
 using IhsanDev.Shared.Infrastructure.Extensions;
+using IhsanDev.Shared.Infrastructure.Filters;
 using IhsanDev.Shared.Infrastructure.Services;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using IhsanDev.Shared.Kernel.Enums;
 using Identity.API.Extensions;
 using Identity.API.Filters;
 using MediatR;
@@ -56,9 +58,15 @@ builder.Services.AddDatabaseContext<IdentityDbContext>(
 // ============================================
 // Authentication & Authorization
 // ============================================
-// Note: JWT configuration will be resolved per-tenant if multi-tenancy is enabled
-// Otherwise, it falls back to appsettings.json
+// Read JWT mode configuration to determine if JWT is shared or per-tenant
+var jwtModeString = builder.Configuration["MultiTenancy:JwtMode"] ?? "Shared";
+var jwtMode = Enum.TryParse<JwtMode>(jwtModeString, ignoreCase: true, out var parsedMode) 
+    ? parsedMode 
+    : JwtMode.Shared;
+
+// Always use Jwt section from appsettings.json (for both Shared and PerTenant modes)
 var jwtSettings = builder.Configuration.GetSection("Jwt");
+
 var secretKey = jwtSettings["Key"] ?? jwtSettings["Secret"]
     ?? throw new InvalidOperationException("JWT Key/Secret is not configured");
 
@@ -81,27 +89,32 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
     
-    // Support per-tenant JWT validation when multi-tenancy is enabled
-    options.Events = new JwtBearerEvents
+    // Support per-tenant JWT validation when JwtMode is PerTenant
+    if (jwtMode == JwtMode.PerTenant)
     {
-        OnMessageReceived = context =>
+        options.Events = new JwtBearerEvents
         {
-            // Resolve tenant-specific JWT settings if available
-            var tenantContext = context.HttpContext.RequestServices.GetService<ITenantContext>();
-            if (tenantContext?.HasTenant == true && tenantContext.CurrentTenant?.Configuration?.Jwt != null)
+            OnMessageReceived = context =>
             {
-                var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
-                if (!string.IsNullOrEmpty(tenantJwt.Secret))
+                // Resolve tenant-specific JWT settings if available
+                var tenantContext = context.HttpContext.RequestServices.GetService<ITenantContext>();
+                if (tenantContext?.HasTenant == true && tenantContext.CurrentTenant?.Configuration?.Jwt != null)
                 {
-                    context.Options.TokenValidationParameters.IssuerSigningKey = 
-                        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret));
-                    context.Options.TokenValidationParameters.ValidIssuer = tenantJwt.Issuer;
-                    context.Options.TokenValidationParameters.ValidAudience = tenantJwt.Audience;
+                    var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
+                    if (!string.IsNullOrEmpty(tenantJwt.Secret))
+                    {
+                        context.Options.TokenValidationParameters.IssuerSigningKey = 
+                            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret));
+                        context.Options.TokenValidationParameters.ValidIssuer = tenantJwt.Issuer;
+                        context.Options.TokenValidationParameters.ValidAudience = tenantJwt.Audience;
+                    }
                 }
+                return Task.CompletedTask;
             }
-            return Task.CompletedTask;
-        }
-    };
+        };
+    }
+    // When JwtMode is Shared, use the JWT settings from appsettings.json
+    // All tenants validate tokens using the same JWT secret from Jwt section
 });
 builder.Services.AddAuthorization();
 // ============================================
@@ -156,6 +169,9 @@ builder.Services.AddSwaggerGen(options =>
             Array.Empty<string>()
         }
     });
+    
+    // Add x-tenant-id header parameter for all endpoints
+    options.OperationFilter<TenantHeaderOperationFilter>();
 });
 
 // AutoMapper - Using specific assemblies to ensure all mappings are found
@@ -194,7 +210,8 @@ app.UseHttpsRedirection();
 app.UseCors();
 
 // Multi-tenancy middleware (must be before authentication)
-app.UseTenantResolution();
+// Only runs if MultiTenancy:Enabled is true
+app.UseTenantResolution(builder.Configuration);
 
 app.UseAuthentication();
 app.UseAuthorization();
