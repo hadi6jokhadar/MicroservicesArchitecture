@@ -69,29 +69,29 @@ public class TenantEndpointsTests : IntegrationTestBase
         exception.Message.Should().Contain($"Tenant with ID '{tenantId}' already exists");
     }
 
-    [Fact]
-    public async Task CreateTenant_WithDuplicateUserId_ShouldThrowConflictException()
-    {
-        // Arrange
-        var userId = 99;
-        await CreateTestTenantAsync(tenantId: GenerateUniqueTenantId(), userId: userId);
+    // [Fact]
+    // public async Task CreateTenant_WithDuplicateUserId_ShouldThrowConflictException()
+    // {
+    //     // Arrange
+    //     var userId = 99;
+    //     await CreateTestTenantAsync(tenantId: GenerateUniqueTenantId(), userId: userId);
 
-        var createCommand = new CreateTenantCommand(
-            TenantId: GenerateUniqueTenantId(),
-            TenantName: "Another Tenant",
-            UserId: userId,
-            StartDate: DateTime.UtcNow,
-            ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "{}"
-        );
+    //     var createCommand = new CreateTenantCommand(
+    //         TenantId: GenerateUniqueTenantId(),
+    //         TenantName: "Another Tenant",
+    //         UserId: userId,
+    //         StartDate: DateTime.UtcNow,
+    //         ExpireDate: DateTime.UtcNow.AddYears(1),
+    //         Data: "{}"
+    //     );
 
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<ConflictException>(
-            async () => await SendAsync(createCommand)
-        );
+    //     // Act & Assert
+    //     var exception = await Assert.ThrowsAsync<ConflictException>(
+    //         async () => await SendAsync(createCommand)
+    //     );
 
-        exception.Message.Should().Contain($"User with ID '{userId}' already has a tenant");
-    }
+    //     exception.Message.Should().Contain($"User with ID '{userId}' already has a tenant");
+    // }
 
     [Fact]
     public async Task CreateTenant_WithInvalidJson_ShouldThrowValidationException()

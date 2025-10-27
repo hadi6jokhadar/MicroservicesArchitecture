@@ -1128,7 +1128,7 @@ public class FilesController : ControllerBase
   },
 
   "Jwt": {
-    "Key": "<SAME_SECRET_KEY>",
+    "Secret": "<SAME_SECRET_KEY>",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp"
   },

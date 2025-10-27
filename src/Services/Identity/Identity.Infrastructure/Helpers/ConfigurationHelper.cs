@@ -96,7 +96,7 @@ public static class ConfigurationHelper
             configuration,
             tenantContext,
             "DatabaseSettings:ConnectionString",
-            tenant => tenant.Database?.ConnectionString
+            tenant => tenant.DatabaseSettings?.ConnectionString
         );
     }
 

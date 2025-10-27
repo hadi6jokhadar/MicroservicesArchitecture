@@ -209,7 +209,6 @@ Update JWT configuration in `appsettings.json`:
 ```json
 {
   "Jwt": {
-    "Key": "your-super-secret-jwt-key-minimum-32-characters",
     "Secret": "your-super-secret-jwt-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",

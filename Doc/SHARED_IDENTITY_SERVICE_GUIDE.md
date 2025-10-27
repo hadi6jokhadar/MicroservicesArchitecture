@@ -199,7 +199,6 @@ Looking at your `Identity.API/appsettings.json`:
 ```json
 {
   "Jwt": {
-    "Key": "CHANGE_ME_JWT_SECRET",
     "Secret": "CHANGE_ME_JWT_SECRET",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp", // ← Generic audience (not project-specific)
@@ -234,10 +233,10 @@ Looking at your `Identity.API/appsettings.json`:
 #### **3. Shared Secret Key**
 
 ```json
-"Key": "CHANGE_ME_JWT_SECRET"
+"Secret": "CHANGE_ME_JWT_SECRET"
 ```
 
-- ✅ All projects use the **same key** to validate JWT signatures
+- ✅ All projects use the **same secret** to validate JWT signatures
 - ✅ Tokens signed by Identity Service can be validated by any project
 
 ### **JWT Token Structure**
@@ -314,7 +313,7 @@ docker run -d -p 5001:8080 --name identity-api identity-service:latest
 ```json
 {
   "Jwt": {
-    "Key": "CHANGE_ME_JWT_SECRET",
+    "Secret": "CHANGE_ME_JWT_SECRET",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp"
   },
@@ -347,7 +346,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!))
         };
 
         options.Events = new JwtBearerEvents
@@ -428,7 +427,7 @@ public class OrdersController : ControllerBase
 ```json
 {
   "Jwt": {
-    "Key": "CHANGE_ME_JWT_SECRET", // ← Same key as Project A
+    "Secret": "CHANGE_ME_JWT_SECRET", // ← Same secret as Project A
     "Issuer": "IdentityService", // ← Same issuer
     "Audience": "MicroservicesApp" // ← Same audience
   },
@@ -455,7 +454,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!))
         };
     });
 
@@ -546,7 +545,7 @@ For each new project, **repeat the exact same configuration**:
      │───────────────────────────▶│
      │                            │
      │                            │ 2. Validate JWT:
-     │                            │    - Check signature (using Jwt:Key)
+     │                            │    - Check signature (using Jwt:Secret)
      │                            │    - Check issuer = "IdentityService"
      │                            │    - Check audience = "MicroservicesApp"
      │                            │    - Check expiration
@@ -764,15 +763,15 @@ Tenant Service B:
 
 ### **Key Differences: Identity vs Tenant Service**
 
-| Aspect            | Identity Service                        | Tenant Service                                          |
-| ----------------- | --------------------------------------- | ------------------------------------------------------- |
-| **Purpose**       | User authentication & authorization     | Tenant configuration & management                       |
-| **Database**      | Users, roles, passwords, refresh tokens | Tenants, settings, features, subscriptions              |
-| **Used By**       | ALL projects (required for auth)        | Projects with multi-tenancy enabled (optional)          |
-| **Deployment**    | ONE shared service                      | ONE shared service                                      |
-| **Caching**       | Not typically cached (JWT is stateless) | Cached with 5-minute TTL (IMemoryCache)                 |
-| **API Calls**     | Only during login/registration          | During request processing (if multi-tenancy enabled)    |
-| **Configuration** | `Jwt:Key`, `Jwt:Issuer`, `Jwt:Audience` | `MultiTenancy:TenantServiceUrl`, `MultiTenancy:Enabled` |
+| Aspect            | Identity Service                           | Tenant Service                                          |
+| ----------------- | ------------------------------------------ | ------------------------------------------------------- |
+| **Purpose**       | User authentication & authorization        | Tenant configuration & management                       |
+| **Database**      | Users, roles, passwords, refresh tokens    | Tenants, settings, features, subscriptions              |
+| **Used By**       | ALL projects (required for auth)           | Projects with multi-tenancy enabled (optional)          |
+| **Deployment**    | ONE shared service                         | ONE shared service                                      |
+| **Caching**       | Not typically cached (JWT is stateless)    | Cached with 5-minute TTL (IMemoryCache)                 |
+| **API Calls**     | Only during login/registration             | During request processing (if multi-tenancy enabled)    |
+| **Configuration** | `Jwt:Secret`, `Jwt:Issuer`, `Jwt:Audience` | `MultiTenancy:TenantServiceUrl`, `MultiTenancy:Enabled` |
 
 ---
 
@@ -1123,7 +1122,7 @@ public async Task<TenantConfiguration?> GetTenantConfigurationAsync(string tenan
 ```json
 {
   "Jwt": {
-    "Key": "CHANGE_ME_JWT_SECRET"
+    "Secret": "CHANGE_ME_JWT_SECRET"
   }
 }
 ```
@@ -1135,7 +1134,7 @@ public async Task<TenantConfiguration?> GetTenantConfigurationAsync(string tenan
 ```json
 {
   "Jwt": {
-    "Key": "dev-key-only-for-local-testing"
+    "Secret": "dev-secret-only-for-local-testing"
   }
 }
 ```
@@ -1156,11 +1155,11 @@ kubectl create secret generic jwt-secret --from-literal=JWT_SECRET_KEY="CHANGE_M
 **Program.cs - Read from Environment:**
 
 ```csharp
-var jwtKey = builder.Configuration["Jwt:Key"]
+var jwtSecret = builder.Configuration["Jwt:Secret"]
     ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? throw new InvalidOperationException("JWT secret key not configured");
 
-options.IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+options.IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
 ```
 
 ### **2. Use HTTPS Only in Production**
@@ -1179,8 +1178,8 @@ if (!app.Environment.IsDevelopment())
 
 ```csharp
 // Support multiple keys during transition period
-var primaryKey = builder.Configuration["Jwt:Key"];
-var secondaryKey = builder.Configuration["Jwt:SecondaryKey"]; // Old key
+var primaryKey = builder.Configuration["Jwt:Secret"];
+var secondaryKey = builder.Configuration["Jwt:SecondarySecret"]; // Old key
 
 options.TokenValidationParameters = new TokenValidationParameters
 {
@@ -1333,17 +1332,17 @@ curl https://projecta.com/api/orders
 curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." https://projecta.com/api/orders
 ```
 
-**Cause 2: JWT key mismatch**
+**Cause 2: JWT secret mismatch**
 
 ```json
-// Identity Service uses different key than Project A
+// Identity Service uses different secret than Project A
 // Identity appsettings.json
-"Jwt": { "Key": "key-abc123..." }
+"Jwt": { "Secret": "secret-abc123..." }
 
-// Project A appsettings.json (WRONG - different key)
-"Jwt": { "Key": "key-xyz789..." }
+// Project A appsettings.json (WRONG - different secret)
+"Jwt": { "Secret": "secret-xyz789..." }
 
-// ✅ FIX: Use SAME key in all services
+// ✅ FIX: Use SAME secret in all services
 ```
 
 **Cause 3: Issuer/Audience mismatch**
@@ -1443,15 +1442,15 @@ var token = new JwtSecurityToken(
 
 ### **✅ Recommended Approach: Shared Identity Service**
 
-| Aspect                | Details                                              |
-| --------------------- | ---------------------------------------------------- |
-| **Architecture**      | 1 Identity Service → N Projects (A, B, C, ...)       |
-| **User Experience**   | Login once, access all projects (SSO)                |
-| **JWT Configuration** | Same `Key`, `Issuer`, `Audience` across all projects |
-| **User Database**     | Single PostgreSQL database in Identity Service       |
-| **Token Validation**  | Each project validates JWT using shared secret key   |
-| **Maintenance**       | Update authentication logic once, applies everywhere |
-| **Cost**              | 1 database + 1 service = Minimal cost                |
+| Aspect                | Details                                                 |
+| --------------------- | ------------------------------------------------------- |
+| **Architecture**      | 1 Identity Service → N Projects (A, B, C, ...)          |
+| **User Experience**   | Login once, access all projects (SSO)                   |
+| **JWT Configuration** | Same `Secret`, `Issuer`, `Audience` across all projects |
+| **User Database**     | Single PostgreSQL database in Identity Service          |
+| **Token Validation**  | Each project validates JWT using shared secret key      |
+| **Maintenance**       | Update authentication logic once, applies everywhere    |
+| **Cost**              | 1 database + 1 service = Minimal cost                   |
 
 ### **📋 Implementation Checklist**
 
@@ -1502,7 +1501,7 @@ var token = new JwtSecurityToken(
 ```json
 {
   "Jwt": {
-    "Key": "<SAME_SECRET_KEY_FOR_ALL_SERVICES>",
+    "Secret": "<SAME_SECRET_KEY_FOR_ALL_SERVICES>",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp"
   }

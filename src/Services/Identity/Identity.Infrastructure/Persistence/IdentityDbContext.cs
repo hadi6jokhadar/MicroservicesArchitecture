@@ -43,9 +43,9 @@ public class IdentityDbContext : BaseDbContext
 
         // Check if multi-tenancy is enabled and tenant has custom database settings
         if (_tenantContext?.HasTenant == true && 
-            _tenantContext.CurrentTenant?.Configuration?.Database != null)
+            _tenantContext.CurrentTenant?.Configuration?.DatabaseSettings != null)
         {
-            var tenantDb = _tenantContext.CurrentTenant.Configuration.Database;
+            var tenantDb = _tenantContext.CurrentTenant.Configuration.DatabaseSettings;
             
             if (!string.IsNullOrWhiteSpace(tenantDb.ConnectionString))
             {

@@ -4,11 +4,13 @@ using Identity.Application.Services;
 using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 
 namespace Identity.Infrastructure.Services;
 
@@ -17,15 +19,24 @@ public class UserService : IUserService
     private readonly IConfiguration _configuration;
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
-    
     private readonly IMapper _mapper;
+    private readonly ITenantContext _tenantContext;
+    private readonly ILogger<UserService> _logger;
 
-    public UserService(IConfiguration configuration, IUserRepository userRepository, IPasswordHasher passwordHasher, IMapper mapper)
+    public UserService(
+        IConfiguration configuration, 
+        IUserRepository userRepository, 
+        IPasswordHasher passwordHasher, 
+        IMapper mapper,
+        ITenantContext tenantContext,
+        ILogger<UserService> logger)
     {
         _configuration = configuration;
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _mapper = mapper;
+        _tenantContext = tenantContext;
+        _logger = logger;
     }
 
     public string HashPassword(string password)
@@ -41,7 +52,42 @@ public class UserService : IUserService
     public async Task<UserDtoIncludesToken> GenerateTokensAsync(User user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "your-secret-key-here");
+        
+        // Determine JWT settings: Use tenant-specific if available, otherwise use appsettings.json
+        string jwtSecret;
+        string jwtIssuer;
+        string jwtAudience;
+        int expiryMinutes;
+        int refreshTokenExpiryDays;
+        
+        // Check if multi-tenancy is enabled and tenant has custom JWT settings
+        if (_tenantContext.HasTenant && 
+            _tenantContext.CurrentTenant?.Configuration?.Jwt != null &&
+            !string.IsNullOrWhiteSpace(_tenantContext.CurrentTenant.Configuration.Jwt.Secret))
+        {
+            // Use tenant-specific JWT settings
+            var tenantJwt = _tenantContext.CurrentTenant.Configuration.Jwt;
+            jwtSecret = tenantJwt.Secret!; // Already validated as non-null above
+            jwtIssuer = tenantJwt.Issuer ?? _configuration["Jwt:Issuer"] ?? "IdentityService";
+            jwtAudience = tenantJwt.Audience ?? _configuration["Jwt:Audience"] ?? "MicroservicesApp";
+            expiryMinutes = tenantJwt.AccessTokenExpirationMinutes > 0 
+                ? tenantJwt.AccessTokenExpirationMinutes 
+                : int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60");
+            refreshTokenExpiryDays = tenantJwt.RefreshTokenExpirationDays > 0 
+                ? tenantJwt.RefreshTokenExpirationDays 
+                : int.Parse(_configuration["Jwt:RefreshTokenExpiryInDays"] ?? "7");
+        }
+        else
+        {
+            // Use default JWT settings from appsettings.json
+            jwtSecret = _configuration["Jwt:Secret"] ?? "your-secret-key-here";
+            jwtIssuer = _configuration["Jwt:Issuer"] ?? "IdentityService";
+            jwtAudience = _configuration["Jwt:Audience"] ?? "MicroservicesApp";
+            expiryMinutes = int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60");
+            refreshTokenExpiryDays = int.Parse(_configuration["Jwt:RefreshTokenExpiryInDays"] ?? "7");
+        }
+        
+        var key = Encoding.UTF8.GetBytes(jwtSecret);
         
         var claims = new List<Claim>
         {
@@ -51,21 +97,32 @@ public class UserService : IUserService
             new(ClaimTypes.Surname, user.LastName),
             new(ClaimTypes.Role, user.Role.ToString())
         };
+        
+        // Add tenant ID claim if available
+        if (_tenantContext.HasTenant && _tenantContext.CurrentTenant != null)
+        {
+            claims.Add(new Claim("tenant_id", _tenantContext.CurrentTenant.TenantId));
+            _logger.LogDebug("Added tenant_id claim: {TenantId}", _tenantContext.CurrentTenant.TenantId);
+        }
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60")),
-            Issuer = _configuration["Jwt:Issuer"],
-            Audience = _configuration["Jwt:Audience"],
+            Expires = DateTime.UtcNow.AddMinutes(expiryMinutes),
+            Issuer = jwtIssuer,
+            Audience = jwtAudience,
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
         var accessToken = tokenHandler.WriteToken(token);
         
+        _logger.LogInformation(
+            "✅ JWT token generated successfully for user '{Email}' (UserId: {UserId}, Expires: {ExpiresAt})",
+            user.Email, user.Id, tokenDescriptor.Expires);
+        
         var refreshToken = GenerateRefreshToken();
-        var refreshTokenExpiry = DateTime.UtcNow.AddDays(int.Parse(_configuration["Jwt:RefreshTokenExpiryInDays"] ?? "7"));
+        var refreshTokenExpiry = DateTime.UtcNow.AddDays(refreshTokenExpiryDays);
         
         await _userRepository.UpdateRefreshTokenAsync(user.Id, refreshToken, refreshTokenExpiry);
 

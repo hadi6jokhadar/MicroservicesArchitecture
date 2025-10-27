@@ -1,7 +1,10 @@
 using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Infrastructure.Services.Tenant;
+using IhsanDev.Shared.Infrastructure.Services.Database;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using IhsanDev.Shared.Kernel.Interfaces.Database;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -33,6 +36,9 @@ public static class MultiTenancyExtensions
 
         // Register tenant configuration provider
         services.AddScoped<ITenantConfigurationProvider, TenantConfigurationProvider>();
+
+        // Register database migration service
+        services.AddScoped<IDatabaseMigrationService, DatabaseMigrationService>();
 
         // Add memory cache for tenant configuration caching
         services.AddMemoryCache();
@@ -68,5 +74,27 @@ public static class MultiTenancyExtensions
         }
         
         return app.UseMiddleware<TenantMiddleware>();
+    }
+
+    /// <summary>
+    /// Add database migration middleware for automatic tenant database creation
+    /// This must be called AFTER UseTenantResolution() and BEFORE UseAuthentication()
+    /// Only adds middleware if multi-tenancy is enabled
+    /// </summary>
+    /// <typeparam name="TContext">The DbContext type to migrate</typeparam>
+    public static IApplicationBuilder UseTenantDatabaseMigration<TContext>(
+        this IApplicationBuilder app,
+        IConfiguration configuration)
+        where TContext : DbContext
+    {
+        var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+        
+        if (!multiTenancyEnabled)
+        {
+            // Skip database migration middleware if multi-tenancy is disabled
+            return app;
+        }
+        
+        return app.UseMiddleware<DatabaseMigrationMiddleware<TContext>>();
     }
 }

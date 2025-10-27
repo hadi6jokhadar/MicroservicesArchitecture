@@ -109,7 +109,6 @@ Add JWT configuration to `appsettings.json`:
 {
   "Jwt": {
     "Secret": "your-super-secret-jwt-key-minimum-32-characters",
-    "Key": "your-super-secret-jwt-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
     "AccessTokenExpirationMinutes": 60
@@ -134,8 +133,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Authentication & Authorization
 // ============================================
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSettings["Key"] ?? jwtSettings["Secret"]
-    ?? throw new InvalidOperationException("JWT Key/Secret is not configured");
+var secretKey = jwtSettings["Secret"]
+    ?? throw new InvalidOperationException("JWT Secret is not configured");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -747,8 +746,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Authentication & Authorization
 // ============================================
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSettings["Key"] ?? jwtSettings["Secret"]
-    ?? throw new InvalidOperationException("JWT Key/Secret is not configured");
+var secretKey = jwtSettings["Secret"]
+    ?? throw new InvalidOperationException("JWT Secret is not configured");
 
 builder.Services.AddAuthentication(options =>
 {

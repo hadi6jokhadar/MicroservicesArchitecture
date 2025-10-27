@@ -23,7 +23,6 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
         var config = base.GetTestConfiguration();
         
         // Add Identity-specific configuration
-        config["Jwt:Key"] = "test-super-secret-jwt-key-minimum-32-characters-long";
         config["Jwt:Secret"] = "test-super-secret-jwt-key-minimum-32-characters-long";
         config["Jwt:Issuer"] = "TestIdentityService";
         config["Jwt:Audience"] = "TestMicroservicesApp";

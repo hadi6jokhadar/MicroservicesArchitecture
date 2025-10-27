@@ -295,7 +295,7 @@ Key configuration settings in `appsettings.json`:
 ```json
 {
   "Jwt": {
-    "Key": "your-secret-key-minimum-256-bits-long",
+    "Secret": "your-secret-key-minimum-256-bits-long",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
     "ExpiryInMinutes": 60,

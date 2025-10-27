@@ -162,7 +162,7 @@ protected async Task<User> CreateTestUserAsync(...)
 
 ```csharp
 // ❌ NOT SHAREABLE - Identity service specific
-testConfig["Jwt:Key"] = "...";
+testConfig["Jwt:Secret"] = "...";
 testConfig["Jwt:Issuer"] = "...";
 ```
 

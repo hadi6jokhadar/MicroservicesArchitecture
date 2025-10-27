@@ -32,6 +32,7 @@ Doc/
 │
 ├─ Core Architecture (MUST READ)
 │  ├─ DATABASE_PER_TENANT_ARCHITECTURE.md   ← 🔴 CRITICAL: Your architecture explained
+│  ├─ AUTOMATIC_DATABASE_MIGRATION.md       ← 🔴 NEW: Auto database creation for tenants
 │  ├─ SHARED_IDENTITY_SERVICE_GUIDE.md      ← Authentication for all services
 │  └─ NEW_SERVICE_INTEGRATION_GUIDE.md      ← Step-by-step new service creation
 │
@@ -107,8 +108,9 @@ Doc/
 **Week 1: Foundation**
 
 1. ✅ [DATABASE_PER_TENANT_ARCHITECTURE.md](DATABASE_PER_TENANT_ARCHITECTURE.md) - Understand multi-database pattern
-2. ✅ [SHARED_IDENTITY_SERVICE_GUIDE.md](SHARED_IDENTITY_SERVICE_GUIDE.md) - JWT authentication
-3. ✅ [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md) - Multi-tenancy concepts
+2. ✅ [AUTOMATIC_DATABASE_MIGRATION.md](AUTOMATIC_DATABASE_MIGRATION.md) - How tenant databases are auto-created
+3. ✅ [SHARED_IDENTITY_SERVICE_GUIDE.md](SHARED_IDENTITY_SERVICE_GUIDE.md) - JWT authentication
+4. ✅ [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md) - Multi-tenancy concepts
 
 **Week 2: Development** 4. ✅ [NEW_SERVICE_INTEGRATION_GUIDE.md](NEW_SERVICE_INTEGRATION_GUIDE.md) - Create your first service 5. ✅ [TENANT_MIDDLEWARE_EXPLAINED.md](TENANT_MIDDLEWARE_EXPLAINED.md) - How tenant resolution works 6. ✅ [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md) - User isolation patterns
 
@@ -128,10 +130,11 @@ Doc/
 **Strategic Documents:**
 
 1. ✅ [DATABASE_PER_TENANT_ARCHITECTURE.md](DATABASE_PER_TENANT_ARCHITECTURE.md) - Core architecture
-2. ✅ [SHARED_IDENTITY_SERVICE_GUIDE.md](SHARED_IDENTITY_SERVICE_GUIDE.md) - Authentication architecture
-3. ✅ [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md) - Isolation patterns
-4. ✅ [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md) - Storage architecture
-5. ✅ [CACHING_STRATEGY_COMPARISON.md](CACHING_STRATEGY_COMPARISON.md) - Performance architecture
+2. ✅ [AUTOMATIC_DATABASE_MIGRATION.md](AUTOMATIC_DATABASE_MIGRATION.md) - Automated tenant provisioning
+3. ✅ [SHARED_IDENTITY_SERVICE_GUIDE.md](SHARED_IDENTITY_SERVICE_GUIDE.md) - Authentication architecture
+4. ✅ [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md) - Isolation patterns
+5. ✅ [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md) - Storage architecture
+6. ✅ [CACHING_STRATEGY_COMPARISON.md](CACHING_STRATEGY_COMPARISON.md) - Performance architecture
 
 ---
 
@@ -211,6 +214,7 @@ Request → Middleware extracts TenantId → Fetches DB connection
 | Document                                | Status          | Last Updated | Notes                        |
 | --------------------------------------- | --------------- | ------------ | ---------------------------- |
 | **DATABASE_PER_TENANT_ARCHITECTURE.md** | ✅ Production   | Jan 2025     | CRITICAL - Core architecture |
+| **AUTOMATIC_DATABASE_MIGRATION.md**     | ✅ Production   | Oct 2025     | NEW - Auto tenant DB setup   |
 | **SHARED_IDENTITY_SERVICE_GUIDE.md**    | ✅ Production   | Jan 2025     | Complete with Tenant Service |
 | **NEW_SERVICE_INTEGRATION_GUIDE.md**    | ✅ Production   | Oct 2024     | Comprehensive guide          |
 | **MULTI_TENANCY_GUIDE.md**              | ✅ Production   | Oct 2024     | Complete implementation      |

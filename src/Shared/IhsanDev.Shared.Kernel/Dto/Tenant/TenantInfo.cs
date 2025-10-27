@@ -37,7 +37,7 @@ public class TenantInfo
 public class TenantConfiguration
 {
     public JwtSettings? Jwt { get; set; }
-    public DatabaseSettings? Database { get; set; }
+    public DatabaseSettings? DatabaseSettings { get; set; }
     public CorsSettings? Cors { get; set; }
 }
 

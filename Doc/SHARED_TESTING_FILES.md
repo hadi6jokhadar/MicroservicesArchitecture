@@ -54,7 +54,7 @@ This document tracks which files were extracted from the Identity.API.Tests proj
 
 **What Stayed in Identity.API.Tests:**
 
-- ❌ JWT configuration (Key, Secret, Issuer, Audience, etc.)
+- ❌ JWT configuration (Secret, Issuer, Audience, etc.)
 - ❌ Reference to `IdentityDbContext`
 - ❌ Identity-specific seed data
 

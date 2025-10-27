@@ -56,8 +56,8 @@ var jwtMode = Enum.TryParse<JwtMode>(jwtModeString, ignoreCase: true, out var pa
 // Always use Jwt section from appsettings.json (for both Shared and PerTenant modes)
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 
-var secretKey = jwtSettings["Key"] ?? jwtSettings["Secret"]
-    ?? throw new InvalidOperationException("JWT Key/Secret is not configured");
+var secretKey = jwtSettings["Secret"]
+    ?? throw new InvalidOperationException("JWT Secret is not configured");
 
 builder.Services.AddAuthentication(options =>
 {
