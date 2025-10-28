@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CORS Tester - Multi-Tenant</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 10px;
+        padding: 30px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      }
+
+      h1 {
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .subtitle {
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 14px;
+      }
+
+      .test-section {
+        margin-bottom: 30px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+      }
+
+      .test-section h2 {
+        color: #667eea;
+        margin-bottom: 15px;
+        font-size: 18px;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        color: #555;
+        font-weight: 500;
+        font-size: 14px;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #e1e8ed;
+        border-radius: 5px;
+        font-size: 14px;
+        transition: border-color 0.3s;
+      }
+
+      input:focus,
+      select:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      button {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: background 0.3s;
+      }
+
+      button:hover {
+        background: #5568d3;
+      }
+
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 5px;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        display: none;
+      }
+
+      .result.success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+        display: block;
+      }
+
+      .result.error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        display: block;
+      }
+
+      .result.info {
+        background: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+        display: block;
+      }
+
+      .info-box {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+      }
+
+      .info-box h3 {
+        color: #856404;
+        margin-bottom: 10px;
+        font-size: 16px;
+      }
+
+      .info-box ul {
+        margin-left: 20px;
+        color: #856404;
+      }
+
+      .info-box li {
+        margin-bottom: 5px;
+        font-size: 14px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+
+      @media (max-width: 768px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🌐 CORS Tester - Multi-Tenant Architecture</h1>
+      <p class="subtitle">Test tenant-aware CORS configuration in real-time</p>
+
+      <div class="info-box">
+        <h3>ℹ️ Before Testing</h3>
+        <ul>
+          <li>
+            Make sure Identity Service is running on
+            <strong>https://localhost:5101</strong>
+          </li>
+          <li>
+            Make sure Tenant Service is running on
+            <strong>http://localhost:5002</strong>
+          </li>
+          <li>
+            Enable <strong>MultiTenancy:Enabled = true</strong> in
+            appsettings.json
+          </li>
+          <li>Open browser console (F12) to see CORS errors</li>
+          <li>
+            Serve this HTML from a web server (e.g.,
+            <code>python -m http.server 4200</code>)
+          </li>
+        </ul>
+      </div>
+
+      <div class="grid">
+        <!-- Test 1: Without Tenant -->
+        <div class="test-section">
+          <h2>Test 1: Default CORS (No Tenant)</h2>
+          <p style="color: #666; font-size: 13px; margin-bottom: 15px">
+            Should use CORS from appsettings.json
+          </p>
+
+          <div class="form-group">
+            <label>API Endpoint</label>
+            <input
+              type="text"
+              id="url1"
+              value="https://localhost:5101/api/auth/login"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="email1" value="test@example.com" />
+          </div>
+
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password1" value="Test123!" />
+          </div>
+
+          <button onclick="testCors1()">Test CORS (No Tenant)</button>
+
+          <div id="result1" class="result"></div>
+        </div>
+
+        <!-- Test 2: With Tenant -->
+        <div class="test-section">
+          <h2>Test 2: Tenant-Specific CORS</h2>
+          <p style="color: #666; font-size: 13px; margin-bottom: 15px">
+            Should use tenant's CORS configuration
+          </p>
+
+          <div class="form-group">
+            <label>API Endpoint</label>
+            <input
+              type="text"
+              id="url2"
+              value="https://localhost:5101/api/auth/login"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Tenant ID</label>
+            <input
+              type="text"
+              id="tenantId"
+              value="test-tenant"
+              placeholder="e.g., test-tenant"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="email2" value="test@example.com" />
+          </div>
+
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password2" value="Test123!" />
+          </div>
+
+          <button onclick="testCors2()">Test CORS (With Tenant)</button>
+
+          <div id="result2" class="result"></div>
+        </div>
+      </div>
+
+      <div class="test-section" style="margin-top: 20px">
+        <h2>Test 3: Check Tenant Configuration</h2>
+        <p style="color: #666; font-size: 13px; margin-bottom: 15px">
+          View tenant's CORS configuration
+        </p>
+
+        <div class="form-group">
+          <label>Tenant ID</label>
+          <input type="text" id="tenantIdCheck" value="test-tenant" />
+        </div>
+
+        <button onclick="checkTenantConfig()">Check Tenant Config</button>
+
+        <div id="result3" class="result"></div>
+      </div>
+    </div>
+
+    <script>
+      function showResult(elementId, message, type) {
+        const element = document.getElementById(elementId);
+        element.textContent = message;
+        element.className = "result " + type;
+      }
+
+      async function testCors1() {
+        const url = document.getElementById("url1").value;
+        const email = document.getElementById("email1").value;
+        const password = document.getElementById("password1").value;
+
+        const resultDiv = document.getElementById("result1");
+        showResult("result1", "Testing CORS without tenant context...", "info");
+
+        try {
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, password }),
+            credentials: "include",
+          });
+
+          const data = await response.text();
+          const corsHeader = response.headers.get(
+            "Access-Control-Allow-Origin"
+          );
+
+          let message = `✓ CORS Test Passed!\n\n`;
+          message += `Status: ${response.status} ${response.statusText}\n`;
+          message += `CORS Header: ${corsHeader || "Not set"}\n\n`;
+          message += `Response:\n${data.substring(0, 500)}`;
+
+          showResult("result1", message, "success");
+        } catch (error) {
+          let message = `✗ CORS Test Failed!\n\n`;
+          message += `Error: ${error.message}\n\n`;
+          message += `This likely means:\n`;
+          message += `1. Origin not in appsettings.json Cors:AllowedOrigins\n`;
+          message += `2. Service is not running\n`;
+          message += `3. CORS middleware not configured\n\n`;
+          message += `Current origin: ${window.location.origin}\n`;
+          message += `Check browser console for detailed CORS error`;
+
+          showResult("result1", message, "error");
+        }
+      }
+
+      async function testCors2() {
+        const url = document.getElementById("url2").value;
+        const tenantId = document.getElementById("tenantId").value;
+        const email = document.getElementById("email2").value;
+        const password = document.getElementById("password2").value;
+
+        showResult("result2", "Testing CORS with tenant context...", "info");
+
+        try {
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-tenant-id": tenantId,
+            },
+            body: JSON.stringify({ email, password }),
+            credentials: "include",
+          });
+
+          const data = await response.text();
+          const corsHeader = response.headers.get(
+            "Access-Control-Allow-Origin"
+          );
+
+          let message = `✓ CORS Test Passed!\n\n`;
+          message += `Tenant: ${tenantId}\n`;
+          message += `Status: ${response.status} ${response.statusText}\n`;
+          message += `CORS Header: ${corsHeader || "Not set"}\n\n`;
+          message += `Response:\n${data.substring(0, 500)}`;
+
+          showResult("result2", message, "success");
+        } catch (error) {
+          let message = `✗ CORS Test Failed!\n\n`;
+          message += `Tenant: ${tenantId}\n`;
+          message += `Error: ${error.message}\n\n`;
+          message += `This likely means:\n`;
+          message += `1. Current origin not in tenant's AllowedOrigins\n`;
+          message += `2. Tenant doesn't exist or is inactive\n`;
+          message += `3. Tenant Service not running\n\n`;
+          message += `Current origin: ${window.location.origin}\n`;
+          message += `Check browser console for detailed CORS error`;
+
+          showResult("result2", message, "error");
+        }
+      }
+
+      async function checkTenantConfig() {
+        const tenantId = document.getElementById("tenantIdCheck").value;
+        const url = `http://localhost:5002/api/tenant/config/${tenantId}`;
+
+        showResult("result3", "Fetching tenant configuration...", "info");
+
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+
+          let message = `✓ Tenant Configuration:\n\n`;
+          message += JSON.stringify(data, null, 2);
+
+          if (data.configuration?.cors?.allowedOrigins) {
+            message += `\n\n📌 Allowed CORS Origins:\n`;
+            data.configuration.cors.allowedOrigins.forEach((origin) => {
+              message += `  - ${origin}\n`;
+            });
+
+            const currentOrigin = window.location.origin;
+            const isAllowed =
+              data.configuration.cors.allowedOrigins.includes(currentOrigin);
+
+            message += `\n🌐 Current Page Origin: ${currentOrigin}\n`;
+            message += `${isAllowed ? "✓" : "✗"} Current origin is ${
+              isAllowed ? "ALLOWED" : "NOT ALLOWED"
+            }`;
+          } else {
+            message += `\n\n⚠️ No CORS configuration found for this tenant.`;
+            message += `\nWill use appsettings.json CORS configuration.`;
+          }
+
+          showResult("result3", message, "success");
+        } catch (error) {
+          let message = `✗ Failed to fetch tenant config\n\n`;
+          message += `Error: ${error.message}\n\n`;
+          message += `Make sure:\n`;
+          message += `1. Tenant Service is running on http://localhost:5002\n`;
+          message += `2. Tenant ID '${tenantId}' exists\n`;
+          message += `3. Tenant is active`;
+
+          showResult("result3", message, "error");
+        }
+      }
+
+      // Show current origin on load
+      window.addEventListener("load", () => {
+        console.log(
+          "%c🌐 CORS Tester Ready",
+          "font-size: 16px; color: #667eea; font-weight: bold;"
+        );
+        console.log("Current origin:", window.location.origin);
+        console.log("");
+        console.log("To test CORS:");
+        console.log(
+          "1. Make sure this origin is in appsettings.json Cors:AllowedOrigins"
+        );
+        console.log("2. Or add it to tenant configuration");
+        console.log("");
+        console.log("Example appsettings.json:");
+        console.log(
+          JSON.stringify(
+            {
+              Cors: {
+                AllowedOrigins: [window.location.origin],
+              },
+            },
+            null,
+            2
+          )
+        );
+      });
+    </script>
+  </body>
+</html>

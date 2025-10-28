@@ -120,17 +120,15 @@ builder.Services.AddAuthorization();
 // ============================================
 // CORS Configuration
 // ============================================
-var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
-    ?? Array.Empty<string>();
-
+// CORS will use tenant-specific origins when multi-tenancy is enabled
+// Fallback to appsettings.json when multi-tenancy is disabled or tenant doesn't have CORS config
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(corsOrigins)
+        policy.AllowAnyOrigin()
             .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials();
+            .AllowAnyHeader();
     });
 });
 // ============================================
@@ -207,11 +205,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseGlobalExceptionHandler();
 app.UseHttpsRedirection();
-app.UseCors();
 
-// Multi-tenancy middleware (must be before authentication)
+// Multi-tenancy middleware (must be before CORS and authentication)
 // Only runs if MultiTenancy:Enabled is true
 app.UseTenantResolution(builder.Configuration);
+
+// Tenant-aware CORS (validates origins based on tenant config or appsettings)
+// Must be after tenant resolution to access tenant context
+// This middleware handles both preflight (OPTIONS) and actual requests
+app.UseTenantAwareCors();
+
+// Note: Standard UseCors() is NOT needed because TenantAwareCors handles everything
 
 // Automatic database migration for tenant databases
 // This ensures tenant databases are created and migrated automatically

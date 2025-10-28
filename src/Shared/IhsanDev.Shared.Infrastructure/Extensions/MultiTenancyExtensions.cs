@@ -97,4 +97,17 @@ public static class MultiTenancyExtensions
         
         return app.UseMiddleware<DatabaseMigrationMiddleware<TContext>>();
     }
+
+    /// <summary>
+    /// Add tenant-aware CORS middleware to the request pipeline
+    /// This middleware validates CORS origins based on tenant-specific configuration
+    /// Must be called AFTER UseTenantResolution() and BEFORE standard UseCors()
+    /// Automatically uses tenant-specific CORS origins when multi-tenancy is enabled,
+    /// otherwise falls back to appsettings.json configuration
+    /// </summary>
+    public static IApplicationBuilder UseTenantAwareCors(
+        this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<TenantAwareCorsMiddleware>();
+    }
 }
