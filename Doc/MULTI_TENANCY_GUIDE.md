@@ -26,6 +26,7 @@ This microservices architecture supports **optional multi-tenancy** with **confi
    - Manages tenant configurations
    - Stores tenant-specific settings in database
    - Provides API for configuration retrieval
+   - **Important**: Does NOT use multi-tenancy for itself - always uses static configuration from appsettings.json
 
 2. **Shared Tenant Abstractions** (`/src/Shared/IhsanDev.Shared.Kernel/`)
 
@@ -112,6 +113,8 @@ When disabled, the system behaves exactly as before with no tenant resolution an
 
 ## Tenant Service Setup
 
+**Note**: The Tenant Service itself does NOT use multi-tenancy configuration. It always uses static database, JWT, and CORS settings from its `appsettings.json` file. The `MultiTenancy` section is not needed in Tenant Service configuration.
+
 ### 1. Database Configuration
 
 Update `appsettings.Development.json` in Tenant.API:
@@ -121,9 +124,20 @@ Update `appsettings.Development.json` in Tenant.API:
   "DatabaseSettings": {
     "Provider": "PostgreSql",
     "ConnectionString": "Host=localhost;Port=5432;Database=TenantDb;Username=postgres;Password=postgres"
+  },
+  "Jwt": {
+    "Secret": "your-tenant-service-secret-key-minimum-32-characters",
+    "Issuer": "IhsanDev",
+    "Audience": "MicroservicesApp",
+    "ExpiryInMinutes": 60
+  },
+  "Cors": {
+    "AllowedOrigins": ["http://localhost:5001", "https://localhost:5101"]
   }
 }
 ```
+
+**Important**: Do NOT add `MultiTenancy` configuration to Tenant Service - it's the provider, not a consumer.
 
 ### 2. Run Migrations
 

@@ -192,6 +192,20 @@ builder.Services.AddScoped(typeof(ValidationFilter<>));
 // ============================================
 var app = builder.Build();
 
+// ============================================
+// Log Startup Configuration
+// ============================================
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("========================================");
+logger.LogInformation("Identity API Starting...");
+logger.LogInformation("========================================");
+logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
+logger.LogInformation("URLs: {Urls}", builder.Configuration["Urls"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "Not Set");
+logger.LogInformation("Database: {Database}", builder.Configuration["DatabaseSettings:ConnectionString"]?.Split(';').FirstOrDefault(s => s.StartsWith("Database="))?.Replace("Database=", "") ?? "Unknown");
+logger.LogInformation("Multi-Tenancy: {Enabled}", builder.Configuration["MultiTenancy:Enabled"]);
+logger.LogInformation("JWT Mode: {JwtMode}", builder.Configuration["MultiTenancy:JwtMode"]);
+logger.LogInformation("========================================");
+
 // Initialize database (Development only)
 if (app.Environment.IsDevelopment())
 {

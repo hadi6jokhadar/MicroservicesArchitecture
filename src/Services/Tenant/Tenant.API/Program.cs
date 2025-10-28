@@ -8,8 +8,6 @@ using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Filters;
 using IhsanDev.Shared.Infrastructure.Services;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
-using IhsanDev.Shared.Kernel.Interfaces.Tenant;
-using IhsanDev.Shared.Kernel.Enums;
 using Tenant.API.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -40,6 +38,9 @@ builder.Services.AddCustomLogging(builder.Configuration, "Tenant");
 // ============================================
 // Database Configuration (Multi-Provider)
 // ============================================
+// Tenant Service ALWAYS uses the static connection string from appsettings.json
+// It does NOT dynamically connect to different databases based on tenant context
+// This service stores tenant configurations but doesn't operate in multi-tenant mode itself
 builder.Services.AddDatabaseContext<TenantDbContext>(
     builder.Configuration,
     migrationAssembly: typeof(TenantDbContext).Assembly.GetName().Name);
@@ -47,17 +48,12 @@ builder.Services.AddDatabaseContext<TenantDbContext>(
 // ============================================
 // Authentication & Authorization
 // ============================================
-// Read JWT mode configuration to determine if JWT is shared or per-tenant
-var jwtModeString = builder.Configuration["MultiTenancy:JwtMode"] ?? "Shared";
-var jwtMode = Enum.TryParse<JwtMode>(jwtModeString, ignoreCase: true, out var parsedMode) 
-    ? parsedMode 
-    : JwtMode.Shared;
-
-// Always use Jwt section from appsettings.json (for both Shared and PerTenant modes)
+// Tenant Service ALWAYS uses JWT settings from appsettings.json
+// It does NOT load JWT settings from tenant configurations
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 
 var secretKey = jwtSettings["Secret"]
-    ?? throw new InvalidOperationException("JWT Secret is not configured");
+    ?? throw new InvalidOperationException("JWT Secret is not configured in appsettings.json");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -77,39 +73,14 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
-    
-    // Support per-tenant JWT validation when JwtMode is PerTenant
-    if (jwtMode == JwtMode.PerTenant)
-    {
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                // Resolve tenant-specific JWT settings if available
-                var tenantContext = context.HttpContext.RequestServices.GetService<ITenantContext>();
-                if (tenantContext?.HasTenant == true && tenantContext.CurrentTenant?.Configuration?.Jwt != null)
-                {
-                    var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
-                    if (!string.IsNullOrEmpty(tenantJwt.Secret))
-                    {
-                        context.Options.TokenValidationParameters.IssuerSigningKey = 
-                            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret));
-                        context.Options.TokenValidationParameters.ValidIssuer = tenantJwt.Issuer;
-                        context.Options.TokenValidationParameters.ValidAudience = tenantJwt.Audience;
-                    }
-                }
-                return Task.CompletedTask;
-            }
-        };
-    }
-    // When JwtMode is Shared, use the JWT settings from appsettings.json
-    // All tenants validate tokens using the same JWT secret from Jwt section
 });
 builder.Services.AddAuthorization();
 
 // ============================================
 // CORS Configuration
 // ============================================
+// Tenant Service ALWAYS uses CORS settings from appsettings.json
+// It does NOT load CORS settings from tenant configurations
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
     ?? Array.Empty<string>();
 

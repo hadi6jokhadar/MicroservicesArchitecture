@@ -117,10 +117,6 @@ public class UserService : IUserService
         var token = tokenHandler.CreateToken(tokenDescriptor);
         var accessToken = tokenHandler.WriteToken(token);
         
-        _logger.LogInformation(
-            "✅ JWT token generated successfully for user '{Email}' (UserId: {UserId}, Expires: {ExpiresAt})",
-            user.Email, user.Id, tokenDescriptor.Expires);
-        
         var refreshToken = GenerateRefreshToken();
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(refreshTokenExpiryDays);
         

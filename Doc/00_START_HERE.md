@@ -73,6 +73,7 @@ Doc/
 │  │ (Port 5001)        │  │  (Port 5002)         │  │Manager │  │
 │  │ • JWT Auth         │  │  • Tenant Config     │  │(Opt.)  │  │
 │  │ • User Management  │  │  • Multi-tenancy     │  │        │  │
+│  │ • Multi-tenant ✓   │  │  • Single DB (own)   │  │        │  │
 │  └────────────────────┘  └──────────────────────┘  └────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                   │                        │
@@ -91,13 +92,14 @@ Doc/
 
 ### **Key Concepts**
 
-| Concept                 | Description                                            |
-| ----------------------- | ------------------------------------------------------ |
-| **Database-Per-Tenant** | Each tenant has separate database (complete isolation) |
-| **Shared Services**     | Identity, Tenant, File Manager used by ALL projects    |
-| **TenantId**            | Database boundary (different databases)                |
-| **ProjectId**           | Logical filter within same database (soft isolation)   |
-| **Dynamic Connection**  | Services connect to different DBs based on tenant      |
+| Concept                 | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| **Database-Per-Tenant** | Each tenant has separate database (complete isolation)   |
+| **Shared Services**     | Identity, Tenant, File Manager used by ALL projects      |
+| **TenantId**            | Database boundary (different databases)                  |
+| **ProjectId**           | Logical filter within same database (soft isolation)     |
+| **Dynamic Connection**  | Services connect to different DBs based on tenant        |
+| **Tenant Service**      | Provider of configs, NOT a consumer (uses own static DB) |
 
 ---
 

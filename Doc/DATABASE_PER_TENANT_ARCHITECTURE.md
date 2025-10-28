@@ -465,6 +465,17 @@ private IdentityDbContext CreateTenantDbContext(string connectionString)
 
 ## Tenant Service Role
 
+**Important**: The Tenant Service itself does NOT use multi-tenancy configuration. It operates with a single, static database connection from its `appsettings.json`. The Tenant Service is the **provider** of tenant configurations, not a **consumer**.
+
+### Configuration
+
+The Tenant Service always uses:
+
+- **Database**: Static connection from `appsettings.json` → `DatabaseSettings:ConnectionString`
+- **JWT**: Static settings from `appsettings.json` → `Jwt` section
+- **CORS**: Static origins from `appsettings.json` → `Cors` section
+- **No MultiTenancy section needed**: The service doesn't require `MultiTenancy` configuration
+
 ### **Tenant Service Stores Connection Strings**
 
 **Tenant Service Database (Centralized):**

@@ -228,7 +228,12 @@ builder.Services.AddMultiTenancy(builder.Configuration);
 
 ```csharp
 // src/Services/Tenant/Tenant.API/Program.cs
-// Multi-tenancy not enabled (it's the tenant provider itself)
+// Multi-tenancy NOT used (Tenant Service is the provider, not a consumer)
+// It always uses static configuration from appsettings.json:
+// - Database: DatabaseSettings:ConnectionString
+// - JWT: Jwt section
+// - CORS: Cors section
+// No MultiTenancy configuration needed in Tenant Service
 ```
 
 ### Your New Service
