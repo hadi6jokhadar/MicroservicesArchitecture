@@ -2,12 +2,13 @@
 
 ## Overview
 
-The microservices architecture now supports **tenant-aware CORS** configuration, allowing each tenant to have their own allowed origins while maintaining a fallback to the application's default CORS settings.
+The microservices architecture now supports **tenant-aware CORS** configuration, allowing each tenant to have their own allowed origins with strict mode enforcement (no fallback when multi-tenancy is enabled).
 
 ### Key Features
 
 - ✅ **Tenant-Specific Origins**: Each tenant can define their own allowed CORS origins
-- ✅ **Automatic Fallback**: Uses appsettings.json CORS when multi-tenancy is disabled or tenant doesn't have CORS config
+- ✅ **Strict Mode Support**: When multi-tenancy enabled, CORS must come from tenant config (no fallback)
+- ✅ **Single-Tenant Mode**: Uses appsettings.json CORS when multi-tenancy is disabled
 - ✅ **Dynamic Resolution**: CORS origins are resolved at request time based on tenant context
 - ✅ **Middleware-Based**: Uses custom middleware for runtime CORS validation
 - ✅ **Zero Configuration**: Works automatically when multi-tenancy is enabled
@@ -26,10 +27,10 @@ The microservices architecture now supports **tenant-aware CORS** configuration,
 3. TenantConfigurationProvider fetches tenant config (with caching)
    ↓
 4. TenantAwareCorsMiddleware validates Origin header
-   ├─ Multi-tenancy enabled + Tenant has CORS config?
-   │  └─ Use tenant-specific AllowedOrigins
-   └─ Otherwise?
-      └─ Use appsettings.json Cors:AllowedOrigins
+   ├─ Multi-tenancy ENABLED?
+   │  └─ Use ONLY tenant-specific AllowedOrigins (no fallback)
+   └─ Multi-tenancy DISABLED?
+      └─ Use ONLY appsettings.json Cors:AllowedOrigins
    ↓
 5. If Origin is valid:
    ├─ Set Access-Control-Allow-Origin header
@@ -40,10 +41,16 @@ The microservices architecture now supports **tenant-aware CORS** configuration,
 
 ### Configuration Priority
 
-1. **Tenant-specific CORS** (when multi-tenancy is enabled and tenant has CORS config)
-   - Read from `TenantInfo.Configuration.Cors.AllowedOrigins`
-2. **Application default CORS** (fallback)
-   - Read from `appsettings.json` → `Cors:AllowedOrigins`
+**When Multi-Tenancy is ENABLED (`"Enabled": true`):**
+
+- **ONLY tenant-specific CORS** - Read from `TenantInfo.Configuration.Cors.AllowedOrigins`
+- No fallback to appsettings.json
+- If tenant CORS config is missing → Error
+
+**When Multi-Tenancy is DISABLED (`"Enabled": false`):**
+
+- **ONLY application default CORS** - Read from `appsettings.json` → `Cors:AllowedOrigins`
+- Tenant configuration is not used
 
 ---
 
@@ -51,11 +58,11 @@ The microservices architecture now supports **tenant-aware CORS** configuration,
 
 ### Application-Level CORS (appsettings.json)
 
-This is the fallback configuration used when:
+This configuration is used when:
 
-- Multi-tenancy is disabled
-- Tenant doesn't have custom CORS settings
-- Request doesn't include tenant ID
+- **Multi-tenancy is disabled** (`"MultiTenancy:Enabled": false`)
+
+This configuration is **NOT used** when multi-tenancy is enabled (strict mode).
 
 **Identity Service** (`appsettings.json`):
 
@@ -297,7 +304,7 @@ curl -X POST "https://localhost:5001/api/auth/login" \
 - Origin `https://abc-company.com` is allowed (if in tenant config)
 - Origin `http://localhost:4200` is rejected (not in tenant config)
 
-### Test Case 3: Tenant Without CORS Config (Fallback)
+### Test Case 3: Tenant Without CORS Config (Error in Strict Mode)
 
 **Request**:
 
@@ -309,10 +316,15 @@ curl -X POST "https://localhost:5001/api/auth/login" \
   -d '{"email": "user@example.com", "password": "Password123!"}'
 ```
 
-**Expected Behavior**:
+**Expected Behavior (Multi-Tenancy Enabled)**:
 
 - Tenant doesn't have CORS configuration
-- Falls back to `appsettings.json` → `Cors:AllowedOrigins`
+- Request fails with error: "Tenant CORS configuration is not available"
+- No fallback to appsettings.json
+
+**Expected Behavior (Multi-Tenancy Disabled)**:
+
+- Uses `appsettings.json` → `Cors:AllowedOrigins`
 - Origin `http://localhost:3000` is allowed (if in config)
 
 ### Test Case 4: Invalid Origin (Blocked)
@@ -629,11 +641,11 @@ app.UseTenantAwareCors();  // ← New middleware
 app.UseCors();
 ```
 
-**No Breaking Changes**:
+**Strict Mode Behavior**:
 
-- Existing services without multi-tenancy continue to work
-- CORS configuration in `appsettings.json` still used as fallback
-- No changes required to frontend applications
+- When multi-tenancy is enabled: CORS MUST come from tenant configuration (no fallback)
+- When multi-tenancy is disabled: CORS comes from `appsettings.json`
+- Frontend applications must ensure proper tenant headers are sent
 
 ---
 
@@ -642,7 +654,8 @@ app.UseCors();
 ### What You Get
 
 - ✅ **Tenant-specific CORS origins** per tenant
-- ✅ **Automatic fallback** to appsettings.json
+- ✅ **Strict mode enforcement** - no fallback when multi-tenancy enabled
+- ✅ **Single-tenant mode support** - uses appsettings.json when disabled
 - ✅ **Runtime validation** based on tenant context
 - ✅ **Dynamic header support** - allows any headers requested by browser
 - ✅ **All HTTP methods supported** - GET, POST, PUT, DELETE, PATCH, OPTIONS
@@ -653,11 +666,12 @@ app.UseCors();
 ### Key Points
 
 1. **Middleware order matters**: Tenant resolution → Tenant-aware CORS (no standard UseCors needed)
-2. **Fallback always available**: Uses appsettings.json when tenant doesn't have CORS config
-3. **Cache-aware**: Configuration changes may take up to 5 minutes to propagate
-4. **Security first**: No wildcard origins, exact matching only
-5. **Headers**: Dynamically allows all headers requested by the browser (required when using credentials)
-6. **Methods**: All HTTP methods are allowed (GET, POST, PUT, DELETE, PATCH, OPTIONS)
+2. **Strict mode**: When multi-tenancy enabled, tenant MUST have CORS config (no fallback)
+3. **Single-tenant mode**: Uses appsettings.json when multi-tenancy is disabled
+4. **Cache-aware**: Configuration changes may take up to 5 minutes to propagate
+5. **Security first**: No wildcard origins, exact matching only
+6. **Headers**: Dynamically allows all headers requested by the browser (required when using credentials)
+7. **Methods**: All HTTP methods are allowed (GET, POST, PUT, DELETE, PATCH, OPTIONS)
 
 ### Important Notes
 

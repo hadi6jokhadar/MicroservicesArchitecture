@@ -10,7 +10,9 @@ namespace Identity.Infrastructure.Helpers;
 public static class ConfigurationHelper
 {
     /// <summary>
-    /// Gets configuration value with tenant fallback support
+    /// Gets configuration value based on multi-tenancy mode
+    /// When multi-tenancy is enabled: ONLY use tenant configuration (no fallback)
+    /// When multi-tenancy is disabled: use appsettings.json
     /// </summary>
     /// <param name="configuration">Application configuration</param>
     /// <param name="tenantContext">Current tenant context</param>
@@ -23,25 +25,41 @@ public static class ConfigurationHelper
         string configKey,
         Func<TenantConfiguration, string?>? tenantValueSelector = null)
     {
-        // Try tenant config first if available
-        if (tenantContext.HasTenant && 
-            tenantContext.CurrentTenant?.Configuration != null &&
-            tenantValueSelector != null)
-        {
-            var tenantValue = tenantValueSelector(tenantContext.CurrentTenant.Configuration);
-            if (!string.IsNullOrEmpty(tenantValue))
-            {
-                return tenantValue;
-            }
-        }
+        var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled", false);
 
-        // Fallback to appsettings
-        return configuration[configKey] 
-            ?? throw new InvalidOperationException($"Configuration key '{configKey}' not found in appsettings or tenant configuration");
+        if (multiTenancyEnabled)
+        {
+            // When multi-tenancy is enabled, ONLY use tenant configuration
+            if (!tenantContext.HasTenant || 
+                tenantContext.CurrentTenant?.Configuration == null ||
+                tenantValueSelector == null)
+            {
+                throw new InvalidOperationException(
+                    $"Multi-tenancy is enabled but tenant configuration is not available for key '{configKey}'. " +
+                    "Ensure x-tenant-id header is provided and tenant exists with valid configuration.");
+            }
+
+            var tenantValue = tenantValueSelector(tenantContext.CurrentTenant.Configuration);
+            if (string.IsNullOrEmpty(tenantValue))
+            {
+                throw new InvalidOperationException(
+                    $"Configuration key '{configKey}' not found in tenant configuration");
+            }
+
+            return tenantValue;
+        }
+        else
+        {
+            // When multi-tenancy is disabled, use appsettings.json
+            return configuration[configKey] 
+                ?? throw new InvalidOperationException($"Configuration key '{configKey}' not found in appsettings.json");
+        }
     }
 
     /// <summary>
-    /// Gets JWT settings with automatic tenant/default resolution
+    /// Gets JWT settings based on multi-tenancy mode
+    /// When multi-tenancy is enabled: ONLY use tenant JWT settings (no fallback)
+    /// When multi-tenancy is disabled: use appsettings.json
     /// </summary>
     /// <param name="configuration">Application configuration</param>
     /// <param name="tenantContext">Current tenant context</param>
@@ -50,36 +68,45 @@ public static class ConfigurationHelper
         IConfiguration configuration,
         ITenantContext tenantContext)
     {
-        // If tenant has custom JWT config, use it
-        if (tenantContext.HasTenant && 
-            tenantContext.CurrentTenant?.Configuration?.Jwt != null)
-        {
-            var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
-            if (!string.IsNullOrEmpty(tenantJwt.Secret))
-            {
-                return new JwtSettings
-                {
-                    Secret = tenantJwt.Secret,
-                    Issuer = tenantJwt.Issuer ?? configuration["Jwt:Issuer"]!,
-                    Audience = tenantJwt.Audience ?? configuration["Jwt:Audience"]!,
-                    AccessTokenExpirationMinutes = tenantJwt.AccessTokenExpirationMinutes > 0
-                        ? tenantJwt.AccessTokenExpirationMinutes
-                        : int.Parse(configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60")
-                };
-            }
-        }
+        var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled", false);
 
-        // Fallback to appsettings
-        return new JwtSettings
+        if (multiTenancyEnabled)
         {
-            Secret = configuration["Jwt:Secret"] 
-                ?? throw new InvalidOperationException("JWT Secret not configured"),
-            Issuer = configuration["Jwt:Issuer"] 
-                ?? throw new InvalidOperationException("JWT Issuer not configured"),
-            Audience = configuration["Jwt:Audience"] 
-                ?? throw new InvalidOperationException("JWT Audience not configured"),
-            AccessTokenExpirationMinutes = int.Parse(configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60")
-        };
+            // When multi-tenancy is enabled, ONLY use tenant JWT configuration
+            if (!tenantContext.HasTenant || 
+                tenantContext.CurrentTenant?.Configuration?.Jwt == null ||
+                string.IsNullOrEmpty(tenantContext.CurrentTenant.Configuration.Jwt.Secret))
+            {
+                throw new InvalidOperationException(
+                    "Multi-tenancy is enabled but tenant JWT configuration is not available. " +
+                    "Ensure x-tenant-id header is provided and tenant exists with valid JWT settings.");
+            }
+
+            var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
+            return new JwtSettings
+            {
+                Secret = tenantJwt.Secret,
+                Issuer = tenantJwt.Issuer ?? "IdentityService",
+                Audience = tenantJwt.Audience ?? "MicroservicesApp",
+                AccessTokenExpirationMinutes = tenantJwt.AccessTokenExpirationMinutes > 0
+                    ? tenantJwt.AccessTokenExpirationMinutes
+                    : 60
+            };
+        }
+        else
+        {
+            // When multi-tenancy is disabled, use appsettings.json
+            return new JwtSettings
+            {
+                Secret = configuration["Jwt:Secret"] 
+                    ?? throw new InvalidOperationException("JWT Secret not configured in appsettings.json"),
+                Issuer = configuration["Jwt:Issuer"] 
+                    ?? throw new InvalidOperationException("JWT Issuer not configured in appsettings.json"),
+                Audience = configuration["Jwt:Audience"] 
+                    ?? throw new InvalidOperationException("JWT Audience not configured in appsettings.json"),
+                AccessTokenExpirationMinutes = int.Parse(configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60")
+            };
+        }
     }
 
     /// <summary>
@@ -101,7 +128,9 @@ public static class ConfigurationHelper
     }
 
     /// <summary>
-    /// Gets CORS allowed origins with tenant support
+    /// Gets CORS allowed origins based on multi-tenancy mode
+    /// When multi-tenancy is enabled: ONLY use tenant CORS settings (no fallback)
+    /// When multi-tenancy is disabled: use appsettings.json
     /// </summary>
     /// <param name="configuration">Application configuration</param>
     /// <param name="tenantContext">Current tenant context</param>
@@ -110,15 +139,27 @@ public static class ConfigurationHelper
         IConfiguration configuration,
         ITenantContext tenantContext)
     {
-        // Try tenant config first
-        if (tenantContext.HasTenant && 
-            tenantContext.CurrentTenant?.Configuration?.Cors?.AllowedOrigins?.Length > 0)
+        var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+
+        if (multiTenancyEnabled)
         {
+            // When multi-tenancy is enabled, ONLY use tenant CORS configuration
+            if (!tenantContext.HasTenant || 
+                tenantContext.CurrentTenant?.Configuration?.Cors?.AllowedOrigins == null ||
+                tenantContext.CurrentTenant.Configuration.Cors.AllowedOrigins.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "Multi-tenancy is enabled but tenant CORS configuration is not available. " +
+                    "Ensure x-tenant-id header is provided and tenant exists with valid CORS settings.");
+            }
+
             return tenantContext.CurrentTenant.Configuration.Cors.AllowedOrigins;
         }
-
-        // Fallback to appsettings
-        return configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+        else
+        {
+            // When multi-tenancy is disabled, use appsettings.json
+            return configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+        }
     }
 }
 

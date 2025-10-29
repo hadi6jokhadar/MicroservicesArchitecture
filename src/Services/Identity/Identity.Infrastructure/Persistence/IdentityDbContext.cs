@@ -40,37 +40,53 @@ public class IdentityDbContext : BaseDbContext
 
         string? connectionString = null;
         string? provider = null;
+        var multiTenancyEnabled = _configuration?.GetValue<bool>("MultiTenancy:Enabled", false) ?? false;
 
-        // Check if multi-tenancy is enabled and tenant has custom database settings
-        if (_tenantContext?.HasTenant == true && 
-            _tenantContext.CurrentTenant?.Configuration?.DatabaseSettings != null)
+        // When multi-tenancy is enabled, ONLY use tenant-specific database settings
+        if (multiTenancyEnabled)
         {
+            // Tenant context and configuration MUST be present
+            if (_tenantContext?.HasTenant != true || 
+                _tenantContext.CurrentTenant?.Configuration?.DatabaseSettings == null)
+            {
+                throw new InvalidOperationException(
+                    "Multi-tenancy is enabled but tenant database configuration is not available. " +
+                    "Ensure x-tenant-id header is provided and tenant exists with valid database settings.");
+            }
+
             var tenantDb = _tenantContext.CurrentTenant.Configuration.DatabaseSettings;
             
-            if (!string.IsNullOrWhiteSpace(tenantDb.ConnectionString))
+            if (string.IsNullOrWhiteSpace(tenantDb.ConnectionString))
             {
-                connectionString = tenantDb.ConnectionString;
-                provider = tenantDb.Provider ?? "PostgreSql";
-                
-                _logger?.LogInformation(
-                    "Using tenant-specific database connection for tenant: {TenantId}", 
-                    _tenantContext.CurrentTenant.TenantId);
+                throw new InvalidOperationException(
+                    $"Tenant '{_tenantContext.CurrentTenant.TenantId}' does not have a database connection string configured.");
             }
-        }
 
-        // Fallback to appsettings.json if no tenant-specific database
-        if (string.IsNullOrWhiteSpace(connectionString) && _configuration != null)
+            connectionString = tenantDb.ConnectionString;
+            provider = tenantDb.Provider ?? "PostgreSql";
+            
+            _logger?.LogInformation(
+                "Using tenant-specific database connection for tenant: {TenantId}", 
+                _tenantContext.CurrentTenant.TenantId);
+        }
+        else
         {
+            // When multi-tenancy is disabled, use appsettings.json
+            if (_configuration == null)
+            {
+                throw new InvalidOperationException("Configuration is not available");
+            }
+
             connectionString = _configuration["DatabaseSettings:ConnectionString"];
             provider = _configuration["DatabaseSettings:Provider"] ?? "PostgreSql";
             
-            _logger?.LogDebug("Using default database connection from appsettings.json");
-        }
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "Database connection string is not configured in appsettings.json");
+            }
 
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw new InvalidOperationException(
-                "Database connection string is not configured in either tenant settings or appsettings.json");
+            _logger?.LogDebug("Using default database connection from appsettings.json");
         }
 
         // Configure database provider

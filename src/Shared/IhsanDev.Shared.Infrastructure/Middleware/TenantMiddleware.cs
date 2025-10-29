@@ -34,10 +34,17 @@ public class TenantMiddleware
         // Extract tenant ID from header
         var tenantId = context.Request.Headers["x-tenant-id"].FirstOrDefault();
 
+        // When multi-tenancy is enabled, x-tenant-id header is REQUIRED
         if (string.IsNullOrWhiteSpace(tenantId))
         {
-            _logger.LogDebug("No tenant ID found in request headers");
-            await _next(context);
+            _logger.LogWarning("Multi-tenancy is enabled but x-tenant-id header is missing");
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = "Missing required header",
+                message = "Multi-tenancy is enabled. The 'x-tenant-id' header is required for all requests.",
+                details = "Please provide a valid tenant ID in the 'x-tenant-id' header."
+            });
             return;
         }
 

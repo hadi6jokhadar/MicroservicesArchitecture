@@ -101,11 +101,53 @@ Update `appsettings.json` in services (e.g., Identity.API):
   "DatabaseSettings": {
     "Provider": "PostgreSql",
     "ConnectionString": "Host=localhost;Port=5432;Database=identity;Username=postgres;Password=postgres;"
+  },
+  "Jwt": {
+    "Secret": "your-secret-key-minimum-32-characters",
+    "Issuer": "IdentityService",
+    "Audience": "MicroservicesApp",
+    "ExpiryInMinutes": 60
   }
 }
 ```
 
 When disabled, the system behaves as single-tenant with no tenant resolution and uses static configuration from appsettings.json. The `x-tenant-id` header is not required or used. **Note:** Automatic database migration still works - the database will be auto-created on the first request even when multi-tenancy is disabled.
+
+---
+
+## ⚠️ Important: Multi-Tenancy Behavior Changes
+
+### When Multi-Tenancy is **ENABLED** (`"Enabled": true`)
+
+**CRITICAL REQUIREMENTS:**
+
+1. **`x-tenant-id` header is REQUIRED** for all requests
+
+   - If missing: Returns `400 Bad Request` with error message
+   - Error: "Multi-tenancy is enabled. The 'x-tenant-id' header is required for all requests."
+
+2. **NO fallback to appsettings.json**
+
+   - All configuration (Database, JWT, CORS) **MUST** come from tenant settings
+   - If tenant not found: Returns `404 Not Found`
+   - If tenant database not configured: Throws `InvalidOperationException`
+   - If tenant JWT not configured: Throws `InvalidOperationException`
+
+3. **Tenant configuration is mandatory**
+   - Database connection string must be in tenant settings
+   - JWT settings must be in tenant settings (for PerTenant mode)
+   - CORS origins must be in tenant settings
+
+### When Multi-Tenancy is **DISABLED** (`"Enabled": false`)
+
+**BEHAVIOR:**
+
+1. **`x-tenant-id` header is NOT required** (ignored if provided)
+2. **All configuration comes from appsettings.json**
+   - DatabaseSettings section is used
+   - Jwt section is used
+   - Cors section is used
+3. **No tenant validation or resolution occurs**
 
 ### JWT Mode Comparison
 
@@ -277,20 +319,28 @@ Uses tenant-specific configuration from Tenant Service.
 
 ### Tenant Resolution Priority
 
-1. **Multi-Tenancy Enabled**
+1. **Multi-Tenancy Enabled** (`"Enabled": true`)
 
-   - `x-tenant-id` header is **REQUIRED**
-   - Fetch configuration from Tenant Service
-   - Use tenant-specific settings (Database, JWT, CORS)
+   - `x-tenant-id` header is **REQUIRED** for all requests
+   - **If header missing**: Returns `400 Bad Request` with error message
+   - Fetch configuration from Tenant Service (no fallback to appsettings)
+   - **All settings MUST come from tenant configuration:**
+     - Database connection string (mandatory)
+     - JWT settings (mandatory for PerTenant mode)
+     - CORS origins (mandatory)
    - Auto-create tenant database if needed
    - Add `tenant_id` claim to JWT tokens
-   - **If header missing**: Request fails/error returned
+   - **No default fallback** - tenant not found or invalid = error
 
-2. **Multi-Tenancy Disabled**
+2. **Multi-Tenancy Disabled** (`"Enabled": false`)
    - `x-tenant-id` header is **NOT USED** (ignored if provided)
-   - Use `appsettings.json` configuration
+   - **All settings come from appsettings.json:**
+     - DatabaseSettings section
+     - Jwt section
+     - Cors section
    - Auto-create default database if needed
    - Behave as single-tenant application
+   - No tenant validation occurs
 
 ---
 

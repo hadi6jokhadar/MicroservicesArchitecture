@@ -53,34 +53,43 @@ public class UserService : IUserService
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         
-        // Determine JWT settings: Use tenant-specific if available, otherwise use appsettings.json
+        // Determine JWT settings based on MultiTenancy mode
+        var multiTenancyEnabled = _configuration.GetValue<bool>("MultiTenancy:Enabled", false);
         string jwtSecret;
         string jwtIssuer;
         string jwtAudience;
         int expiryMinutes;
         int refreshTokenExpiryDays;
         
-        // Check if multi-tenancy is enabled and tenant has custom JWT settings
-        if (_tenantContext.HasTenant && 
-            _tenantContext.CurrentTenant?.Configuration?.Jwt != null &&
-            !string.IsNullOrWhiteSpace(_tenantContext.CurrentTenant.Configuration.Jwt.Secret))
+        if (multiTenancyEnabled)
         {
+            // When multi-tenancy is enabled, ONLY use tenant-specific JWT settings
+            if (!_tenantContext.HasTenant || 
+                _tenantContext.CurrentTenant?.Configuration?.Jwt == null ||
+                string.IsNullOrWhiteSpace(_tenantContext.CurrentTenant.Configuration.Jwt.Secret))
+            {
+                throw new InvalidOperationException(
+                    "Multi-tenancy is enabled but tenant JWT configuration is not available. " +
+                    "Ensure x-tenant-id header is provided and tenant exists with valid JWT settings.");
+            }
+
             // Use tenant-specific JWT settings
             var tenantJwt = _tenantContext.CurrentTenant.Configuration.Jwt;
-            jwtSecret = tenantJwt.Secret!; // Already validated as non-null above
-            jwtIssuer = tenantJwt.Issuer ?? _configuration["Jwt:Issuer"] ?? "IdentityService";
-            jwtAudience = tenantJwt.Audience ?? _configuration["Jwt:Audience"] ?? "MicroservicesApp";
+            jwtSecret = tenantJwt.Secret!;
+            jwtIssuer = tenantJwt.Issuer ?? "IdentityService";
+            jwtAudience = tenantJwt.Audience ?? "MicroservicesApp";
             expiryMinutes = tenantJwt.AccessTokenExpirationMinutes > 0 
                 ? tenantJwt.AccessTokenExpirationMinutes 
-                : int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60");
+                : 60;
             refreshTokenExpiryDays = tenantJwt.RefreshTokenExpirationDays > 0 
                 ? tenantJwt.RefreshTokenExpirationDays 
-                : int.Parse(_configuration["Jwt:RefreshTokenExpiryInDays"] ?? "7");
+                : 7;
         }
         else
         {
-            // Use default JWT settings from appsettings.json
-            jwtSecret = _configuration["Jwt:Secret"] ?? "your-secret-key-here";
+            // When multi-tenancy is disabled, use appsettings.json
+            jwtSecret = _configuration["Jwt:Secret"] 
+                ?? throw new InvalidOperationException("JWT Secret is not configured in appsettings.json");
             jwtIssuer = _configuration["Jwt:Issuer"] ?? "IdentityService";
             jwtAudience = _configuration["Jwt:Audience"] ?? "MicroservicesApp";
             expiryMinutes = int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60");

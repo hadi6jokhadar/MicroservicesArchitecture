@@ -210,12 +210,16 @@ logger.LogInformation("JWT Mode: {JwtMode}", builder.Configuration["MultiTenancy
 logger.LogInformation("========================================");
 
 // Initialize database (Development only)
-if (app.Environment.IsDevelopment())
+// Skip if multi-tenancy is enabled - tenant databases will be initialized automatically per-request
+if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false))
 {
     await app.Services.InitializeDatabaseAsync<IdentityDbContext>(
         applyMigrations: true,
         seedData: true);
-    
+}
+
+if (app.Environment.IsDevelopment())
+{
     app.UseSwagger();
     app.UseSwaggerUI();
 }

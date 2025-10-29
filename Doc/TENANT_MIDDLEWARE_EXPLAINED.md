@@ -33,7 +33,7 @@ Shared Library Automatically:
 │ 4. ✅ Sets up HttpClient for Tenant Service  │
 │ 5. ✅ Registers ITenantContext               │
 │ 6. ✅ Registers ITenantService               │
-│ 7. ✅ Configures fallback to defaults        │
+│ 7. ✅ Enforces strict tenant validation      │
 └──────────────────────────────────────────────┘
 ```
 
@@ -62,10 +62,10 @@ Shared Library Automatically:
    │
    ├─ Success → Cache for 60 minutes
    │
-   └─ Failed → Use default configuration (fallback)
+   └─ Failed → Return error (no fallback when multi-tenancy enabled)
        │
        ↓
-6. Set ITenantContext.CurrentTenant
+6. Set ITenantContext.CurrentTenant (if successful)
    │
    ↓
 7. Continue to your handler
@@ -203,7 +203,7 @@ builder.Services.AddMultiTenancy(builder.Configuration);
 | Extract tenant ID from header      | ❌ No          | ✅ Yes               |
 | Call Tenant Service API            | ❌ No          | ✅ Yes               |
 | Implement caching                  | ❌ No          | ✅ Yes               |
-| Handle errors/fallback             | ❌ No          | ✅ Yes               |
+| Enforce tenant validation          | ❌ No          | ✅ Yes               |
 | Register ITenantContext            | ❌ No          | ✅ Yes               |
 | **Call AddMultiTenancy()**         | **✅ YES**     | ❌ No                |
 | **Use ITenantContext in handlers** | **✅ YES**     | ❌ No                |

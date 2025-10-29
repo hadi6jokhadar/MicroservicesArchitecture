@@ -96,10 +96,25 @@ curl https://localhost:5002/api/your-endpoint \
 {
   "MultiTenancy": {
     "Enabled": true,
-    "TenantServiceUrl": "https://localhost:5002"
+    "TenantServiceUrl": "https://localhost:5002",
+    "CacheExpirationMinutes": 5
   }
 }
 ```
+
+**⚠️ Important:** When `Enabled: true`, `x-tenant-id` header is **REQUIRED** for all requests. No fallback to appsettings.json.
+
+**⚠️ Startup Configuration:** When multi-tenancy is enabled, skip database initialization at startup:
+
+```csharp
+// ✅ CORRECT - Skip if multi-tenancy enabled
+if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false))
+{
+    await app.Services.InitializeDatabaseAsync<YourDbContext>(applyMigrations: true, seedData: true);
+}
+```
+
+Tenant databases will be initialized automatically per-request.
 
 ---
 

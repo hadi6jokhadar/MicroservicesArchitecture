@@ -38,11 +38,13 @@ Doc/
 │
 ├─ Service-Specific Guides
 │  ├─ MULTI_TENANCY_GUIDE.md                ← Comprehensive multi-tenancy
+│  ├─ MULTI_TENANCY_STRICT_MODE.md          ← 🔴 NEW: Strict mode behavior & migration
 │  ├─ MULTI_TENANCY_QUICK_START.md          ← Quick setup
 │  ├─ MULTI_TENANT_DEPLOYMENT_GUIDE.md      ← Deployment strategies
 │  ├─ FILE_MANAGER_SERVICE_GUIDE.md         ← File storage architecture
 │  ├─ PROJECT_ISOLATION_STRATEGY_GUIDE.md   ← User isolation patterns
-│  └─ TENANT_MIDDLEWARE_EXPLAINED.md        ← How tenant middleware works
+│  ├─ TENANT_MIDDLEWARE_EXPLAINED.md        ← How tenant middleware works
+│  └─ TENANT_AWARE_CORS_GUIDE.md            ← Tenant-specific CORS
 │
 ├─ Development Guides
 │  ├─ CACHING_STRATEGY_COMPARISON.md        ← MemoryCache vs Redis
