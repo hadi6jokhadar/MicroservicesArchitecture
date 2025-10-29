@@ -96,6 +96,16 @@ builder.Services.AddCors(options =>
 });
 
 // ============================================
+// Response Compression (Performance Optimization)
+// ============================================
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+});
+
+// ============================================
 // Application Services
 // ============================================
 builder.Services.AddEndpointsApiExplorer();
@@ -161,6 +171,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseGlobalExceptionHandler();
+app.UseResponseCompression(); // Enable response compression for better network performance
 app.UseHttpsRedirection();
 app.UseCors();
 app.UseAuthentication();

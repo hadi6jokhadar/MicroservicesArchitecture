@@ -29,9 +29,10 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
         _configuration = configuration;
         _logger = logger;
         
-        // Cache tenant config for 5 minutes by default
+        // Cache tenant config for 30 minutes by default (increased from 5 for better performance)
+        // Can be overridden in appsettings.json with MultiTenancy:CacheExpirationMinutes
         _cacheExpiration = TimeSpan.FromMinutes(
-            configuration.GetValue<int>("MultiTenancy:CacheExpirationMinutes", 5));
+            configuration.GetValue<int>("MultiTenancy:CacheExpirationMinutes", 30));
     }
 
     public async Task<TenantInfo?> GetTenantConfigurationAsync(string tenantId, CancellationToken cancellationToken = default)
