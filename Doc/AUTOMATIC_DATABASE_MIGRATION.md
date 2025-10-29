@@ -1,8 +1,24 @@
-# 🔄 Automatic Database Migration for Multi-Tenant Databases
+# 🔄 Automatic Database Migration
 
 ## Overview
 
-The system now **automatically creates and migrates tenant databases** when a tenant configuration includes a database connection string pointing to a non-existent database. This eliminates the need for manual database provisioning when onboarding new tenants.
+The system now **automatically creates and migrates databases** on the first request, eliminating the need for manual database provisioning. The approach depends on your `MultiTenancy:Enabled` configuration:
+
+### When MultiTenancy is Enabled (`"Enabled": true`)
+
+- **`UseTenantDatabaseMigration()`** is used
+- **`x-tenant-id` header is REQUIRED**
+- ✅ Auto-creates **tenant-specific database** from Tenant Service configuration
+- ❌ No fallback to default database - tenant header must be provided
+- All configuration comes from the Tenant Service database
+
+### When MultiTenancy is Disabled (`"Enabled": false`)
+
+- **`UseDefaultDatabaseMigration()`** is used
+- ✅ Auto-creates **default database** from `appsettings.json`
+- All configuration comes from appsettings.json
+
+This **if-else approach** ensures the right middleware is used based on your configuration, keeping your database always ready.
 
 ---
 
@@ -10,14 +26,16 @@ The system now **automatically creates and migrates tenant databases** when a te
 
 ### Automatic Migration Flow
 
+**Scenario 1: Multi-Tenancy Enabled (x-tenant-id header REQUIRED)**
+
 ```
 1. Request arrives with x-tenant-id header
    │
    ↓
-2. TenantMiddleware resolves tenant configuration
+2. TenantMiddleware resolves tenant configuration from Tenant Service
    │
    ↓
-3. DatabaseMigrationMiddleware checks if database exists
+3. DatabaseMigrationMiddleware (Tenant) checks if tenant's database exists
    │
    ├─ Database exists and is up-to-date → Continue
    │
@@ -25,12 +43,46 @@ The system now **automatically creates and migrates tenant databases** when a te
       │
       ↓
 4. Automatically:
-   ├─ Creates the database if it doesn't exist
+   ├─ Creates the tenant database if it doesn't exist
    ├─ Applies all pending migrations
    └─ Caches result (won't check again for this tenant)
       │
       ↓
-5. Request proceeds to your handlers
+5. Request proceeds to your handlers with tenant-specific configuration
+```
+
+**⚠️ If x-tenant-id header is missing when MultiTenancy is enabled:**
+
+```
+1. Request arrives WITHOUT x-tenant-id header
+   │
+   ↓
+2. TenantMiddleware: No tenant resolved
+   │
+   ↓
+3. Request fails - tenant header is required when multi-tenancy is enabled
+```
+
+**Scenario 2: Multi-Tenancy Disabled**
+
+```
+1. Request arrives (no x-tenant-id header needed)
+   │
+   ↓
+2. DefaultDatabaseMigrationMiddleware checks if default database exists
+   │
+   ├─ Database exists and is up-to-date → Continue
+   │
+   └─ Database missing or needs migration
+      │
+      ↓
+3. Automatically:
+   ├─ Creates the database from appsettings.json if it doesn't exist
+   ├─ Applies all pending migrations
+   └─ Caches result (won't check again)
+      │
+      ↓
+4. Request proceeds to your handlers with appsettings.json configuration
 ```
 
 ### What Gets Automatically Created
@@ -50,18 +102,52 @@ When a tenant's database doesn't exist, the system:
 
 ### Enable Automatic Migration (Already Configured)
 
-The automatic migration is **enabled by default** when multi-tenancy is active. No additional configuration needed!
+The automatic migration is **enabled by default** for ALL services. It works whether multi-tenancy is enabled or disabled!
 
-**In `appsettings.json`:**
+**With Multi-Tenancy Enabled - `appsettings.json`:**
 
 ```json
 {
   "MultiTenancy": {
-    "Enabled": true, // This enables automatic migration
+    "Enabled": true, // Auto-migration works for tenant-specific databases
     "TenantServiceUrl": "https://localhost:5002",
     "CacheExpirationMinutes": 5
+  },
+  "DatabaseSettings": {
+    "Provider": "PostgreSql",
+    "ConnectionString": "Host=localhost;Port=5432;Database=identity;Username=postgres;Password=postgres;"
+    // This is used as fallback when no tenant header is provided
   }
 }
+```
+
+**With Multi-Tenancy Disabled - `appsettings.json`:**
+
+```json
+{
+  "MultiTenancy": {
+    "Enabled": false // Auto-migration works for the default database below
+  },
+  "DatabaseSettings": {
+    "Provider": "PostgreSql",
+    "ConnectionString": "Host=localhost;Port=5432;Database=identity;Username=postgres;Password=postgres;"
+    // Auto-migration will ensure this database exists on first request
+  }
+}
+```
+
+### Service Registration
+
+**In `Program.cs` - Add database migration service:**
+
+```csharp
+// Database Configuration
+builder.Services.AddDatabaseContext<IdentityDbContext>(
+    builder.Configuration,
+    migrationAssembly: typeof(IdentityDbContext).Assembly.GetName().Name);
+
+// Add database migration service for automatic database creation
+builder.Services.AddDatabaseMigration();
 ```
 
 ### Middleware Registration (Already Done)
@@ -69,27 +155,101 @@ The automatic migration is **enabled by default** when multi-tenancy is active. 
 **In `Program.cs` (Identity.API):**
 
 ```csharp
-// Multi-tenancy middleware (resolves tenant)
+// Multi-tenancy middleware (resolves tenant) - only if MultiTenancy is enabled
 app.UseTenantResolution(builder.Configuration);
 
-// Automatic database migration (creates/migrates tenant databases)
-app.UseTenantDatabaseMigration<IdentityDbContext>(builder.Configuration);
+// Automatic database migration - use EITHER tenant or default based on configuration
+var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+if (multiTenancyEnabled)
+{
+    // Multi-tenancy enabled: Use tenant database migration
+    // This handles BOTH: tenant-specific DBs (with header) AND default DB (without header)
+    app.UseTenantDatabaseMigration<IdentityDbContext>(builder.Configuration);
+}
+else
+{
+    // Multi-tenancy disabled: Use default database migration
+    // This ensures the default database from appsettings.json is created and migrated
+    app.UseDefaultDatabaseMigration<IdentityDbContext>();
+}
 
-// Authentication must come after tenant resolution
+// Authentication must come after tenant resolution and database migration
 app.UseAuthentication();
 ```
 
 **⚠️ Important Order:**
 
-1. `UseTenantResolution()` - First (resolves tenant)
-2. `UseTenantDatabaseMigration<T>()` - Second (migrates database)
-3. `UseAuthentication()` - Third (validates JWT)
+1. `UseTenantResolution()` - First (resolves tenant if multi-tenancy enabled)
+2. **IF** multi-tenancy enabled: `UseTenantDatabaseMigration<T>()` - Migrates tenant or default DB
+3. **ELSE**: `UseDefaultDatabaseMigration<T>()` - Migrates default DB only
+4. `UseAuthentication()` - Last (validates JWT)
+
+**✨ Key Points:**
+
+- ✅ **If-Else approach** - Only ONE middleware runs based on `MultiTenancy:Enabled`
+- ✅ When multi-tenancy enabled: `UseTenantDatabaseMigration` handles both tenant and default DBs
+- ✅ When multi-tenancy disabled: `UseDefaultDatabaseMigration` handles only default DB
+- ✅ Clean separation - no redundant middleware execution
 
 ---
 
-## Real-World Example
+## Real-World Examples
 
-### Scenario: Onboarding a New Tenant
+### Scenario 1: Default Database (Multi-Tenancy Disabled or No Tenant Header)
+
+**Configuration in `appsettings.json`:**
+
+```json
+{
+  "DatabaseSettings": {
+    "Provider": "PostgreSql",
+    "ConnectionString": "Host=localhost;Port=5432;Database=identity;Username=postgres;Password=postgres;"
+  }
+}
+```
+
+**Step 1: Database Doesn't Exist Yet**
+
+The database `identity` doesn't exist on the PostgreSQL server - that's OK!
+
+**Step 2: User Makes First Request (No Tenant Header)**
+
+```bash
+POST https://localhost:5001/api/auth/login
+
+{
+  "email": "admin@example.com",
+  "password": "Admin123!"
+}
+```
+
+**What Happens Automatically:**
+
+```
+1. Request arrives without x-tenant-id header
+2. DatabaseMigrationMiddleware detects default database scenario
+3. Checks if database "identity" exists
+4. Database doesn't exist!
+5. Automatically:
+   ├─ Creates database: identity
+   ├─ Applies migrations (creates Users table, etc.)
+   └─ Logs: "Database migration check completed successfully for default database"
+6. Request proceeds normally
+7. Login completes successfully ✅
+```
+
+**Step 3: Subsequent Requests**
+
+For all future requests:
+
+- Database already exists
+- Migration check is cached in memory
+- No additional overhead
+- Instant request processing
+
+---
+
+### Scenario 2: Onboarding a New Tenant (Multi-Tenancy Enabled)
 
 **Step 1: Create Tenant via Tenant Service API**
 
@@ -210,13 +370,19 @@ var tenant = new TenantInfo
 
 ### Caching Strategy
 
-The migration check is cached **per tenant in memory**:
+The migration check is cached **per database in memory**:
 
 ```csharp
+// First request to default database (no tenant)
+Default DB → Check database → Migrate → Cache ✅
+
+// All subsequent requests to default database
+Default DB → Cache hit → Skip check → Instant ⚡
+
 // First request from tenant
 Tenant: acme-corp-123 → Check database → Migrate → Cache ✅
 
-// All subsequent requests
+// All subsequent requests from same tenant
 Tenant: acme-corp-123 → Cache hit → Skip check → Instant ⚡
 
 // Different tenant
@@ -244,11 +410,22 @@ Tenant: widget-inc-456 → Check database → Already migrated → Cache ✅
 
 ### Log Messages You'll See
 
-#### Successful Database Creation
+#### Default Database Creation
 
 ```
+[Debug] First request using default database, checking migration status...
+[Information] Database for 'default' does not exist. Creating and migrating... (Context: IdentityDbContext)
+[Information] Database for 'default' created and migrated successfully (Context: IdentityDbContext)
+[Information] Database migration check completed successfully for default database
+```
+
+#### Tenant Database Creation
+
+```
+[Debug] First request for tenant 'acme-corp-123', checking database migration status...
 [Information] Database for tenant 'acme-corp-123' does not exist. Creating and migrating... (Context: IdentityDbContext)
 [Information] Database for tenant 'acme-corp-123' created and migrated successfully (Context: IdentityDbContext)
+[Information] Database migration check completed successfully for tenant 'acme-corp-123'
 ```
 
 #### Pending Migrations Applied
@@ -262,13 +439,6 @@ Tenant: widget-inc-456 → Check database → Already migrated → Cache ✅
 
 ```
 [Debug] Database for tenant 'acme-corp-123' is up to date (Context: IdentityDbContext)
-```
-
-#### First Request Check
-
-```
-[Debug] First request for tenant 'acme-corp-123', checking database migration status...
-[Information] Database migration check completed successfully for tenant 'acme-corp-123'
 ```
 
 ### Health Monitoring
@@ -435,33 +605,61 @@ Now Orders service automatically creates tenant databases too!
 
 ## Architecture Components
 
-### New Services
+### Services
 
 **`IDatabaseMigrationService`** (`IhsanDev.Shared.Kernel.Interfaces.Database`)
 
 - Interface for database migration operations
-- Used by middleware to check and migrate databases
+- Used by both middleware components to check and migrate databases
 
 **`DatabaseMigrationService`** (`IhsanDev.Shared.Infrastructure.Services.Database`)
 
 - Implementation of migration service
 - Handles database creation and migration logic
 - Provides logging and error handling
+- Shared by both tenant and default database migration
+
+### Middleware Components
 
 **`DatabaseMigrationMiddleware<TContext>`** (`IhsanDev.Shared.Infrastructure.Middleware`)
 
-- ASP.NET Core middleware
-- Intercepts first request per tenant
-- Calls migration service
-- Caches results in memory
+- ASP.NET Core middleware for **tenant databases** (multi-tenancy scenarios)
+- Requires `x-tenant-id` header to be present
+- Migrates tenant-specific database from Tenant Service configuration
+- Caches results per tenant in memory
+- Only runs when `MultiTenancy:Enabled` is `true`
+- **Does NOT handle default database** - tenant header is mandatory
+
+**`DefaultDatabaseMigrationMiddleware<TContext>`** (`IhsanDev.Shared.Infrastructure.Middleware`)
+
+- ASP.NET Core middleware for **default database** (single-tenant scenarios)
+- No tenant header required
+- Calls migration service for default database from appsettings.json
+- Caches result in memory (single check per application lifetime)
+- Only runs when `MultiTenancy:Enabled` is `false`
 
 ### Extension Methods
 
+**`AddDatabaseMigration()`** (`DatabaseExtensions`)
+
+- Registers database migration service in DI container
+- Required for both middleware components
+
 **`UseTenantDatabaseMigration<TContext>()`** (`MultiTenancyExtensions`)
 
-- Registers database migration middleware
+- Registers tenant database migration middleware
 - Generic method (works with any DbContext)
-- Only runs when multi-tenancy is enabled
+- **Only handles tenant-specific databases** (x-tenant-id header required)
+- Only runs when `MultiTenancy:Enabled` is `true`
+- Used in **if** branch of middleware registration
+
+**`UseDefaultDatabaseMigration<TContext>()`** (`DatabaseExtensions`)
+
+- Registers default database migration middleware
+- Generic method (works with any DbContext)
+- **Only handles default database** from appsettings.json
+- Only runs when `MultiTenancy:Enabled` is `false`
+- Used in **else** branch of middleware registration
 
 ---
 
@@ -532,24 +730,27 @@ if (databaseCount >= MAX_TENANTS)
 
 **Possible Causes:**
 
-1. Multi-tenancy not enabled
-2. Middleware not registered
-3. Database credentials invalid
-4. Database server not accessible
+1. Middleware not registered correctly
+2. Database credentials invalid
+3. Database server not accessible
+4. Migration middleware not in correct order
 
 **Solutions:**
 
 ```bash
-# 1. Check configuration
-"MultiTenancy": { "Enabled": true }
-
-# 2. Check Program.cs
+# 1. Check Program.cs - ensure middleware is registered
 app.UseTenantDatabaseMigration<IdentityDbContext>(builder.Configuration);
 
+# 2. Verify middleware order
+app.UseTenantResolution(builder.Configuration);  // First (if multi-tenancy)
+app.UseTenantDatabaseMigration<IdentityDbContext>(builder.Configuration);  // Second
+app.UseAuthentication();  // Third
+
 # 3. Test connection string manually
-psql "Host=localhost;Database=tenant_123;Username=postgres;Password=postgres"
+psql "Host=localhost;Database=identity;Username=postgres;Password=postgres"
 
 # 4. Check logs for error details
+[Error] Failed to ensure database exists for 'default'...
 [Error] Failed to ensure database exists for tenant 'tenant-123'...
 ```
 
@@ -593,12 +794,22 @@ DatabaseMigrationMiddleware<IdentityDbContext>.ClearMigrationCache("tenant-123")
 
 ### Configuration Checklist
 
-- [ ] `MultiTenancy:Enabled` set to `true`
-- [ ] `UseTenantResolution()` called in Program.cs
-- [ ] `UseTenantDatabaseMigration<TContext>()` called after tenant resolution
-- [ ] Database credentials valid in tenant configuration
+**For All Scenarios:**
+
+- [ ] `AddDatabaseMigration()` called in service registration
+- [ ] `UseDefaultDatabaseMigration<TContext>()` called in Program.cs
+- [ ] Middleware order is correct (after tenant resolution, before authentication)
+- [ ] Database credentials valid in `appsettings.json`
 - [ ] Database server accessible from service
 - [ ] EF Core migrations exist in project
+
+**For Multi-Tenancy Scenarios (Additional):**
+
+- [ ] `MultiTenancy:Enabled` set to `true`
+- [ ] `UseTenantResolution()` called before database migration middleware
+- [ ] `UseTenantDatabaseMigration<TContext>()` called after tenant resolution
+- [ ] Tenant Service is running and accessible
+- [ ] Tenant configurations include valid database connection strings
 
 ---
 

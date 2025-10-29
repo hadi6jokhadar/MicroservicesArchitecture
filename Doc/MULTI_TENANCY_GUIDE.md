@@ -11,6 +11,7 @@ This microservices architecture supports **optional multi-tenancy** with **confi
 - ✅ **Per-Tenant Database**: Each tenant can have separate database
 - ✅ **Per-Tenant Configuration**: Isolated Database, JWT (optional), and CORS settings
 - ✅ **Tenant Service**: Dedicated microservice for tenant management
+- ✅ **Automatic Database Migration**: Databases auto-created on first request (works with or without multi-tenancy)
 - ✅ **Configuration Caching**: Optimized performance with memory caching
 - ✅ **Backward Compatible**: Zero breaking changes when disabled
 - ✅ **Header-Based Resolution**: Tenant identified via `x-tenant-id` header
@@ -96,11 +97,15 @@ Update `appsettings.json` in services (e.g., Identity.API):
 {
   "MultiTenancy": {
     "Enabled": false
+  },
+  "DatabaseSettings": {
+    "Provider": "PostgreSql",
+    "ConnectionString": "Host=localhost;Port=5432;Database=identity;Username=postgres;Password=postgres;"
   }
 }
 ```
 
-When disabled, the system behaves exactly as before with no tenant resolution and uses static configuration from appsettings.json.
+When disabled, the system behaves as single-tenant with no tenant resolution and uses static configuration from appsettings.json. The `x-tenant-id` header is not required or used. **Note:** Automatic database migration still works - the database will be auto-created on the first request even when multi-tenancy is disabled.
 
 ### JWT Mode Comparison
 
@@ -240,6 +245,8 @@ Uses tenant-specific configuration from Tenant Service.
 
 ### Request Flow
 
+**With Multi-Tenancy Enabled + Tenant Header:**
+
 ```
 1. Request arrives with x-tenant-id header
    ↓
@@ -249,21 +256,40 @@ Uses tenant-specific configuration from Tenant Service.
    ↓
 4. Tenant Context is populated for the request
    ↓
-5. Services (JWT, Database) use tenant-specific config
+5. Database Migration Middleware checks/creates tenant database
    ↓
-6. Response sent with tenant-specific behavior
+6. Services (JWT, Database) use tenant-specific config
+   ↓
+7. Response sent with tenant-specific behavior
+```
+
+**Without Multi-Tenancy (MultiTenancy Disabled):**
+
+```
+1. Request arrives (no x-tenant-id header needed or used)
+   ↓
+2. Default Database Migration Middleware checks/creates default database
+   ↓
+3. Services use configuration from appsettings.json
+   ↓
+4. Response sent with default behavior
 ```
 
 ### Tenant Resolution Priority
 
-1. **Tenant Header Present + Multi-Tenancy Enabled**
+1. **Multi-Tenancy Enabled**
 
+   - `x-tenant-id` header is **REQUIRED**
    - Fetch configuration from Tenant Service
-   - Use tenant-specific settings
+   - Use tenant-specific settings (Database, JWT, CORS)
+   - Auto-create tenant database if needed
    - Add `tenant_id` claim to JWT tokens
+   - **If header missing**: Request fails/error returned
 
-2. **No Tenant Header OR Multi-Tenancy Disabled**
+2. **Multi-Tenancy Disabled**
+   - `x-tenant-id` header is **NOT USED** (ignored if provided)
    - Use `appsettings.json` configuration
+   - Auto-create default database if needed
    - Behave as single-tenant application
 
 ---

@@ -1,9 +1,13 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Infrastructure.Persistence;
+using IhsanDev.Shared.Infrastructure.Services.Database;
+using IhsanDev.Shared.Kernel.Interfaces.Database;
 
 namespace IhsanDev.Shared.Infrastructure.Extensions;
 
@@ -163,5 +167,30 @@ public static class DatabaseExtensions
             logger.LogError(ex, "An error occurred while initializing the database");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Add database migration service to the service collection
+    /// Required for automatic database migration
+    /// </summary>
+    public static IServiceCollection AddDatabaseMigration(
+        this IServiceCollection services)
+    {
+        services.AddScoped<IDatabaseMigrationService, DatabaseMigrationService>();
+        return services;
+    }
+
+    /// <summary>
+    /// Add automatic database migration middleware for default database
+    /// This ensures the default database from appsettings.json is automatically created and migrated on first request
+    /// Use this when multi-tenancy is disabled or you want to ensure the default database exists
+    /// Should be called BEFORE UseAuthentication()
+    /// </summary>
+    /// <typeparam name="TContext">The DbContext type to migrate</typeparam>
+    public static IApplicationBuilder UseDefaultDatabaseMigration<TContext>(
+        this IApplicationBuilder app)
+        where TContext : DbContext
+    {
+        return app.UseMiddleware<DefaultDatabaseMigrationMiddleware<TContext>>();
     }
 }

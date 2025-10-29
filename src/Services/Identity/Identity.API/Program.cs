@@ -55,6 +55,9 @@ builder.Services.AddDatabaseContext<IdentityDbContext>(
     builder.Configuration,
     migrationAssembly: typeof(IdentityDbContext).Assembly.GetName().Name);
 
+// Add database migration service for automatic database creation
+builder.Services.AddDatabaseMigration();
+
 // ============================================
 // Authentication & Authorization
 // ============================================
@@ -231,10 +234,20 @@ app.UseTenantAwareCors();
 
 // Note: Standard UseCors() is NOT needed because TenantAwareCors handles everything
 
-// Automatic database migration for tenant databases
-// This ensures tenant databases are created and migrated automatically
-// Only runs if MultiTenancy:Enabled is true
-app.UseTenantDatabaseMigration<IdentityDbContext>(builder.Configuration);
+// Automatic database migration - use EITHER tenant or default based on configuration
+var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+if (multiTenancyEnabled)
+{
+    // Multi-tenancy enabled: Use tenant database migration
+    // This ensures tenant databases are created and migrated automatically
+    app.UseTenantDatabaseMigration<IdentityDbContext>(builder.Configuration);
+}
+else
+{
+    // Multi-tenancy disabled: Use default database migration
+    // This ensures the default database from appsettings.json is created and migrated
+    app.UseDefaultDatabaseMigration<IdentityDbContext>();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

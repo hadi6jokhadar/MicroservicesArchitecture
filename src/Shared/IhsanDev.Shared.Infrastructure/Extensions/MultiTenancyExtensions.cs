@@ -78,6 +78,8 @@ public static class MultiTenancyExtensions
 
     /// <summary>
     /// Add database migration middleware for automatic tenant database creation
+    /// When multi-tenancy is enabled, x-tenant-id header is REQUIRED
+    /// This middleware only handles tenant-specific databases
     /// This must be called AFTER UseTenantResolution() and BEFORE UseAuthentication()
     /// Only adds middleware if multi-tenancy is enabled
     /// </summary>

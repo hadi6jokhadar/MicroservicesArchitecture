@@ -9,6 +9,7 @@ namespace IhsanDev.Shared.Infrastructure.Middleware;
 
 /// <summary>
 /// Middleware that automatically ensures tenant databases are created and migrated
+/// Only runs when multi-tenancy is enabled and tenant is resolved
 /// This runs after TenantMiddleware resolves the tenant context
 /// </summary>
 public class DatabaseMigrationMiddleware<TContext> where TContext : DbContext
