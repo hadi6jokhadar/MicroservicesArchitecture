@@ -198,11 +198,12 @@ EXAMPLE FROM IDENTITY SERVICE:
 Reference the Identity.API.Tests project structure as the gold standard:
 
 - Uses SendAsync() to call handlers directly
-- Comprehensive test coverage (36+ tests)
+- Comprehensive test coverage (66 tests: 13 Auth + 30 OTP + 8 User + 15 Admin)
 - Proper exception testing
 - Database verification
 - Clean test data with GUID suffixes
 - Zero production code modifications
+- OTP security testing (expiration, lockout, cooldown, attempts)
 
 OUTPUT FORMAT:
 
@@ -686,10 +687,11 @@ The Identity service tests demonstrate:
 
 2. **Comprehensive Coverage**:
 
-   - 36 tests across 3 feature areas
+   - 66 tests across 4 feature areas (Auth, OTP, User, Admin)
    - Success and failure scenarios
    - Database verification
    - Exception handling
+   - Security testing (OTP expiration, lockout, cooldown)
 
 3. **Best Practices**:
 
@@ -758,6 +760,6 @@ For questions or issues with this approach:
 
 ---
 
-**Version**: 1.0  
-**Last Updated**: October 19, 2025  
-**Based On**: Identity.API.Tests (36 comprehensive integration tests)
+**Version**: 1.1  
+**Last Updated**: October 30, 2025  
+**Based On**: Identity.API.Tests (66 comprehensive integration tests including OTP authentication)
