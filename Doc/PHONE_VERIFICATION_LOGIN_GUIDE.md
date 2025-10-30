@@ -10,30 +10,63 @@ The Identity Service now supports phone verification-based authentication as an 
 
 1. **OTP Service (Shared)** - Located in `IhsanDev.Shared.Infrastructure/Services/Otp/`
 
-   - `IOtpService` - Service interface for generating verification codes
-   - `OtpService` - Default implementation with internal random number generation
+   - `IOtpService` - Service interface for generating verification codes (accepts OtpSettings parameter)
+   - `OtpService` - Configurable implementation with:
+     - Cryptographically secure random generation
+     - Support for numeric-only or alphanumeric codes
+     - Configurable code length (4-10 digits/characters)
    - `IExternalOtpProvider` - Interface for external OTP providers (e.g., Twilio, AWS SNS)
 
-2. **Domain Changes**
+2. **Shared Kernel** - Located in `IhsanDev.Shared.Kernel/`
 
-   - Added `VerificationCode` property to `User` entity (nullable string)
+   - `TenantConfiguration.OtpSettings` - Tenant-specific OTP configuration:
+     - `CodeLength` - Length of generated code (default: 6)
+     - `ExpirationSeconds` - Code validity duration (default: 300 = 5 minutes)
+     - `MaxAttempts` - Maximum failed attempts before lockout (default: 3)
+     - `LockoutMinutes` - Lockout duration after max attempts (default: 15)
+     - `ResendCooldownSeconds` - Cooldown between code requests (default: 60)
+     - `UseAlphanumeric` - Generate alphanumeric vs numeric codes (default: false)
+     - `SecretKey` - Optional encryption key for OTP operations
 
-3. **Application Layer**
+3. **Domain Changes** - `Identity.Domain/Entities/User.cs`
 
-   - Three new commands with validators in `Identity.Application/Commands/Auth/`:
-     - `GetVerificationCodeCommand`
-     - `LoginWithCodeCommand`
-     - `RegisterWithCodeCommand`
-   - Three new handlers in `Identity.Application/Handlers/Auth/`:
-     - `GetVerificationCodeCommandHandler`
-     - `LoginWithCodeCommandHandler`
-     - `RegisterWithCodeCommandHandler`
+   - `VerificationCode` (string, nullable) - The generated OTP code
+   - `VerificationCodeExpiry` (DateTime, nullable) - When the code expires
+   - `FailedCodeAttempts` (int, default 0) - Count of failed verification attempts
+   - `CodeLockoutUntil` (DateTime, nullable) - Account lockout end time after max failed attempts
+   - `LastCodeSentAt` (DateTime, nullable) - Timestamp of last code generation (for cooldown enforcement)
 
-4. **API Layer**
-   - Three new endpoints in `/api/auth`:
-     - `POST /api/auth/get-verification-code`
-     - `POST /api/auth/login-with-code`
-     - `POST /api/auth/register-with-code`
+4. **Application Layer**
+
+   - Six new commands with validators in `Identity.Application/Commands/Auth/`:
+     - `GetVerificationCodeByPhoneCommand` / `GetVerificationCodeByEmailCommand`
+     - `LoginWithCodeByPhoneCommand` / `LoginWithCodeByEmailCommand`
+     - `RegisterWithCodeByPhoneCommand` / `RegisterWithCodeByEmailCommand`
+   - Six new handlers in `Identity.Application/Handlers/Auth/`:
+     - `GetVerificationCodeByPhoneCommandHandler` / `GetVerificationCodeByEmailCommandHandler`
+     - `LoginWithCodeByPhoneCommandHandler` / `LoginWithCodeByEmailCommandHandler`
+     - `RegisterWithCodeByPhoneCommandHandler` / `RegisterWithCodeByEmailCommandHandler`
+   - **All handlers include:**
+     - `GetOtpSettings()` helper method for multi-tenant OTP configuration
+     - Security logic (expiration, attempts, lockout, cooldown)
+     - Fallback to appsettings.json when tenant has no custom OTP settings
+
+5. **Infrastructure Layer**
+
+   - `ConfigurationHelper.GetOtpSettings()` - Centralized OTP configuration resolution:
+     - Checks `MultiTenancy:Enabled` setting
+     - Returns tenant-specific OTP settings if available
+     - Falls back to `OtpSettings` section in appsettings.json
+     - Follows same pattern as `GetJwtSettings()` and `GetDatabaseConnectionString()`
+
+6. **API Layer**
+   - Six new endpoints in `/api/auth`:
+     - `POST /api/auth/get-verification-code-by-phone`
+     - `POST /api/auth/get-verification-code-by-email`
+     - `POST /api/auth/login-with-code-by-phone`
+     - `POST /api/auth/login-with-code-by-email`
+     - `POST /api/auth/register-with-code-by-phone`
+     - `POST /api/auth/register-with-code-by-email`
 
 ## API Endpoints
 
@@ -279,7 +312,7 @@ var code = await _otpService.GenerateCodeWithExternalProviderAsync(
 
 ## Database Changes
 
-### Migration: AddVerificationCodeToUser
+### Migration 1: AddVerificationCodeToUser
 
 **New Column:**
 
@@ -288,56 +321,186 @@ var code = await _otpService.GenerateCodeWithExternalProviderAsync(
 - **Type:** varchar/text (nullable)
 - **Purpose:** Stores temporary verification codes
 
-**Apply Migration:**
+### Migration 2: UpdateOtpSecurityFields (20251030154411)
+
+**New Columns:**
+
+- **VerificationCodeExpiry** (DateTime, nullable)
+
+  - Tracks when the OTP code expires
+  - Default expiration: 5 minutes after generation
+  - Codes rejected if current time > expiration time
+
+- **FailedCodeAttempts** (int, default 0)
+
+  - Counts failed verification attempts
+  - Increments on incorrect code submission
+  - Resets to 0 when new code is generated
+
+- **CodeLockoutUntil** (DateTime, nullable)
+
+  - Records when account lockout ends
+  - Set to (now + LockoutMinutes) when MaxAttempts exceeded
+  - All OTP operations blocked while locked out
+
+- **LastCodeSentAt** (DateTime, nullable)
+  - Timestamp of last code generation
+  - Used to enforce resend cooldown
+  - Prevents code request spam
+
+**Apply Migrations:**
 
 ```bash
 cd src/Services/Identity/Identity.Infrastructure
 dotnet ef database update --startup-project ../Identity.API
 ```
 
+**For Multi-Tenant Databases:**
+
+If using database-per-tenant architecture, migrations must be applied to each tenant database. Use the tenant migration service or apply manually:
+
+```csharp
+var tenants = await _tenantService.GetAllActiveTenantsAsync();
+foreach (var tenant in tenants)
+{
+    if (tenant.Configuration?.Database?.ConnectionString != null)
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<IdentityDbContext>();
+        optionsBuilder.UseNpgsql(tenant.Configuration.Database.ConnectionString);
+
+        using var dbContext = new IdentityDbContext(optionsBuilder.Options);
+        await dbContext.Database.MigrateAsync();
+    }
+}
+```
+
 ## Security Considerations
 
-### Best Practices Implemented
+### Implemented Security Features ✅
 
-1. **Code Security:**
+1. **Code Generation Security:**
 
-   - Cryptographically secure random generation
-   - 5-digit codes (100,000 possible combinations)
+   - Cryptographically secure random number generation (`RandomNumberGenerator`)
+   - Configurable code length (default: 6 digits = 1,000,000 combinations)
+   - Support for alphanumeric codes (36^6 = 2+ billion combinations)
    - Codes cleared after successful login
-
-2. **Error Handling:**
-
-   - Generic error messages to prevent enumeration
-   - No distinction between invalid phone and invalid code
-
-3. **Account Security:**
-   - Status checks (disabled accounts cannot login)
-   - Last login timestamp updated
-   - Supports dual authentication (password + code)
-
-### Recommendations for Production
-
-1. **Rate Limiting:**
-
-   - Limit verification code requests per phone (e.g., 3 per hour)
-   - Limit login attempts per phone (e.g., 5 per 15 minutes)
 
 2. **Code Expiration:**
 
-   - Add timestamp to track code generation time
-   - Expire codes after 10-15 minutes
-   - Clean up old codes periodically
+   - All codes expire after configurable time (default: 5 minutes)
+   - Expired codes automatically rejected during login
+   - Expiration tracked in `VerificationCodeExpiry` field
+   - **Security benefit:** Reduces window for brute-force attacks
 
-3. **SMS Delivery:**
+3. **Failed Attempt Tracking:**
+
+   - System tracks failed verification attempts per user
+   - Default: 3 failed attempts before account lockout
+   - `FailedCodeAttempts` counter increments on each failed attempt
+   - Counter resets to 0 when new code is generated
+   - **Security benefit:** Prevents brute-force code guessing
+
+4. **Account Lockout:**
+
+   - After max failed attempts, account is locked for configurable duration (default: 15 minutes)
+   - Lockout tracked in `CodeLockoutUntil` field (DateTime)
+   - All OTP operations blocked during lockout (get code, login)
+   - **Security benefit:** Forces attackers to wait, making brute-force impractical
+
+5. **Resend Cooldown:**
+
+   - Minimum time between code requests (default: 60 seconds)
+   - Tracked via `LastCodeSentAt` field
+   - Prevents code request spam
+   - **Security benefit:** Prevents denial-of-service attacks via SMS flooding
+
+6. **Error Handling:**
+
+   - Generic error messages to prevent enumeration
+   - No distinction between invalid phone/email and invalid code
+   - Example: "Phone number or verification code is incorrect"
+   - **Security benefit:** Attackers cannot determine if phone/email exists
+
+7. **Account Status Validation:**
+   - Status checks (disabled accounts cannot get codes or login)
+   - Last login timestamp updated on successful authentication
+   - Supports dual authentication (users can choose password OR code)
+
+### Security Configuration
+
+**Default Security Settings (Recommended for Production):**
+
+```json
+{
+  "OtpSettings": {
+    "CodeLength": 6,
+    "ExpirationSeconds": 300,
+    "MaxAttempts": 3,
+    "LockoutMinutes": 15,
+    "ResendCooldownSeconds": 60,
+    "UseAlphanumeric": false
+  }
+}
+```
+
+**High-Security Profile (Enterprise/Banking):**
+
+```json
+{
+  "OtpSettings": {
+    "CodeLength": 8,
+    "ExpirationSeconds": 180,
+    "MaxAttempts": 2,
+    "LockoutMinutes": 30,
+    "ResendCooldownSeconds": 120,
+    "UseAlphanumeric": true
+  }
+}
+```
+
+**Development/Testing Profile:**
+
+```json
+{
+  "OtpSettings": {
+    "CodeLength": 4,
+    "ExpirationSeconds": 600,
+    "MaxAttempts": 10,
+    "LockoutMinutes": 1,
+    "ResendCooldownSeconds": 10,
+    "UseAlphanumeric": false
+  }
+}
+```
+
+### Additional Production Recommendations
+
+1. **✅ IMPLEMENTED - Rate Limiting:**
+
+   - ✅ Failed attempt tracking (3 attempts default)
+   - ✅ Account lockout (15 minutes default)
+   - ✅ Resend cooldown (60 seconds default)
+   - 🔜 **Optional:** IP-based rate limiting via middleware
+
+2. **✅ IMPLEMENTED - Code Expiration:**
+
+   - ✅ Timestamp tracking (`VerificationCodeExpiry`)
+   - ✅ Automatic expiration validation
+   - ✅ Configurable expiration time (5 minutes default)
+   - 🔜 **Optional:** Background job to clean up expired codes
+
+3. **🔜 SMS Delivery Integration:**
 
    - Implement external OTP provider (Twilio, AWS SNS)
-   - Log delivery status
+   - Log SMS delivery status
    - Handle delivery failures gracefully
+   - Retry logic for failed deliveries
 
-4. **Audit Logging:**
-   - Log all verification code generations
-   - Log successful/failed login attempts
-   - Monitor for suspicious patterns
+4. **🔜 Enhanced Audit Logging:**
+   - Log all verification code generations with user/tenant context
+   - Log successful/failed login attempts with timestamps
+   - Monitor for suspicious patterns (e.g., rapid failed attempts)
+   - Dashboard for security analytics
 
 ## Integration with Existing Features
 
@@ -420,18 +583,148 @@ public async Task RegisterWithCode_DuplicatePhone_ReturnsConflict() { }
 
 ## Configuration
 
-No additional configuration required. The feature uses existing JWT and database settings.
+### Global Configuration (appsettings.json)
 
-**Optional (for external provider):**
+Add `OtpSettings` section to your Identity Service appsettings:
 
 ```json
 {
   "OtpSettings": {
-    "Provider": "Twilio",
-    "AccountSid": "your-account-sid",
-    "AuthToken": "your-auth-token",
+    "CodeLength": 6,
+    "ExpirationSeconds": 300,
+    "MaxAttempts": 3,
+    "LockoutMinutes": 15,
+    "ResendCooldownSeconds": 60,
+    "UseAlphanumeric": false,
+    "SecretKey": ""
+  },
+  "Jwt": {
+    "Secret": "your-secret-key",
+    "Issuer": "IdentityService",
+    "Audience": "MicroservicesApp"
+  },
+  "DatabaseSettings": {
+    "ConnectionString": "Host=localhost;Database=identity;Username=postgres;Password=postgres"
+  }
+}
+```
+
+### Multi-Tenant Configuration
+
+When multi-tenancy is enabled (`MultiTenancy:Enabled = true`), OTP settings can be customized per tenant.
+
+**Enable Multi-Tenancy:**
+
+```json
+{
+  "MultiTenancy": {
+    "Enabled": true,
+    "TenantServiceUrl": "https://localhost:5002",
+    "CacheExpirationMinutes": 5
+  }
+}
+```
+
+**Tenant-Specific OTP Settings (stored in Tenant Service):**
+
+```json
+{
+  "tenantId": "acme-corp",
+  "tenantName": "Acme Corporation",
+  "isActive": true,
+  "configuration": {
+    "database": {
+      "provider": "PostgreSql",
+      "connectionString": "Host=tenant-db.acme.com;Database=acme;..."
+    },
+    "jwt": {
+      "secret": "acme-jwt-secret",
+      "issuer": "IdentityService",
+      "audience": "MicroservicesApp"
+    },
+    "otp": {
+      "codeLength": 8,
+      "expirationSeconds": 600,
+      "maxAttempts": 5,
+      "lockoutMinutes": 30,
+      "resendCooldownSeconds": 120,
+      "useAlphanumeric": true,
+      "secretKey": "acme-otp-encryption-key"
+    }
+  }
+}
+```
+
+**Configuration Resolution (Multi-Tenant):**
+
+```
+Request with x-tenant-id: acme-corp header
+    ↓
+1. Middleware extracts tenant ID
+    ↓
+2. TenantConfigurationProvider fetches tenant config from Tenant Service (cached)
+    ↓
+3. Handler calls GetOtpSettings()
+    ↓
+4. Check MultiTenancy:Enabled = true?
+    ├─ YES: Check tenant.Configuration.Otp exists?
+    │   ├─ YES: Return tenant-specific OTP settings ✅
+    │   └─ NO: Fallback to appsettings.json OtpSettings
+    └─ NO: Use appsettings.json OtpSettings
+    ↓
+5. Generate code with resolved settings
+```
+
+**Use Cases for Per-Tenant OTP Configuration:**
+
+- **Enterprise Tenant:** Stricter security (8-digit alphanumeric, 2 attempts, 30-minute lockout)
+- **Standard Tenant:** Balanced security (6-digit numeric, 3 attempts, 15-minute lockout)
+- **Internal Tenant:** Development-friendly (4-digit numeric, 10 attempts, 1-minute lockout)
+
+### External SMS Provider Configuration (Optional)
+
+To integrate with Twilio, AWS SNS, or other SMS providers:
+
+**appsettings.json:**
+
+```json
+{
+  "TwilioSettings": {
+    "AccountSid": "your-twilio-account-sid",
+    "AuthToken": "your-twilio-auth-token",
     "FromNumber": "+1234567890"
   }
+}
+```
+
+**Implementation:**
+
+```csharp
+public class TwilioOtpProvider : IExternalOtpProvider
+{
+    private readonly TwilioRestClient _client;
+    private readonly string _fromNumber;
+    private readonly IOtpService _otpService;
+
+    public async Task<string> SendOtpAsync(
+        string phoneNumber,
+        CancellationToken cancellationToken = default)
+    {
+        // Get OTP settings (respects multi-tenancy)
+        var otpSettings = GetOtpSettings();
+
+        // Generate code using tenant/global settings
+        var code = _otpService.GenerateCode(otpSettings);
+
+        // Send via Twilio
+        await MessageResource.CreateAsync(
+            to: new PhoneNumber(phoneNumber),
+            from: new PhoneNumber(_fromNumber),
+            body: $"Your verification code is: {code}. Valid for {otpSettings.ExpirationSeconds / 60} minutes."
+        );
+
+        return code;
+    }
 }
 ```
 

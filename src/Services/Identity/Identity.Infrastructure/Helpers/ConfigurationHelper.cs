@@ -161,6 +161,31 @@ public static class ConfigurationHelper
             return configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
         }
     }
+
+    /// <summary>
+    /// Gets OTP settings based on multi-tenancy mode
+    /// When multi-tenancy is enabled: use tenant OTP settings if configured, otherwise use appsettings.json (fallback allowed)
+    /// When multi-tenancy is disabled: use appsettings.json
+    /// </summary>
+    /// <param name="configuration">Application configuration</param>
+    /// <param name="tenantContext">Current tenant context</param>
+    /// <returns>OTP settings from tenant configuration or appsettings</returns>
+    public static OtpSettings GetOtpSettings(
+        IConfiguration configuration,
+        ITenantContext tenantContext)
+    {
+        var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+
+        if (multiTenancyEnabled && tenantContext.HasTenant && 
+            tenantContext.CurrentTenant?.Configuration?.Otp != null)
+        {
+            // Use tenant-specific OTP settings if available
+            return tenantContext.CurrentTenant.Configuration.Otp;
+        }
+
+        // Fallback to appsettings.json
+        return configuration.GetSection("OtpSettings").Get<OtpSettings>() ?? new OtpSettings();
+    }
 }
 
 /// <summary>

@@ -14,6 +14,10 @@ public class UserDto : BaseUserDto, IMapFrom<User>
     
     // Navigation properties for other microservices
     public string? ProfilePictureUrl { get; set; }
+    
+    // OTP verification
+    public string? VerificationCode { get; set; }
+    
     public void Mapping(Profile profile)
     {
         profile.CreateMap<User, UserDto>()

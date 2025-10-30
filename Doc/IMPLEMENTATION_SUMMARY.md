@@ -367,11 +367,11 @@ public static IServiceCollection AddDatabaseContext<TContext>(
 
 ### **Configuration Modes**
 
-| Configuration                    | MultiTenancy:Enabled | JwtMode       | Behavior                                      |
-| -------------------------------- | -------------------- | ------------- | --------------------------------------------- |
-| **Single-Tenant**                | `false`              | N/A           | Static DB + JWT from appsettings.json         |
-| **Multi-Tenant + Shared JWT**    | `true`               | `"Shared"`    | Dynamic DB per tenant + Shared JWT for all    |
-| **Multi-Tenant + PerTenant JWT** | `true`               | `"PerTenant"` | Dynamic DB per tenant + Unique JWT per tenant |
+| Configuration                    | MultiTenancy:Enabled | JwtMode       | Database             | JWT                  | OTP Configuration                     |
+| -------------------------------- | -------------------- | ------------- | -------------------- | -------------------- | ------------------------------------- |
+| **Single-Tenant**                | `false`              | N/A           | Static (appsettings) | Static (appsettings) | Static (appsettings)                  |
+| **Multi-Tenant + Shared JWT**    | `true`               | `"Shared"`    | Dynamic per tenant   | Shared (appsettings) | Per-tenant or fallback to appsettings |
+| **Multi-Tenant + PerTenant JWT** | `true`               | `"PerTenant"` | Dynamic per tenant   | Per-tenant unique    | Per-tenant or fallback to appsettings |
 
 ````
 
@@ -379,7 +379,7 @@ public static IServiceCollection AddDatabaseContext<TContext>(
 
 Each tenant has configuration stored in the Tenant Service:
 
-**For PerTenant JWT Mode:**
+**For PerTenant JWT Mode with Custom OTP Settings:**
 ```json
 {
   "tenantId": "123",
@@ -395,12 +395,21 @@ Each tenant has configuration stored in the Tenant Service:
       "issuer": "IdentityService",
       "audience": "MicroservicesApp",
       "accessTokenExpirationMinutes": 60
+    },
+    "otp": {
+      "codeLength": 8,
+      "expirationSeconds": 600,
+      "maxAttempts": 5,
+      "lockoutMinutes": 30,
+      "resendCooldownSeconds": 120,
+      "useAlphanumeric": true,
+      "secretKey": "tenant-123-otp-encryption-key"
     }
   }
 }
 ````
 
-**For Shared JWT Mode:**
+**For Shared JWT Mode (with fallback OTP settings):**
 
 ```json
 {
@@ -412,10 +421,21 @@ Each tenant has configuration stored in the Tenant Service:
       "provider": "PostgreSql",
       "connectionString": "Host=tenant-db-2.azure.com;Database=tenant_456;Username=widget_user;Password=***"
     }
-    // No JWT section needed - uses Jwt section from appsettings.json in Shared mode
+    // No JWT section - uses Jwt section from appsettings.json in Shared mode
+    // No OTP section - uses OtpSettings section from appsettings.json (fallback)
   }
 }
 ```
+
+**Configuration Modes Summary:**
+
+| Configuration                 | Database             | JWT                        | OTP                                                 |
+| ----------------------------- | -------------------- | -------------------------- | --------------------------------------------------- |
+| **Single-Tenant**             | Static (appsettings) | Static (appsettings)       | Static (appsettings)                                |
+| **Multi-Tenant + Shared JWT** | Dynamic per tenant   | Shared (appsettings)       | Per-tenant with fallback to appsettings             |
+| **Multi-Tenant + PerTenant**  | Dynamic per tenant   | Per-tenant unique secrets  | Per-tenant with fallback to appsettings             |
+| **Tenant with custom OTP**    | Tenant-specific      | Tenant-specific (optional) | Tenant-specific (stricter/looser security policies) |
+| **Tenant without custom OTP** | Tenant-specific      | Tenant-specific (optional) | Falls back to OtpSettings in appsettings.json       |
 
 ---
 
@@ -500,6 +520,14 @@ Each tenant has configuration stored in the Tenant Service:
 8. **Superadmin Access**: Shared JWT mode enables cross-tenant administration
 9. **Independent Secret Rotation**: PerTenant mode allows rotating JWT secrets per tenant
 10. **Breach Containment**: PerTenant mode limits impact of compromised JWT secret to single tenant
+
+### **✅ Configurable OTP Settings Advantages**
+
+11. **Per-Tenant Security Policies**: Different OTP policies for different tenant types (enterprise, standard, internal)
+12. **Flexible Authentication**: Tenants can customize code length, expiration, lockout policies
+13. **Security Compliance**: Meet tenant-specific regulatory requirements (e.g., banking: 8-digit alphanumeric, 2 attempts)
+14. **Graceful Fallback**: Tenants without custom OTP settings use sensible defaults from appsettings.json
+15. **Consistent Configuration Pattern**: OTP follows same pattern as JWT and Database (centralized, multi-tenant aware)
 
 ### **⚠️ Considerations**
 

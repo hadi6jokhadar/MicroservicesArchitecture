@@ -16,5 +16,10 @@ public class User : BaseUser
     
     public string? PasswordHash { get; set; }
     
+    // OTP/Verification Code fields
     public string? VerificationCode { get; set; }
+    public DateTime? VerificationCodeExpiry { get; set; }
+    public int FailedCodeAttempts { get; set; } = 0;
+    public DateTime? CodeLockoutUntil { get; set; }
+    public DateTime? LastCodeSentAt { get; set; }
 }

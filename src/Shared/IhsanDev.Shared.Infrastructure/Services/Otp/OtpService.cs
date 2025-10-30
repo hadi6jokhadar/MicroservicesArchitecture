@@ -1,4 +1,6 @@
 using System.Security.Cryptography;
+using System.Text;
+using IhsanDev.Shared.Kernel.Dto.Tenant;
 
 namespace IhsanDev.Shared.Infrastructure.Services.Otp;
 
@@ -9,6 +11,7 @@ namespace IhsanDev.Shared.Infrastructure.Services.Otp;
 public class OtpService : IOtpService
 {
     private readonly IExternalOtpProvider? _externalOtpProvider;
+    private const string AlphanumericChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Excluding similar looking chars
 
     public OtpService(IExternalOtpProvider? externalOtpProvider = null)
     {
@@ -16,15 +19,34 @@ public class OtpService : IOtpService
     }
 
     /// <summary>
-    /// Generates a cryptographically secure random numeric code
+    /// Generates a cryptographically secure random code based on settings
     /// </summary>
-    public string GenerateCode(int length = 5)
+    public string GenerateCode(OtpSettings? settings = null)
     {
+        // Use default settings if not provided
+        var length = settings?.CodeLength ?? 6;
+        var useAlphanumeric = settings?.UseAlphanumeric ?? false;
+
         if (length < 4 || length > 10)
         {
             throw new ArgumentException("Code length must be between 4 and 10 digits", nameof(length));
         }
 
+        if (useAlphanumeric)
+        {
+            return GenerateAlphanumericCode(length);
+        }
+        else
+        {
+            return GenerateNumericCode(length);
+        }
+    }
+
+    /// <summary>
+    /// Generates a numeric-only code
+    /// </summary>
+    private string GenerateNumericCode(int length)
+    {
         // Generate cryptographically secure random number
         var randomNumber = RandomNumberGenerator.GetInt32(
             (int)Math.Pow(10, length - 1), 
@@ -32,6 +54,27 @@ public class OtpService : IOtpService
         );
 
         return randomNumber.ToString();
+    }
+
+    /// <summary>
+    /// Generates an alphanumeric code
+    /// </summary>
+    private string GenerateAlphanumericCode(int length)
+    {
+        var code = new StringBuilder(length);
+        var bytes = new byte[length];
+        
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(bytes);
+        }
+
+        foreach (var b in bytes)
+        {
+            code.Append(AlphanumericChars[b % AlphanumericChars.Length]);
+        }
+
+        return code.ToString();
     }
 
     /// <summary>

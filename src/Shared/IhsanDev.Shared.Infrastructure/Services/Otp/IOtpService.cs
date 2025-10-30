@@ -1,3 +1,5 @@
+using IhsanDev.Shared.Kernel.Dto.Tenant;
+
 namespace IhsanDev.Shared.Infrastructure.Services.Otp;
 
 /// <summary>
@@ -6,11 +8,11 @@ namespace IhsanDev.Shared.Infrastructure.Services.Otp;
 public interface IOtpService
 {
     /// <summary>
-    /// Generates a verification code
+    /// Generates a verification code with configurable settings
     /// </summary>
-    /// <param name="length">Length of the verification code (default: 5)</param>
+    /// <param name="settings">OTP configuration settings (uses defaults if null)</param>
     /// <returns>Generated verification code</returns>
-    string GenerateCode(int length = 5);
+    string GenerateCode(OtpSettings? settings = null);
 
     /// <summary>
     /// Generates a verification code using an external OTP provider

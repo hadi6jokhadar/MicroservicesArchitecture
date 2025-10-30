@@ -116,6 +116,35 @@ if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("Mu
 
 Tenant databases will be initialized automatically per-request.
 
+### **OTP Configuration (Identity Service)**
+
+```json
+{
+  "OtpSettings": {
+    "CodeLength": 6,
+    "ExpirationSeconds": 300,
+    "MaxAttempts": 3,
+    "LockoutMinutes": 15,
+    "ResendCooldownSeconds": 60,
+    "UseAlphanumeric": false,
+    "SecretKey": ""
+  }
+}
+```
+
+**OTP Settings:**
+
+| Setting                 | Default | Description                            |
+| ----------------------- | ------- | -------------------------------------- |
+| `CodeLength`            | 6       | Length of OTP code (4-10 recommended)  |
+| `ExpirationSeconds`     | 300     | Code validity (5 minutes)              |
+| `MaxAttempts`           | 3       | Failed attempts before lockout         |
+| `LockoutMinutes`        | 15      | Lockout duration                       |
+| `ResendCooldownSeconds` | 60      | Cooldown between code requests         |
+| `UseAlphanumeric`       | false   | Alphanumeric (true) or numeric (false) |
+
+**Multi-Tenant OTP:** Tenants can override these settings with custom OTP configuration (stored in Tenant Service). If tenant has no custom settings, falls back to appsettings.json.
+
 ---
 
 ## 🔧 Create New Service (3 Steps)
@@ -231,13 +260,19 @@ var data = await _dbContext.Orders
 
 ## 🔍 Troubleshooting
 
-| Issue                | Solution                                       |
-| -------------------- | ---------------------------------------------- |
-| **401 Unauthorized** | Check JWT secret matches Identity Service      |
-| **Tenant not found** | Verify tenant exists: `GET /api/tenants/{id}`  |
-| **Connection error** | Check Tenant Service URL in configuration      |
-| **Cache issues**     | Clear cache or restart service                 |
-| **Missing claims**   | Verify Identity Service includes claims in JWT |
+| Issue                         | Solution                                                         |
+| ----------------------------- | ---------------------------------------------------------------- |
+| **401 Unauthorized**          | Check JWT secret matches Identity Service                        |
+| **Tenant not found**          | Verify tenant exists: `GET /api/tenants/{id}`                    |
+| **Connection error**          | Check Tenant Service URL in configuration                        |
+| **Cache issues**              | Clear cache or restart service                                   |
+| **Missing claims**            | Verify Identity Service includes claims in JWT                   |
+| **OTP code invalid/expired**  | Codes expire after 5 minutes; request new code                   |
+| **Account locked (OTP)**      | Too many failed attempts; wait 15 minutes or contact admin       |
+| **OTP cooldown error**        | Wait 60 seconds between code requests                            |
+| **OTP settings not working**  | Add `OtpSettings` section to appsettings.json                    |
+| **Tenant OTP config ignored** | Enable multi-tenancy: `MultiTenancy:Enabled = true`              |
+| **OTP migration missing**     | Run `dotnet ef database update` to apply UpdateOtpSecurityFields |
 
 ---
 
@@ -280,8 +315,14 @@ var data = await _dbContext.Orders
 
 **Identity Service Endpoints:**
 
-- POST `/api/auth/register` - Register user
-- POST `/api/auth/login` - Get JWT token
+- POST `/api/auth/register` - Register user with password
+- POST `/api/auth/login` - Login with email + password
+- POST `/api/auth/register-with-code-by-phone` - Register with phone (passwordless)
+- POST `/api/auth/register-with-code-by-email` - Register with email (passwordless)
+- POST `/api/auth/get-verification-code-by-phone` - Request OTP code for phone
+- POST `/api/auth/get-verification-code-by-email` - Request OTP code for email
+- POST `/api/auth/login-with-code-by-phone` - Login with phone + OTP code
+- POST `/api/auth/login-with-code-by-email` - Login with email + OTP code
 - GET `/api/user/profile` - Get user info
 
 **Tenant Service Endpoints:**

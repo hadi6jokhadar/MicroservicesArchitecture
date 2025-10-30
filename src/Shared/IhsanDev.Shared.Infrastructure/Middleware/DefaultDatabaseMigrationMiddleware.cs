@@ -29,6 +29,13 @@ public class DefaultDatabaseMigrationMiddleware<TContext> where TContext : DbCon
         HttpContext context,
         IDatabaseMigrationService migrationService)
     {
+        // Skip migration check for static paths (Swagger, health checks, etc.)
+        if (ShouldSkipMigration(context.Request.Path))
+        {
+            await _next(context);
+            return;
+        }
+
         // Check if we've already migrated the default database in this application lifetime
         if (!_isMigrated)
         {
@@ -71,6 +78,30 @@ public class DefaultDatabaseMigrationMiddleware<TContext> where TContext : DbCon
         }
 
         await _next(context);
+    }
+
+    /// <summary>
+    /// Determines if migration check should be skipped for the given path
+    /// </summary>
+    private static bool ShouldSkipMigration(PathString path)
+    {
+        var pathValue = path.Value?.ToLowerInvariant();
+        if (string.IsNullOrEmpty(pathValue))
+            return false;
+
+        // Skip Swagger UI and API documentation paths
+        if (pathValue.StartsWith("/swagger"))
+            return true;
+
+        // Skip health check endpoints
+        if (pathValue.StartsWith("/health"))
+            return true;
+
+        // Skip metrics endpoints
+        if (pathValue.StartsWith("/metrics"))
+            return true;
+
+        return false;
     }
 
     /// <summary>

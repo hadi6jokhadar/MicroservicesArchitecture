@@ -32,6 +32,13 @@ public class DatabaseMigrationMiddleware<TContext> where TContext : DbContext
         ITenantContext tenantContext,
         IDatabaseMigrationService migrationService)
     {
+        // Skip migration check for static paths (Swagger, health checks, etc.)
+        if (ShouldSkipMigration(context.Request.Path))
+        {
+            await _next(context);
+            return;
+        }
+
         // Only run if multi-tenancy is enabled and tenant is resolved
         if (tenantContext.IsMultiTenantMode && 
             tenantContext.HasTenant && 
@@ -85,6 +92,30 @@ public class DatabaseMigrationMiddleware<TContext> where TContext : DbContext
         }
 
         await _next(context);
+    }
+
+    /// <summary>
+    /// Determines if migration check should be skipped for the given path
+    /// </summary>
+    private static bool ShouldSkipMigration(PathString path)
+    {
+        var pathValue = path.Value?.ToLowerInvariant();
+        if (string.IsNullOrEmpty(pathValue))
+            return false;
+
+        // Skip Swagger UI and API documentation paths
+        if (pathValue.StartsWith("/swagger"))
+            return true;
+
+        // Skip health check endpoints
+        if (pathValue.StartsWith("/health"))
+            return true;
+
+        // Skip metrics endpoints
+        if (pathValue.StartsWith("/metrics"))
+            return true;
+
+        return false;
     }
 
     /// <summary>

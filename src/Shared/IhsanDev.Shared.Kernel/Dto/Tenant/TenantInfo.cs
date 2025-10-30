@@ -39,6 +39,7 @@ public class TenantConfiguration
     public JwtSettings? Jwt { get; set; }
     public DatabaseSettings? DatabaseSettings { get; set; }
     public CorsSettings? Cors { get; set; }
+    public OtpSettings? Otp { get; set; }
 }
 
 /// <summary>
@@ -68,4 +69,51 @@ public class DatabaseSettings
 public class CorsSettings
 {
     public string[]? AllowedOrigins { get; set; }
+}
+
+/// <summary>
+/// OTP (One-Time Password) settings for tenant
+/// </summary>
+public class OtpSettings
+{
+    /// <summary>
+    /// Length of the verification code (default: 6)
+    /// Valid range: 4-10 characters
+    /// </summary>
+    public int CodeLength { get; set; } = 6;
+
+    /// <summary>
+    /// Code expiration time in seconds (default: 300 = 5 minutes)
+    /// Valid range: 30 seconds to 30 minutes (1800 seconds)
+    /// </summary>
+    public int ExpirationSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// Maximum failed attempts before lockout (default: 3)
+    /// Valid range: 1-10 attempts
+    /// </summary>
+    public int MaxAttempts { get; set; } = 3;
+
+    /// <summary>
+    /// Lockout duration in minutes after max attempts (default: 15)
+    /// Valid range: 1-60 minutes
+    /// </summary>
+    public int LockoutMinutes { get; set; } = 15;
+
+    /// <summary>
+    /// Cooldown period in seconds before allowing resend (default: 60)
+    /// Valid range: 10-300 seconds (5 minutes)
+    /// </summary>
+    public int ResendCooldownSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Use alphanumeric codes instead of numeric only (default: false)
+    /// </summary>
+    public bool UseAlphanumeric { get; set; } = false;
+
+    /// <summary>
+    /// Secret key for additional security (optional)
+    /// Minimum length: 32 characters for production use
+    /// </summary>
+    public string? SecretKey { get; set; }
 }

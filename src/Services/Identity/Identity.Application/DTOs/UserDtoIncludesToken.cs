@@ -18,6 +18,10 @@ public class UserDtoIncludesToken : BaseUserDto, IMapFrom<User>
     public string? RefreshToken { get; set; }    
     public DateTime? RefreshTokenExpiryTime { get; set; }    
     public string? FirebaseToken { get; set; }
+    
+    // OTP verification
+    public string? VerificationCode { get; set; }
+    
     public void Mapping(Profile profile)
     {
         profile.CreateMap<User, UserDtoIncludesToken>()

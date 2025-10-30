@@ -44,7 +44,10 @@ Doc/
 │  ├─ FILE_MANAGER_SERVICE_GUIDE.md         ← File storage architecture
 │  ├─ PROJECT_ISOLATION_STRATEGY_GUIDE.md   ← User isolation patterns
 │  ├─ TENANT_MIDDLEWARE_EXPLAINED.md        ← How tenant middleware works
-│  └─ TENANT_AWARE_CORS_GUIDE.md            ← Tenant-specific CORS
+│  ├─ TENANT_AWARE_CORS_GUIDE.md            ← Tenant-specific CORS
+│  ├─ PHONE_VERIFICATION_LOGIN_GUIDE.md     ← Phone/Email OTP authentication
+│  ├─ OTP_SECURITY_AND_VALIDATION_UPDATE.md ← 🔴 NEW: OTP security system
+│  └─ PHONE_VERIFICATION_QUICK_REFERENCE.md ← Quick OTP reference
 │
 ├─ Development Guides
 │  ├─ CACHING_STRATEGY_COMPARISON.md        ← MemoryCache vs Redis

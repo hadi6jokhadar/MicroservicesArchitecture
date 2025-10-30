@@ -228,11 +228,10 @@ if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("Mu
         seedData: true);
 }
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Enable Swagger in all environments (for debugging)
+// TODO: Restrict to Development only in production
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance
