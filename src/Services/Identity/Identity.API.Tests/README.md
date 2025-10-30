@@ -1,10 +1,10 @@
 # Identity API Integration Tests
 
-Comprehensive integration tests for the Identity Service API with **36 integration tests** covering all endpoints using **handler-based testing approach**.
+Comprehensive integration tests for the Identity Service API with **66 integration tests** covering all endpoints using **handler-based testing approach**.
 
 ## 📋 Test Coverage
 
-**Total: 36 Integration Tests** (All tests use MediatR handlers directly)
+**Total: 66 Integration Tests** (All tests use MediatR handlers directly)
 
 ### Authentication Endpoints (`/api/auth`)
 
@@ -13,6 +13,15 @@ Comprehensive integration tests for the Identity Service API with **36 integrati
 - ✅ **Refresh Token**: Token refresh functionality
 - ✅ **Logout**: User logout
 - ✅ **Forgot Password**: Password reset requests
+
+### OTP Authentication Endpoints (`/api/auth/otp`)
+
+- ✅ **Get Verification Code (Phone)**: Request OTP via phone number
+- ✅ **Get Verification Code (Email)**: Request OTP via email
+- ✅ **Login with Code (Phone)**: Authenticate using phone + OTP
+- ✅ **Login with Code (Email)**: Authenticate using email + OTP
+- ✅ **Register with Code (Phone)**: Register new user with phone + OTP
+- ✅ **Register with Code (Email)**: Register new user with email + OTP
 
 ### User Profile Endpoints (`/api/user`)
 
@@ -37,9 +46,10 @@ Identity.API.Tests/
 │   ├── CustomWebApplicationFactory.cs   # Test server setup
 │   └── IntegrationTestBase.cs           # Base class with utilities
 ├── Endpoints/
-│   ├── AuthEndpointsTests.cs            # Auth endpoint tests
-│   ├── UserEndpointsTests.cs            # User endpoint tests
-│   └── AdminEndpointsTests.cs           # Admin endpoint tests
+│   ├── AuthEndpointsTests.cs            # Auth endpoint tests (13 tests)
+│   ├── OtpAuthEndpointsTests.cs         # OTP auth endpoint tests (30 tests)
+│   ├── UserEndpointsTests.cs            # User endpoint tests (8 tests)
+│   └── AdminEndpointsTests.cs           # Admin endpoint tests (15 tests)
 └── README.md
 ```
 
@@ -64,6 +74,7 @@ dotnet test
 
 ```bash
 dotnet test --filter "FullyQualifiedName~AuthEndpointsTests"
+dotnet test --filter "FullyQualifiedName~OtpAuthEndpointsTests"
 dotnet test --filter "FullyQualifiedName~UserEndpointsTests"
 dotnet test --filter "FullyQualifiedName~AdminEndpointsTests"
 ```
@@ -95,6 +106,29 @@ dotnet watch test
 - Refresh Token: 2 tests (valid token, invalid token)
 - Forgot Password: 2 tests (valid email, non-existent email)
 
+### OTP Authentication Tests (30 tests)
+
+#### Get Verification Code Tests (6 tests)
+
+- Phone: Valid request, non-existent user, invalid format, disabled user, locked out user, cooldown period
+- Email: Valid request, non-existent user, invalid format, disabled user
+
+#### Login With Code Tests (12 tests)
+
+- Phone: Valid code, wrong code, max failed attempts (lockout), expired code, invalid code length, non-numeric code
+- Email: Valid code, wrong code, max failed attempts (lockout), expired code
+
+#### Register With Code Tests (9 tests)
+
+- Phone: Valid registration, duplicate phone, invalid format, empty first name, invalid first name
+- Email: Valid registration, duplicate email, invalid format, empty last name, invalid last name
+
+#### OTP Security Flow Tests (3 tests)
+
+- Complete registration and login flow (phone)
+- Complete registration and login flow (email)
+- Get new code and login flow
+
 ### User Profile Tests (8 tests)
 
 - Get Profile: 2 tests (valid, non-existent user)
@@ -110,7 +144,7 @@ dotnet watch test
 - Toggle Status: 2 tests (valid, not found)
 - Delete User: 3 tests (valid, not found, already deleted)
 
-**Total: 36 Integration Tests** (All using handler-based approach)
+**Total: 66 Integration Tests** (All using handler-based approach)
 
 ## 🔧 Test Configuration
 
@@ -162,12 +196,20 @@ SetAuthorizationHeader(adminToken);
 Create test users easily:
 
 ```csharp
+// Standard user with email/password
 var user = await CreateTestUserAsync(
     email: "test@example.com",
     password: "Test123!",
     firstName: "Test",
     lastName: "User",
     role: UserRole.User
+);
+
+// User with phone number and OTP fields
+var otpUser = await CreateTestUserWithPhoneAsync(
+    phoneNumber: "+1234567890",
+    verificationCode: "123456",
+    codeExpiry: DateTime.UtcNow.AddMinutes(5)
 );
 ```
 
@@ -179,6 +221,10 @@ var user = await CreateTestUserAsync(
 - ✅ Authentication requirements
 - ✅ Invalid token handling
 - ✅ Forbidden access attempts
+- ✅ OTP code expiration
+- ✅ OTP failed attempts and lockout
+- ✅ OTP cooldown period enforcement
+- ✅ Account status validation (disabled/archived)
 
 ### Validation Testing
 
@@ -189,13 +235,16 @@ var user = await CreateTestUserAsync(
 
 ### Business Logic Testing
 
-- ✅ User registration flow
-- ✅ Login and token generation
+- ✅ User registration flow (email/password and OTP-based)
+- ✅ Login and token generation (credentials and OTP-based)
 - ✅ Token refresh mechanism
 - ✅ Profile updates
 - ✅ Account deletion
 - ✅ User status toggling
 - ✅ Pagination
+- ✅ OTP code generation and storage
+- ✅ OTP code validation and cleanup
+- ✅ Security features (expiration, attempts, lockout, cooldown)
 
 ### Error Handling
 
@@ -248,7 +297,11 @@ public async Task MethodName_Scenario_ExpectedResult()
 ### Run Single Test
 
 ```bash
+# Authentication test
 dotnet test --filter "FullyQualifiedName=Identity.API.Tests.Endpoints.AuthEndpointsTests.Login_WithValidCredentials_ShouldReturnOkWithToken"
+
+# OTP authentication test
+dotnet test --filter "FullyQualifiedName=Identity.API.Tests.Endpoints.OtpAuthEndpointsTests.LoginWithCodeByPhone_WithValidCode_ShouldReturnTokens"
 ```
 
 ### View Detailed Output

@@ -29,6 +29,9 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
         config["Jwt:ExpiryInMinutes"] = "60";
         config["Jwt:RefreshTokenExpiryInDays"] = "7";
         
+        // Disable multi-tenancy for testing
+        config["MultiTenancy:Enabled"] = "false";
+        
         return config;
     }
 
