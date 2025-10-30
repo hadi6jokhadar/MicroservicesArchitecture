@@ -31,6 +31,13 @@ public class UserRepository : Repository<User>, IUserRepository
         return await _dbSet.AnyAsync(u => u.Email == email && !u.IsArchived, cancellationToken);
     }
 
+    public async Task<User?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber && !u.IsArchived, cancellationToken);
+    }
+
     public IQueryable<User> GetUsersByRole(UserRole role)
     {
         return _dbSet

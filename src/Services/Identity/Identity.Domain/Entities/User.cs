@@ -15,4 +15,6 @@ public class User : BaseUser
     public bool EmailConfirmed { get; set; } = false;
     
     public string? PasswordHash { get; set; }
+    
+    public string? VerificationCode { get; set; }
 }

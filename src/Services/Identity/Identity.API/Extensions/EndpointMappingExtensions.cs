@@ -1,6 +1,7 @@
 using Identity.API.Filters;
 using Identity.API.Handlers;
 using Identity.Application.Commands;
+using Identity.Application.Commands.Auth;
 using Identity.Application.DTOs;
 
 namespace Identity.API.Extensions;
@@ -88,6 +89,55 @@ public static class EndpointMappingExtensions
             .WithSummary("Logout current user")
             .WithDescription("Revoke refresh token and logout user")
             .Produces<object>(200);
+
+        // Phone verification endpoints
+        authGroup.MapPost("/get-verification-code-by-phone", AuthApiHandlers.GetVerificationCodeByPhoneHandler)
+            .WithName("GetVerificationCodeByPhone")
+            .WithSummary("Get verification code for phone number")
+            .WithDescription("Generate and send a 5-digit verification code to the user's phone number")
+            .Produces<object>(200)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<GetVerificationCodeByPhoneCommand>>();
+
+        authGroup.MapPost("/get-verification-code-by-email", AuthApiHandlers.GetVerificationCodeByEmailHandler)
+            .WithName("GetVerificationCodeByEmail")
+            .WithSummary("Get verification code for email")
+            .WithDescription("Generate and send a 5-digit verification code to the user's email")
+            .Produces<object>(200)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<GetVerificationCodeByEmailCommand>>();
+
+        authGroup.MapPost("/login-with-code-by-phone", AuthApiHandlers.LoginWithCodeByPhoneHandler)
+            .WithName("LoginWithCodeByPhone")
+            .WithSummary("Login with phone number and verification code")
+            .WithDescription("Authenticate user using phone number and verification code")
+            .Produces<UserDtoIncludesToken>(200)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<LoginWithCodeByPhoneCommand>>();
+
+        authGroup.MapPost("/login-with-code-by-email", AuthApiHandlers.LoginWithCodeByEmailHandler)
+            .WithName("LoginWithCodeByEmail")
+            .WithSummary("Login with email and verification code")
+            .WithDescription("Authenticate user using email and verification code")
+            .Produces<UserDtoIncludesToken>(200)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<LoginWithCodeByEmailCommand>>();
+
+        authGroup.MapPost("/register-with-code-by-phone", AuthApiHandlers.RegisterWithCodeByPhoneHandler)
+            .WithName("RegisterWithCodeByPhone")
+            .WithSummary("Register new user with phone verification")
+            .WithDescription("Create a new user account using phone number (no email or password required)")
+            .Produces<object>(200)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<RegisterWithCodeByPhoneCommand>>();
+
+        authGroup.MapPost("/register-with-code-by-email", AuthApiHandlers.RegisterWithCodeByEmailHandler)
+            .WithName("RegisterWithCodeByEmail")
+            .WithSummary("Register new user with email verification")
+            .WithDescription("Create a new user account using email (no phone or password required)")
+            .Produces<object>(200)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<RegisterWithCodeByEmailCommand>>();
 
         return app;
     }

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Identity.Application.Commands;
+using Identity.Application.Commands.Auth;
 using MediatR;
 
 namespace Identity.API.Handlers;
@@ -28,6 +29,78 @@ public static class AuthApiHandlers
     {
         var result = await mediator.Send(command, ct);
         return Results.Ok(result);
+    }
+
+    /// <summary>
+    /// Handle get verification code by phone request
+    /// </summary>
+    public static async Task<IResult> GetVerificationCodeByPhoneHandler(
+        GetVerificationCodeByPhoneCommand command,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(command, ct);
+        return Results.Ok(new { success = result, message = "Verification code sent successfully to your phone" });
+    }
+
+    /// <summary>
+    /// Handle get verification code by email request
+    /// </summary>
+    public static async Task<IResult> GetVerificationCodeByEmailHandler(
+        GetVerificationCodeByEmailCommand command,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(command, ct);
+        return Results.Ok(new { success = result, message = "Verification code sent successfully to your email" });
+    }
+
+    /// <summary>
+    /// Handle login with verification code by phone
+    /// </summary>
+    public static async Task<IResult> LoginWithCodeByPhoneHandler(
+        LoginWithCodeByPhoneCommand command,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(command, ct);
+        return Results.Ok(result);
+    }
+
+    /// <summary>
+    /// Handle login with verification code by email
+    /// </summary>
+    public static async Task<IResult> LoginWithCodeByEmailHandler(
+        LoginWithCodeByEmailCommand command,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(command, ct);
+        return Results.Ok(result);
+    }
+
+    /// <summary>
+    /// Handle registration with verification code by phone
+    /// </summary>
+    public static async Task<IResult> RegisterWithCodeByPhoneHandler(
+        RegisterWithCodeByPhoneCommand command,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(command, ct);
+        return Results.Ok(new { success = result, message = "Registration successful. Please login with the verification code sent to your phone." });
+    }
+
+    /// <summary>
+    /// Handle registration with verification code by email
+    /// </summary>
+    public static async Task<IResult> RegisterWithCodeByEmailHandler(
+        RegisterWithCodeByEmailCommand command,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(command, ct);
+        return Results.Ok(new { success = result, message = "Registration successful. Please login with the verification code sent to your email." });
     }
 
     /// <summary>
