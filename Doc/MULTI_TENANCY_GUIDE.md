@@ -223,32 +223,61 @@ The service will be available at:
   "userId": 1,
   "startDate": "2025-01-01T00:00:00Z",
   "expireDate": "2026-01-01T00:00:00Z",
-  "data": "{\"Jwt\":{\"Secret\":\"tenant-specific-secret-key-min-256-bits\",\"Issuer\":\"CompanyABC\",\"Audience\":\"CompanyABCApp\",\"AccessTokenExpirationMinutes\":60,\"RefreshTokenExpirationDays\":7},\"Database\":{\"Provider\":\"PostgreSql\",\"ConnectionString\":\"Host=localhost;Database=CompanyABC_DB;...\"},\"Cors\":{\"AllowedOrigins\":[\"https://companyabc.com\"]}}"
-}
-```
-
-### Tenant Configuration Structure
-
-The `data` field contains a JSON string with tenant-specific settings:
-
-```json
-{
-  "Jwt": {
-    "Secret": "tenant-specific-secret-key-minimum-256-bits",
-    "Issuer": "TenantIssuer",
-    "Audience": "TenantAudience",
-    "AccessTokenExpirationMinutes": 60,
-    "RefreshTokenExpirationDays": 7
-  },
-  "Database": {
-    "Provider": "PostgreSql",
-    "ConnectionString": "Host=localhost;Database=TenantDb;..."
-  },
-  "Cors": {
-    "AllowedOrigins": ["https://tenant-app.com", "https://tenant-admin.com"]
+  "data": {
+    "jwt": {
+      "secret": "tenant-specific-secret-key-min-256-bits",
+      "issuer": "CompanyABC",
+      "audience": "CompanyABCApp",
+      "accessTokenExpirationMinutes": 60,
+      "refreshTokenExpirationDays": 7
+    },
+    "database": {
+      "provider": "PostgreSql",
+      "connectionString": "Host=localhost;Database=CompanyABC_DB;Username=abc_user;Password=secure123"
+    },
+    "cors": {
+      "allowedOrigins": ["https://companyabc.com"]
+    },
+    "otp": {
+      "expiryInMinutes": 5,
+      "maxAttempts": 5,
+      "lockoutDurationInMinutes": 30
+    }
   }
 }
 ```
+
+**Important:** The `data` property is a **JSON object** (type: `TenantConfiguration`), not a JSON string. ASP.NET Core automatically deserializes the JSON into a strongly-typed `TenantConfiguration` object.
+
+### Tenant Configuration Structure
+
+The `data` field is a JSON object containing tenant-specific settings:
+
+```json
+{
+  "jwt": {
+    "secret": "tenant-specific-secret-key-minimum-256-bits",
+    "issuer": "TenantIssuer",
+    "audience": "TenantAudience",
+    "accessTokenExpirationMinutes": 60,
+    "refreshTokenExpirationDays": 7
+  },
+  "database": {
+    "provider": "PostgreSql",
+    "connectionString": "Host=localhost;Database=TenantDb;Username=tenant_user;Password=secure123"
+  },
+  "cors": {
+    "allowedOrigins": ["https://tenant-app.com", "https://tenant-admin.com"]
+  },
+  "otp": {
+    "expiryInMinutes": 5,
+    "maxAttempts": 5,
+    "lockoutDurationInMinutes": 30
+  }
+}
+```
+
+**Note on Data Storage:** While the API accepts and returns `data` as a JSON object, it is stored as a JSON string in the PostgreSQL database for flexibility. The conversion is handled automatically by the application layer.
 
 ---
 

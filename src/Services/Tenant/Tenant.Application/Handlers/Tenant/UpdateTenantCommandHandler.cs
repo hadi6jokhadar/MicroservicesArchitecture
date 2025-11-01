@@ -1,6 +1,7 @@
 using AutoMapper;
 using IhsanDev.Shared.Application.Exceptions;
 using MediatR;
+using System.Text.Json;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Application.DTOs;
 using Tenant.Domain.Repositories;
@@ -31,11 +32,18 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, T
                 throw new NotFoundException($"Tenant with ID '{request.TenantId}' not found");
             }
 
+            // Serialize TenantConfiguration to JSON string for database storage
+            var dataJson = JsonSerializer.Serialize(request.Data, new JsonSerializerOptions 
+            { 
+                WriteIndented = false,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
             // Update tenant properties
             tenant.TenantName = request.TenantName;
             tenant.StartDate = request.StartDate;
             tenant.ExpireDate = request.ExpireDate;
-            tenant.Data = request.Data;
+            tenant.Data = dataJson;
             tenant.IsActive = request.IsActive;
             tenant.LastModified = DateTime.UtcNow;
 

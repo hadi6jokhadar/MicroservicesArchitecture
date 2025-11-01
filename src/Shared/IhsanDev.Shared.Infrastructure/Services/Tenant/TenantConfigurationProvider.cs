@@ -67,7 +67,8 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
             var tenantConfig = JsonSerializer.Deserialize<TenantConfigResponse>(json, new JsonSerializerOptions
             {
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
             if (tenantConfig == null)
@@ -113,25 +114,9 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
             TenantId = response.TenantId,
             TenantName = response.TenantName,
             UserId = response.UserId,
-            IsActive = response.IsActive
+            IsActive = response.IsActive,
+            Configuration = response.Data // Data is now TenantConfiguration object, not string
         };
-
-        // Parse the JSON data field containing configuration
-        if (!string.IsNullOrEmpty(response.Data))
-        {
-            try
-            {
-                var config = JsonSerializer.Deserialize<TenantConfiguration>(response.Data, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-                tenantInfo.Configuration = config;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to parse tenant configuration data for '{TenantId}'", response.TenantId);
-            }
-        }
 
         return tenantInfo;
     }
@@ -143,6 +128,6 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
         public string TenantName { get; set; } = string.Empty;
         public int UserId { get; set; }
         public bool IsActive { get; set; }
-        public string Data { get; set; } = string.Empty;
+        public TenantConfiguration? Data { get; set; } // Changed from string to TenantConfiguration
     }
 }

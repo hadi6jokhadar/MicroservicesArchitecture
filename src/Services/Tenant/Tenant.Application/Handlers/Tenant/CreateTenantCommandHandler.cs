@@ -1,6 +1,7 @@
 using AutoMapper;
 using IhsanDev.Shared.Application.Exceptions;
 using MediatR;
+using System.Text.Json;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Application.DTOs;
 using Tenant.Domain.Entities;
@@ -40,6 +41,13 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
             //     throw new ConflictException($"User with ID '{request.UserId}' already has a tenant");
             // }
 
+            // Serialize TenantConfiguration to JSON string for database storage
+            var dataJson = JsonSerializer.Serialize(request.Data, new JsonSerializerOptions 
+            { 
+                WriteIndented = false,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
             // Create tenant
             var tenantSettings = new TenantSettings
             {
@@ -48,7 +56,7 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
                 UserId = request.UserId,
                 StartDate = request.StartDate,
                 ExpireDate = request.ExpireDate,
-                Data = request.Data,
+                Data = dataJson,
                 IsActive = true,
                 Created = DateTime.UtcNow
             };

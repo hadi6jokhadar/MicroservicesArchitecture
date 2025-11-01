@@ -1,5 +1,6 @@
 using FluentAssertions;
 using IhsanDev.Shared.Testing.Helpers;
+using IhsanDev.Shared.Kernel.Dto.Tenant;
 using Tenant.API.Tests.Infrastructure;
 using Tenant.Application.Commands.Tenant;
 
@@ -36,7 +37,7 @@ public class SharedHelperIntegrationTests : IntegrationTestBase
             UserId: userId,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "{\"Jwt\":{\"Secret\":\"test-secret\"}}"
+            Data: CreateDefaultTenantConfiguration()
         );
 
         var createdTenant = await SendAsync(createCommand);
@@ -74,7 +75,17 @@ public class SharedHelperIntegrationTests : IntegrationTestBase
             UserId: userId,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "{\"Jwt\":{\"Secret\":\"project-b-secret\",\"Issuer\":\"ProjectB\"}}"
+            Data: new TenantConfiguration
+            {
+                Jwt = new JwtSettings
+                {
+                    Secret = "project-b-secret-minimum-32-chars",
+                    Issuer = "ProjectB",
+                    Audience = "ProjectBApp",
+                    AccessTokenExpirationMinutes = 60,
+                    RefreshTokenExpirationDays = 7
+                }
+            }
         );
 
         var tenant = await SendAsync(createCommand);
@@ -141,7 +152,17 @@ public class SharedHelperIntegrationTests : IntegrationTestBase
                 UserId: userId,
                 StartDate: DateTime.UtcNow,
                 ExpireDate: DateTime.UtcNow.AddYears(1),
-                Data: $"{{\"Jwt\":{{\"Secret\":\"secret\",\"Issuer\":\"{projectName}\"}}}}"
+                Data: new TenantConfiguration
+                {
+                    Jwt = new JwtSettings
+                    {
+                        Secret = "secret-key-minimum-32-characters-long",
+                        Issuer = projectName,
+                        Audience = $"{projectName}App",
+                        AccessTokenExpirationMinutes = 60,
+                        RefreshTokenExpirationDays = 7
+                    }
+                }
             );
 
             var tenant = await SendAsync(createCommand);

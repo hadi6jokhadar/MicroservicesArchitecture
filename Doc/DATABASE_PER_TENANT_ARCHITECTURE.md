@@ -527,10 +527,12 @@ public async Task<IActionResult> GetTenantConfig(string tenantId)
         tenantName = tenant.TenantName,
         userId = tenant.UserId,
         isActive = tenant.IsActive,
-        data = tenant.Data  // JSON string with DB connection, JWT settings, etc.
+        data = tenant.Data  // TenantConfiguration object (stored as JSON string in DB, deserialized for response)
     });
 }
 ```
+
+**Important:** The API returns `data` as a **JSON object** (type: `TenantConfiguration`). Although it's stored as a JSON string in PostgreSQL, the application layer automatically deserializes it to a strongly-typed object for API responses and serializes it when saving to the database.
 
 ---
 

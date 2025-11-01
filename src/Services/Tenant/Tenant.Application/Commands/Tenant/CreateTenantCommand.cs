@@ -1,4 +1,5 @@
 using FluentValidation;
+using IhsanDev.Shared.Kernel.Dto.Tenant;
 using MediatR;
 using Tenant.Application.DTOs;
 
@@ -13,7 +14,7 @@ public record CreateTenantCommand(
     int UserId,
     DateTime StartDate,
     DateTime ExpireDate,
-    string Data
+    TenantConfiguration Data
 ) : IRequest<TenantDto>;
 
 public class CreateTenantCommandValidator : AbstractValidator<CreateTenantCommand>
@@ -40,22 +41,6 @@ public class CreateTenantCommandValidator : AbstractValidator<CreateTenantComman
             .GreaterThan(x => x.StartDate).WithMessage("Expire date must be after start date");
 
         RuleFor(x => x.Data)
-            .NotEmpty().WithMessage("Configuration data is required")
-            .Must(BeValidJson).WithMessage("Data must be valid JSON");
-    }
-
-    private bool BeValidJson(string data)
-    {
-        if (string.IsNullOrWhiteSpace(data)) return false;
-        
-        try
-        {
-            System.Text.Json.JsonDocument.Parse(data);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+            .NotNull().WithMessage("Configuration data is required");
     }
 }

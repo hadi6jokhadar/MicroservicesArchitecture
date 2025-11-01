@@ -1,6 +1,7 @@
 using Tenant.API.Tests.Infrastructure;
 using Tenant.Application.Commands.Tenant;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Kernel.Dto.Tenant;
 
 namespace Tenant.API.Tests.Endpoints;
 
@@ -23,13 +24,25 @@ public class TenantEndpointsTests : IntegrationTestBase
     {
         // Arrange
         var tenantId = GenerateUniqueTenantId();
+        var tenantConfig = new TenantConfiguration
+        {
+            Jwt = new JwtSettings
+            {
+                Secret = "test-secret-minimum-32-characters-long",
+                Issuer = "TestCompany",
+                Audience = "TestApp",
+                AccessTokenExpirationMinutes = 60,
+                RefreshTokenExpirationDays = 7
+            }
+        };
+
         var createCommand = new CreateTenantCommand(
             TenantId: tenantId,
             TenantName: "Test Company",
             UserId: 1,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "{\"Jwt\":{\"Secret\":\"test-secret\",\"Issuer\":\"TestCompany\"}}"
+            Data: tenantConfig
         );
 
         // Act - Call handler directly via MediatR
@@ -58,7 +71,7 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: GenerateUniqueUserId(), // Different user but same tenant ID
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "{}"
+            Data: CreateDefaultTenantConfiguration()
         );
 
         // Act & Assert
@@ -94,7 +107,7 @@ public class TenantEndpointsTests : IntegrationTestBase
     // }
 
     [Fact]
-    public async Task CreateTenant_WithInvalidJson_ShouldThrowValidationException()
+    public async Task CreateTenant_WithNullData_ShouldThrowValidationException()
     {
         // Arrange
         var createCommand = new CreateTenantCommand(
@@ -103,7 +116,7 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: 1,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "invalid-json"
+            Data: null!
         );
 
         // Act & Assert
@@ -122,7 +135,7 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: GenerateUniqueUserId(), // Use unique user ID
             StartDate: DateTime.UtcNow.AddDays(-30),
             ExpireDate: DateTime.UtcNow.AddDays(-1),
-            Data: "{}"
+            Data: CreateDefaultTenantConfiguration()
         );
 
         // Act
@@ -201,7 +214,17 @@ public class TenantEndpointsTests : IntegrationTestBase
     public async Task GetTenantConfig_WithValidTenantId_ShouldReturnConfigIncludingData()
     {
         // Arrange
-        var data = "{\"Jwt\":{\"Secret\":\"my-secret\",\"Issuer\":\"MyCompany\"}}";
+        var data = new TenantConfiguration
+        {
+            Jwt = new JwtSettings
+            {
+                Secret = "my-secret-key-minimum-32-characters",
+                Issuer = "MyCompany",
+                Audience = "MyApp",
+                AccessTokenExpirationMinutes = 60,
+                RefreshTokenExpirationDays = 7
+            }
+        };
         var tenant = await CreateTestTenantAsync(data: data);
         var query = new GetTenantConfigQuery(tenant.TenantId);
 
@@ -211,7 +234,10 @@ public class TenantEndpointsTests : IntegrationTestBase
         // Assert
         result.Should().NotBeNull();
         result!.TenantId.Should().Be(tenant.TenantId);
-        result.Data.Should().Be(data);
+        result.Data.Should().NotBeNull();
+        result.Data!.Jwt.Should().NotBeNull();
+        result.Data.Jwt!.Secret.Should().Be("my-secret-key-minimum-32-characters");
+        result.Data.Jwt.Issuer.Should().Be("MyCompany");
     }
 
     #endregion
@@ -223,12 +249,24 @@ public class TenantEndpointsTests : IntegrationTestBase
     {
         // Arrange
         var tenant = await CreateTestTenantAsync();
+        var updatedConfig = new TenantConfiguration
+        {
+            Jwt = new JwtSettings
+            {
+                Secret = "updated-secret-key-minimum-32-chars",
+                Issuer = "UpdatedIssuer",
+                Audience = "UpdatedApp",
+                AccessTokenExpirationMinutes = 120,
+                RefreshTokenExpirationDays = 14
+            }
+        };
+
         var updateCommand = new UpdateTenantCommand(
             TenantId: tenant.TenantId,
             TenantName: "Updated Tenant Name",
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(2),
-            Data: "{\"Jwt\":{\"Secret\":\"updated-secret\"}}",
+            Data: updatedConfig,
             IsActive: false
         );
 
@@ -245,7 +283,8 @@ public class TenantEndpointsTests : IntegrationTestBase
         // Verify data was updated by getting config
         var configQuery = new GetTenantConfigQuery(tenant.TenantId);
         var config = await SendAsync(configQuery);
-        config!.Data.Should().Contain("updated-secret");
+        config!.Data.Should().NotBeNull();
+        config.Data!.Jwt!.Secret.Should().Be("updated-secret-key-minimum-32-chars");
     }
 
     [Fact]
@@ -257,7 +296,7 @@ public class TenantEndpointsTests : IntegrationTestBase
             TenantName: "Updated Name",
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "{}",
+            Data: CreateDefaultTenantConfiguration(),
             IsActive: true
         );
 
@@ -270,7 +309,7 @@ public class TenantEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task UpdateTenant_WithInvalidJson_ShouldThrowValidationException()
+    public async Task UpdateTenant_WithNullData_ShouldThrowValidationException()
     {
         // Arrange
         var tenant = await CreateTestTenantAsync();
@@ -279,7 +318,7 @@ public class TenantEndpointsTests : IntegrationTestBase
             TenantName: "Updated Name",
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "not-valid-json",
+            Data: null!,
             IsActive: true
         );
 
@@ -397,7 +436,7 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: 1,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "{}"
+            Data: CreateDefaultTenantConfiguration()
         );
 
         // Act & Assert
@@ -416,7 +455,7 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: 1,
             StartDate: DateTime.UtcNow.AddYears(1),
             ExpireDate: DateTime.UtcNow,
-            Data: "{}"
+            Data: CreateDefaultTenantConfiguration()
         );
 
         // Act & Assert
@@ -435,7 +474,7 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: 1,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "{}"
+            Data: CreateDefaultTenantConfiguration()
         );
 
         // Act & Assert

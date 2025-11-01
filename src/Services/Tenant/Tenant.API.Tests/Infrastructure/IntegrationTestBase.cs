@@ -2,6 +2,7 @@ using Tenant.Application.Commands.Tenant;
 using Tenant.Domain.Entities;
 using Tenant.Infrastructure.Persistence;
 using IhsanDev.Shared.Testing.Infrastructure;
+using IhsanDev.Shared.Kernel.Dto.Tenant;
 
 namespace Tenant.API.Tests.Infrastructure;
 
@@ -26,11 +27,19 @@ public abstract class IntegrationTestBase :
         int? userId = null,
         DateTime? startDate = null,
         DateTime? expireDate = null,
-        string? data = null,
+        TenantConfiguration? data = null,
         bool isActive = true)
     {
         return await ExecuteDbContextAsync(async context =>
         {
+            var dataJson = data != null 
+                ? System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions 
+                { 
+                    WriteIndented = false,
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                })
+                : "{\"jwt\":{\"secret\":\"test-secret-key\",\"issuer\":\"TestTenant\"}}";
+
             var tenant = new TenantSettings
             {
                 TenantId = tenantId ?? GenerateUniqueId("tenant"),
@@ -38,7 +47,7 @@ public abstract class IntegrationTestBase :
                 UserId = userId ?? GenerateUniqueUserId(),
                 StartDate = startDate ?? DateTime.UtcNow,
                 ExpireDate = expireDate ?? DateTime.UtcNow.AddYears(1),
-                Data = data ?? "{\"Jwt\":{\"Secret\":\"test-secret-key\",\"Issuer\":\"TestTenant\"}}",
+                Data = dataJson,
                 IsActive = isActive,
                 Created = DateTime.UtcNow,
                 IsArchived = false
@@ -80,7 +89,7 @@ public abstract class IntegrationTestBase :
         int? userId = null,
         DateTime? startDate = null,
         DateTime? expireDate = null,
-        string? data = null)
+        TenantConfiguration? data = null)
     {
         var command = new CreateTenantCommand(
             TenantId: tenantId ?? GenerateUniqueTenantId(),
@@ -88,11 +97,70 @@ public abstract class IntegrationTestBase :
             UserId: userId ?? GenerateUniqueUserId(),
             StartDate: startDate ?? DateTime.UtcNow,
             ExpireDate: expireDate ?? DateTime.UtcNow.AddYears(1),
-            Data: data ?? "{\"Jwt\":{\"Secret\":\"test-secret\"}}"
+            Data: data ?? CreateDefaultTenantConfiguration()
         );
 
         var result = await SendAsync(command);
         return result.Id;
+    }
+
+    /// <summary>
+    /// Create default tenant configuration for testing
+    /// </summary>
+    protected static TenantConfiguration CreateDefaultTenantConfiguration()
+    {
+        return new TenantConfiguration
+        {
+            Jwt = new JwtSettings
+            {
+                Secret = "test-secret-key-minimum-32-characters",
+                Issuer = "TestTenant",
+                Audience = "TestApp",
+                AccessTokenExpirationMinutes = 60,
+                RefreshTokenExpirationDays = 7
+            },
+            DatabaseSettings = new DatabaseSettings
+            {
+                Provider = "PostgreSql",
+                ConnectionString = "Host=localhost;Database=test_db;Username=test;Password=test"
+            },
+            Cors = new CorsSettings
+            {
+                AllowedOrigins = new[] { "http://localhost:3000" }
+            },
+            Otp = new OtpSettings
+            {
+                CodeLength = 6,
+                ExpirationSeconds = 300,
+                MaxAttempts = 3,
+                LockoutMinutes = 15,
+                ResendCooldownSeconds = 60,
+                UseAlphanumeric = false
+            }
+        };
+    }
+
+    /// <summary>
+    /// Deserialize tenant data JSON string to TenantConfiguration object
+    /// </summary>
+    protected static TenantConfiguration? DeserializeTenantData(string? dataJson)
+    {
+        if (string.IsNullOrWhiteSpace(dataJson))
+            return CreateDefaultTenantConfiguration();
+
+        try
+        {
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+            };
+            return System.Text.Json.JsonSerializer.Deserialize<TenantConfiguration>(dataJson, options);
+        }
+        catch
+        {
+            return CreateDefaultTenantConfiguration();
+        }
     }
 
     /// <summary>

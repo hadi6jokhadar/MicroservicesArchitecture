@@ -1,6 +1,7 @@
 using Tenant.API.Tests.Infrastructure;
 using Tenant.Application.Commands.Tenant;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Kernel.Dto.Tenant;
 
 namespace Tenant.API.Tests.Endpoints;
 
@@ -161,7 +162,17 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
             UserId: 123,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "{\"Jwt\":{\"Secret\":\"admin-secret\",\"Issuer\":\"AdminCompany\"}}"
+            Data: new TenantConfiguration
+            {
+                Jwt = new JwtSettings
+                {
+                    Secret = "admin-secret-key-minimum-32-chars",
+                    Issuer = "AdminCompany",
+                    Audience = "AdminApp",
+                    AccessTokenExpirationMinutes = 60,
+                    RefreshTokenExpirationDays = 7
+                }
+            }
         );
 
         // Act
@@ -176,25 +187,29 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task CreateTenant_AsAdmin_WithComplexJsonConfiguration_ShouldPersistCorrectly()
+    public async Task CreateTenant_AsAdmin_WithComplexConfiguration_ShouldPersistCorrectly()
     {
         // Arrange
-        var complexData = @"{
-            ""Jwt"": {
-                ""Secret"": ""complex-secret"",
-                ""Issuer"": ""ComplexIssuer"",
-                ""Audience"": ""ComplexAudience"",
-                ""ExpirationMinutes"": 60
+        var complexData = new TenantConfiguration
+        {
+            Jwt = new JwtSettings
+            {
+                Secret = "complex-secret-key-minimum-32-chars",
+                Issuer = "ComplexIssuer",
+                Audience = "ComplexAudience",
+                AccessTokenExpirationMinutes = 60,
+                RefreshTokenExpirationDays = 7
             },
-            ""Email"": {
-                ""SmtpHost"": ""smtp.example.com"",
-                ""SmtpPort"": 587
+            DatabaseSettings = new DatabaseSettings
+            {
+                Provider = "PostgreSql",
+                ConnectionString = "Host=smtp.example.com;Port=587;Database=ComplexDB"
             },
-            ""Features"": {
-                ""EnableNotifications"": true,
-                ""MaxUsers"": 100
+            Cors = new CorsSettings
+            {
+                AllowedOrigins = new[] { "http://example.com" }
             }
-        }";
+        };
 
         var createCommand = new CreateTenantCommand(
             TenantId: GenerateUniqueTenantId(),
@@ -215,9 +230,9 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
         var configQuery = new GetTenantConfigQuery(result.TenantId);
         var config = await SendAsync(configQuery);
         config.Should().NotBeNull();
-        config!.Data.Should().NotBeNullOrEmpty();
-        config.Data.Should().Contain("EnableNotifications");
-        config.Data.Should().Contain("MaxUsers");
+        config!.Data.Should().NotBeNull();
+        config.Data!.Jwt.Should().NotBeNull();
+        config.Data.Jwt!.Issuer.Should().Be("ComplexIssuer");
     }
 
     #endregion
@@ -230,7 +245,17 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
         // Arrange
         var tenant = await CreateTestTenantAsync();
         var newExpireDate = DateTime.UtcNow.AddYears(3);
-        var newData = "{\"Jwt\":{\"Secret\":\"updated-by-admin\"}}";
+        var newData = new TenantConfiguration
+        {
+            Jwt = new JwtSettings
+            {
+                Secret = "updated-by-admin-key-minimum-32",
+                Issuer = "AdminUpdated",
+                Audience = "UpdatedApp",
+                AccessTokenExpirationMinutes = 90,
+                RefreshTokenExpirationDays = 14
+            }
+        };
 
         var updateCommand = new UpdateTenantCommand(
             TenantId: tenant.TenantId,
@@ -253,7 +278,8 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
         // Verify data was updated by getting config
         var configQuery = new GetTenantConfigQuery(tenant.TenantId);
         var config = await SendAsync(configQuery);
-        config!.Data.Should().Be(newData);
+        config!.Data.Should().NotBeNull();
+        config.Data!.Jwt!.Secret.Should().Be("updated-by-admin-key-minimum-32");
     }
 
     [Fact]
@@ -261,6 +287,7 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
     {
         // Arrange
         var tenant = await CreateTestTenantAsync(isActive: true);
+        var tenantData = DeserializeTenantData(tenant.Data)!;
 
         // Act 1 - Deactivate
         var deactivateCommand = new UpdateTenantCommand(
@@ -268,7 +295,7 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
             TenantName: tenant.TenantName,
             StartDate: tenant.StartDate,
             ExpireDate: tenant.ExpireDate,
-            Data: tenant.Data,
+            Data: tenantData,
             IsActive: false
         );
         var deactivatedResult = await SendAsync(deactivateCommand);
@@ -282,7 +309,7 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
             TenantName: tenant.TenantName,
             StartDate: tenant.StartDate,
             ExpireDate: tenant.ExpireDate,
-            Data: tenant.Data,
+            Data: tenantData,
             IsActive: true
         );
         var reactivatedResult = await SendAsync(reactivateCommand);
@@ -299,6 +326,7 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
             startDate: DateTime.UtcNow.AddDays(-30),
             expireDate: DateTime.UtcNow.AddDays(-1)
         );
+        var tenantData = DeserializeTenantData(expiredTenant.Data)!;
 
         // Verify it's expired
         var beforeQuery = new GetTenantByIdQuery(expiredTenant.TenantId);
@@ -311,7 +339,7 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
             TenantName: expiredTenant.TenantName,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: expiredTenant.Data,
+            Data: tenantData,
             IsActive: true
         );
         var updatedResult = await SendAsync(updateCommand);
@@ -390,7 +418,7 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
             UserId: GenerateUniqueUserId(), // Generate unique user ID for each
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: "{}"
+            Data: CreateDefaultTenantConfiguration()
         )).ToList();
 
         // Act
@@ -419,7 +447,10 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
     public async Task GetTenantConfig_AsAdmin_ShouldIncludeSensitiveData()
     {
         // Arrange
-        var sensitiveData = "{\"Jwt\":{\"Secret\":\"super-secret-key-123\"}}";
+        var sensitiveData = new TenantConfiguration
+        {
+            Jwt = new JwtSettings { Secret = "super-secret-key-123" }
+        };
         var tenant = await CreateTestTenantAsync(data: sensitiveData);
         var query = new GetTenantConfigQuery(tenant.TenantId);
 
@@ -428,8 +459,8 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
 
         // Assert
         result.Should().NotBeNull();
-        result!.Data.Should().Be(sensitiveData);
-        result.Data.Should().Contain("super-secret-key-123");
+        result!.Data.Should().NotBeNull();
+        result.Data!.Jwt!.Secret.Should().Be("super-secret-key-123");
     }
 
     [Fact]
@@ -437,6 +468,7 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
     {
         // Arrange
         var tenant = await CreateTestTenantAsync();
+        var tenantData = DeserializeTenantData(tenant.Data)!;
         var originalName = tenant.TenantName;
         
         // Act - Only change the name
@@ -445,7 +477,7 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
             TenantName: "Only Name Changed",
             StartDate: tenant.StartDate,
             ExpireDate: tenant.ExpireDate,
-            Data: tenant.Data,
+            Data: tenantData,
             IsActive: tenant.IsActive
         );
         var result = await SendAsync(updateCommand);
@@ -458,7 +490,8 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
         // Verify data wasn't changed
         var configQuery = new GetTenantConfigQuery(tenant.TenantId);
         var config = await SendAsync(configQuery);
-        config!.Data.Should().Be(tenant.Data);
+        var originalData = DeserializeTenantData(tenant.Data)!;
+        config!.Data!.Jwt!.Secret.Should().Be(originalData.Jwt!.Secret);
     }
 
     #endregion
