@@ -18,6 +18,15 @@ namespace Tenant.API.Tests.Infrastructure;
 /// </summary>
 public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructure.CustomWebApplicationFactory<Program>
 {
+    public CustomWebApplicationFactory()
+    {
+        // Set database provider - change this to switch between SQLite and PostgreSQL
+        UsePostgreSQL = true;  // Set to true to use PostgreSQL for tests
+
+        // Optional: Customize PostgreSQL connection string
+        PostgreSqlConnectionString = "Host=localhost;Port=5432;Database=tenantTestdb;Username=postgres;Password=CHANGE_ME_DB_PASSWORD;Minimum Pool Size=5;Maximum Pool Size=50;Connection Idle Lifetime=300;Connection Pruning Interval=10;Pooling=true;";
+    }
+    
     protected override Dictionary<string, string?> GetTestConfiguration()
     {
         var config = base.GetTestConfiguration();
