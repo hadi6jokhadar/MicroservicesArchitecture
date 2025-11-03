@@ -18,6 +18,15 @@ namespace Identity.API.Tests.Infrastructure;
 /// </summary>
 public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructure.CustomWebApplicationFactory<Program>
 {
+    public CustomWebApplicationFactory()
+    {
+        // Set database provider - change this to switch between SQLite and PostgreSQL
+        UsePostgreSQL = true;  // Set to true to use PostgreSQL for tests
+        
+        // Optional: Customize PostgreSQL connection string
+        // PostgreSqlConnectionString = "Host=localhost;Port=5432;Database=identity_test;Username=postgres;Password=postgres;";
+    }
+    
     protected override Dictionary<string, string?> GetTestConfiguration()
     {
         var config = base.GetTestConfiguration();

@@ -27,8 +27,8 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
     /// <summary>
     /// PostgreSQL connection string (only used if UsePostgreSQL is true)
     /// </summary>
-    public string PostgreSqlConnectionString { get; set; } = 
-        "Host=localhost;Port=5432;Database=testdb;Username=postgres;Password=postgres;";
+    public string PostgreSqlConnectionString { get; set; } =
+        "Host=localhost;Port=5432;Database=testdb;Username=postgres;Password=CHANGE_ME_DB_PASSWORD;Minimum Pool Size=5;Maximum Pool Size=50;Connection Idle Lifetime=300;Connection Pruning Interval=10;Pooling=true;";
 
     /// <summary>
     /// Additional configuration values to add during test setup
@@ -99,7 +99,8 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
     {
         if (UsePostgreSQL)
         {
-            // For PostgreSQL, apply migrations
+            // For PostgreSQL, delete and recreate database for clean state
+            context.Database.EnsureDeleted();
             context.Database.Migrate();
         }
         else

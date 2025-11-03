@@ -17,6 +17,8 @@ public abstract class IntegrationTestBase :
 {
     protected IntegrationTestBase(CustomWebApplicationFactory factory) : base(factory)
     {
+        // Note: Setting UsePostgreSQL here is too late - factory is already configured
+        // To use PostgreSQL, override in CustomWebApplicationFactory constructor instead
     }
 
     /// <summary>
