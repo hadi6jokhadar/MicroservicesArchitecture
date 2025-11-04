@@ -53,6 +53,7 @@ The Identity Service provides secure user authentication and authorization capab
 - ✅ **Entity Framework Core**: Advanced ORM with migrations
 - ✅ **Repository Pattern**: Clean data access abstraction
 - ✅ **Connection Resilience**: Retry policies and connection management
+- ✅ **Custom Data Property**: Flexible JSON storage for user-specific data
 
 ## 🛠️ Technology Stack
 
@@ -274,6 +275,45 @@ Content-Type: application/json
   }
 }
 ```
+
+## 📦 Custom Data Property
+
+The Identity Service includes a flexible `data` property that allows storing custom JSON data for each user.
+
+### Features
+
+- **Optional**: Can be null or omitted
+- **Flexible**: Accepts any valid JSON string
+- **Persisted**: Stored in database as text field
+- **Available**: In all operations (Create, Update, Get)
+
+### Usage Examples
+
+```json
+// Register with custom data
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "firstName": "John",
+  "lastName": "Doe",
+  "data": "{\"preferences\": {\"theme\": \"dark\", \"language\": \"en\"}}"
+}
+
+// Update profile with custom data
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "data": "{\"settings\": {\"notifications\": true, \"timezone\": \"UTC\"}}"
+}
+```
+
+### Use Cases
+
+- User preferences (theme, language, timezone)
+- Metadata (department, employee ID, manager)
+- Tracking information (source, campaign, referral)
+- Administrative notes and classifications
+- Application-specific custom fields
 
 ## 🧪 Testing
 

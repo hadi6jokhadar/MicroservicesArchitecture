@@ -22,4 +22,7 @@ public class User : BaseUser
     public int FailedCodeAttempts { get; set; } = 0;
     public DateTime? CodeLockoutUntil { get; set; }
     public DateTime? LastCodeSentAt { get; set; }
+    
+    // Additional user data
+    public string? Data { get; set; }
 }

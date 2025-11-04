@@ -6,7 +6,8 @@ namespace Identity.Application.Commands.Auth;
 public record RegisterWithCodeByPhoneCommand(
     string PhoneNumber,
     string FirstName,
-    string LastName
+    string LastName,
+    string? Data = null
 ) : IRequest<bool>;
 
 public class RegisterWithCodeByPhoneCommandValidator : AbstractValidator<RegisterWithCodeByPhoneCommand>

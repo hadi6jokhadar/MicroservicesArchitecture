@@ -31,6 +31,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             user.LastName = request.LastName;
             user.Role = request.Role;
             user.PhoneNumber = request.PhoneNumber;
+            user.Data = request.Data;
             user.LastModified = DateTime.UtcNow;
 
             if (request.EmailConfirmed.HasValue)

@@ -18,6 +18,9 @@ public class UserDto : BaseUserDto, IMapFrom<User>
     // OTP verification
     public string? VerificationCode { get; set; }
     
+    // Additional user data
+    public string? Data { get; set; }
+    
     public void Mapping(Profile profile)
     {
         profile.CreateMap<User, UserDto>()

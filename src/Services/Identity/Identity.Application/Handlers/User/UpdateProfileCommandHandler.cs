@@ -34,6 +34,7 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
             user.LastName = request.LastName;
             user.PhoneNumber = request.PhoneNumber;
             user.ProfilePictureUrl = request.ProfilePictureUrl;
+            user.Data = request.Data;
             user.LastModified = DateTime.UtcNow;
 
             await _userRepository.UpdateAsync(user, cancellationToken);

@@ -72,7 +72,8 @@ The service follows clean architecture principles with modern .NET patterns:
   "password": "SecurePass123!",
   "firstName": "John",
   "lastName": "Doe",
-  "phoneNumber": "+1234567890" // optional
+  "phoneNumber": "+1234567890", // optional
+  "data": "{\"preferences\": {\"theme\": \"dark\"}}" // optional - custom JSON data
 }
 
 // Login Request
@@ -104,7 +105,8 @@ The service follows clean architecture principles with modern .NET patterns:
   "firstName": "John",
   "lastName": "Doe",
   "phoneNumber": "+1234567890",
-  "profilePictureUrl": "https://example.com/avatar.jpg"
+  "profilePictureUrl": "https://example.com/avatar.jpg",
+  "data": "{\"settings\": {\"notifications\": true}}" // optional - custom JSON data
 }
 
 // User Profile Response
@@ -117,6 +119,7 @@ The service follows clean architecture principles with modern .NET patterns:
   "role": "User",
   "profilePictureUrl": "https://example.com/avatar.jpg",
   "emailConfirmed": true,
+  "data": "{\"settings\": {\"notifications\": true}}", // optional custom data
   "created": "2025-01-01T10:00:00Z",
   "lastLogin": "2025-10-12T14:00:00Z"
 }
@@ -132,7 +135,8 @@ The service follows clean architecture principles with modern .NET patterns:
   "firstName": "Jane",
   "lastName": "Smith",
   "role": "User", // User, Admin, SuperAdmin
-  "phoneNumber": "+1234567890" // optional
+  "phoneNumber": "+1234567890", // optional
+  "data": "{\"department\": \"IT\", \"metadata\": {\"createdBy\": \"admin\"}}" // optional
 }
 
 // Update User Request
@@ -142,7 +146,8 @@ The service follows clean architecture principles with modern .NET patterns:
   "role": "Admin",
   "phoneNumber": "+1234567890",
   "emailConfirmed": true,
-  "status": true
+  "status": true,
+  "data": "{\"updatedBy\": \"superadmin\", \"notes\": \"Promoted to admin\"}" // optional
 }
 
 // User List Response (with pagination)
@@ -157,6 +162,7 @@ The service follows clean architecture principles with modern .NET patterns:
       "phoneNumber": "+1234567890",
       "emailConfirmed": true,
       "status": true,
+      "data": "{\"department\": \"Sales\"}", // optional custom data
       "created": "2025-01-01T10:00:00Z",
       "lastLogin": "2025-10-12T14:00:00Z"
     }
@@ -198,6 +204,53 @@ The service uses JWT tokens with the following claims:
 - **Public**: Registration, login, password reset
 - **Authenticated Users**: Profile management, account deletion
 - **Admin/SuperAdmin**: Complete user management
+
+## Custom Data Property
+
+### Overview
+
+The Identity Service includes a flexible `data` property on the User entity that allows storing custom JSON data. This property is:
+
+- **Optional**: Can be null or omitted in requests
+- **Flexible**: Accepts any valid JSON string
+- **Persisted**: Stored in the database as a text field
+- **Queryable**: Returned in all user GET operations
+
+### Use Cases
+
+The `data` property can be used for:
+
+- **User Preferences**: Theme, language, notification settings
+- **Metadata**: Created by, department, tags
+- **Application-Specific Data**: Custom fields needed by your application
+- **Tracking**: User source, campaign information, referral codes
+- **Administrative Notes**: Internal notes, flags, or classifications
+
+### Example Usage
+
+```json
+// Storing user preferences
+{
+  "data": "{\"preferences\": {\"theme\": \"dark\", \"language\": \"en\", \"timezone\": \"UTC\"}}"
+}
+
+// Storing metadata
+{
+  "data": "{\"department\": \"IT\", \"manager\": \"John Doe\", \"employeeId\": \"EMP-12345\"}"
+}
+
+// Storing tracking information
+{
+  "data": "{\"source\": \"mobile_app\", \"campaign\": \"summer2025\", \"referralCode\": \"REF123\"}"
+}
+```
+
+### Important Notes
+
+- The `data` field accepts a **JSON string**, not a JSON object
+- Always stringify your JSON before sending it to the API
+- The service does not validate the JSON structure
+- Set to `null` or omit to clear the data property
 
 ## Features Implemented
 

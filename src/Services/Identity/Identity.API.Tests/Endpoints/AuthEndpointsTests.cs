@@ -1,6 +1,7 @@
 using Identity.API.Tests.Infrastructure;
 using Identity.Application.Commands;
 using IhsanDev.Shared.Application.Exceptions;
+using Microsoft.EntityFrameworkCore;
 
 namespace Identity.API.Tests.Endpoints;
 
@@ -40,6 +41,59 @@ public class AuthEndpointsTests : IntegrationTestBase
         result.Email.Should().Be(registerRequest.Email);
         result.FirstName.Should().Be(registerRequest.FirstName);
         result.LastName.Should().Be(registerRequest.LastName);
+    }
+
+    [Fact]
+    public async Task Register_WithDataProperty_ShouldSaveAndReturnData()
+    {
+        // Arrange
+        var testData = "{\"preferences\": {\"theme\": \"dark\", \"language\": \"en\"}}";
+        var registerRequest = new RegisterCommand(
+            Email: "userwithdatafield@example.com",
+            Password: "NewUser123!",
+            FirstName: "Data",
+            LastName: "User",
+            PhoneNumber: null,
+            Data: testData
+        );
+
+        // Act
+        var result = await SendAsync(registerRequest);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Data.Should().Be(testData);
+        result.Email.Should().Be(registerRequest.Email);
+
+        // Verify data is persisted in database
+        var userFromDb = await ExecuteDbContextAsync(async context =>
+        {
+            return await context.Users.FirstOrDefaultAsync(u => u.Email == registerRequest.Email);
+        });
+        
+        userFromDb.Should().NotBeNull();
+        userFromDb!.Data.Should().Be(testData);
+    }
+
+    [Fact]
+    public async Task Register_WithoutDataProperty_ShouldSucceed()
+    {
+        // Arrange
+        var registerRequest = new RegisterCommand(
+            Email: "userwithoutdata@example.com",
+            Password: "NewUser123!",
+            FirstName: "No",
+            LastName: "Data",
+            PhoneNumber: null,
+            Data: null
+        );
+
+        // Act
+        var result = await SendAsync(registerRequest);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Data.Should().BeNull();
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using Identity.API.Tests.Infrastructure;
 using Identity.Application.Commands;
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Kernel.Enums.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Identity.API.Tests.Endpoints;
 
@@ -83,6 +84,31 @@ public class AdminEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task GetUserById_WithDataProperty_ShouldReturnUserWithData()
+    {
+        // Arrange
+        var testData = "{\"adminNotes\": \"VIP user\", \"tags\": [\"premium\", \"verified\"]}";
+        var user = await CreateTestUserAsync(email: "getbyidwithdata@example.com", firstName: "Test", lastName: "User");
+        
+        // Set data
+        await ExecuteDbContextAsync(async context =>
+        {
+            var userToUpdate = await context.Users.FindAsync(user.Id);
+            userToUpdate!.Data = testData;
+            await context.SaveChangesAsync();
+        });
+        
+        var query = new GetUserByIdCommand(user.Id);
+
+        // Act
+        var result = await SendAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Data.Should().Be(testData);
+    }
+
+    [Fact]
     public async Task GetUserById_WithNonExistentId_ShouldThrowNotFoundException()
     {
         // Arrange
@@ -120,6 +146,39 @@ public class AdminEndpointsTests : IntegrationTestBase
         result.FirstName.Should().Be("New");
         result.LastName.Should().Be("Admin");
         result.Role.Should().Be(UserRole.User);
+    }
+
+    [Fact]
+    public async Task CreateUser_WithDataProperty_ShouldCreateUserWithData()
+    {
+        // Arrange
+        var testData = "{\"role\": \"manager\", \"department\": \"IT\", \"metadata\": {\"createdBy\": \"admin\"}}";
+        var createCommand = new CreateUserCommand(
+            Email: "adminwithdatafield@example.com",
+            Password: "NewAdmin123!",
+            FirstName: "Admin",
+            LastName: "WithData",
+            Role: UserRole.User,
+            PhoneNumber: "+1234567890",
+            Data: testData
+        );
+
+        // Act
+        var result = await SendAsync(createCommand);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Data.Should().Be(testData);
+        result.Email.Should().Be("adminwithdatafield@example.com");
+        
+        // Verify data is persisted in database
+        var userFromDb = await ExecuteDbContextAsync(async context =>
+        {
+            return await context.Users.FirstOrDefaultAsync(u => u.Email == createCommand.Email);
+        });
+        
+        userFromDb.Should().NotBeNull();
+        userFromDb!.Data.Should().Be(testData);
     }
 
     [Fact]
@@ -210,6 +269,81 @@ public class AdminEndpointsTests : IntegrationTestBase
         result.FirstName.Should().Be("Updated");
         result.LastName.Should().Be("Name");
         result.PhoneNumber.Should().Be("+9876543210");
+    }
+
+    [Fact]
+    public async Task UpdateUser_WithDataProperty_ShouldUpdateData()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync(email: "updateadmindata@example.com");
+        
+        // Set initial data
+        await ExecuteDbContextAsync(async context =>
+        {
+            var userToUpdate = await context.Users.FindAsync(user.Id);
+            userToUpdate!.Data = "{\"oldData\": \"initial\"}";
+            await context.SaveChangesAsync();
+        });
+
+        var newData = "{\"newData\": \"updated\", \"permissions\": [\"read\", \"write\", \"delete\"]}";
+        var updateCommand = new UpdateUserCommand(
+            Id: user.Id,
+            FirstName: "Updated",
+            LastName: "Name",
+            Role: UserRole.User,
+            PhoneNumber: null,
+            EmailConfirmed: null,
+            Status: null,
+            Data: newData
+        );
+
+        // Act
+        var result = await SendAsync(updateCommand);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Data.Should().Be(newData);
+        
+        // Verify data is persisted in database
+        var userFromDb = await ExecuteDbContextAsync(async context =>
+        {
+            return await context.Users.FindAsync(user.Id);
+        });
+        
+        userFromDb!.Data.Should().Be(newData);
+    }
+
+    [Fact]
+    public async Task UpdateUser_ClearDataProperty_ShouldSetToNull()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync(email: "clearadmindata@example.com");
+        
+        // Set initial data
+        await ExecuteDbContextAsync(async context =>
+        {
+            var userToUpdate = await context.Users.FindAsync(user.Id);
+            userToUpdate!.Data = "{\"existingData\": \"value\"}";
+            await context.SaveChangesAsync();
+        });
+
+        var updateCommand = new UpdateUserCommand(
+            Id: user.Id,
+            FirstName: "Updated",
+            LastName: "Name",
+            Role: UserRole.User,
+            PhoneNumber: null,
+            EmailConfirmed: null,
+            Status: null,
+            Data: null
+        );
+
+        // Act
+        var result = await SendAsync(updateCommand);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Data.Should().BeNull();
     }
 
     [Fact]

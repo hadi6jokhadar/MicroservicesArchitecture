@@ -14,7 +14,8 @@ public record UpdateUserCommand(
     UserRole Role,
     string? PhoneNumber = null,
     bool? EmailConfirmed = null,
-    bool? Status = null
+    bool? Status = null,
+    string? Data = null
 ) : IRequest<UserDto>;
 
 public class UpdateUserCommandValidator : AbstractValidator<UpdateUserCommand>

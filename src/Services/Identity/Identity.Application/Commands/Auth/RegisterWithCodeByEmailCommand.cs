@@ -6,7 +6,8 @@ namespace Identity.Application.Commands.Auth;
 public record RegisterWithCodeByEmailCommand(
     string Email,
     string FirstName,
-    string LastName
+    string LastName,
+    string? Data = null
 ) : IRequest<bool>;
 
 public class RegisterWithCodeByEmailCommandValidator : AbstractValidator<RegisterWithCodeByEmailCommand>

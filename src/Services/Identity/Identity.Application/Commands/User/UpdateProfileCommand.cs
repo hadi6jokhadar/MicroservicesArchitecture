@@ -10,7 +10,8 @@ public record UpdateProfileCommand(
     string LastName,
     string? PhoneNumber,
     string? ProfilePictureUrl,
-    int? Id
+    int? Id,
+    string? Data = null
 ) : IRequest<UserDto>;
 
 public class UpdateProfileCommandValidator : AbstractValidator<UpdateProfileCommand>

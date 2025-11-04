@@ -466,6 +466,31 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task RegisterWithCodeByPhone_WithDataProperty_ShouldCreateUserWithData()
+    {
+        // Arrange
+        var phoneNumber = "+1987654340";
+        var testData = "{\"source\": \"mobile_app\", \"version\": \"1.0\", \"deviceId\": \"abc123\"}";
+        var request = new RegisterWithCodeByPhoneCommand(
+            PhoneNumber: phoneNumber,
+            FirstName: "John",
+            LastName: "Doe",
+            Data: testData);
+
+        // Act
+        var result = await SendAsync(request);
+
+        // Assert
+        result.Should().BeTrue();
+
+        // Verify user was created with data property
+        var user = await GetUserByPhoneAsync(phoneNumber);
+        user.Should().NotBeNull();
+        user!.Data.Should().Be(testData);
+        user.PhoneNumber.Should().Be(phoneNumber);
+    }
+
+    [Fact]
     public async Task RegisterWithCodeByPhone_WithExistingPhone_ShouldThrowConflictException()
     {
         // Arrange
@@ -560,6 +585,31 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
         user.VerificationCode.Should().NotBeNullOrEmpty();
         user.VerificationCodeExpiry.Should().NotBeNull();
         user.PasswordHash.Should().BeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task RegisterWithCodeByEmail_WithDataProperty_ShouldCreateUserWithData()
+    {
+        // Arrange
+        var email = "userwithdata@example.com";
+        var testData = "{\"referralCode\": \"REF123\", \"campaign\": \"summer2025\", \"terms\": \"v2.0\"}";
+        var request = new RegisterWithCodeByEmailCommand(
+            Email: email,
+            FirstName: "Alice",
+            LastName: "Smith",
+            Data: testData);
+
+        // Act
+        var result = await SendAsync(request);
+
+        // Assert
+        result.Should().BeTrue();
+
+        // Verify user was created with data property
+        var user = await GetUserByEmailAsync(email);
+        user.Should().NotBeNull();
+        user!.Data.Should().Be(testData);
+        user.Email.Should().Be(email);
     }
 
     [Fact]

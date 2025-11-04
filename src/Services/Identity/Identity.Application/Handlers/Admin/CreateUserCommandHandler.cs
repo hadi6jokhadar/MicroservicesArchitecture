@@ -41,6 +41,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
                 LastName = request.LastName,
                 Role = request.Role,
                 PhoneNumber = request.PhoneNumber,
+                Data = request.Data,
                 Created = DateTime.UtcNow,
                 Status = true,
                 EmailConfirmed = false

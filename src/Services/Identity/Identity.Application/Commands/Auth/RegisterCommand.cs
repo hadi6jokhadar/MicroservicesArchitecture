@@ -10,7 +10,8 @@ public record RegisterCommand(
     string Password,
     string FirstName,
     string LastName,
-    string? PhoneNumber
+    string? PhoneNumber,
+    string? Data = null
 ) : IRequest<UserDtoIncludesToken>;
 
 

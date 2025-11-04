@@ -57,6 +57,7 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 PhoneNumber = null, // No phone required for email registration
+                Data = request.Data,
                 VerificationCode = verificationCode,
                 VerificationCodeExpiry = expiryTime,
                 LastCodeSentAt = DateTime.UtcNow,

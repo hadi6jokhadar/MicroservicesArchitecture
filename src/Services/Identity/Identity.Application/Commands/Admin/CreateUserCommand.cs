@@ -13,7 +13,8 @@ public record CreateUserCommand(
     string FirstName,
     string LastName,
     UserRole Role,
-    string? PhoneNumber = null
+    string? PhoneNumber = null,
+    string? Data = null
 ) : IRequest<UserDto>;
 
 public class CreateUserCommandValidator : AbstractValidator<CreateUserCommand>

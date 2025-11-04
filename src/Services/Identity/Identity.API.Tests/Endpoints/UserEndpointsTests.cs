@@ -40,6 +40,33 @@ public class UserEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task GetProfile_WithDataProperty_ShouldReturnData()
+    {
+        // Arrange
+        var email = "profilewithdatatest@example.com";
+        var password = "Profile123!";
+        var testData = "{\"userPreferences\": {\"language\": \"en\", \"timezone\": \"UTC\"}}";
+        var user = await CreateTestUserAsync(email: email, password: password, firstName: "John", lastName: "Doe");
+        
+        // Set data
+        await ExecuteDbContextAsync(async context =>
+        {
+            var userToUpdate = await context.Users.FindAsync(user.Id);
+            userToUpdate!.Data = testData;
+            await context.SaveChangesAsync();
+        });
+        
+        var command = new GetUserProfileCommand(user.Id);
+
+        // Act
+        var result = await SendAsync(command);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Data.Should().Be(testData);
+    }
+
+    [Fact]
     public async Task GetProfile_WithNonExistentUser_ShouldThrowNotFoundException()
     {
         // Arrange
@@ -79,6 +106,82 @@ public class UserEndpointsTests : IntegrationTestBase
         result.FirstName.Should().Be("New");
         result.LastName.Should().Be("UpdatedName");
         result.PhoneNumber.Should().Be("+1234567890");
+    }
+
+    [Fact]
+    public async Task UpdateProfile_WithDataProperty_ShouldUpdateData()
+    {
+        // Arrange
+        var email = "updatedatatest@example.com";
+        var password = "Update123!";
+        var initialData = "{\"version\": \"1.0\"}";
+        var user = await CreateTestUserAsync(email: email, password: password, firstName: "Test", lastName: "User");
+        
+        // Set initial data
+        await ExecuteDbContextAsync(async context =>
+        {
+            var userToUpdate = await context.Users.FindAsync(user.Id);
+            userToUpdate!.Data = initialData;
+            await context.SaveChangesAsync();
+        });
+
+        var updatedData = "{\"version\": \"2.0\", \"settings\": {\"notifications\": true}}";
+        var updateRequest = new UpdateProfileCommand(
+            FirstName: "Test",
+            LastName: "User",
+            PhoneNumber: null,
+            ProfilePictureUrl: null,
+            Id: user.Id,
+            Data: updatedData
+        );
+
+        // Act
+        var result = await SendAsync(updateRequest);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Data.Should().Be(updatedData);
+        
+        // Verify data is persisted in database
+        var userFromDb = await ExecuteDbContextAsync(async context =>
+        {
+            return await context.Users.FindAsync(user.Id);
+        });
+        
+        userFromDb!.Data.Should().Be(updatedData);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_ClearDataProperty_ShouldSetToNull()
+    {
+        // Arrange
+        var email = "cleardatatest@example.com";
+        var password = "Update123!";
+        var user = await CreateTestUserAsync(email: email, password: password, firstName: "Test", lastName: "User");
+        
+        // Set initial data
+        await ExecuteDbContextAsync(async context =>
+        {
+            var userToUpdate = await context.Users.FindAsync(user.Id);
+            userToUpdate!.Data = "{\"oldData\": \"value\"}";
+            await context.SaveChangesAsync();
+        });
+
+        var updateRequest = new UpdateProfileCommand(
+            FirstName: "Test",
+            LastName: "User",
+            PhoneNumber: null,
+            ProfilePictureUrl: null,
+            Id: user.Id,
+            Data: null
+        );
+
+        // Act
+        var result = await SendAsync(updateRequest);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Data.Should().BeNull();
     }
 
     [Fact]

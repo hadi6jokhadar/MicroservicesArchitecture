@@ -57,6 +57,7 @@ public class RegisterWithCodeByPhoneCommandHandler : IRequestHandler<RegisterWit
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 PhoneNumber = request.PhoneNumber,
+                Data = request.Data,
                 VerificationCode = verificationCode,
                 VerificationCodeExpiry = expiryTime,
                 LastCodeSentAt = DateTime.UtcNow,

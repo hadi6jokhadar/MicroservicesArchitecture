@@ -44,6 +44,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 PhoneNumber = request.PhoneNumber,
+                Data = request.Data,
                 Role = UserRole.User,
                 Created = DateTime.UtcNow,
                 Status = true
