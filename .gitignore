@@ -464,6 +464,8 @@ appsettings.local.json
 secrets.json
 *.pfx
 *.p12
+*SDK-Key.json
+Firebase*.json
 
 # Database
 *.sqlite

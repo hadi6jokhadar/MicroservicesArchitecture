@@ -46,6 +46,8 @@ This solution implements a **microservices architecture** with a focus on:
 
 - ✅ **Multi-Database Support**: PostgreSQL, SQL Server, MySQL, SQLite
 - ✅ **JWT Authentication**: Secure token-based authentication with refresh tokens
+- ✅ **Real-Time Notifications**: SignalR hub with optional Firebase Cloud Messaging
+- ✅ **Multi-Tenancy Support**: Optional per-tenant configuration with isolated databases
 - ✅ **Centralized Package Management**: Consistent versioning across services
 - ✅ **Global Exception Handling**: Centralized error management
 - ✅ **Input Validation**: FluentValidation integration
@@ -63,9 +65,11 @@ This solution implements a **microservices architecture** with a focus on:
 - 🌐 **CORS Support**: Cross-origin resource sharing
 - 🔍 **Role-Based Authorization**: Admin and User role management
 - 🔄 **Database Migrations**: Automatic schema management
-- 🏢 **Multi-Tenancy Support**: Optional per-tenant configuration (NEW!)
+- 🏢 **Database-Per-Tenant Architecture**: Complete data isolation per tenant
 - 🔧 **Configuration-Driven Architecture**: Single build for multiple deployment modes
 - 💾 **Configuration Caching**: High-performance tenant config with in-memory caching
+- 🔔 **Background Processing**: Queue-based notification delivery with retry logic
+- 📱 **Push Notifications**: SignalR real-time + Firebase Cloud Messaging
 
 ## 🛠️ Technology Stack
 
@@ -105,11 +109,16 @@ MicroservicesArchitecture/
 │   │   │   ├── Identity.Application/      # 📋 Application Layer (Commands, Handlers)
 │   │   │   ├── Identity.Domain/           # 🏛️ Domain Layer (Entities, Repositories)
 │   │   │   └── Identity.Infrastructure/   # 🔧 Infrastructure Layer (Data, Services)
-│   │   └── 📁 Tenant/                      # 🏢 Tenant Management Service (NEW!)
-│   │       ├── Tenant.API/                # 🌐 API Layer (Endpoints, Configuration)
-│   │       ├── Tenant.Application/        # 📋 Application Layer (Commands, Handlers)
-│   │       ├── Tenant.Domain/             # 🏛️ Domain Layer (Entities, Repositories)
-│   │       └── Tenant.Infrastructure/     # 🔧 Infrastructure Layer (Data, Services)
+│   │   ├── 📁 Tenant/                      # 🏢 Tenant Management Service
+│   │   │   ├── Tenant.API/                # 🌐 API Layer (Endpoints, Configuration)
+│   │   │   ├── Tenant.Application/        # 📋 Application Layer (Commands, Handlers)
+│   │   │   ├── Tenant.Domain/             # 🏛️ Domain Layer (Entities, Repositories)
+│   │   │   └── Tenant.Infrastructure/     # 🔧 Infrastructure Layer (Data, Services)
+│   │   └── 📁 Notification/                # 🔔 Notification Service (NEW!)
+│   │       ├── Notification.API/          # 🌐 API Layer (SignalR Hub, Endpoints)
+│   │       ├── Notification.Application/  # 📋 Application Layer (Commands, Queries)
+│   │       ├── Notification.Domain/       # 🏛️ Domain Layer (Entities, Enums)
+│   │       └── Notification.Infrastructure/ # 🔧 Infrastructure (Handlers, Background Services)
 │   └── 📁 Shared/                          # 🤝 Shared Libraries
 │       ├── IhsanDev.Shared.Application/   # 📋 Application abstractions
 │       ├── IhsanDev.Shared.Authentication/ # 🔐 Auth components
@@ -321,7 +330,52 @@ The Identity service provides comprehensive user authentication, authorization, 
 - 🔧 **API Specifications**: [`src/Services/Identity/IDENTITY_API_DOCUMENTATION.md`](src/Services/Identity/IDENTITY_API_DOCUMENTATION.md)
 - 🌐 **Swagger UI**: `https://localhost:5001/swagger` (when running)
 
-## 🏢 Tenant Service & Multi-Tenancy (NEW!)
+## 🔔 Notification Service
+
+The Notification Service provides real-time push notifications via SignalR and optional Firebase Cloud Messaging. It implements a queue-based processing system with multi-tenancy support and background delivery.
+
+### Key Features
+
+- ✅ **Real-Time Delivery**: SignalR hub with WebSocket support
+- ✅ **Queue-Based Processing**: Reliable delivery with retry mechanism
+- ✅ **Multi-Tenancy Support**: Tenant-specific notification targeting
+- ✅ **Firebase Integration**: Optional FCM push notifications
+- ✅ **Background Processing**: Automated queue processing every 5 seconds
+- ✅ **Five Targeting Scenarios**: Global, tenant broadcast, user in tenant, cross-tenant user, all clients
+- ✅ **Optional Authentication**: Supports both authenticated and anonymous connections
+- ✅ **Two-Database Architecture**: Global queue + tenant-specific persistence
+
+### Quick Access
+
+- 📖 **Complete Flow**: [`NOTIFICATION_SYSTEM_FLOW.md`](NOTIFICATION_SYSTEM_FLOW.md)
+- 🔧 **Hub Guide**: [`NOTIFICATION_HUB_GUIDE.md`](NOTIFICATION_HUB_GUIDE.md)
+- ⚡ **Quick Reference**: [`NOTIFICATION_HUB_QUICK_REFERENCE.md`](NOTIFICATION_HUB_QUICK_REFERENCE.md)
+- 💡 **JWT Example**: [`JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md`](JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md)
+- 🔐 **JWT Validation**: [`JWT_SECRET_AND_VALIDATION_FLOW.md`](JWT_SECRET_AND_VALIDATION_FLOW.md)
+- 🌐 **SignalR Hub**: `https://localhost:5002/hubs/notifications` (when running)
+
+### How It Works
+
+**Two-Database Model:**
+
+1. **Global Queue Database**: Cross-tenant notification queue management
+2. **Tenant Databases**: Per-tenant notification history and persistence
+
+**Notification Flow:**
+
+```
+Client → API Endpoint → Global Queue → Background Processor → SignalR/Firebase → Tenant DB
+```
+
+**Targeting Options:**
+
+- **Global**: All connected clients (userId=null, tenantId=null)
+- **All Clients**: Single-tenant broadcast (multi-tenancy disabled)
+- **Tenant Broadcast**: All users in tenant (tenantId="X", userId=null)
+- **User in Tenant**: Specific user in tenant (tenantId="X", userId=Y)
+- **Cross-Tenant User**: User across all tenants (tenantId=null, userId=Y)
+
+## 🏢 Tenant Service & Multi-Tenancy
 
 The Tenant service enables optional multi-tenancy support, allowing different projects or customers to have isolated configurations while sharing the same Identity Service binary. **This is completely optional and disabled by default**.
 

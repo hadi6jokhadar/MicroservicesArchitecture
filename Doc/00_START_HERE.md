@@ -19,6 +19,7 @@
 - 🏢 **Multi-Tenancy?** → [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md)
 - 📁 **File Storage?** → [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md)
 - 🔑 **Project Isolation?** → [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md)
+- 🔔 **Notifications?** → [NOTIFICATION_SYSTEM_FLOW.md](NOTIFICATION_SYSTEM_FLOW.md)
 - 🧪 **Testing?** → [SHARED_TESTING_FILES.md](SHARED_TESTING_FILES.md)
 - ⚡ **Performance?** → [CACHING_STRATEGY_COMPARISON.md](CACHING_STRATEGY_COMPARISON.md)
 
@@ -47,7 +48,12 @@ Doc/
 │  ├─ TENANT_AWARE_CORS_GUIDE.md            ← Tenant-specific CORS
 │  ├─ PHONE_VERIFICATION_LOGIN_GUIDE.md     ← Phone/Email OTP authentication
 │  ├─ OTP_SECURITY_AND_VALIDATION_UPDATE.md ← 🔴 NEW: OTP security system
-│  └─ PHONE_VERIFICATION_QUICK_REFERENCE.md ← Quick OTP reference
+│  ├─ PHONE_VERIFICATION_QUICK_REFERENCE.md ← Quick OTP reference
+│  ├─ NOTIFICATION_SYSTEM_FLOW.md           ← Complete notification system
+│  ├─ NOTIFICATION_HUB_GUIDE.md             ← SignalR hub comprehensive guide
+│  ├─ NOTIFICATION_HUB_QUICK_REFERENCE.md   ← Quick notification reference
+│  ├─ JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md  ← JWT flow example walkthrough
+│  └─ JWT_SECRET_AND_VALIDATION_FLOW.md     ← JWT validation explained
 │
 ├─ Development Guides
 │  ├─ CACHING_STRATEGY_COMPARISON.md        ← MemoryCache vs Redis
@@ -213,6 +219,24 @@ Request → Middleware extracts TenantId → Fetches DB connection
 1. Read [NEW_SERVICE_INTEGRATION_GUIDE.md](NEW_SERVICE_INTEGRATION_GUIDE.md) - Part 3
 2. Read [SHARED_TESTING_FILES.md](SHARED_TESTING_FILES.md)
 3. Use `TenantTestHelper` for generating test data
+
+### **Scenario 7: "How do I implement real-time notifications?"**
+
+**Solution Path:**
+
+1. Read [NOTIFICATION_SYSTEM_FLOW.md](NOTIFICATION_SYSTEM_FLOW.md) - Complete system architecture
+2. Read [NOTIFICATION_HUB_GUIDE.md](NOTIFICATION_HUB_GUIDE.md) - SignalR hub implementation
+3. Read [NOTIFICATION_HUB_QUICK_REFERENCE.md](NOTIFICATION_HUB_QUICK_REFERENCE.md) - Quick examples
+4. Check [JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md](JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md) for detailed walkthrough
+
+**Key Features:**
+
+- Queue-based processing with background services
+- SignalR for real-time push notifications
+- Optional Firebase Cloud Messaging integration
+- Multi-tenancy support with tenant-specific targeting
+- Anonymous and authenticated connections
+- Five notification targeting scenarios
 
 ---
 
