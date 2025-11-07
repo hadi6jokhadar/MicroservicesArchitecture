@@ -11,6 +11,7 @@ The notification system implements a **two-database architecture** with **backgr
 ### Database Architecture
 
 #### 1. Global Database (NotificationDbContext)
+
 - **Table**: `NotificationQueue`
 - **Entity**: `NotificationQueueItem`
 - **Purpose**: Central queue for managing notification delivery workflow
@@ -18,6 +19,7 @@ The notification system implements a **two-database architecture** with **backgr
 - **Location**: Global database server
 
 #### 2. Tenant Databases (TenantNotificationDbContext)
+
 - **Table**: `Notifications`
 - **Entity**: `Notification`
 - **Purpose**: Persistent storage of notifications per tenant
@@ -37,6 +39,7 @@ Client → API Endpoint → Handler → MediatR Command → Handler → Service 
 **Step-by-Step:**
 
 1. **Client sends POST request** to `/api/notifications/send`
+
    ```json
    {
      "tenantId": "tenant-123",
@@ -50,11 +53,13 @@ Client → API Endpoint → Handler → MediatR Command → Handler → Service 
    ```
 
 2. **NotificationApiHandlers.SendNotificationHandler** receives request
+
    - Validates input via FluentValidation
    - Creates `SendNotificationCommand`
    - Sends to MediatR pipeline
 
 3. **SendNotificationCommandHandler** processes command
+
    - Delegates to `INotificationService.SendNotificationAsync()`
 
 4. **NotificationService.SendNotificationAsync()** executes:
@@ -112,9 +117,10 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
 1. **Timer triggers every 5 seconds** (configurable via `NotificationProcessing:ProcessingIntervalSeconds`)
 
 2. **Queries global database** for pending notifications:
+
    ```sql
    SELECT * FROM NotificationQueue
-   WHERE QueueStatus = 'Pending' 
+   WHERE QueueStatus = 'Pending'
      AND ExpiresAt > UtcNow
    ORDER BY Priority ASC,  -- Immediate (1) before Waitable (0)
             CreatedAt ASC  -- FIFO within same priority
@@ -124,6 +130,7 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
 3. **For each notification in batch**:
 
    **Step 1: Mark as Processing**
+
    ```csharp
    queueItem.QueueStatus = QueueStatus.Processing;
    queueItem.UpdatedAt = DateTime.UtcNow;
@@ -131,6 +138,7 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
    ```
 
    **Step 2: Persist to Tenant Database** ✅
+
    ```csharp
    // Fetch full tenant configuration (includes DatabaseSettings)
    // This uses cache-first strategy: checks cache → calls Tenant Service if needed
@@ -138,20 +146,20 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
    var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(
        queueItem.TenantId,
        cancellationToken);
-   
+
    if (tenantInfo == null)
    {
        throw new InvalidOperationException(
            $"Tenant '{queueItem.TenantId}' configuration not available.");
    }
-   
+
    // Set tenant context with FULL configuration (not just TenantId)
    // This is critical - includes DatabaseSettings.ConnectionString
    tenantContext.SetTenant(tenantInfo);
-   
+
    // TenantNotificationDbContext will read from tenantInfo.Configuration.DatabaseSettings
    var tenantDbContext = serviceProvider.GetRequiredService<TenantNotificationDbContext>();
-   
+
    // Create notification entity
    var notification = new Notification
    {
@@ -163,27 +171,28 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
        QueueItemId = queueItem.Id,
        CreatedAt = DateTime.UtcNow
    };
-   
+
    // Save to tenant-specific database
    tenantDbContext.Notifications.Add(notification);
    await tenantDbContext.SaveChangesAsync();
-   
+
    // Link back to queue item
    queueItem.NotificationId = notification.Id;
    ```
-   
+
    **Important: Tenant Configuration Fetching**
-   
+
    The background job MUST fetch the full tenant configuration, not just the TenantId:
-   
+
    - **Cache-first approach**: Checks in-memory cache (30-min TTL) before making HTTP calls
    - **Cache HIT**: Returns cached config immediately (no network call) ⚡
    - **Cache MISS**: Fetches from Tenant Service API → caches result → returns
    - **Tenant Service DOWN**: Returns null → throws exception → retry mechanism kicks in
-   
+
    This ensures the `TenantNotificationDbContext` has access to the tenant's database connection string.
 
    **Step 3: Send via SignalR** ✅
+
    ```csharp
    // Prepare payload
    var payload = new
@@ -196,7 +205,7 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
        createdAt = queueItem.CreatedAt,
        priority = queueItem.Priority.ToString()
    };
-   
+
    // Send to specific user or broadcast to tenant
    if (queueItem.UserId.HasValue)
    {
@@ -215,6 +224,7 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
    ```
 
    **Step 4: Send via Firebase** 🚧 (TODO)
+
    ```csharp
    // TODO: Implement Firebase Cloud Messaging
    // 1. Get device tokens for user from Identity Service
@@ -223,6 +233,7 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
    ```
 
    **Step 5: Mark as Sent**
+
    ```csharp
    queueItem.QueueStatus = QueueStatus.Sent;
    queueItem.ProcessedAt = DateTime.UtcNow;
@@ -235,7 +246,7 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
    catch (Exception ex)
    {
        queueItem.RetryCount++;
-       
+
        if (queueItem.RetryCount >= 3)
        {
            // Failed permanently
@@ -247,7 +258,7 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
            // Retry later
            queueItem.QueueStatus = QueueStatus.Pending;
        }
-       
+
        queueItem.UpdatedAt = DateTime.UtcNow;
        await globalDbContext.SaveChangesAsync();
    }
@@ -268,10 +279,10 @@ Client Connects → Authentication → Join Groups → Receive Notifications →
 ```javascript
 // JavaScript/TypeScript client
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/hubs/notifications", {
-        accessTokenFactory: () => jwtToken  // Required!
-    })
-    .build();
+  .withUrl("/hubs/notifications", {
+    accessTokenFactory: () => jwtToken, // Required!
+  })
+  .build();
 
 // Add tenant header
 connection.headers = { "x-tenant-id": "tenant-123" };
@@ -289,29 +300,29 @@ public class NotificationHub : Hub
     {
         // Extract JWT claims
         var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        
+
         if (userId == null)
         {
             Context.Abort();  // Reject unauthenticated connections
             return;
         }
-        
+
         // Extract tenant from header
         var tenantId = Context.GetHttpContext()
             ?.Request.Headers["x-tenant-id"].FirstOrDefault();
-        
+
         // Add to SignalR groups
         if (!string.IsNullOrWhiteSpace(tenantId))
         {
             // Tenant-specific user group
             await Groups.AddToGroupAsync(
-                Context.ConnectionId, 
+                Context.ConnectionId,
                 $"tenant:{tenantId}:user:{userId}"
             );
-            
+
             // Tenant broadcast group
             await Groups.AddToGroupAsync(
-                Context.ConnectionId, 
+                Context.ConnectionId,
                 $"tenant:{tenantId}"
             );
         }
@@ -319,11 +330,11 @@ public class NotificationHub : Hub
         {
             // Global user group (no tenant)
             await Groups.AddToGroupAsync(
-                Context.ConnectionId, 
+                Context.ConnectionId,
                 $"user:{userId}"
             );
         }
-        
+
         await base.OnConnectedAsync();
     }
 }
@@ -334,14 +345,15 @@ public class NotificationHub : Hub
 ```javascript
 // Subscribe to notification events
 connection.on("ReceiveNotification", (notification) => {
-    console.log("New notification:", notification);
-    
-    // Display notification to user
-    showNotification(notification.title, notification.message);
-    
-    // Acknowledge receipt
-    connection.invoke("AcknowledgeDelivery", notification.queueItemId)
-        .catch(err => console.error("Ack failed:", err));
+  console.log("New notification:", notification);
+
+  // Display notification to user
+  showNotification(notification.title, notification.message);
+
+  // Acknowledge receipt
+  connection
+    .invoke("AcknowledgeDelivery", notification.queueItemId)
+    .catch((err) => console.error("Ack failed:", err));
 });
 ```
 
@@ -356,11 +368,11 @@ await hubContext.Clients
 
 #### SignalR Group Strategy
 
-| Group Pattern | Purpose | Example |
-|--------------|---------|---------|
-| `tenant:{tenantId}` | Broadcast to all users in tenant | `tenant:acme-corp` |
-| `tenant:{tenantId}:user:{userId}` | Specific user in tenant | `tenant:acme-corp:user:5` |
-| `user:{userId}` | Global user (no tenant) | `user:5` |
+| Group Pattern                     | Purpose                          | Example                   |
+| --------------------------------- | -------------------------------- | ------------------------- |
+| `tenant:{tenantId}`               | Broadcast to all users in tenant | `tenant:acme-corp`        |
+| `tenant:{tenantId}:user:{userId}` | Specific user in tenant          | `tenant:acme-corp:user:5` |
+| `user:{userId}`                   | Global user (no tenant)          | `user:5`                  |
 
 ---
 
@@ -373,38 +385,42 @@ Client Receives → Acknowledges via SignalR → Command → Service → Update 
 **Step-by-Step:**
 
 1. **Client acknowledges delivery**:
+
    ```javascript
    await connection.invoke("AcknowledgeDelivery", queueItemId);
    ```
 
 2. **NotificationHub.AcknowledgeDelivery(int queueItemId)** executes:
+
    ```csharp
    public async Task AcknowledgeDelivery(int queueItemId)
    {
        var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-       
+
        var command = new AcknowledgeNotificationCommand
        {
            QueueItemId = queueItemId,
            ConnectionId = Context.ConnectionId,
            ReceivedAt = DateTime.UtcNow
        };
-       
+
        var success = await _mediator.Send(command);
    }
    ```
 
 3. **AcknowledgeNotificationCommandHandler** processes:
+
    - Delegates to `INotificationService.AcknowledgeDeliveryAsync()`
 
 4. **NotificationService.AcknowledgeDeliveryAsync()** executes:
+
    ```csharp
    var queueItem = await globalDbContext.NotificationQueue
        .FirstOrDefaultAsync(q => q.Id == queueItemId);
-   
+
    queueItem.QueueStatus = QueueStatus.Sent;
    queueItem.UpdatedAt = DateTime.UtcNow;
-   
+
    await globalDbContext.SaveChangesAsync();
    ```
 
@@ -421,6 +437,7 @@ Client Receives → Acknowledges via SignalR → Command → Service → Update 
 **Purpose**: Check status of a queued notification
 
 **Response**:
+
 ```json
 {
   "queueItemId": 123,
@@ -441,6 +458,7 @@ Client Receives → Acknowledges via SignalR → Command → Service → Update 
 **Purpose**: Retrieve notification history for a user (from tenant DB)
 
 **Response**:
+
 ```json
 [
   {
@@ -456,6 +474,7 @@ Client Receives → Acknowledges via SignalR → Command → Service → Update 
 ```
 
 **Notes**:
+
 - Returns last 50 notifications
 - Ordered by most recent first
 - Reads from tenant-specific database
@@ -469,6 +488,7 @@ Client Receives → Acknowledges via SignalR → Command → Service → Update 
 **Purpose**: Mark a notification as read in tenant database
 
 **Behavior**:
+
 ```csharp
 notification.IsRead = true;
 notification.ReadAt = DateTime.UtcNow;
@@ -483,6 +503,7 @@ await tenantDbContext.SaveChangesAsync();
 ### Authentication Requirements
 
 ✅ **All endpoints require JWT authentication**
+
 - API endpoints: `[RequireAuthorization]` on group
 - SignalR hub: `[Authorize]` attribute + `.RequireAuthorization()` on endpoint
 - JWT token validation with per-tenant support
@@ -490,27 +511,30 @@ await tenantDbContext.SaveChangesAsync();
 ### JWT Token Flow
 
 **HTTP API Requests**:
+
 ```http
 Authorization: Bearer <jwt-token>
 x-tenant-id: tenant-123
 ```
 
 **SignalR WebSocket Connections**:
+
 ```javascript
 // Option 1: Query string (for WebSocket upgrade)
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/hubs/notifications?access_token=" + jwtToken)
-    .build();
+  .withUrl("/hubs/notifications?access_token=" + jwtToken)
+  .build();
 
 // Option 2: Access token factory (recommended)
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/hubs/notifications", {
-        accessTokenFactory: () => getJwtToken()
-    })
-    .build();
+  .withUrl("/hubs/notifications", {
+    accessTokenFactory: () => getJwtToken(),
+  })
+  .build();
 ```
 
 **Server Configuration**:
+
 ```csharp
 options.Events = new JwtBearerEvents
 {
@@ -518,13 +542,13 @@ options.Events = new JwtBearerEvents
     {
         var accessToken = context.Request.Query["access_token"];
         var path = context.HttpContext.Request.Path;
-        
-        if (!string.IsNullOrEmpty(accessToken) && 
+
+        if (!string.IsNullOrEmpty(accessToken) &&
             path.StartsWithSegments("/hubs/notifications"))
         {
             context.Token = accessToken;
         }
-        
+
         return Task.CompletedTask;
     }
 };
@@ -544,12 +568,14 @@ options.Events = new JwtBearerEvents
 ### 1. Two-Database Pattern
 
 **Global Database (Workflow)**:
+
 - ✅ Transient queue for delivery management
 - ✅ Cross-tenant visibility for processing
 - ✅ Retry logic and error tracking
 - ✅ Status monitoring
 
 **Tenant Databases (History)**:
+
 - ✅ Persistent notification storage
 - ✅ User notification history
 - ✅ Read/unread tracking
@@ -578,16 +604,19 @@ options.Events = new JwtBearerEvents
 ### 5. Delivery Channels
 
 **SignalR** ✅:
+
 - Real-time WebSocket delivery
 - For web and mobile apps with active connections
 - Immediate notification display
 
 **Firebase** 🚧 (TODO):
+
 - Push notifications for mobile apps
 - Works when app is in background/closed
 - Device token management required
 
 **Both** ✅:
+
 - Dual delivery for reliability
 - SignalR for active users + Firebase for offline users
 
@@ -700,52 +729,52 @@ options.Events = new JwtBearerEvents
 import * as signalR from "@microsoft/signalr";
 
 class NotificationService {
-    private connection: signalR.HubConnection;
+  private connection: signalR.HubConnection;
 
-    async connect(token: string, tenantId?: string) {
-        this.connection = new signalR.HubConnectionBuilder()
-            .withUrl("/hubs/notifications", {
-                accessTokenFactory: () => token
-            })
-            .withAutomaticReconnect()
-            .build();
+  async connect(token: string, tenantId?: string) {
+    this.connection = new signalR.HubConnectionBuilder()
+      .withUrl("/hubs/notifications", {
+        accessTokenFactory: () => token,
+      })
+      .withAutomaticReconnect()
+      .build();
 
-        // Add tenant header if provided
-        if (tenantId) {
-            this.connection.headers = { "x-tenant-id": tenantId };
-        }
-
-        // Subscribe to notifications
-        this.connection.on("ReceiveNotification", (notification) => {
-            this.handleNotification(notification);
-            this.acknowledgeDelivery(notification.queueItemId);
-        });
-
-        await this.connection.start();
-        console.log("Connected to notification hub");
+    // Add tenant header if provided
+    if (tenantId) {
+      this.connection.headers = { "x-tenant-id": tenantId };
     }
 
-    private handleNotification(notification: any) {
-        // Display notification to user
-        if (Notification.permission === "granted") {
-            new Notification(notification.title, {
-                body: notification.message,
-                icon: "/notification-icon.png"
-            });
-        }
-    }
+    // Subscribe to notifications
+    this.connection.on("ReceiveNotification", (notification) => {
+      this.handleNotification(notification);
+      this.acknowledgeDelivery(notification.queueItemId);
+    });
 
-    private async acknowledgeDelivery(queueItemId: number) {
-        try {
-            await this.connection.invoke("AcknowledgeDelivery", queueItemId);
-        } catch (err) {
-            console.error("Failed to acknowledge notification:", err);
-        }
-    }
+    await this.connection.start();
+    console.log("Connected to notification hub");
+  }
 
-    async disconnect() {
-        await this.connection.stop();
+  private handleNotification(notification: any) {
+    // Display notification to user
+    if (Notification.permission === "granted") {
+      new Notification(notification.title, {
+        body: notification.message,
+        icon: "/notification-icon.png",
+      });
     }
+  }
+
+  private async acknowledgeDelivery(queueItemId: number) {
+    try {
+      await this.connection.invoke("AcknowledgeDelivery", queueItemId);
+    } catch (err) {
+      console.error("Failed to acknowledge notification:", err);
+    }
+  }
+
+  async disconnect() {
+    await this.connection.stop();
+  }
 }
 ```
 
@@ -762,7 +791,7 @@ public class NotificationService
             .WithUrl("https://api.example.com/hubs/notifications", options =>
             {
                 options.AccessTokenProvider = () => Task.FromResult(token);
-                
+
                 if (!string.IsNullOrEmpty(tenantId))
                 {
                     options.Headers.Add("x-tenant-id", tenantId);
@@ -810,18 +839,21 @@ public class NotificationService
 ### Common Issues
 
 **1. SignalR Connection Fails**
+
 - ✅ Ensure JWT token is valid and not expired
 - ✅ Check CORS configuration allows SignalR origin
 - ✅ Verify `.RequireAuthorization()` is set on hub endpoint
 - ✅ Check client uses `accessTokenFactory` or query string token
 
 **2. Notifications Not Being Delivered**
+
 - ✅ Check `NotificationProcessor` background service is running
 - ✅ Verify queue items are in `Pending` status (not `Failed` or `Expired`)
 - ✅ Check logs for processing errors
 - ✅ Ensure client is connected to correct SignalR group
 
 **3. Tenant Isolation Not Working**
+
 - ✅ Verify `x-tenant-id` header is sent with requests
 - ✅ Check tenant context is set correctly in background processor
 - ✅ Ensure `TenantNotificationDbContext` resolves correct connection string
@@ -829,6 +861,7 @@ public class NotificationService
 - ✅ Check cache is working properly (30-minute TTL by default)
 
 **4. Background Job Tenant Configuration Issues**
+
 - ✅ Verify `ITenantConfigurationProvider` is registered in DI container
 - ✅ Check Tenant Service API endpoint `/api/tenant/config/{tenantId}` is accessible
 - ✅ Ensure tenant configuration includes `DatabaseSettings.ConnectionString`
@@ -836,6 +869,7 @@ public class NotificationService
 - ✅ If Tenant Service is down, notifications will retry (max 3 attempts)
 
 **5. Performance Issues**
+
 - ✅ Adjust `ProcessingIntervalSeconds` (increase for lower load)
 - ✅ Reduce batch size in processor (currently 50)
 - ✅ Add database indexes on `QueueStatus`, `ExpiresAt`, `Priority`, `CreatedAt`
@@ -958,19 +992,19 @@ Connects to tenant-specific database ✅
 
 #### 4. Cache Strategy
 
-| Scenario | Cache Status | Performance | Network Calls | Result |
-|----------|-------------|-------------|---------------|--------|
-| **Normal (within 30 min)** | HIT | ⚡ Fast | 0 | Immediate |
-| **Cache expired** | MISS | 🐌 Slower | 1 (Tenant Service) | Success after fetch |
-| **Tenant Service down** | MISS | ❌ Error | 1 (fails) | Retry later (max 3) |
-| **Multiple tenants** | Separate cache keys | ⚡ Fast | 0-1 per tenant | Isolated caching |
+| Scenario                   | Cache Status        | Performance | Network Calls      | Result              |
+| -------------------------- | ------------------- | ----------- | ------------------ | ------------------- |
+| **Normal (within 30 min)** | HIT                 | ⚡ Fast     | 0                  | Immediate           |
+| **Cache expired**          | MISS                | 🐌 Slower   | 1 (Tenant Service) | Success after fetch |
+| **Tenant Service down**    | MISS                | ❌ Error    | 1 (fails)          | Retry later (max 3) |
+| **Multiple tenants**       | Separate cache keys | ⚡ Fast     | 0-1 per tenant     | Isolated caching    |
 
 **Cache Configuration:**
 
 ```json
 {
   "MultiTenancy": {
-    "CacheExpirationMinutes": 30  // Default: 30 minutes
+    "CacheExpirationMinutes": 30 // Default: 30 minutes
   }
 }
 ```
@@ -978,16 +1012,19 @@ Connects to tenant-specific database ✅
 #### 5. Key Components
 
 **ITenantConfigurationProvider**
+
 - Fetches tenant configuration from Tenant Service API
 - Implements cache-first strategy
 - Handles errors gracefully
 
 **ITenantContext**
+
 - Scoped per HTTP request or background job scope
 - Holds current tenant information
 - Provides access to `Configuration.DatabaseSettings.ConnectionString`
 
 **TenantNotificationDbContext**
+
 - Reads connection string from `ITenantContext`
 - Dynamically configures database provider in `OnConfiguring()`
 - Connects to tenant-specific database
@@ -995,6 +1032,7 @@ Connects to tenant-specific database ✅
 #### 6. Error Scenarios
 
 **Scenario 1: Tenant deleted/deactivated**
+
 ```
 GetTenantConfigurationAsync() returns null
     ↓
@@ -1006,6 +1044,7 @@ Will retry up to 3 times
 ```
 
 **Scenario 2: Tenant Service temporarily unavailable**
+
 ```
 HTTP call fails (timeout, 500 error, etc.)
     ↓
@@ -1017,11 +1056,13 @@ Retry mechanism kicks in
 ```
 
 **Scenario 3: Network issues**
+
 ```
 Same as Scenario 2 - automatic retry
 ```
 
 **Scenario 4: Cache expires during processing**
+
 ```
 Background job fetches from Tenant Service
     ↓
