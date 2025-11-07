@@ -3,6 +3,7 @@ using Identity.Domain.Repositories;
 using Identity.Infrastructure.Repositories;
 using Identity.Infrastructure.Services;
 using IhsanDev.Shared.Infrastructure.Services.Otp;
+using IhsanDev.Shared.Infrastructure.Services.Notification;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Identity.Infrastructure.Extensions;
@@ -21,6 +22,9 @@ public static class InfrastructureServiceExtensions
         
         // Register OTP service (from Shared)
         services.AddScoped<IOtpService, OtpService>();
+        
+        // Register Notification Service Client (for service-to-service communication)
+        services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
         
         return services;
     }

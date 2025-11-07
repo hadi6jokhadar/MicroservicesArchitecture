@@ -70,6 +70,8 @@ This solution implements a **microservices architecture** with a focus on:
 - 💾 **Configuration Caching**: High-performance tenant config with in-memory caching
 - 🔔 **Background Processing**: Queue-based notification delivery with retry logic
 - 📱 **Push Notifications**: SignalR real-time + Firebase Cloud Messaging
+- 🔐 **Service-to-Service Authentication**: Shared secret authentication for internal service communication
+- 🔌 **Notification Service Client**: Reusable client for cross-service notification sending
 
 ## 🛠️ Technology Stack
 
@@ -283,6 +285,8 @@ The API will be available at:
 - Unit of Work pattern
 - Database extension methods
 - Global exception handling middleware
+- Service authentication middleware
+- Notification service client (`INotificationServiceClient`)
 
 ### 🔐 IhsanDev.Shared.Authentication
 
@@ -292,6 +296,7 @@ The API will be available at:
 - Authentication middleware
 - Authorization policies
 - Claims-based security
+- Service-to-service authentication middleware
 
 ### 📨 IhsanDev.Shared.Messaging
 
@@ -328,6 +333,7 @@ The Identity service provides comprehensive user authentication, authorization, 
 
 - 📖 **Detailed Documentation**: [`src/Services/Identity/README.md`](src/Services/Identity/README.md)
 - 🔧 **API Specifications**: [`src/Services/Identity/IDENTITY_API_DOCUMENTATION.md`](src/Services/Identity/IDENTITY_API_DOCUMENTATION.md)
+- 🔐 **Service Authentication**: [`SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md`](SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md)
 - 🌐 **Swagger UI**: `https://localhost:5001/swagger` (when running)
 
 ## 🔔 Notification Service
@@ -352,6 +358,7 @@ The Notification Service provides real-time push notifications via SignalR and o
 - ⚡ **Quick Reference**: [`NOTIFICATION_HUB_QUICK_REFERENCE.md`](NOTIFICATION_HUB_QUICK_REFERENCE.md)
 - 💡 **JWT Example**: [`JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md`](JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md)
 - 🔐 **JWT Validation**: [`JWT_SECRET_AND_VALIDATION_FLOW.md`](JWT_SECRET_AND_VALIDATION_FLOW.md)
+- 🔌 **Service Integration**: [`SERVICE_TO_NOTIFICATION_INTEGRATION_GUIDE.md`](SERVICE_TO_NOTIFICATION_INTEGRATION_GUIDE.md)
 - 🌐 **SignalR Hub**: `https://localhost:5002/hubs/notifications` (when running)
 
 ### How It Works
@@ -374,6 +381,84 @@ Client → API Endpoint → Global Queue → Background Processor → SignalR/Fi
 - **Tenant Broadcast**: All users in tenant (tenantId="X", userId=null)
 - **User in Tenant**: Specific user in tenant (tenantId="X", userId=Y)
 - **Cross-Tenant User**: User across all tenants (tenantId=null, userId=Y)
+
+## 🔐 Service-to-Service Communication
+
+Microservices communicate securely using **shared secret authentication**, enabling internal services to call each other's APIs without requiring user JWT tokens.
+
+### Key Features
+
+- ✅ **Shared Secret Authentication**: Header-based authentication for service-to-service calls
+- ✅ **Service Role Authorization**: Endpoints can accept both "User" and "Service" roles
+- ✅ **Reusable Client**: `INotificationServiceClient` in shared infrastructure
+- ✅ **Automatic Headers**: HttpClient configured with service authentication headers
+- ✅ **Service Whitelist**: Optional validation of allowed service names
+- ✅ **Comprehensive Logging**: Audit trail of all service-to-service calls
+
+### How It Works
+
+**Authentication Flow:**
+
+1. Calling service includes `X-Service-Secret` header with shared secret
+2. `ServiceAuthenticationMiddleware` validates the secret
+3. If valid, creates service identity with "Service" role
+4. Request proceeds to endpoint with service authorization
+
+**Configuration:**
+
+```json
+{
+  "ServiceCommunication": {
+    "Enabled": true,
+    "SharedSecret": "your-shared-secret-key",
+    "AllowedServices": [
+      "IdentityService",
+      "NotificationService",
+      "TenantService"
+    ]
+  }
+}
+```
+
+### Quick Example
+
+**Sending Notification from Identity Service:**
+
+```csharp
+public class LoginCommandHandler : IRequestHandler<LoginCommand, UserDtoIncludesToken>
+{
+    private readonly INotificationServiceClient _notificationClient;
+
+    public async Task<UserDtoIncludesToken> Handle(...)
+    {
+        var user = await _userService.LoginAsync(...);
+
+        // Send welcome notification
+        await _notificationClient.SendNotificationAsync(
+            tenantId: "acme-corp",
+            userId: user.Id,
+            title: "Welcome Back!",
+            message: "You successfully logged in"
+        );
+
+        return user;
+    }
+}
+```
+
+### Documentation
+
+- 📖 **Complete Guide**: [`SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md`](SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md) - Full implementation details
+- 🔌 **Integration Guide**: [`SERVICE_TO_NOTIFICATION_INTEGRATION_GUIDE.md`](SERVICE_TO_NOTIFICATION_INTEGRATION_GUIDE.md) - Step-by-step integration
+
+### Service Communication Matrix
+
+| From Service | To Service   | Purpose                    |
+| ------------ | ------------ | -------------------------- |
+| Identity     | Notification | Send user notifications    |
+| Identity     | Tenant       | Fetch tenant configuration |
+| Notification | Tenant       | Fetch tenant configuration |
+| Tenant       | Notification | Send admin notifications   |
 
 ## 🏢 Tenant Service & Multi-Tenancy
 
@@ -762,6 +847,8 @@ The Identity Service has been successfully migrated from traditional controllers
 - ✅ Write XML documentation for public APIs
 - ✅ Maintain test coverage above 80%
 - ✅ Follow Clean Architecture principles
+- ✅ Use shared libraries for cross-cutting concerns
+- ✅ Implement service-to-service authentication for internal APIs
 
 ### Commit Convention
 
@@ -786,6 +873,9 @@ chore: maintenance tasks
 - [x] Minimal APIs implementation
 - [x] Role-based authorization
 - [x] Multi-database support
+- [x] Notification Service with SignalR
+- [x] Multi-tenancy support (optional)
+- [x] Service-to-service authentication
 
 ### Phase 2 - Infrastructure 🚧
 
@@ -833,6 +923,8 @@ chore: maintenance tasks
 - ✅ Refresh token rotation
 - ✅ BCrypt password hashing
 - ✅ Role-based access control
+- ✅ Service-to-service authentication
+- ✅ Shared secret validation for internal APIs
 
 ### API Security
 

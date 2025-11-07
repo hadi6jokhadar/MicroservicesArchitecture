@@ -43,7 +43,7 @@ public static class MultiTenancyExtensions
         // Add memory cache for tenant configuration caching
         services.AddMemoryCache();
 
-        // Configure HttpClient for Tenant Service API
+        // Configure HttpClient for Tenant Service API with service authentication
         var tenantServiceUrl = configuration["MultiTenancy:TenantServiceUrl"]
             ?? throw new InvalidOperationException("MultiTenancy:TenantServiceUrl is not configured");
 
@@ -51,6 +51,20 @@ public static class MultiTenancyExtensions
         {
             client.BaseAddress = new Uri(tenantServiceUrl);
             client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+            
+            // Add service authentication headers for service-to-service communication
+            var serviceSecret = configuration["ServiceCommunication:SharedSecret"];
+            if (!string.IsNullOrEmpty(serviceSecret))
+            {
+                client.DefaultRequestHeaders.Add("X-Service-Secret", serviceSecret);
+                
+                // Determine service name from current service configuration or default
+                var serviceName = configuration["ServiceCommunication:ServiceName"] 
+                    ?? configuration["ApplicationName"]
+                    ?? "UnknownService";
+                client.DefaultRequestHeaders.Add("X-Service-Name", serviceName);
+            }
         });
 
         return services;

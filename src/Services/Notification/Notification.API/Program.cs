@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using Notification.Application.Commands;
-using Notification.Application.Common.Mappings;
 using Notification.Infrastructure.Persistence;
 using Notification.Infrastructure.Extensions;
 using Notification.API.BackgroundServices;
@@ -13,6 +12,7 @@ using Notification.API.Extensions;
 using Notification.API.Hubs;
 using IhsanDev.Shared.Application.Common.Behaviors;
 using IhsanDev.Shared.Infrastructure.Extensions;
+using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Infrastructure.Services;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
@@ -80,12 +80,15 @@ builder.Services.AddDatabaseMigration();
 // ============================================
 // Authentication & Authorization
 // ============================================
+// Read JWT mode configuration to determine if JWT is shared or per-tenant
 var jwtModeString = builder.Configuration["MultiTenancy:JwtMode"] ?? "Shared";
 var jwtMode = Enum.TryParse<JwtMode>(jwtModeString, ignoreCase: true, out var parsedMode)
     ? parsedMode
     : JwtMode.Shared;
 
+// Always use Jwt section from appsettings.json (for both Shared and PerTenant modes)
 var jwtSettings = builder.Configuration.GetSection("Jwt");
+
 var secretKey = jwtSettings["Secret"]
     ?? throw new InvalidOperationException("JWT Secret is not configured");
 
@@ -141,6 +144,8 @@ builder.Services.AddAuthentication(options =>
 
             return Task.CompletedTask;
         }
+        // When JwtMode is Shared, use the JWT settings from appsettings.json
+        // All tenants validate tokens using the same JWT secret from Jwt section
     };
 });
 builder.Services.AddAuthorization();
@@ -325,6 +330,10 @@ else
     app.UseDefaultDatabaseMigration<NotificationDbContext>();
     app.UseDefaultDatabaseMigration<TenantNotificationDbContext>();
 }
+
+// Service authentication middleware (must be BEFORE UseAuthentication)
+// Allows service-to-service communication with shared secret
+app.UseServiceAuthentication();
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -6,6 +6,7 @@ using Tenant.Infrastructure.Persistence;
 using IhsanDev.Shared.Application.Common.Behaviors;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Filters;
+using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Infrastructure.Services;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using Tenant.API.Extensions;
@@ -174,6 +175,11 @@ app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance
 app.UseHttpsRedirection();
 app.UseCors();
+
+// Service authentication middleware (must be BEFORE UseAuthentication)
+// Allows service-to-service communication with shared secret
+app.UseServiceAuthentication();
+
 app.UseAuthentication();
 app.UseAuthorization();
 

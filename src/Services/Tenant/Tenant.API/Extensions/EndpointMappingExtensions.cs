@@ -11,17 +11,22 @@ public static class EndpointMappingExtensions
     public static WebApplication MapTenantEndpoints(this WebApplication app)
     {
         // Public tenant configuration endpoint (for Identity Service to fetch config)
+        // Allow both anonymous access and service authentication
         var publicGroup = app.MapGroup("/api/tenant")
             .WithTags("Tenant Configuration")
             .WithOpenApi();
 
         // This endpoint is used by other services to fetch tenant configuration
+        // Accessible ONLY by services with service authentication (not by users or anonymous)
         publicGroup.MapGet("/config/{tenantId}", TenantApiHandlers.GetTenantConfigHandler)
+            .RequireAuthorization(policy => policy.RequireRole("Service"))
             .WithName("GetTenantConfig")
-            .WithSummary("Get tenant configuration")
-            .WithDescription("Get tenant-specific configuration including settings data (used by other services)")
+            .WithSummary("Get tenant configuration (Service-to-Service only)")
+            .WithDescription("Get tenant-specific configuration including settings data. This endpoint is restricted to authenticated internal services only.")
             .Produces<object>(200)
-            .Produces(404);
+            .Produces(404)
+            .Produces(401)
+            .Produces(403);
 
         // Public tenant info endpoint (without sensitive data)
         publicGroup.MapGet("/{tenantId}", TenantApiHandlers.GetTenantByIdHandler)

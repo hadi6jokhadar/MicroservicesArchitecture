@@ -2,25 +2,21 @@
 using System.Text;
 using FluentValidation;
 using Identity.Application.Commands;
-using Identity.Application.Services;
-using Identity.Domain.Repositories;
 using Identity.Infrastructure.Extensions;
 using Identity.Infrastructure.Persistence;
-using Identity.Infrastructure.Repositories;
-using Identity.Infrastructure.Services;
 using IhsanDev.Shared.Application.Common.Behaviors;
-using IhsanDev.Shared.Application.Extensions;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Filters;
+using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Infrastructure.Services;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using IhsanDev.Shared.Kernel.Enums;
 using Identity.API.Extensions;
 using Identity.API.Filters;
-using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================
@@ -120,6 +116,7 @@ builder.Services.AddAuthentication(options =>
     // All tenants validate tokens using the same JWT secret from Jwt section
 });
 builder.Services.AddAuthorization();
+
 // ============================================
 // CORS Configuration
 // ============================================
@@ -201,6 +198,29 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped(typeof(ValidationFilter<>));
 
 // ============================================
+// HTTP Clients for Service-to-Service Communication
+// ============================================
+// HTTP Client for Notification Service
+builder.Services.AddHttpClient("NotificationService", client =>
+{
+    var baseUrl = builder.Configuration["Services:NotificationService:BaseUrl"] 
+        ?? "https://localhost:5104";
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    
+    var timeout = builder.Configuration.GetValue<int>("Services:NotificationService:Timeout", 30);
+    client.Timeout = TimeSpan.FromSeconds(timeout);
+    
+    // Add service authentication headers
+    var serviceSecret = builder.Configuration["ServiceCommunication:SharedSecret"];
+    if (!string.IsNullOrEmpty(serviceSecret))
+    {
+        client.DefaultRequestHeaders.Add("X-Service-Secret", serviceSecret);
+        client.DefaultRequestHeaders.Add("X-Service-Name", "IdentityService");
+    }
+});
+
+// ============================================
 // Build & Configure Pipeline
 // ============================================
 var app = builder.Build();
@@ -262,6 +282,10 @@ else
     // This ensures the default database from appsettings.json is created and migrated
     app.UseDefaultDatabaseMigration<IdentityDbContext>();
 }
+
+// Service authentication middleware (must be BEFORE UseAuthentication)
+// Allows service-to-service communication with shared secret
+app.UseServiceAuthentication();
 
 app.UseAuthentication();
 app.UseAuthorization();

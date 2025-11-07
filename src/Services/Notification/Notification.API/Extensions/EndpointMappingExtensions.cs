@@ -12,14 +12,14 @@ public static class EndpointMappingExtensions
     {
         var notificationGroup = app.MapGroup("/api/notifications")
             .WithTags("Notifications")
-            .RequireAuthorization()
+            .RequireAuthorization(policy => policy.RequireRole("User", "Service"))
             .WithOpenApi();
 
-        // Send notification
+        // Send notification (accessible by users and services)
         notificationGroup.MapPost("/send", NotificationApiHandlers.SendNotificationHandler)
             .WithName("SendNotification")
             .WithSummary("Send a notification")
-            .WithDescription("Queue a notification for delivery to a user via SignalR or Firebase")
+            .WithDescription("Queue a notification for delivery to a user via SignalR or Firebase. Accessible by authenticated users and internal services.")
             .Produces<SendNotificationResponse>(200)
             .ProducesValidationProblem();
 

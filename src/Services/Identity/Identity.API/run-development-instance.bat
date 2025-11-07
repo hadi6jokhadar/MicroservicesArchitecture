@@ -4,7 +4,7 @@ echo Identity API - Development Instance
 echo ========================================
 echo Environment: Development
 echo Ports: 5001 (HTTP) / 5101 (HTTPS)
-echo Database: identity2
+echo Database: global
 echo MultiTenancy: Enabled (PerTenant Mode)
 echo ========================================
 echo.

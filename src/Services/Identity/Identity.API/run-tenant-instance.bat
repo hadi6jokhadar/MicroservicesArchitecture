@@ -4,7 +4,7 @@ echo Identity API - Tenant Instance
 echo ========================================
 echo Environment: Tenant
 echo Ports: 5003 (HTTP) / 5103 (HTTPS)
-echo Database: identity
+echo Database: global
 echo MultiTenancy: Disabled (Shared Mode)
 echo ========================================
 echo.
