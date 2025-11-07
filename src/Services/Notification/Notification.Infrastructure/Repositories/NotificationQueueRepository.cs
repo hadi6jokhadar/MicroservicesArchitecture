@@ -122,4 +122,52 @@ public class NotificationQueueRepository : Repository<NotificationQueueItem>, IN
             .Where(q => q.ExpiresAt <= DateTime.UtcNow)
             .ToListAsync(cancellationToken);
     }
+
+    public IQueryable<NotificationQueueItem> GetFilteredQueryable(
+        string? tenantId = null,
+        int? userId = null,
+        QueueStatus? status = null,
+        Priority? priority = null,
+        DeliveryType? deliveryType = null,
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
+        string? searchTerm = null)
+    {
+        var query = _dbSet.AsNoTracking().AsQueryable();
+
+        // Apply filters
+        if (!string.IsNullOrWhiteSpace(tenantId))
+            query = query.Where(q => q.TenantId == tenantId);
+
+        if (userId.HasValue)
+            query = query.Where(q => q.UserId == userId.Value);
+
+        if (status.HasValue)
+            query = query.Where(q => q.QueueStatus == status.Value);
+
+        if (priority.HasValue)
+            query = query.Where(q => q.Priority == priority.Value);
+
+        if (deliveryType.HasValue)
+            query = query.Where(q => q.DeliveryType == deliveryType.Value);
+
+        if (fromDate.HasValue)
+            query = query.Where(q => q.Created >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(q => q.Created <= toDate.Value);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var search = searchTerm.ToLower();
+            query = query.Where(q => 
+                q.Title.ToLower().Contains(search) || 
+                (q.Message != null && q.Message.ToLower().Contains(search)));
+        }
+
+        // Default ordering: most recent first
+        query = query.OrderByDescending(q => q.Created);
+
+        return query;
+    }
 }

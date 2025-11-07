@@ -242,6 +242,7 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
    ```
 
 4. **Error Handling**:
+
    ```csharp
    catch (Exception ex)
    {
@@ -504,17 +505,117 @@ await tenantDbContext.SaveChangesAsync();
 
 ✅ **All endpoints require JWT authentication**
 
-- API endpoints: `[RequireAuthorization]` on group
-- SignalR hub: `[Authorize]` attribute + `.RequireAuthorization()` on endpoint
-- JWT token validation with per-tenant support
+The service implements **dual JWT authentication** to support both multi-tenant user operations and cross-tenant administrative functions:
+
+#### 1. Tenant-Specific JWT (User Endpoints)
+
+- **Used For**: User notification operations (`/send`, `/user/{userId}`, `/status/{id}`, `/{id}/read`)
+- **Configuration**: Stored per-tenant in database (TenantConfiguration.Jwt)
+- **Required Header**: `x-tenant-id: {tenantId}`
+- **Validation Flow**:
+  1. Request includes `x-tenant-id` header
+  2. TenantMiddleware resolves tenant from database
+  3. JWT validated against tenant's specific secret
+  4. Endpoint executes with tenant context
+
+#### 2. Global JWT (SuperAdmin Endpoints)
+
+- **Used For**: Admin queue management (`/api/notifications/admin/queue`)
+- **Configuration**: appsettings.json (`Jwt` section)
+- **Required Header**: None (no `x-tenant-id` needed)
+- **Validation Flow**:
+  1. BypassTenantAttribute detected on endpoint
+  2. TenantMiddleware skips tenant resolution
+  3. JWT validated against global secret
+  4. Endpoint executes with SuperAdmin authorization
+
+### JWT Mode Configuration
+
+The `JwtMode` setting in `appsettings.json` controls authentication behavior:
+
+```json
+{
+  "MultiTenancy": {
+    "JwtMode": "PerTenant" // or "Shared"
+  }
+}
+```
+
+**Modes:**
+
+- `"PerTenant"`: User endpoints validate against tenant-specific JWT, admin endpoints use global JWT
+- `"Shared"`: All endpoints use global JWT from appsettings.json
+
+### BypassTenant Attribute
+
+Endpoints marked with `BypassTenantAttribute` skip tenant middleware and always use global JWT:
+
+```csharp
+adminGroup.MapGet("/queue", GetQueueItemsHandler)
+    .WithMetadata(new BypassTenantAttribute())
+    .RequireAuthorization();
+```
+
+**Effects:**
+
+1. TenantMiddleware skips tenant resolution
+2. JWT validation uses global secret from appsettings.json
+3. Endpoint accessible to SuperAdmin role only
+
+### Authorization Roles
+
+**User Role:**
+
+- Send notifications for their tenant
+- View own notifications
+- Mark notifications as read
+
+**Service Role:**
+
+- Send notifications on behalf of system services
+- Access tenant-specific endpoints programmatically
+
+**SuperAdmin Role:**
+
+- Access all user endpoints across tenants
+- Access admin endpoints (queue management)
+- System-wide operations without tenant context
 
 ### JWT Token Flow
 
-**HTTP API Requests**:
+#### HTTP API Requests (User Endpoints)
+
+**Tenant-Specific JWT (when JwtMode = "PerTenant"):**
 
 ```http
-Authorization: Bearer <jwt-token>
+Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN
 x-tenant-id: tenant-123
+```
+
+**Example:**
+
+```bash
+curl "https://localhost:5104/api/notifications/send" \
+  -H "Authorization: Bearer eyJhbGci..." \
+  -H "x-tenant-id: ihsandev" \
+  -H "Content-Type: application/json" \
+  -d '{"userId": 1, "title": "Test", "message": "Message"}'
+```
+
+#### HTTP API Requests (Admin Endpoints)
+
+**Global JWT (all modes):**
+
+```http
+Authorization: Bearer GLOBAL_SUPERADMIN_JWT_TOKEN
+```
+
+**Example:**
+
+```bash
+curl "https://localhost:5104/api/notifications/admin/queue?pageSize=20" \
+  -H "Authorization: Bearer eyJhbGci..."
+  # NO x-tenant-id header required
 ```
 
 **SignalR WebSocket Connections**:

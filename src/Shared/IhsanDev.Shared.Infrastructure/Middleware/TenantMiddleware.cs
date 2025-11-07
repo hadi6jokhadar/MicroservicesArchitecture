@@ -1,3 +1,4 @@
+using IhsanDev.Shared.Infrastructure.Attributes;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -27,6 +28,17 @@ public class TenantMiddleware
         if (!tenantContext.IsMultiTenantMode)
         {
             _logger.LogDebug("Multi-tenancy is disabled, skipping tenant resolution");
+            await _next(context);
+            return;
+        }
+
+        // Check if endpoint has metadata to bypass tenant resolution
+        var endpoint = context.GetEndpoint();
+        var bypassTenant = endpoint?.Metadata.GetMetadata<BypassTenantAttribute>() != null;
+        
+        if (bypassTenant)
+        {
+            _logger.LogDebug("Bypassing tenant resolution for endpoint with BypassTenant attribute");
             await _next(context);
             return;
         }

@@ -1,7 +1,7 @@
 # 🔔 Notification Service - Complete Documentation
 
 **Version:** 1.0.0  
-**Last Updated:** November 5, 2025  
+**Last Updated:** November 7, 2025  
 **Status:** ✅ Production Ready (98% Test Coverage - 40/41 Tests Passing)  
 **Service Ports:** HTTP: 5004, HTTPS: 5104
 
@@ -29,7 +29,7 @@
 
 ## Overview
 
-The Notification Service is a real-time push notification system built with **ASP.NET Core 9.0**, **SignalR**, and **Entity Framework Core**. It implements a queue-based processing architecture with multi-tenancy support and optional Firebase Cloud Messaging integration.
+The Notification Service is a real-time push notification system built with **ASP.NET Core 9.0**, **SignalR**, and **Entity Framework Core**. It implements a queue-based processing architecture with multi-tenancy support, dual JWT authentication modes, and optional Firebase Cloud Messaging integration.
 
 ### Design Principles
 
@@ -37,6 +37,7 @@ The Notification Service is a real-time push notification system built with **AS
 - **CQRS Pattern**: Commands and queries via MediatR
 - **Queue-First Processing**: Reliable delivery with retry mechanism
 - **Two-Database Model**: Global queue + tenant-specific persistence
+- **Dual JWT Authentication**: Global JWT for admin, tenant-specific JWT for users
 - **Optional Authentication**: Supports both authenticated and anonymous connections
 - **Configuration-Driven**: Multi-tenancy enabled/disabled via configuration
 
@@ -115,6 +116,7 @@ External:
 - Automatic reconnection handling
 - Group-based targeting
 - Token authentication from query string
+- Dual JWT authentication (global + tenant-specific)
 
 ### ✅ Queue-Based Processing
 
@@ -122,6 +124,7 @@ External:
 - Background processor (5-second intervals)
 - Retry mechanism (max 3 attempts)
 - Exponential backoff
+- SuperAdmin queue management endpoint with filtering and pagination
 
 ### ✅ Multi-Tenancy Support
 
@@ -129,6 +132,7 @@ External:
 - Tenant-specific databases
 - Dynamic connection string resolution
 - Tenant-based SignalR grouping
+- Tenant-specific JWT validation
 
 ### ✅ Five Targeting Scenarios
 
@@ -210,6 +214,7 @@ External:
 | **[NOTIFICATION_SYSTEM_FLOW.md](NOTIFICATION_SYSTEM_FLOW.md)**                 | Complete system architecture and flow | Architects, Developers |
 | **[NOTIFICATION_HUB_GUIDE.md](NOTIFICATION_HUB_GUIDE.md)**                     | Comprehensive SignalR hub usage       | Developers             |
 | **[NOTIFICATION_HUB_QUICK_REFERENCE.md](NOTIFICATION_HUB_QUICK_REFERENCE.md)** | Quick reference for common scenarios  | Developers             |
+| **[SUPERADMIN_QUEUE_ENDPOINT.md](SUPERADMIN_QUEUE_ENDPOINT.md)**               | SuperAdmin queue management API       | Administrators         |
 
 ### 🔐 Authentication & JWT
 
@@ -243,11 +248,12 @@ Update `appsettings.json`:
 ```json
 {
   "MultiTenancy": {
-    "Enabled": true
+    "Enabled": true,
+    "JwtMode": "PerTenant"
   },
   "Jwt": {
     "Secret": "your-super-secret-jwt-key-minimum-32-characters-must-match-identity-service",
-    "Issuer": "IdentityService",
+    "Issuer": "IhsanDev",
     "Audience": "MicroservicesApp"
   },
   "DatabaseSettings": {
@@ -308,11 +314,17 @@ console.log("Connected to notification hub!");
 {
   "MultiTenancy": {
     "Enabled": true, // Enable/disable multi-tenancy
-    "TenantServiceUrl": "https://localhost:5104",
+    "JwtMode": "PerTenant", // "Shared" or "PerTenant"
+    "TenantServiceUrl": "https://localhost:5002",
     "CacheExpirationMinutes": 5
   }
 }
 ```
+
+**JWT Modes:**
+
+- `Shared`: All tenants use global JWT from appsettings.json
+- `PerTenant`: Each tenant has its own JWT secret (stored in Tenant Service database)
 
 #### JWT Authentication
 
@@ -320,12 +332,17 @@ console.log("Connected to notification hub!");
 {
   "Jwt": {
     "Secret": "your-secret-key-32-chars-minimum",
-    "Issuer": "IdentityService",
+    "Issuer": "IhsanDev",
     "Audience": "MicroservicesApp",
     "AccessTokenExpirationMinutes": 60
   }
 }
 ```
+
+**Note:** When `JwtMode = "PerTenant"`:
+
+- Regular endpoints (send, user notifications) use **tenant-specific JWT**
+- Admin endpoints (queue management) use **global JWT** from appsettings.json
 
 #### Database
 
@@ -389,6 +406,11 @@ console.log("Connected to notification hub!");
 
 ## API Endpoints
 
+### User Notification Endpoints
+
+**Authentication:** Tenant-specific JWT (when `JwtMode = "PerTenant"`)  
+**Required Header:** `x-tenant-id: {tenantId}`
+
 ### Send Notification
 
 **POST** `/api/notifications/send`
@@ -398,7 +420,8 @@ Send a new notification to the queue.
 ```bash
 curl -X POST "https://localhost:5104/api/notifications/send" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN" \
+  -H "x-tenant-id: ihsandev" \
   -d '{
     "tenantId": "ihsandev",
     "userId": 1,
@@ -427,7 +450,8 @@ Check the status of a queued notification.
 
 ```bash
 curl "https://localhost:5104/api/notifications/status/123" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+  -H "Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN" \
+  -H "x-tenant-id: ihsandev"
 ```
 
 **Response:**
@@ -436,8 +460,8 @@ curl "https://localhost:5104/api/notifications/status/123" \
 {
   "id": 123,
   "status": "Sent",
-  "createdAt": "2025-11-05T14:00:00Z",
-  "lastAttemptAt": "2025-11-05T14:00:05Z"
+  "createdAt": "2025-11-07T14:00:00Z",
+  "lastAttemptAt": "2025-11-07T14:00:05Z"
 }
 ```
 
@@ -449,7 +473,7 @@ Get all notifications for a specific user.
 
 ```bash
 curl "https://localhost:5104/api/notifications/user/1?pageNumber=1&pageSize=20" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN" \
   -H "x-tenant-id: ihsandev"
 ```
 
@@ -464,7 +488,7 @@ curl "https://localhost:5104/api/notifications/user/1?pageNumber=1&pageSize=20" 
       "message": "You have a new message",
       "data": "{\"messageId\": 123}",
       "isRead": false,
-      "createdAt": "2025-11-05T14:00:00Z"
+      "createdAt": "2025-11-07T14:00:00Z"
     }
   ],
   "totalCount": 50,
@@ -481,7 +505,7 @@ Mark a notification as read.
 
 ```bash
 curl -X PUT "https://localhost:5104/api/notifications/456/read" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN" \
   -H "x-tenant-id: ihsandev"
 ```
 
@@ -492,6 +516,66 @@ curl -X PUT "https://localhost:5104/api/notifications/456/read" \
   "success": true
 }
 ```
+
+---
+
+### SuperAdmin Endpoints
+
+**Authentication:** Global JWT from appsettings.json  
+**Required Role:** SuperAdmin  
+**Header:** No `x-tenant-id` required (bypasses tenant middleware)
+
+### Get Queue Items (SuperAdmin)
+
+**GET** `/api/notifications/admin/queue`
+
+Retrieve all notification queue items across all tenants with filtering and pagination.
+
+```bash
+curl "https://localhost:5104/api/notifications/admin/queue?pageSize=20&status=0&tenantId=ihsandev" \
+  -H "Authorization: Bearer GLOBAL_SUPERADMIN_JWT_TOKEN"
+```
+
+**Query Parameters:**
+
+- `pageNumber` (int): Page number (default: 1)
+- `pageSize` (int): Page size 1-100 (default: 10)
+- `tenantId` (string): Filter by tenant
+- `userId` (int): Filter by user
+- `status` (QueueStatus): 0=Pending, 1=Processing, 2=Sent, 3=Failed, 4=Expired
+- `priority` (Priority): 0=Waitable, 1=Immediate
+- `deliveryType` (DeliveryType): 1=SignalR, 2=Firebase, 3=Both
+- `fromDate` (DateTime): Filter from date
+- `toDate` (DateTime): Filter to date
+- `searchTerm` (string): Search in title/message
+
+**Response:**
+
+```json
+{
+  "items": [
+    {
+      "id": 123,
+      "tenantId": "ihsandev",
+      "userId": 2,
+      "deliveryType": 3,
+      "priority": 1,
+      "title": "Test notification",
+      "message": "Test message",
+      "queueStatus": 2,
+      "retryCount": 0,
+      "createdAt": "2025-11-07T10:00:00Z"
+    }
+  ],
+  "pageNumber": 1,
+  "totalPages": 5,
+  "totalCount": 50,
+  "hasPreviousPage": false,
+  "hasNextPage": true
+}
+```
+
+**See:** [SUPERADMIN_QUEUE_ENDPOINT.md](SUPERADMIN_QUEUE_ENDPOINT.md) for complete documentation
 
 ---
 
@@ -665,6 +749,134 @@ Clients are automatically added to groups based on authentication:
 
 ## Authentication
 
+The Notification Service implements a **dual JWT authentication system** to support both multi-tenant user operations and cross-tenant administrative functions.
+
+### JWT Authentication Modes
+
+#### 1. Global JWT (appsettings.json)
+
+Used for **SuperAdmin endpoints** that operate across all tenants:
+
+- Queue management endpoints (`/api/notifications/admin/*`)
+- System-wide monitoring and analytics
+- Cross-tenant operations
+
+**Configuration:**
+
+```json
+{
+  "Jwt": {
+    "Secret": "your-global-secret-key-here",
+    "Issuer": "IhsanDev",
+    "Audience": "IhsanDevAPI",
+    "ExpirationMinutes": 60
+  }
+}
+```
+
+**Example Token Generation:**
+
+```csharp
+var claims = new[]
+{
+    new Claim(ClaimTypes.NameIdentifier, "superadmin-id"),
+    new Claim(ClaimTypes.Name, "SuperAdmin"),
+    new Claim(ClaimTypes.Role, "SuperAdmin")
+};
+
+var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+var token = new JwtSecurityToken(
+    issuer: "IhsanDev",
+    audience: "IhsanDevAPI",
+    claims: claims,
+    expires: DateTime.UtcNow.AddMinutes(60),
+    signingCredentials: credentials
+);
+```
+
+#### 2. Tenant-Specific JWT (Per-Tenant Configuration)
+
+Used for **user notification endpoints** that operate within a single tenant:
+
+- Send notification (`/api/notifications/send`)
+- User notifications (`/api/notifications/user/{userId}`)
+- Mark as read (`/api/notifications/{id}/read`)
+- Queue status (`/api/notifications/status/{id}`)
+
+**Configuration:** Stored in `TenantConfiguration.Jwt` table per tenant
+
+**Required Header:** `x-tenant-id: {tenantId}`
+
+**Flow:**
+
+1. Request includes `x-tenant-id` header
+2. TenantMiddleware resolves tenant from database
+3. JWT validation uses tenant-specific secret from tenant configuration
+4. Token validated against tenant's JWT settings
+
+**Example Request:**
+
+```bash
+curl "https://localhost:5104/api/notifications/user/1" \
+  -H "Authorization: Bearer TENANT_SPECIFIC_TOKEN" \
+  -H "x-tenant-id: ihsandev"
+```
+
+### JwtMode Configuration
+
+The `JwtMode` setting in `appsettings.json` controls the authentication behavior:
+
+```json
+{
+  "MultiTenancy": {
+    "JwtMode": "PerTenant" // or "Shared"
+  }
+}
+```
+
+**Modes:**
+
+- `"PerTenant"`: User endpoints validate against tenant-specific JWT, admin endpoints use global JWT
+- `"Shared"`: All endpoints use global JWT from appsettings.json
+
+### BypassTenant Attribute
+
+Endpoints marked with `BypassTenantAttribute` skip tenant middleware and always use global JWT:
+
+```csharp
+// In EndpointMappingExtensions.cs
+adminGroup.MapGet("/queue", GetQueueItemsHandler)
+    .WithMetadata(new BypassTenantAttribute())
+    .RequireAuthorization();
+```
+
+**Effects:**
+
+1. TenantMiddleware skips tenant resolution (no `x-tenant-id` header required)
+2. JWT validation uses global secret from appsettings.json
+3. Endpoint accessible to SuperAdmin role only
+
+### Authorization Roles
+
+**User Role:**
+
+- Send notifications for their tenant
+- View own notifications
+- Mark notifications as read
+
+**Service Role:**
+
+- Send notifications on behalf of system services
+- Access tenant-specific endpoints programmatically
+
+**SuperAdmin Role:**
+
+- Access all user endpoints across tenants
+- Access admin endpoints (queue management)
+- System-wide operations without tenant context
+
 ### JWT Token Requirements
 
 **Required Claims:**
@@ -673,8 +885,23 @@ Clients are automatically added to groups based on authentication:
 - `iss` - Must match `Jwt:Issuer` in configuration
 - `aud` - Must match `Jwt:Audience` in configuration
 - `exp` - Token expiration timestamp
+- `role` - User, Service, or SuperAdmin
 
-**Example JWT Payload:**
+**Example JWT Payload (Global):**
+
+```json
+{
+  "sub": "superadmin-1",
+  "unique_name": "superadmin",
+  "role": "SuperAdmin",
+  "iss": "IhsanDev",
+  "aud": "IhsanDevAPI",
+  "exp": 1730812800,
+  "iat": 1730809200
+}
+```
+
+**Example JWT Payload (Tenant-Specific):**
 
 ```json
 {
@@ -682,14 +909,15 @@ Clients are automatically added to groups based on authentication:
   "unique_name": "john.doe",
   "email": "john@ihsandev.com",
   "tenantId": "ihsandev",
-  "iss": "IdentityService",
-  "aud": "MicroservicesApp",
+  "role": "User",
+  "iss": "IhsanDevIdentity",
+  "aud": "IhsanDevApp",
   "exp": 1730812800,
   "iat": 1730809200
 }
 ```
 
-### Connection Authentication
+### Connection Authentication (SignalR)
 
 **Option 1: Access Token Factory (Recommended)**
 
@@ -720,31 +948,35 @@ const connection = new signalR.HubConnectionBuilder()
 // User will only join 'global' group
 ```
 
-### Per-Tenant JWT (Advanced)
+### Authentication Flow Examples
 
-When `JwtMode = PerTenant`, each tenant can have their own JWT secret:
+**User Notification Request (PerTenant Mode):**
 
-**Tenant Configuration:**
-
-```json
-{
-  "tenantId": "ihsandev",
-  "configuration": {
-    "jwt": {
-      "secret": "ihsandev-specific-secret-32-chars",
-      "issuer": "IhsanDevIdentity",
-      "audience": "IhsanDevApp"
-    }
-  }
-}
+```
+1. Client → Request with tenant-specific JWT + x-tenant-id header
+2. TenantMiddleware → Resolve tenant from header
+3. JWT Validation → Use tenant's JWT secret from database
+4. Authorization → Verify User/Service/SuperAdmin role
+5. Endpoint → Execute with tenant context
 ```
 
-**Request Headers:**
+**SuperAdmin Queue Request (All Modes):**
 
-```http
-Authorization: Bearer eyJhbGci...
-x-tenant-id: ihsandev
 ```
+1. Client → Request with global JWT (no x-tenant-id header)
+2. TenantMiddleware → Skip (BypassTenantAttribute detected)
+3. JWT Validation → Use global JWT secret from appsettings.json
+4. Authorization → Verify SuperAdmin role
+5. Endpoint → Execute without tenant context
+```
+
+### Security Best Practices
+
+1. **Separate JWT Secrets:** Use different secrets for global and tenant-specific JWTs
+2. **Token Expiration:** Configure appropriate expiration times (default: 60 minutes)
+3. **HTTPS Only:** Always use HTTPS in production
+4. **Tenant Isolation:** User endpoints strictly enforce tenant boundaries via middleware
+5. **Role-Based Access:** Leverage role claims for fine-grained authorization
 
 ---
 
@@ -1105,6 +1337,71 @@ await client.StartAsync();
 
 ## Troubleshooting
 
+### Authentication Issues
+
+#### Problem: 401 Unauthorized on user endpoints
+
+**Possible Causes:**
+
+1. **Wrong JWT mode configuration**
+
+   - User endpoint uses tenant-specific JWT but `JwtMode = "Shared"`
+   - Solution: Set `"JwtMode": "PerTenant"` in appsettings.json
+
+2. **Missing x-tenant-id header**
+
+   - User endpoints require `x-tenant-id` header when multi-tenancy enabled
+   - Solution: Include header in all user endpoint requests
+
+3. **JWT token validated against wrong secret**
+
+   - Using global JWT token for tenant endpoint
+   - Solution: Generate token with tenant-specific secret from tenant configuration
+
+4. **Token expired or invalid**
+   - Check token expiration in JWT claims
+   - Verify token signature matches tenant secret
+
+**Example Fix:**
+
+```bash
+# Correct request with tenant-specific JWT
+curl "https://localhost:5104/api/notifications/user/1" \
+  -H "Authorization: Bearer TENANT_SPECIFIC_TOKEN" \
+  -H "x-tenant-id: ihsandev"
+```
+
+#### Problem: 403 Forbidden on admin endpoints
+
+**Possible Causes:**
+
+1. **Missing SuperAdmin role**
+
+   - Token must have `role: "SuperAdmin"` claim
+   - Solution: Generate token with SuperAdmin role
+
+2. **Using tenant-specific JWT for admin endpoint**
+   - Admin endpoints require global JWT from appsettings.json
+   - Solution: Use global JWT token, no x-tenant-id header
+
+**Example Fix:**
+
+```bash
+# Correct request with global JWT
+curl "https://localhost:5104/api/notifications/admin/queue" \
+  -H "Authorization: Bearer GLOBAL_SUPERADMIN_TOKEN"
+  # NO x-tenant-id header
+```
+
+#### Problem: 401 Unauthorized on SignalR connection
+
+**Solution:**
+
+1. Check JWT token is valid
+2. Verify token in query string: `?access_token=...`
+3. Ensure `Jwt:Secret` matches Identity Service or tenant configuration
+4. Check token claims (sub, iss, aud, exp)
+
 ### Connection Issues
 
 #### Problem: Unable to connect to SignalR hub
@@ -1134,15 +1431,6 @@ await client.StartAsync();
 4. **Hub endpoint incorrect**
    - URL: `wss://localhost:5104/hubs/notifications`
    - Not `ws://` or missing `/hubs`
-
-#### Problem: 401 Unauthorized on connection
-
-**Solution:**
-
-1. Check JWT token is valid
-2. Verify token in query string: `?access_token=...`
-3. Ensure `Jwt:Secret` matches Identity Service
-4. Check token claims (sub, iss, aud, exp)
 
 ### Notification Delivery Issues
 

@@ -56,4 +56,17 @@ public interface INotificationQueueRepository : IRepository<NotificationQueueIte
     /// Get expired queue items
     /// </summary>
     Task<IEnumerable<NotificationQueueItem>> GetExpiredItemsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get queryable for filtered queue items with pagination support
+    /// </summary>
+    IQueryable<NotificationQueueItem> GetFilteredQueryable(
+        string? tenantId = null,
+        int? userId = null,
+        QueueStatus? status = null,
+        Priority? priority = null,
+        DeliveryType? deliveryType = null,
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
+        string? searchTerm = null);
 }

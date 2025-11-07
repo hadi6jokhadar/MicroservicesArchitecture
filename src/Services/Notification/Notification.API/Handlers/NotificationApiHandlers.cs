@@ -1,6 +1,7 @@
 using MediatR;
 using Notification.Application.Commands;
 using Notification.Application.DTOs;
+using Notification.Domain.Enums;
 
 namespace Notification.API.Handlers;
 
@@ -71,5 +72,39 @@ public static class NotificationApiHandlers
         }
 
         return Results.Ok(new { success = true, message = "Notification marked as read" });
+    }
+
+    /// <summary>
+    /// Handle get all queue items request with filters and pagination (SuperAdmin only)
+    /// </summary>
+    public static async Task<IResult> GetQueueItemsHandler(
+        IMediator mediator,
+        int pageNumber = 1,
+        int pageSize = 10,
+        string? tenantId = null,
+        int? userId = null,
+        QueueStatus? status = null,
+        Priority? priority = null,
+        DeliveryType? deliveryType = null,
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
+        string? searchTerm = null,
+        CancellationToken ct = default)
+    {
+        var command = new GetQueueItemsCommand(
+            PageNumber: pageNumber,
+            PageSize: pageSize,
+            TenantId: tenantId,
+            UserId: userId,
+            Status: status,
+            Priority: priority,
+            DeliveryType: deliveryType,
+            FromDate: fromDate,
+            ToDate: toDate,
+            SearchTerm: searchTerm
+        );
+
+        var result = await mediator.Send(command, ct);
+        return Results.Ok(result);
     }
 }

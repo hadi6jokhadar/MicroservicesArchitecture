@@ -97,7 +97,7 @@ builder.Services.AddAuthentication(options =>
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
-.AddJwtBearer(options =>
+.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -126,7 +126,11 @@ builder.Services.AddAuthentication(options =>
             }
 
             // Support per-tenant JWT validation when JwtMode is PerTenant
-            if (jwtMode == JwtMode.PerTenant)
+            // Only apply to endpoints that don't have BypassTenant attribute
+            var endpoint = context.HttpContext.GetEndpoint();
+            var bypassTenant = endpoint?.Metadata.GetMetadata<IhsanDev.Shared.Infrastructure.Attributes.BypassTenantAttribute>() != null;
+            
+            if (!bypassTenant && jwtMode == JwtMode.PerTenant)
             {
                 var tenantContext = context.HttpContext.RequestServices.GetService<ITenantContext>();
                 if (tenantContext?.HasTenant == true && tenantContext.CurrentTenant?.Configuration?.Jwt != null)
@@ -146,6 +150,7 @@ builder.Services.AddAuthentication(options =>
         }
         // When JwtMode is Shared, use the JWT settings from appsettings.json
         // All tenants validate tokens using the same JWT secret from Jwt section
+        // When endpoint has BypassTenant, always use global JWT from appsettings.json
     };
 });
 builder.Services.AddAuthorization();

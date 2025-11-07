@@ -1,18 +1,26 @@
 # JWT & Notification Flow Example
 
-## Scenario
-**User**: `userId = 1`  
-**Tenant**: `tenantId = "ihsandev"`  
-**DeliveryType**: `Both` (SignalR + Firebase)  
-**Configuration**: `MultiTenancy:Enabled = true`
+## Overview
+
+This document illustrates the complete flow for both **user notification operations** (using tenant-specific JWT) and **SuperAdmin queue management** (using global JWT).
 
 ---
 
-## Complete Flow Walkthrough
+## Scenario 1: User Notification Flow
+
+**User**: `userId = 1`  
+**Tenant**: `tenantId = "ihsandev"`  
+**DeliveryType**: `Both` (SignalR + Firebase)  
+**Configuration**: `MultiTenancy:Enabled = true`, `JwtMode = "PerTenant"`
+
+---
+
+## Complete User Flow Walkthrough
 
 ### **Step 1: User Authentication (Identity Service)**
 
 #### User Logs In
+
 ```http
 POST https://localhost:5001/api/auth/login
 Content-Type: application/json
@@ -24,36 +32,43 @@ x-tenant-id: ihsandev
 }
 ```
 
-#### Identity Service Generates JWT
-The Identity Service creates a JWT token containing:
+#### Identity Service Generates Tenant-Specific JWT
+
+The Identity Service creates a JWT token using the **tenant's JWT secret** from tenant configuration:
 
 ```javascript
-// JWT Payload
+// JWT Payload (Tenant-Specific)
 {
   "sub": "1",                          // Subject = User ID
   "unique_name": "john.doe",
   "email": "john.doe@ihsandev.com",
   "tenantId": "ihsandev",              // Tenant context
-  "iss": "IdentityService",            // Issuer
-  "aud": "MicroservicesApp",           // Audience
+  "role": "User",                      // User role
+  "iss": "IhsanDevIdentity",           // Tenant-specific issuer
+  "aud": "IhsanDevApp",                // Tenant-specific audience
   "exp": 1730812800,                   // Expiration (1 hour from now)
   "iat": 1730809200                    // Issued at
 }
 ```
 
+**Signing:** Token signed with tenant's JWT secret from database configuration
+
 #### JWT Token Structure
+
 ```
 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.
-eyJzdWIiOiIxIiwidW5pcXVlX25hbWUiOiJqb2huLmRvZSIsImVtYWlsIjoiam9obi5kb2VAaWhzYW5kZXYuY29tIiwidGVuYW50SWQiOiJpaHNhbmRldiIsImlzcyI6IklkZW50aXR5U2VydmljZSIsImF1ZCI6Ik1pY3Jvc2VydmljZXNBcHAiLCJleHAiOjE3MzA4MTI4MDAsImlhdCI6MTczMDgwOTIwMH0.
-signature-hash
+eyJzdWIiOiIxIiwidW5pcXVlX25hbWUiOiJqb2huLmRvZSIsImVtYWlsIjoiam9obi5kb2VAaWhzYW5kZXYuY29tIiwidGVuYW50SWQiOiJpaHNhbmRldiIsInJvbGUiOiJVc2VyIiwiaXNzIjoiSWhzYW5EZXZJZGVudGl0eSIsImF1ZCI6Ikloc2FuRGV2QXBwIiwiZXhwIjoxNzMwODEyODAwLCJpYXQiOjE3MzA4MDkyMDB9.
+signature-hash-using-tenant-secret
 ```
 
 **Parts:**
+
 1. **Header** (algorithm + type)
 2. **Payload** (user claims)
-3. **Signature** (HMAC SHA256 using secret key)
+3. **Signature** (HMAC SHA256 using **tenant-specific secret key**)
 
 #### Response
+
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -66,19 +81,218 @@ signature-hash
 
 ---
 
+## Scenario 2: SuperAdmin Queue Management Flow
+
+**User**: SuperAdmin  
+**Operation**: View all notification queue items across tenants  
+**Configuration**: Uses global JWT from appsettings.json  
+**Required Role**: SuperAdmin
+
+---
+
+## Complete SuperAdmin Flow Walkthrough
+
+### **Step 1: SuperAdmin Authentication (Identity Service)**
+
+#### SuperAdmin Logs In
+
+```http
+POST https://localhost:5001/api/auth/login/admin
+Content-Type: application/json
+
+{
+  "username": "superadmin",
+  "password": "AdminSecurePassword123"
+}
+```
+
+#### Identity Service Generates Global JWT
+
+The Identity Service creates a JWT token using the **global JWT secret** from appsettings.json:
+
+```javascript
+// JWT Payload (Global SuperAdmin)
+{
+  "sub": "superadmin-1",               // Subject = SuperAdmin ID
+  "unique_name": "superadmin",
+  "role": "SuperAdmin",                // SuperAdmin role
+  "iss": "IhsanDev",                   // Global issuer
+  "aud": "IhsanDevAPI",                // Global audience
+  "exp": 1730812800,                   // Expiration (1 hour from now)
+  "iat": 1730809200                    // Issued at
+}
+```
+
+**Signing:** Token signed with global JWT secret from appsettings.json
+
+#### JWT Token Structure
+
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.
+eyJzdWIiOiJzdXBlcmFkbWluLTEiLCJ1bmlxdWVfbmFtZSI6InN1cGVyYWRtaW4iLCJyb2xlIjoiU3VwZXJBZG1pbiIsImlzcyI6Ikloc2FuRGV2IiwiYXVkIjoiSWhzYW5EZXZBUEkiLCJleHAiOjE3MzA4MTI4MDAsImlhdCI6MTczMDgwOTIwMH0.
+signature-hash-using-global-secret
+```
+
+**Parts:**
+
+1. **Header** (algorithm + type)
+2. **Payload** (admin claims)
+3. **Signature** (HMAC SHA256 using **global secret key** from appsettings.json)
+
+#### Response
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "...",
+  "expiresIn": 3600,
+  "role": "SuperAdmin"
+}
+```
+
+### **Step 2: SuperAdmin Accesses Queue Endpoint**
+
+#### Request to Admin Queue Endpoint
+
+```bash
+curl "https://localhost:5104/api/notifications/admin/queue?pageSize=20&tenantId=ihsandev" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  # NO x-tenant-id header - this is a cross-tenant endpoint
+```
+
+#### Server-Side Processing
+
+**1. TenantMiddleware Check**
+
+```csharp
+// TenantMiddleware detects BypassTenantAttribute on endpoint
+var endpoint = context.GetEndpoint();
+var bypassTenant = endpoint?.Metadata.GetMetadata<BypassTenantAttribute>() != null;
+
+if (bypassTenant)
+{
+    // Skip tenant resolution - no x-tenant-id header required
+    await _next(context);
+    return;
+}
+```
+
+**2. JWT Validation (Program.cs)**
+
+```csharp
+// JWT validation uses GLOBAL secret from appsettings.json
+var bypassTenant = endpoint?.Metadata.GetMetadata<BypassTenantAttribute>() != null;
+
+if (!bypassTenant && jwtMode == JwtMode.PerTenant)
+{
+    // Tenant-specific JWT validation (NOT executed for admin endpoints)
+    var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
+    context.Options.TokenValidationParameters.IssuerSigningKey =
+        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret));
+}
+// Else: use global JWT secret from appsettings.json ✅
+```
+
+**3. Authorization Check**
+
+```csharp
+// Endpoint requires SuperAdmin role
+adminGroup.MapGet("/queue", GetQueueItemsHandler)
+    .RequireRole("SuperAdmin")  // Checks role claim in JWT
+    .WithMetadata(new BypassTenantAttribute());
+```
+
+**4. Handler Execution**
+
+```csharp
+// GetQueueItemsHandler executes without tenant context
+// Queries global NotificationQueue table across ALL tenants
+var query = _repository.GetFilteredQueryable(
+    tenantId: request.TenantId,  // Optional filter
+    userId: request.UserId,
+    status: request.Status,
+    // ... other filters
+);
+
+var result = await PaginatedList<QueueItemDto>.CreateAsync(
+    query.ProjectTo<QueueItemDto>(_mapper.ConfigurationProvider),
+    request.PageNumber,
+    request.PageSize
+);
+
+return Results.Ok(result);
+```
+
+#### Response
+
+```json
+{
+  "items": [
+    {
+      "id": 123,
+      "tenantId": "ihsandev",
+      "userId": 1,
+      "deliveryType": 3,
+      "priority": 1,
+      "title": "Test notification",
+      "message": "Test message",
+      "queueStatus": 2,
+      "retryCount": 0,
+      "createdAt": "2025-11-07T10:00:00Z"
+    },
+    {
+      "id": 124,
+      "tenantId": "anothertenant",
+      "userId": 5,
+      "deliveryType": 1,
+      "priority": 0,
+      "title": "Another notification",
+      "message": "Another message",
+      "queueStatus": 0,
+      "retryCount": 1,
+      "createdAt": "2025-11-07T10:05:00Z"
+    }
+  ],
+  "pageNumber": 1,
+  "totalPages": 3,
+  "totalCount": 50,
+  "hasPreviousPage": false,
+  "hasNextPage": true
+}
+```
+
+---
+
+## Authentication Comparison
+
+| Aspect               | User Endpoints                                      | SuperAdmin Endpoints          |
+| -------------------- | --------------------------------------------------- | ----------------------------- |
+| **JWT Source**       | Tenant-specific (database)                          | Global (appsettings.json)     |
+| **Signing Secret**   | Tenant's JWT secret                                 | Global JWT secret             |
+| **Issuer**           | Tenant-specific (e.g., "IhsanDevIdentity")          | Global (e.g., "IhsanDev")     |
+| **Audience**         | Tenant-specific (e.g., "IhsanDevApp")               | Global (e.g., "IhsanDevAPI")  |
+| **Required Header**  | `x-tenant-id: {tenantId}`                           | None                          |
+| **TenantMiddleware** | Executes (resolves tenant)                          | Skips (BypassTenantAttribute) |
+| **Required Role**    | User, Service, or SuperAdmin                        | SuperAdmin only               |
+| **Scope**            | Single tenant operations                            | Cross-tenant operations       |
+| **Endpoints**        | `/send`, `/user/{id}`, `/status/{id}`, `/{id}/read` | `/admin/queue`                |
+
+---
+
 ### **Step 2: Client Connects to SignalR Hub**
 
 #### Client Connection Code
+
 ```javascript
 const jwtToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
 const tenantId = "ihsandev";
 
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl("https://localhost:5002/hubs/notifications", {
-        accessTokenFactory: () => jwtToken  // JWT included
-    })
-    .withAutomaticReconnect()
-    .build();
+  .withUrl("https://localhost:5002/hubs/notifications", {
+    accessTokenFactory: () => jwtToken, // JWT included
+  })
+  .withAutomaticReconnect()
+  .build();
 
 // Add tenant header
 connection.headers = { "x-tenant-id": tenantId };
@@ -90,6 +304,7 @@ console.log("✅ Connected to notification hub");
 #### Server-Side: OnConnectedAsync()
 
 **1. Extract Token Claims**
+
 ```csharp
 // Hub reads JWT claims
 var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier);
@@ -98,6 +313,7 @@ var isAuthenticated = !string.IsNullOrEmpty(userId);  // true
 ```
 
 **2. Extract Tenant Context**
+
 ```csharp
 // Hub reads tenant from header
 var httpContext = Context.GetHttpContext();
@@ -106,6 +322,7 @@ var tenantId = httpContext?.Request.Headers["x-tenant-id"].FirstOrDefault();
 ```
 
 **3. Join SignalR Groups** (Multi-Tenancy Mode)
+
 ```csharp
 // Since MultiTenancy:Enabled = true AND user is authenticated AND has tenant
 
@@ -120,11 +337,13 @@ await Groups.AddToGroupAsync(Context.ConnectionId, "tenant:ihsandev:user:1");
 ```
 
 **User "1" is now subscribed to:**
+
 - ✅ `global` - Receives all global broadcasts
 - ✅ `tenant:ihsandev` - Receives all ihsandev tenant notifications
 - ✅ `tenant:ihsandev:user:1` - Receives personal notifications
 
 #### Log Output
+
 ```
 [INFO] User 1 connected to tenant ihsandev. ConnectionId: abc-123-def
 ```
@@ -134,6 +353,7 @@ await Groups.AddToGroupAsync(Context.ConnectionId, "tenant:ihsandev:user:1");
 ### **Step 3: Send Notification API Call**
 
 #### API Request
+
 ```http
 POST https://localhost:5002/api/notifications/send
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -156,6 +376,7 @@ Content-Type: application/json
 **1. API Handler** → **Command** → **Handler** → **Service**
 
 **2. NotificationService.SendNotificationAsync()**
+
 ```csharp
 // Parse enums
 var deliveryType = DeliveryType.Both;  // SignalR + Firebase
@@ -166,27 +387,27 @@ var queueItem = new NotificationQueueItem
 {
     // Auto-generated by database
     Id = 123,
-    
+
     // From request
     TenantId = "ihsandev",
     UserId = 1,
     Title = "New Task Assigned",
     Message = "You have been assigned to Project Alpha",
     Data = "{\"taskId\": 42, \"priority\": \"high\"}",
-    
+
     // Parsed enums
     DeliveryType = DeliveryType.Both,    // 3
     Priority = Priority.Immediate,        // 1
-    
+
     // Status tracking
     QueueStatus = QueueStatus.Pending,    // 0
     RetryCount = 0,
-    
+
     // Timestamps
     CreatedAt = DateTime.UtcNow,          // 2025-11-05 14:30:00
     UpdatedAt = DateTime.UtcNow,
     ExpiresAt = DateTime.UtcNow.AddHours(24),  // 24 hour TTL
-    
+
     // Not set yet
     ProcessedAt = null,
     NotificationId = null,
@@ -199,15 +420,16 @@ await _globalDbContext.SaveChangesAsync();
 ```
 
 **Database Record Created:**
+
 ```sql
 -- Global Database: notifications_global
 -- Table: NotificationQueue
 INSERT INTO NotificationQueue (
-    TenantId, UserId, Title, Message, Data, 
-    DeliveryType, Priority, QueueStatus, 
+    TenantId, UserId, Title, Message, Data,
+    DeliveryType, Priority, QueueStatus,
     RetryCount, ExpiresAt, CreatedAt, UpdatedAt
 ) VALUES (
-    'ihsandev', 1, 'New Task Assigned', 
+    'ihsandev', 1, 'New Task Assigned',
     'You have been assigned to Project Alpha',
     '{"taskId": 42, "priority": "high"}',
     3, 1, 0, 0,
@@ -217,6 +439,7 @@ INSERT INTO NotificationQueue (
 ```
 
 #### API Response
+
 ```json
 {
   "queueItemId": 123,
@@ -234,6 +457,7 @@ INSERT INTO NotificationQueue (
 #### NotificationProcessor Executes
 
 **1. Query Pending Notifications**
+
 ```sql
 -- Every 5 seconds
 SELECT * FROM NotificationQueue
@@ -247,6 +471,7 @@ LIMIT 50;
 ```
 
 **2. Mark as Processing**
+
 ```csharp
 queueItem.QueueStatus = QueueStatus.Processing;  // 1
 queueItem.UpdatedAt = DateTime.UtcNow;
@@ -254,7 +479,7 @@ await globalDbContext.SaveChangesAsync();
 ```
 
 ```sql
-UPDATE NotificationQueue 
+UPDATE NotificationQueue
 SET QueueStatus = 1, UpdatedAt = NOW()
 WHERE Id = 123;
 ```
@@ -265,8 +490,8 @@ WHERE Id = 123;
 
 ```csharp
 // Set tenant context
-tenantContext.SetTenant(new TenantInfo 
-{ 
+tenantContext.SetTenant(new TenantInfo
+{
     TenantId = "ihsandev",
     UserId = 1,
     IsActive = true
@@ -279,18 +504,18 @@ var notification = new Notification
 {
     // Auto-generated by tenant database
     Id = 456,
-    
+
     // From queue item
     UserId = 1,
     Title = "New Task Assigned",
     Message = "You have been assigned to Project Alpha",
     Data = "{\"taskId\": 42, \"priority\": \"high\"}",
     QueueItemId = 123,
-    
+
     // Status
     IsRead = false,
     ReadAt = null,
-    
+
     // Timestamps
     CreatedAt = DateTime.UtcNow,  // 2025-11-05 14:30:05
     UpdatedAt = DateTime.UtcNow
@@ -302,11 +527,12 @@ await tenantDbContext.SaveChangesAsync();
 ```
 
 **Database Record Created:**
+
 ```sql
 -- Tenant Database: notifications_ihsandev
 -- Table: Notifications
 INSERT INTO Notifications (
-    UserId, Title, Message, Data, 
+    UserId, Title, Message, Data,
     QueueItemId, IsRead, CreatedAt, UpdatedAt
 ) VALUES (
     1, 'New Task Assigned',
@@ -318,6 +544,7 @@ INSERT INTO Notifications (
 ```
 
 **Link back to queue:**
+
 ```csharp
 queueItem.NotificationId = 456;  // Reference to tenant DB record
 ```
@@ -350,20 +577,21 @@ await hubContext.Clients.Group(groupName)
 ✅ **User 1** connected with JWT token AND `x-tenant-id: ihsandev` header
 
 **SignalR Delivers to Client:**
+
 ```javascript
 // Client receives event
 connection.on("ReceiveNotification", (notification) => {
-    console.log("📩 New notification received!");
-    console.log("Title:", notification.title);
-    console.log("Message:", notification.message);
-    console.log("Queue ID:", notification.queueItemId);
-    console.log("Notification ID:", notification.notificationId);
-    
-    // Display to user
-    showToast(notification.title, notification.message);
-    
-    // Acknowledge delivery
-    connection.invoke("AcknowledgeDelivery", notification.queueItemId);
+  console.log("📩 New notification received!");
+  console.log("Title:", notification.title);
+  console.log("Message:", notification.message);
+  console.log("Queue ID:", notification.queueItemId);
+  console.log("Notification ID:", notification.notificationId);
+
+  // Display to user
+  showToast(notification.title, notification.message);
+
+  // Acknowledge delivery
+  connection.invoke("AcknowledgeDelivery", notification.queueItemId);
 });
 
 // Output:
@@ -401,8 +629,9 @@ await globalDbContext.SaveChangesAsync();
 ```
 
 **Database Updated:**
+
 ```sql
-UPDATE NotificationQueue 
+UPDATE NotificationQueue
 SET QueueStatus = 2,                    -- Sent
     ProcessedAt = '2025-11-05 14:30:06',
     NotificationId = 456,               -- Link to tenant DB
@@ -411,6 +640,7 @@ WHERE Id = 123;
 ```
 
 #### Log Output
+
 ```
 [INFO] Notification processed: QueueItemId=123 for User: 1, Tenant: ihsandev, DeliveryType: Both
 [INFO] SignalR notification sent to user 1 in tenant ihsandev, QueueItemId=123
@@ -432,20 +662,21 @@ public async Task AcknowledgeDelivery(int queueItemId)
 {
     var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     // userId = "1"
-    
+
     var command = new AcknowledgeNotificationCommand
     {
         QueueItemId = 123,
         ConnectionId = Context.ConnectionId,
         ReceivedAt = DateTime.UtcNow  // 2025-11-05 14:30:07
     };
-    
+
     var success = await _mediator.Send(command);
     // Updates QueueStatus to Sent (already set, confirms delivery)
 }
 ```
 
 #### Log Output
+
 ```
 [INFO] Notification acknowledged: 123 by User: 1, ConnectionId: abc-123-def
 ```
@@ -497,12 +728,14 @@ T+9s    : Server confirms acknowledgment
 ### How JWT is Validated
 
 **1. Client sends request with JWT**
+
 ```http
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 x-tenant-id: ihsandev
 ```
 
 **2. ASP.NET Core JWT Middleware validates**
+
 ```csharp
 // Program.cs - JWT configuration
 options.TokenValidationParameters = new TokenValidationParameters
@@ -521,6 +754,7 @@ options.TokenValidationParameters = new TokenValidationParameters
 ```
 
 **3. Validation Steps:**
+
 - ✅ Signature valid? (HMAC SHA256 with secret key)
 - ✅ Issuer = "IdentityService"?
 - ✅ Audience = "MicroservicesApp"?
@@ -528,13 +762,14 @@ options.TokenValidationParameters = new TokenValidationParameters
 - ✅ Claims extracted and populated in `Context.User`
 
 **4. Per-Tenant JWT (if enabled)**
+
 ```csharp
 // If MultiTenancy:JwtMode = "PerTenant"
 // Load tenant-specific JWT settings from tenant configuration
 if (jwtMode == JwtMode.PerTenant)
 {
     var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
-    options.TokenValidationParameters.IssuerSigningKey = 
+    options.TokenValidationParameters.IssuerSigningKey =
         new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret));
 }
 ```
@@ -544,26 +779,31 @@ if (jwtMode == JwtMode.PerTenant)
 ## Key Points
 
 ### JWT Contains:
+
 - ✅ **UserId** (`sub` claim) → Identifies the user
 - ✅ **TenantId** (custom claim) → Tenant context
 - ✅ **Email, Username** → User details
 - ✅ **Expiration** (`exp`) → Token lifetime
 
 ### Notification Targeting:
+
 - **UserId = 1, TenantId = "ihsandev"** → Specific user in specific tenant
 - **Group**: `tenant:ihsandev:user:1`
 - **Only receives**: User 1 connected to tenant "ihsandev" with valid JWT
 
 ### DeliveryType = Both:
+
 1. ✅ **SignalR**: Real-time delivery via WebSocket (implemented)
 2. 🚧 **Firebase**: Push notification (not yet implemented)
 
 ### Database Architecture:
+
 - **Global DB**: Queue management (all tenants)
 - **Tenant DB**: Notification history (per tenant)
 - **Linkage**: `NotificationQueueItem.NotificationId` → `Notification.Id`
 
 ### Security:
+
 - ✅ JWT required for user-specific notifications
 - ✅ Tenant isolation via groups (`tenant:ihsandev:*`)
 - ✅ Token validation on every request

@@ -1,5 +1,7 @@
 using Notification.API.Handlers;
 using Notification.Application.DTOs;
+using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Infrastructure.Attributes;
 
 namespace Notification.API.Extensions;
 
@@ -12,14 +14,14 @@ public static class EndpointMappingExtensions
     {
         var notificationGroup = app.MapGroup("/api/notifications")
             .WithTags("Notifications")
-            .RequireAuthorization(policy => policy.RequireRole("User", "Service"))
+            .RequireAuthorization(policy => policy.RequireRole("User", "Service", "SuperAdmin"))
             .WithOpenApi();
 
-        // Send notification (accessible by users and services)
+        // Send notification (accessible by users, services, and SuperAdmin)
         notificationGroup.MapPost("/send", NotificationApiHandlers.SendNotificationHandler)
             .WithName("SendNotification")
             .WithSummary("Send a notification")
-            .WithDescription("Queue a notification for delivery to a user via SignalR or Firebase. Accessible by authenticated users and internal services.")
+            .WithDescription("Queue a notification for delivery to a user via SignalR or Firebase. Accessible by authenticated users, internal services, and SuperAdmin.")
             .Produces<SendNotificationResponse>(200)
             .ProducesValidationProblem();
 
@@ -48,6 +50,21 @@ public static class EndpointMappingExtensions
             .WithDescription("Update notification read status")
             .Produces<object>(200)
             .Produces(404);
+
+        // SuperAdmin endpoint - Get all queue items with filters and pagination
+        // Uses global JWT from appsettings.json (not tenant-specific)
+        var adminGroup = app.MapGroup("/api/notifications/admin")
+            .WithTags("Notifications - Admin")
+            .RequireAuthorization(policy => policy.RequireRole("SuperAdmin"))
+            .WithOpenApi();
+
+        adminGroup.MapGet("/queue", NotificationApiHandlers.GetQueueItemsHandler)
+            .WithName("GetQueueItems")
+            .WithSummary("Get all queue items (SuperAdmin only)")
+            .WithDescription("Retrieve paginated list of all notification queue items with filtering support. Requires SuperAdmin role with global JWT authentication.")
+            .WithMetadata(new BypassTenantAttribute()) // Bypass tenant requirement for cross-tenant admin view
+            .Produces<PaginatedList<QueueItemDto>>(200)
+            .ProducesValidationProblem();
 
         return app;
     }
