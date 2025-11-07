@@ -164,18 +164,41 @@ public class NotificationProcessor : BackgroundService
         try
         {
             var tenantContext = serviceProvider.GetService<ITenantContext>();
+            var tenantConfigProvider = serviceProvider.GetService<ITenantConfigurationProvider>();
             
             // Set tenant context if not already set
             if (tenantContext != null && !tenantContext.HasTenant && !string.IsNullOrWhiteSpace(queueItem.TenantId))
             {
-                var tenantInfo = new IhsanDev.Shared.Kernel.Dto.Tenant.TenantInfo
+                if (tenantConfigProvider == null)
                 {
-                    TenantId = queueItem.TenantId,
-                    TenantName = queueItem.TenantId, // Placeholder
-                    UserId = queueItem.UserId ?? 0,
-                    IsActive = true
-                };
+                    throw new InvalidOperationException(
+                        "ITenantConfigurationProvider not available. Cannot fetch tenant configuration for background processing.");
+                }
+
+                // Fetch full tenant configuration (includes DatabaseSettings)
+                // This will use cache if available, otherwise fetches from Tenant Service
+                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(
+                    queueItem.TenantId,
+                    cancellationToken);
+
+                if (tenantInfo == null)
+                {
+                    _logger.LogWarning(
+                        "Tenant '{TenantId}' not found or inactive. Cannot persist notification to tenant database. " +
+                        "This could be due to: 1) Tenant deleted/deactivated, 2) Tenant Service unavailable, 3) Network issues. " +
+                        "Notification will be retried.",
+                        queueItem.TenantId);
+                    
+                    throw new InvalidOperationException(
+                        $"Tenant '{queueItem.TenantId}' configuration not available. Cannot persist notification to tenant database.");
+                }
+
                 tenantContext.SetTenant(tenantInfo);
+                
+                _logger.LogDebug(
+                    "Tenant context set for background processing: TenantId={TenantId}, HasConfiguration={HasConfig}",
+                    tenantInfo.TenantId,
+                    tenantInfo.Configuration != null);
             }
 
             var tenantDbContext = serviceProvider.GetRequiredService<TenantNotificationDbContext>();

@@ -132,10 +132,25 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
 
    **Step 2: Persist to Tenant Database** ✅
    ```csharp
-   // Set tenant context dynamically
-   tenantContext.SetTenant(new TenantInfo { 
-       TenantId = queueItem.TenantId 
-   });
+   // Fetch full tenant configuration (includes DatabaseSettings)
+   // This uses cache-first strategy: checks cache → calls Tenant Service if needed
+   var tenantConfigProvider = serviceProvider.GetService<ITenantConfigurationProvider>();
+   var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(
+       queueItem.TenantId,
+       cancellationToken);
+   
+   if (tenantInfo == null)
+   {
+       throw new InvalidOperationException(
+           $"Tenant '{queueItem.TenantId}' configuration not available.");
+   }
+   
+   // Set tenant context with FULL configuration (not just TenantId)
+   // This is critical - includes DatabaseSettings.ConnectionString
+   tenantContext.SetTenant(tenantInfo);
+   
+   // TenantNotificationDbContext will read from tenantInfo.Configuration.DatabaseSettings
+   var tenantDbContext = serviceProvider.GetRequiredService<TenantNotificationDbContext>();
    
    // Create notification entity
    var notification = new Notification
@@ -156,6 +171,17 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
    // Link back to queue item
    queueItem.NotificationId = notification.Id;
    ```
+   
+   **Important: Tenant Configuration Fetching**
+   
+   The background job MUST fetch the full tenant configuration, not just the TenantId:
+   
+   - **Cache-first approach**: Checks in-memory cache (30-min TTL) before making HTTP calls
+   - **Cache HIT**: Returns cached config immediately (no network call) ⚡
+   - **Cache MISS**: Fetches from Tenant Service API → caches result → returns
+   - **Tenant Service DOWN**: Returns null → throws exception → retry mechanism kicks in
+   
+   This ensures the `TenantNotificationDbContext` has access to the tenant's database connection string.
 
    **Step 3: Send via SignalR** ✅
    ```csharp
@@ -799,12 +825,22 @@ public class NotificationService
 - ✅ Verify `x-tenant-id` header is sent with requests
 - ✅ Check tenant context is set correctly in background processor
 - ✅ Ensure `TenantNotificationDbContext` resolves correct connection string
+- ✅ Verify Tenant Service is accessible and returning tenant configurations
+- ✅ Check cache is working properly (30-minute TTL by default)
 
-**4. Performance Issues**
+**4. Background Job Tenant Configuration Issues**
+- ✅ Verify `ITenantConfigurationProvider` is registered in DI container
+- ✅ Check Tenant Service API endpoint `/api/tenant/config/{tenantId}` is accessible
+- ✅ Ensure tenant configuration includes `DatabaseSettings.ConnectionString`
+- ✅ Monitor cache expiration - if cache expires, job will fetch from Tenant Service
+- ✅ If Tenant Service is down, notifications will retry (max 3 attempts)
+
+**5. Performance Issues**
 - ✅ Adjust `ProcessingIntervalSeconds` (increase for lower load)
 - ✅ Reduce batch size in processor (currently 50)
 - ✅ Add database indexes on `QueueStatus`, `ExpiresAt`, `Priority`, `CreatedAt`
 - ✅ Scale horizontally with multiple processor instances
+- ✅ Increase cache expiration time to reduce Tenant Service calls
 
 ---
 
@@ -838,6 +874,164 @@ _logger.LogError(ex, "Error processing notification {QueueItemId}", queueItemId)
 
 ---
 
+## Tenant Configuration Management
+
+### How Tenant Connection Strings Are Stored and Retrieved
+
+The notification system uses a **cache-first strategy** to fetch tenant-specific database connection strings:
+
+#### 1. Storage Location
+
+All tenant configurations (including database connection strings) are stored in the **Tenant Service database**:
+
+```sql
+-- Tenant Service Database: tenants_db
+-- Table: TenantSettings
+
+SELECT Id, TenantId, Data FROM TenantSettings WHERE TenantId = 'ihsandev';
+```
+
+The `Data` column contains JSON with all tenant-specific settings:
+
+```json
+{
+  "jwt": {
+    "secret": "tenant-specific-secret-key",
+    "issuer": "TenantIdentity",
+    "audience": "TenantApp"
+  },
+  "databaseSettings": {
+    "provider": "PostgreSql",
+    "connectionString": "Host=localhost;Database=notifications_ihsandev;..."
+  },
+  "cors": {
+    "allowedOrigins": ["https://tenant-app.com"]
+  }
+}
+```
+
+#### 2. API Request Flow
+
+```
+Client Request (x-tenant-id: ihsandev)
+    ↓
+TenantMiddleware extracts tenant ID
+    ↓
+TenantConfigurationProvider.GetTenantConfigurationAsync()
+    ↓
+Check cache: "tenant_config_ihsandev"
+    ├─ Cache HIT → Return cached config (fast) ⚡
+    └─ Cache MISS → HTTP GET /api/tenant/config/ihsandev
+                  → Parse JSON response
+                  → Cache for 30 minutes
+                  → Return config
+    ↓
+ITenantContext.SetTenant(tenantInfo)
+    ↓
+Request continues with full tenant configuration
+```
+
+#### 3. Background Job Flow
+
+```
+Background Job processes queue item
+    ↓
+var tenantConfigProvider = serviceProvider.GetService<ITenantConfigurationProvider>();
+    ↓
+var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(
+    queueItem.TenantId,  // "ihsandev"
+    cancellationToken);
+    ↓
+Check cache: "tenant_config_ihsandev"
+    ├─ Cache HIT (within 30 min) → Return cached config ⚡
+    └─ Cache MISS (cache expired) → HTTP GET to Tenant Service
+                                  → Re-cache for 30 minutes
+                                  → Return config
+    ↓
+tenantContext.SetTenant(tenantInfo);
+    ↓
+TenantNotificationDbContext reads:
+    _tenantContext.CurrentTenant.Configuration.DatabaseSettings.ConnectionString
+    ↓
+Connects to tenant-specific database ✅
+```
+
+#### 4. Cache Strategy
+
+| Scenario | Cache Status | Performance | Network Calls | Result |
+|----------|-------------|-------------|---------------|--------|
+| **Normal (within 30 min)** | HIT | ⚡ Fast | 0 | Immediate |
+| **Cache expired** | MISS | 🐌 Slower | 1 (Tenant Service) | Success after fetch |
+| **Tenant Service down** | MISS | ❌ Error | 1 (fails) | Retry later (max 3) |
+| **Multiple tenants** | Separate cache keys | ⚡ Fast | 0-1 per tenant | Isolated caching |
+
+**Cache Configuration:**
+
+```json
+{
+  "MultiTenancy": {
+    "CacheExpirationMinutes": 30  // Default: 30 minutes
+  }
+}
+```
+
+#### 5. Key Components
+
+**ITenantConfigurationProvider**
+- Fetches tenant configuration from Tenant Service API
+- Implements cache-first strategy
+- Handles errors gracefully
+
+**ITenantContext**
+- Scoped per HTTP request or background job scope
+- Holds current tenant information
+- Provides access to `Configuration.DatabaseSettings.ConnectionString`
+
+**TenantNotificationDbContext**
+- Reads connection string from `ITenantContext`
+- Dynamically configures database provider in `OnConfiguring()`
+- Connects to tenant-specific database
+
+#### 6. Error Scenarios
+
+**Scenario 1: Tenant deleted/deactivated**
+```
+GetTenantConfigurationAsync() returns null
+    ↓
+Background job throws InvalidOperationException
+    ↓
+Queue item marked as Pending, RetryCount++
+    ↓
+Will retry up to 3 times
+```
+
+**Scenario 2: Tenant Service temporarily unavailable**
+```
+HTTP call fails (timeout, 500 error, etc.)
+    ↓
+GetTenantConfigurationAsync() catches exception, returns null
+    ↓
+Background job throws InvalidOperationException
+    ↓
+Retry mechanism kicks in
+```
+
+**Scenario 3: Network issues**
+```
+Same as Scenario 2 - automatic retry
+```
+
+**Scenario 4: Cache expires during processing**
+```
+Background job fetches from Tenant Service
+    ↓
+Re-caches configuration
+    ↓
+Continues normally ✅
+```
+
+---
+
 ## Summary
 
 The notification system provides a **robust, scalable, and secure** solution for delivering real-time notifications in a multi-tenant environment. Key features include:
@@ -846,6 +1040,7 @@ The notification system provides a **robust, scalable, and secure** solution for
 - ✅ **Background processing** with automatic retries and error handling
 - ✅ **Real-time delivery** via SignalR with authentication enforcement
 - ✅ **Multi-tenancy support** with proper data isolation
+- ✅ **Cache-first tenant configuration** for optimal performance
 - ✅ **Priority queue** for immediate vs. waitable notifications
 - ✅ **Clean Architecture** with proper separation of concerns
 - ✅ **CQRS pattern** with Commands-only approach
