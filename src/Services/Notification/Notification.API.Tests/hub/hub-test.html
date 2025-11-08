@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification Hub Test Page</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔔 Notification Hub Test Page</h1>
+            <p class="subtitle">Test SignalR real-time notifications with multi-tenancy support</p>
+        </header>
+
+        <!-- Section 1: User Listener 1 -->
+        <section class="section section-user">
+            <div class="section-header">
+                <h2>👂 Section 1: User Listener 1</h2>
+                <span class="badge badge-user">User</span>
+                <span id="connection-status-1" class="connection-status disconnected">Disconnected</span>
+            </div>
+            
+            <div class="card">
+                <div class="form-group">
+                    <label for="user1-token">JWT Token <span class="optional">(optional for anonymous)</span></label>
+                    <textarea id="user1-token" rows="2" placeholder="Enter JWT token or leave empty for anonymous connection"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="user1-tenant-id">Tenant ID <span class="optional">(optional)</span></label>
+                    <input type="text" id="user1-tenant-id" placeholder="e.g., acme-corp">
+                    <small>Passed as query string: ?tenantId=acme-corp</small>
+                </div>
+
+                <div class="button-group">
+                    <button id="btn-connect-1" class="btn btn-success">🔌 Connect</button>
+                    <button id="btn-disconnect-1" class="btn btn-danger" disabled>⏹️ Disconnect</button>
+                    <button id="btn-clear-1" class="btn btn-secondary">🗑️ Clear Logs</button>
+                </div>
+
+                <div class="notifications-container">
+                    <h4>Received Notifications:</h4>
+                    <div id="notifications-1" class="notifications-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: User Listener 2 -->
+        <section class="section section-user">
+            <div class="section-header">
+                <h2>👂 Section 2: User Listener 2</h2>
+                <span class="badge badge-user">User</span>
+                <span id="connection-status-2" class="connection-status disconnected">Disconnected</span>
+            </div>
+            
+            <div class="card">
+                <div class="form-group">
+                    <label for="user2-token">JWT Token <span class="optional">(optional for anonymous)</span></label>
+                    <textarea id="user2-token" rows="2" placeholder="Enter JWT token or leave empty for anonymous connection"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="user2-tenant-id">Tenant ID <span class="optional">(optional)</span></label>
+                    <input type="text" id="user2-tenant-id" placeholder="e.g., acme-corp">
+                    <small>Passed as query string: ?tenantId=acme-corp</small>
+                </div>
+
+                <div class="button-group">
+                    <button id="btn-connect-2" class="btn btn-success">🔌 Connect</button>
+                    <button id="btn-disconnect-2" class="btn btn-danger" disabled>⏹️ Disconnect</button>
+                    <button id="btn-clear-2" class="btn btn-secondary">🗑️ Clear Logs</button>
+                </div>
+
+                <div class="notifications-container">
+                    <h4>Received Notifications:</h4>
+                    <div id="notifications-2" class="notifications-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Configuration Section -->
+        <section class="section section-config">
+            <div class="section-header">
+                <h2>⚙️ Configuration</h2>
+            </div>
+            
+            <div class="card">
+                <div class="form-group">
+                    <label for="hub-url">Hub URL</label>
+                    <input type="text" id="hub-url" value="http://localhost:5004/hubs/notifications" placeholder="http://localhost:5004/hubs/notifications">
+                    <small>Using HTTP (no SSL certificate needed in development)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="api-url">API URL</label>
+                    <input type="text" id="api-url" value="http://localhost:5004/api/notifications/send" placeholder="http://localhost:5004/api/notifications/send">
+                    <small>Using HTTP (no SSL certificate needed in development)</small>
+                </div>
+
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="auto-reconnect" checked>
+                        Enable Auto-Reconnect
+                    </label>
+                </div>
+            </div>
+
+            <div class="info-box" style="background: #dbeafe; border-color: #3b82f6;">
+                <h4 style="color: #1e40af;">🔍 Diagnostics</h4>
+                <div style="color: #1e3a8a; font-family: monospace; font-size: 0.9rem;">
+                    <p><strong>Page Protocol:</strong> <span id="page-protocol"></span></p>
+                    <p><strong>Service Health:</strong> <a href="http://localhost:5004/health" target="_blank" style="color: #2563eb;">http://localhost:5004/health</a></p>
+                    <p><strong>Swagger UI:</strong> <a href="http://localhost:5004/swagger" target="_blank" style="color: #2563eb;">http://localhost:5004/swagger</a></p>
+                </div>
+            </div>
+
+            <div class="info-box" style="background: #d1fae5; border-color: #10b981;">
+                <h4 style="color: #065f46;">✅ Development Mode - HTTP Only</h4>
+                <p style="color: #064e3b; margin-bottom: 10px;">HTTPS redirection is disabled in development for easier testing:</p>
+                <ul style="color: #064e3b;">
+                    <li>No SSL certificate required</li>
+                    <li>All connections use HTTP (port 5004)</li>
+                    <li>CORS works without certificate issues</li>
+                    <li>Just click "Connect" and it works!</li>
+                </ul>
+            </div>
+
+            <div class="info-box" style="background: #fef3c7; border-color: #f59e0b;">
+                <h4 style="color: #92400e;">💡 Configuration</h4>
+                <ul>
+                    <li><strong>Hub URL:</strong> <code>http://localhost:5004/hubs/notifications</code></li>
+                    <li><strong>API URL:</strong> <code>http://localhost:5004/api/notifications/send</code></li>
+                    <li><strong>Page URL:</strong> <code>http://localhost:8080/hub-test.html</code></li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

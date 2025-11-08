@@ -406,7 +406,12 @@ console.log("Connected to notification hub!");
 
 ## API Endpoints
 
-### User Notification Endpoints
+### Send Notification Endpoint
+
+**Authentication:** JWT Bearer token  
+**Required Header:** None (tenantId comes from request body)
+
+### Other User Notification Endpoints
 
 **Authentication:** Tenant-specific JWT (when `JwtMode = "PerTenant"`)  
 **Required Header:** `x-tenant-id: {tenantId}`
@@ -417,11 +422,32 @@ console.log("Connected to notification hub!");
 
 Send a new notification to the queue.
 
+**Note:** This endpoint does NOT require the `x-tenant-id` header. The `tenantId` is provided in the request body.
+
+**Validation Rules:**
+
+- **Global notifications** (no `userId`, no `tenantId`): Valid - broadcasts to all clients
+- **Tenant notifications** (no `userId`, has `tenantId`): Valid - broadcasts to all users in tenant
+- **User-specific notifications** (`userId` + `tenantId`): Valid - sends to specific user in tenant
+- **User without tenant** (`userId` only, no `tenantId`): **Invalid** - Returns 400 error when multi-tenancy is enabled
+
+**Request Body:**
+
+| Field          | Type   | Required | Description                                                              |
+| -------------- | ------ | -------- | ------------------------------------------------------------------------ |
+| `tenantId`     | string | \*       | Tenant ID (required when `userId` is provided and multi-tenancy enabled) |
+| `userId`       | int    | No       | User ID (null for broadcast notifications)                               |
+| `title`        | string | Yes      | Notification title (max 200 chars)                                       |
+| `message`      | string | No       | Notification message (max 1000 chars)                                    |
+| `data`         | string | No       | Additional JSON data                                                     |
+| `deliveryType` | string | Yes      | "SignalR", "Firebase", or "Both" (default: "Both")                       |
+| `priority`     | string | Yes      | "Immediate" or "Waitable" (default: "Immediate")                         |
+
 ```bash
+# User-specific notification (requires tenantId)
 curl -X POST "https://localhost:5104/api/notifications/send" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN" \
-  -H "x-tenant-id: ihsandev" \
+  -H "Authorization: Bearer JWT_TOKEN" \
   -d '{
     "tenantId": "ihsandev",
     "userId": 1,
@@ -429,6 +455,29 @@ curl -X POST "https://localhost:5104/api/notifications/send" \
     "message": "You have a new message",
     "data": "{\"messageId\": 123}",
     "deliveryType": "Both",
+    "priority": "Immediate"
+  }'
+
+# Tenant broadcast notification
+curl -X POST "https://localhost:5104/api/notifications/send" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer JWT_TOKEN" \
+  -d '{
+    "tenantId": "ihsandev",
+    "title": "System Update",
+    "message": "Maintenance scheduled for tonight",
+    "deliveryType": "Both",
+    "priority": "Waitable"
+  }'
+
+# Global notification (SuperAdmin only)
+curl -X POST "https://localhost:5104/api/notifications/send" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer SUPERADMIN_JWT_TOKEN" \
+  -d '{
+    "title": "Global Announcement",
+    "message": "System-wide notification to all tenants",
+    "deliveryType": "SignalR",
     "priority": "Immediate"
   }'
 ```
@@ -439,6 +488,15 @@ curl -X POST "https://localhost:5104/api/notifications/send" \
 {
   "queueItemId": 123,
   "status": "Pending"
+}
+```
+
+**Error Response (Missing TenantId):**
+
+```json
+{
+  "error": "TenantId is required when UserId is provided and multi-tenancy is enabled",
+  "message": "User-specific notifications require a tenant context. Please provide a TenantId in the request body."
 }
 ```
 
@@ -471,6 +529,8 @@ curl "https://localhost:5104/api/notifications/status/123" \
 
 Get all notifications for a specific user.
 
+**Required Header:** `x-tenant-id: {tenantId}`
+
 ```bash
 curl "https://localhost:5104/api/notifications/user/1?pageNumber=1&pageSize=20" \
   -H "Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN" \
@@ -502,6 +562,8 @@ curl "https://localhost:5104/api/notifications/user/1?pageNumber=1&pageSize=20" 
 **PUT** `/api/notifications/{notificationId}/read`
 
 Mark a notification as read.
+
+**Required Header:** `x-tenant-id: {tenantId}`
 
 ```bash
 curl -X PUT "https://localhost:5104/api/notifications/456/read" \
@@ -749,84 +811,11 @@ Clients are automatically added to groups based on authentication:
 
 ## Authentication
 
-The Notification Service implements a **dual JWT authentication system** to support both multi-tenant user operations and cross-tenant administrative functions.
+The Notification Service implements a **dual JWT authentication system** with special handling for SignalR connections to support both multi-tenant user operations and cross-tenant administrative functions.
 
 ### JWT Authentication Modes
 
-#### 1. Global JWT (appsettings.json)
-
-Used for **SuperAdmin endpoints** that operate across all tenants:
-
-- Queue management endpoints (`/api/notifications/admin/*`)
-- System-wide monitoring and analytics
-- Cross-tenant operations
-
-**Configuration:**
-
-```json
-{
-  "Jwt": {
-    "Secret": "your-global-secret-key-here",
-    "Issuer": "IhsanDev",
-    "Audience": "IhsanDevAPI",
-    "ExpirationMinutes": 60
-  }
-}
-```
-
-**Example Token Generation:**
-
-```csharp
-var claims = new[]
-{
-    new Claim(ClaimTypes.NameIdentifier, "superadmin-id"),
-    new Claim(ClaimTypes.Name, "SuperAdmin"),
-    new Claim(ClaimTypes.Role, "SuperAdmin")
-};
-
-var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
-var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-var token = new JwtSecurityToken(
-    issuer: "IhsanDev",
-    audience: "IhsanDevAPI",
-    claims: claims,
-    expires: DateTime.UtcNow.AddMinutes(60),
-    signingCredentials: credentials
-);
-```
-
-#### 2. Tenant-Specific JWT (Per-Tenant Configuration)
-
-Used for **user notification endpoints** that operate within a single tenant:
-
-- Send notification (`/api/notifications/send`)
-- User notifications (`/api/notifications/user/{userId}`)
-- Mark as read (`/api/notifications/{id}/read`)
-- Queue status (`/api/notifications/status/{id}`)
-
-**Configuration:** Stored in `TenantConfiguration.Jwt` table per tenant
-
-**Required Header:** `x-tenant-id: {tenantId}`
-
-**Flow:**
-
-1. Request includes `x-tenant-id` header
-2. TenantMiddleware resolves tenant from database
-3. JWT validation uses tenant-specific secret from tenant configuration
-4. Token validated against tenant's JWT settings
-
-**Example Request:**
-
-```bash
-curl "https://localhost:5104/api/notifications/user/1" \
-  -H "Authorization: Bearer TENANT_SPECIFIC_TOKEN" \
-  -H "x-tenant-id: ihsandev"
-```
-
-### JwtMode Configuration
-
-The `JwtMode` setting in `appsettings.json` controls the authentication behavior:
+The service supports two JWT validation modes controlled by the `JwtMode` configuration:
 
 ```json
 {
@@ -836,27 +825,129 @@ The `JwtMode` setting in `appsettings.json` controls the authentication behavior
 }
 ```
 
-**Modes:**
+#### Mode: Shared
 
-- `"PerTenant"`: User endpoints validate against tenant-specific JWT, admin endpoints use global JWT
-- `"Shared"`: All endpoints use global JWT from appsettings.json
+All endpoints validate JWT tokens using the **global JWT secret** from `appsettings.json`.
+
+#### Mode: PerTenant
+
+- **Admin endpoints** (with `BypassTenantAttribute`): Validate using **global JWT secret**
+- **SignalR hub**: Validates using **tenant-specific JWT secret** when `tenantId` is provided, otherwise uses **global JWT secret**
+- **User endpoints**: Require `x-tenant-id` header for tenant resolution (JWT already validated with global secret during authentication middleware)
+
+### JWT Configuration
+
+#### 1. Global JWT (appsettings.json)
+
+Used for **SuperAdmin endpoints** and as the default validation:
+
+```json
+{
+  "Jwt": {
+    "Secret": "your-global-secret-key-here-minimum-32-characters",
+    "Issuer": "IhsanDev",
+    "Audience": "IhsanDevAPI",
+    "ExpirationMinutes": 60
+  }
+}
+```
+
+**Used By:**
+
+- Queue management endpoints (`/api/notifications/admin/*`)
+- Send notification endpoint (`/api/notifications/send`) - marked with `BypassTenantAttribute`
+- SignalR hub when no `tenantId` is provided
+- All endpoints when `JwtMode = "Shared"`
+
+#### 2. Tenant-Specific JWT (Database)
+
+Stored in tenant configuration and used for **tenant-specific SignalR connections** when `JwtMode = "PerTenant"`:
+
+**Configuration Location:** Fetched from Tenant Service API  
+**Required Parameter:** `tenantId` in query string or `x-tenant-id` header
+
+**SignalR Hub JWT Resolution:**
+
+When connecting to the SignalR hub with `JwtMode = "PerTenant"`:
+
+1. **Without tenantId**: Token validated using global JWT secret from `appsettings.json`
+2. **With tenantId**: Token validated using tenant-specific JWT secret from database
+
+**Example SignalR Connection:**
+
+```javascript
+// Tenant-specific connection (validates with tenant JWT)
+const connection = new signalR.HubConnectionBuilder()
+  .withUrl("https://localhost:5104/hubs/notifications?tenantId=ihsandev", {
+    accessTokenFactory: () => tenantUserToken,
+  })
+  .build();
+
+// Global connection (validates with global JWT)
+const connection = new signalR.HubConnectionBuilder()
+  .withUrl("https://localhost:5104/hubs/notifications", {
+    accessTokenFactory: () => globalAdminToken,
+  })
+  .build();
+```
+
+### Authentication Flow
+
+#### Send Endpoint Flow
+
+```
+1. Request arrives at /api/notifications/send
+2. BypassTenantAttribute skips TenantMiddleware
+3. JWT validated using global secret from appsettings.json
+4. Endpoint validates: if userId provided, tenantId must also be provided
+5. Command processed
+```
+
+#### SignalR Hub Flow (PerTenant Mode)
+
+```
+1. WebSocket connection request to /hubs/notifications?tenantId=X&access_token=Y
+2. OnMessageReceived event fires
+3. Check if tenantId query parameter provided:
+   - YES: Fetch tenant config, validate token with tenant-specific JWT secret
+   - NO: Validate token with global JWT secret from appsettings.json
+4. Token validated
+5. OnConnectedAsync event fires
+6. User added to appropriate SignalR groups
+```
+
+#### User Endpoints Flow (PerTenant Mode)
+
+```
+1. Request arrives with x-tenant-id header
+2. JWT validated using global secret (happens in authentication middleware)
+3. TenantMiddleware resolves tenant configuration
+4. ITenantContext populated
+5. Endpoint processes with tenant context
+```
 
 ### BypassTenant Attribute
 
-Endpoints marked with `BypassTenantAttribute` skip tenant middleware and always use global JWT:
+Endpoints marked with `BypassTenantAttribute` completely skip tenant middleware:
 
 ```csharp
-// In EndpointMappingExtensions.cs
-adminGroup.MapGet("/queue", GetQueueItemsHandler)
+// Send endpoint - bypasses tenant middleware
+notificationGroup.MapPost("/send", SendNotificationHandler)
     .WithMetadata(new BypassTenantAttribute())
     .RequireAuthorization();
+
+// Admin endpoint - bypasses tenant middleware
+adminGroup.MapGet("/queue", GetQueueItemsHandler)
+    .WithMetadata(new BypassTenantAttribute())
+    .RequireAuthorization(policy => policy.RequireRole("SuperAdmin"));
 ```
 
 **Effects:**
 
-1. TenantMiddleware skips tenant resolution (no `x-tenant-id` header required)
-2. JWT validation uses global secret from appsettings.json
-3. Endpoint accessible to SuperAdmin role only
+- No `x-tenant-id` header required
+- JWT validated using global secret only
+- ITenantContext not populated
+- Accessible across all tenants
 
 ### Authorization Roles
 
@@ -865,27 +956,30 @@ adminGroup.MapGet("/queue", GetQueueItemsHandler)
 - Send notifications for their tenant
 - View own notifications
 - Mark notifications as read
+- Connect to SignalR hub with tenant context
 
 **Service Role:**
 
 - Send notifications on behalf of system services
 - Access tenant-specific endpoints programmatically
+- Service-to-service communication
 
 **SuperAdmin Role:**
 
-- Access all user endpoints across tenants
-- Access admin endpoints (queue management)
-- System-wide operations without tenant context
+- Access all user endpoints across tenants (when providing x-tenant-id)
+- Access admin endpoints without tenant context
+- System-wide queue management
+- Connect to SignalR hub globally or to specific tenants
 
 ### JWT Token Requirements
 
 **Required Claims:**
 
 - `sub` or `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier` - User ID
+- `role` or `http://schemas.microsoft.com/ws/2008/06/identity/claims/role` - User, Service, or SuperAdmin
 - `iss` - Must match `Jwt:Issuer` in configuration
 - `aud` - Must match `Jwt:Audience` in configuration
 - `exp` - Token expiration timestamp
-- `role` - User, Service, or SuperAdmin
 
 **Example JWT Payload (Global):**
 
@@ -898,6 +992,21 @@ adminGroup.MapGet("/queue", GetQueueItemsHandler)
   "aud": "IhsanDevAPI",
   "exp": 1730812800,
   "iat": 1730809200
+}
+```
+
+**Example JWT Payload (Tenant User):**
+
+```json
+{
+  "sub": "user-123",
+  "unique_name": "john.doe",
+  "role": "User",
+  "iss": "IhsanDev-ihsandev",
+  "aud": "IhsanDevAPI-ihsandev",
+  "exp": 1730812800,
+  "iat": 1730809200
+}
 }
 ```
 

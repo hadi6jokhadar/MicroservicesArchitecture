@@ -35,6 +35,7 @@ public class TenantMiddleware
         // Check if endpoint has metadata to bypass tenant resolution
         var endpoint = context.GetEndpoint();
         var bypassTenant = endpoint?.Metadata.GetMetadata<BypassTenantAttribute>() != null;
+        var optionalTenant = endpoint?.Metadata.GetMetadata<OptionalTenantAttribute>() != null;
         
         if (bypassTenant)
         {
@@ -46,9 +47,17 @@ public class TenantMiddleware
         // Extract tenant ID from header
         var tenantId = context.Request.Headers["x-tenant-id"].FirstOrDefault();
 
-        // When multi-tenancy is enabled, x-tenant-id header is REQUIRED
+        // When multi-tenancy is enabled, x-tenant-id header is REQUIRED (unless OptionalTenant)
         if (string.IsNullOrWhiteSpace(tenantId))
         {
+            if (optionalTenant)
+            {
+                // Tenant is optional - continue without tenant context
+                _logger.LogDebug("Tenant ID not provided but endpoint allows optional tenant. Continuing without tenant context.");
+                await _next(context);
+                return;
+            }
+            
             _logger.LogWarning("Multi-tenancy is enabled but x-tenant-id header is missing");
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(new

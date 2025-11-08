@@ -249,10 +249,12 @@ public class NotificationProcessor : BackgroundService
             {
                 queueItemId = queueItem.Id,
                 notificationId = queueItem.NotificationId,
+                tenantId = queueItem.TenantId,
+                userId = queueItem.UserId,
                 title = queueItem.Title,
                 message = queueItem.Message,
                 data = queueItem.Data,
-                Created = queueItem.Created,
+                created = queueItem.Created,
                 priority = queueItem.Priority.ToString()
             };
 

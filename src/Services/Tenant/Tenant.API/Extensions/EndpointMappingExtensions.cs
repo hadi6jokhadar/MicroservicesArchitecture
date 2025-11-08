@@ -19,7 +19,7 @@ public static class EndpointMappingExtensions
         // This endpoint is used by other services to fetch tenant configuration
         // Accessible ONLY by services with service authentication (not by users or anonymous)
         publicGroup.MapGet("/config/{tenantId}", TenantApiHandlers.GetTenantConfigHandler)
-            .RequireAuthorization(policy => policy.RequireRole("Service"))
+            .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
             .WithName("GetTenantConfig")
             .WithSummary("Get tenant configuration (Service-to-Service only)")
             .WithDescription("Get tenant-specific configuration including settings data. This endpoint is restricted to authenticated internal services only.")

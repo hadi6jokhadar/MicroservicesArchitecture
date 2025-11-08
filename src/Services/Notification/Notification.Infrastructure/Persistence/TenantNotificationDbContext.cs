@@ -48,29 +48,48 @@ public class TenantNotificationDbContext : BaseDbContext
         // When multi-tenancy is enabled, ONLY use tenant-specific database settings
         if (multiTenancyEnabled)
         {
-            // Tenant context and configuration MUST be present
+            // If tenant context is not available, this DbContext is being instantiated
+            // but won't be used (e.g., for endpoints that bypass tenant middleware like /send)
+            // Configure with default database from appsettings to prevent errors during DI resolution
             if (_tenantContext?.HasTenant != true ||
                 _tenantContext.CurrentTenant?.Configuration?.DatabaseSettings == null)
             {
-                throw new InvalidOperationException(
-                    "Multi-tenancy is enabled but tenant database configuration is not available. " +
-                    "Ensure x-tenant-id header is provided and tenant exists with valid database settings.");
+                // Use default database from appsettings.json as fallback
+                // This DbContext won't actually be used for database operations
+                _logger?.LogDebug(
+                    "Tenant context not available - using fallback database configuration for TenantNotificationDbContext");
+                
+                if (_configuration == null)
+                {
+                    throw new InvalidOperationException("Configuration is not available");
+                }
+
+                connectionString = _configuration["DatabaseSettings:ConnectionString"];
+                provider = _configuration["DatabaseSettings:Provider"] ?? "PostgreSql";
+
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    throw new InvalidOperationException(
+                        "Database connection string is not configured in appsettings.json");
+                }
             }
-
-            var tenantDb = _tenantContext.CurrentTenant.Configuration.DatabaseSettings;
-
-            if (string.IsNullOrWhiteSpace(tenantDb.ConnectionString))
+            else
             {
-                throw new InvalidOperationException(
-                    $"Tenant '{_tenantContext.CurrentTenant.TenantId}' does not have a database connection string configured.");
+                var tenantDb = _tenantContext.CurrentTenant.Configuration.DatabaseSettings;
+
+                if (string.IsNullOrWhiteSpace(tenantDb.ConnectionString))
+                {
+                    throw new InvalidOperationException(
+                        $"Tenant '{_tenantContext.CurrentTenant.TenantId}' does not have a database connection string configured.");
+                }
+
+                connectionString = tenantDb.ConnectionString;
+                provider = tenantDb.Provider ?? "PostgreSql";
+
+                _logger?.LogInformation(
+                    "Using tenant-specific database connection for tenant: {TenantId}",
+                    _tenantContext.CurrentTenant.TenantId);
             }
-
-            connectionString = tenantDb.ConnectionString;
-            provider = tenantDb.Provider ?? "PostgreSql";
-
-            _logger?.LogInformation(
-                "Using tenant-specific database connection for tenant: {TenantId}",
-                _tenantContext.CurrentTenant.TenantId);
         }
         else
         {

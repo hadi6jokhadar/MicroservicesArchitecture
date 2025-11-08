@@ -30,7 +30,11 @@ Any microservice in the architecture can send notifications to users by making H
 
 - **Notification Service**: `https://localhost:5104` (default)
 - **Endpoint**: `POST /api/notifications/send`
-- **Required Headers**: `x-tenant-id`, `Authorization` (optional based on setup)
+- **Required Headers**: `Authorization` (JWT token, optional based on setup)
+- **Required Body Fields**:
+  - `tenantId` - Required when `userId` is provided and multi-tenancy is enabled
+  - `userId` - Optional (null for broadcast notifications)
+  - `title` - Required (max 200 characters)
 - **Multi-Tenancy**: Fully supported
 
 ---
@@ -124,8 +128,9 @@ public interface INotificationServiceClient
 {
     /// <summary>
     /// Send a notification to a specific user in a tenant
+    /// Note: tenantId is REQUIRED when userId is provided and multi-tenancy is enabled
     /// </summary>
-    /// <param name="tenantId">Tenant identifier</param>
+    /// <param name="tenantId">Tenant identifier (required when userId is provided)</param>
     /// <param name="userId">User identifier</param>
     /// <param name="title">Notification title (max 200 characters)</param>
     /// <param name="message">Notification message (max 1000 characters)</param>
@@ -248,8 +253,8 @@ public class NotificationServiceClient : INotificationServiceClient
                 Content = JsonContent.Create(payload)
             };
 
-            // Add tenant header (REQUIRED for multi-tenancy)
-            request.Headers.Add("x-tenant-id", tenantId);
+            // Note: x-tenant-id header is NOT required for send endpoint
+            // The tenantId from the payload body is used instead
 
             // Optional: Add authentication if Notification Service requires it
             // See "Authentication Options" section below
@@ -314,7 +319,7 @@ public class NotificationServiceClient : INotificationServiceClient
                 Content = JsonContent.Create(payload)
             };
 
-            request.Headers.Add("x-tenant-id", tenantId);
+            // Note: x-tenant-id header is NOT needed for send endpoint
 
             var response = await client.SendAsync(request, cancellationToken);
 
@@ -660,10 +665,11 @@ Create a "system" user with role `"User"` and generate a long-lived JWT for serv
 
 ### Full Request Example
 
+**Note:** No `x-tenant-id` header required.
+
 ```http
 POST https://localhost:5104/api/notifications/send
 Content-Type: application/json
-x-tenant-id: acme-corp
 Authorization: Bearer {service-account-jwt}
 
 {
@@ -713,14 +719,14 @@ Authorization: Bearer {service-account-jwt}
 - Verify service account JWT is valid and not expired
 - Ensure role is correct (`"User"` or `"Service"`)
 
-### Issue 3: 400 Bad Request (Tenant Not Found)
+### Issue 3: 400 Bad Request (Invalid Tenant)
 
-**Symptom**: HTTP 400 response with "Tenant not found" error
+**Symptom**: HTTP 400 response with tenant validation error
 
 **Solution**:
 
-- Verify `x-tenant-id` header is included
-- Check tenant exists in Tenant Service
+- Verify `tenantId` in request body is correct
+- Check tenant exists in Tenant Service (for background processing)
 - Ensure Tenant Service is running
 
 ### Issue 4: Notification Not Received by User
@@ -756,6 +762,7 @@ Use this checklist when integrating notification sending into a new service:
 - [ ] Create `NotificationServiceClient` implementation
 - [ ] Register service in DI container
 - [ ] Choose and implement authentication option
+- [ ] **Note:** Remove `x-tenant-id` header from send requests (use body tenantId)
 - [ ] Test sending notification to specific user
 - [ ] Test sending notification to tenant
 - [ ] Test sending global notification

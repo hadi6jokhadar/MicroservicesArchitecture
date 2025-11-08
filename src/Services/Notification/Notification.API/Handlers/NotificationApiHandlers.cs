@@ -9,12 +9,25 @@ public static class NotificationApiHandlers
 {
     /// <summary>
     /// Handle send notification request
+    /// Validates that user-specific notifications include tenant context when multi-tenancy is enabled
     /// </summary>
     public static async Task<IResult> SendNotificationHandler(
         SendNotificationCommand command,
         IMediator mediator,
+        IConfiguration configuration,
         CancellationToken ct = default)
     {
+        // Ensure user-specific notifications include tenant context
+        var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+        if (multiTenancyEnabled && command.UserId.HasValue && string.IsNullOrEmpty(command.TenantId))
+        {
+            return Results.BadRequest(new 
+            { 
+                error = "TenantId is required when UserId is provided and multi-tenancy is enabled",
+                message = "User-specific notifications require a tenant context. Please provide a TenantId in the request body."
+            });
+        }
+
         var result = await mediator.Send(command, ct);
         return Results.Ok(result);
     }

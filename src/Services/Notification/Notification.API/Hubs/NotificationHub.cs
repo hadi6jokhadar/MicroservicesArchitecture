@@ -33,6 +33,10 @@ public class NotificationHub : Hub
     /// <summary>
     /// Called when a client connects to the hub
     /// Supports both authenticated and anonymous connections
+    /// Logic:
+    /// 1. No tenant + no token => global notifications only
+    /// 2. Tenant + no token => global + tenant notifications
+    /// 3. Token (must have tenant if MultiTenancy:Enabled=true) => all notifications
     /// </summary>
     public override async Task OnConnectedAsync()
     {
@@ -40,8 +44,9 @@ public class NotificationHub : Hub
         {
             var httpContext = Context.GetHttpContext();
             
-            // Get tenant ID from header
-            var tenantId = httpContext?.Request.Headers["x-tenant-id"].FirstOrDefault();
+            // Get tenant ID from header OR query string
+            var tenantId = httpContext?.Request.Headers["x-tenant-id"].FirstOrDefault()
+                ?? httpContext?.Request.Query["tenantId"].FirstOrDefault();
             
             // Get authenticated user ID from claims (optional)
             var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier);
@@ -53,14 +58,15 @@ public class NotificationHub : Hub
 
             if (_isMultiTenancyEnabled)
             {
-                // Multi-tenancy mode
-                if (!string.IsNullOrWhiteSpace(tenantId))
+                // Multi-tenancy mode enabled
+                if (isAuthenticated)
                 {
-                    // Add to tenant-wide group (for tenant broadcasts)
-                    await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant:{tenantId}");
-
-                    if (isAuthenticated)
+                    // Token provided - must have tenant (rule 3)
+                    if (!string.IsNullOrWhiteSpace(tenantId))
                     {
+                        // Add to tenant-wide group (for tenant broadcasts)
+                        await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant:{tenantId}");
+                        
                         // Add to tenant-user specific group
                         await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant:{tenantId}:user:{userId}");
                         
@@ -72,31 +78,42 @@ public class NotificationHub : Hub
                     }
                     else
                     {
-                        // Anonymous user in tenant (only receives tenant broadcasts and global)
+                        // Token without tenant - not allowed in multi-tenancy mode
+                        _logger.LogWarning(
+                            "Authenticated user {UserId} connected without tenant ID in multi-tenancy mode. ConnectionId: {ConnectionId}. Only global notifications will be received.",
+                            userId,
+                            Context.ConnectionId);
+                        
+                        // Still add to user group for potential cross-tenant notifications
+                        await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
+                    }
+                }
+                else
+                {
+                    // No token - anonymous connection (rule 1 or 2)
+                    if (!string.IsNullOrWhiteSpace(tenantId))
+                    {
+                        // Tenant without token - rule 2: global + tenant notifications
+                        await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant:{tenantId}");
+                        
                         _logger.LogInformation(
                             "Anonymous user connected to tenant {TenantId}. ConnectionId: {ConnectionId}",
                             tenantId,
                             Context.ConnectionId);
                     }
-                }
-                else
-                {
-                    // No tenant ID provided but multi-tenancy is enabled
-                    _logger.LogWarning(
-                        "Connection to multi-tenant hub without x-tenant-id header. ConnectionId: {ConnectionId}. Only global notifications will be received.",
-                        Context.ConnectionId);
-                    
-                    // If authenticated, add to user-only group (cross-tenant user notifications)
-                    if (isAuthenticated)
+                    else
                     {
-                        await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
+                        // No tenant and no token - rule 1: global notifications only
+                        _logger.LogInformation(
+                            "Anonymous user connected (global only). ConnectionId: {ConnectionId}",
+                            Context.ConnectionId);
                     }
                 }
             }
             else
             {
                 // Single-tenant mode (MultiTenancy:Enabled = false)
-                // Add to all-clients group (same as global, for broadcasts to all connected clients)
+                // Tenant ID is not relevant, token is optional
                 await Groups.AddToGroupAsync(Context.ConnectionId, "all-clients");
 
                 if (isAuthenticated)

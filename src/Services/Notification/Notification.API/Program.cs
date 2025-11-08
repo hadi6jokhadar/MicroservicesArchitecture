@@ -11,6 +11,7 @@ using Notification.API.BackgroundServices;
 using Notification.API.Extensions;
 using Notification.API.Hubs;
 using IhsanDev.Shared.Application.Common.Behaviors;
+using IhsanDev.Shared.Infrastructure.Attributes;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Infrastructure.Services;
@@ -86,11 +87,23 @@ var jwtMode = Enum.TryParse<JwtMode>(jwtModeString, ignoreCase: true, out var pa
     ? parsedMode
     : JwtMode.Shared;
 
-// Always use Jwt section from appsettings.json (for both Shared and PerTenant modes)
+// Use global JWT settings from appsettings.json as the default
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-
 var secretKey = jwtSettings["Secret"]
     ?? throw new InvalidOperationException("JWT Secret is not configured");
+
+// Store default validation parameters (used for global JWT and as base for tenant-specific JWT)
+var defaultValidationParameters = new TokenValidationParameters
+{
+    ValidateIssuerSigningKey = true,
+    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+    ValidateIssuer = true,
+    ValidIssuer = jwtSettings["Issuer"],
+    ValidateAudience = true,
+    ValidAudience = jwtSettings["Audience"],
+    ValidateLifetime = true,
+    ClockSkew = TimeSpan.Zero
+};
 
 builder.Services.AddAuthentication(options =>
 {
@@ -99,58 +112,92 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 {
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-        ValidateIssuer = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidateAudience = true,
-        ValidAudience = jwtSettings["Audience"],
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
-    };
+    options.TokenValidationParameters = defaultValidationParameters.Clone();
 
-    // Support SignalR token from query string
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
-            var accessToken = context.Request.Query["access_token"];
-
-            // If the request is for SignalR hub
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/notifications"))
-            {
-                context.Token = accessToken;
-            }
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
 
-            // Support per-tenant JWT validation when JwtMode is PerTenant
-            // Only apply to endpoints that don't have BypassTenant attribute
-            var endpoint = context.HttpContext.GetEndpoint();
-            var bypassTenant = endpoint?.Metadata.GetMetadata<IhsanDev.Shared.Infrastructure.Attributes.BypassTenantAttribute>() != null;
-            
-            if (!bypassTenant && jwtMode == JwtMode.PerTenant)
+            // Reset to default validation parameters for each request to prevent cross-request pollution
+            context.Options.TokenValidationParameters = defaultValidationParameters.Clone();
+
+            // Handle SignalR hub requests
+            if (path.StartsWithSegments("/hubs/notifications"))
             {
-                var tenantContext = context.HttpContext.RequestServices.GetService<ITenantContext>();
-                if (tenantContext?.HasTenant == true && tenantContext.CurrentTenant?.Configuration?.Jwt != null)
+                // Extract token from query string (required for SignalR WebSocket connections)
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken))
                 {
-                    var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
-                    if (!string.IsNullOrEmpty(tenantJwt.Secret))
+                    context.Token = accessToken;
+                    logger.LogInformation("SignalR: Token received from query string");
+                }
+
+                // Apply tenant-specific JWT validation when JwtMode is PerTenant
+                if (jwtMode == JwtMode.PerTenant)
+                {
+                    var tenantId = context.Request.Query["tenantId"].FirstOrDefault()
+                        ?? context.Request.Headers["x-tenant-id"].FirstOrDefault();
+                    
+                    if (!string.IsNullOrEmpty(tenantId))
                     {
-                        context.Options.TokenValidationParameters.IssuerSigningKey =
-                            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret));
-                        context.Options.TokenValidationParameters.ValidIssuer = tenantJwt.Issuer;
-                        context.Options.TokenValidationParameters.ValidAudience = tenantJwt.Audience;
+                        var tenantConfigProvider = context.HttpContext.RequestServices.GetService<ITenantConfigurationProvider>();
+                        if (tenantConfigProvider != null)
+                        {
+                            try
+                            {
+                                var tenant = tenantConfigProvider.GetTenantConfigurationAsync(tenantId, context.HttpContext.RequestAborted)
+                                    .GetAwaiter().GetResult();
+                                
+                                if (tenant?.Configuration?.Jwt != null)
+                                {
+                                    var tenantJwt = tenant.Configuration.Jwt;
+                                    if (!string.IsNullOrEmpty(tenantJwt.Secret))
+                                    {
+                                        // Override with tenant-specific JWT validation parameters
+                                        context.Options.TokenValidationParameters = new TokenValidationParameters
+                                        {
+                                            ValidateIssuer = true,
+                                            ValidateAudience = true,
+                                            ValidateLifetime = true,
+                                            ValidateIssuerSigningKey = true,
+                                            ValidIssuer = tenantJwt.Issuer,
+                                            ValidAudience = tenantJwt.Audience,
+                                            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret)),
+                                            ClockSkew = TimeSpan.Zero
+                                        };
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(ex, "SignalR: Failed to fetch tenant configuration for tenant: {TenantId}, falling back to global JWT", tenantId);
+                                // Keep default global JWT parameters (already set above)
+                            }
+                        }
                     }
                 }
             }
 
             return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            var userId = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var path = context.HttpContext.Request.Path;
+            logger.LogInformation("JWT Token Validated - User ID: {UserId}, Path: {Path}", userId ?? "Unknown", path);
+            return Task.CompletedTask;
+        },
+        OnAuthenticationFailed = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            var path = context.HttpContext.Request.Path;
+            logger.LogError("JWT Authentication Failed - Path: {Path}, Error: {Error}", path, context.Exception.Message);
+            return Task.CompletedTask;
         }
-        // When JwtMode is Shared, use the JWT settings from appsettings.json
-        // All tenants validate tokens using the same JWT secret from Jwt section
-        // When endpoint has BypassTenant, always use global JWT from appsettings.json
     };
 });
 builder.Services.AddAuthorization();
@@ -304,7 +351,12 @@ app.UseSwaggerUI();
 
 app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance
-app.UseHttpsRedirection();
+
+// Only redirect to HTTPS in production (disabled in development for easier testing)
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // Multi-tenancy middleware (must be before CORS and authentication)
 // Only runs if MultiTenancy:Enabled is true
@@ -352,7 +404,14 @@ app.MapNotificationEndpoints();
 // SignalR Hub Endpoint
 // ============================================
 // Authentication is optional - hub handles both authenticated and anonymous connections
-app.MapHub<NotificationHub>("/hubs/notifications");
+// Tenant is optional - hub can work with or without tenant context
+app.MapHub<NotificationHub>("/hubs/notifications")
+    .WithMetadata(new OptionalTenantAttribute());
+    // OptionalTenant: Middleware will set tenant context if x-tenant-id is provided,
+    // but won't fail if missing. This allows hub to work in all scenarios:
+    // 1. No tenant + no token => global only
+    // 2. Tenant + no token => global + tenant
+    // 3. Tenant + token => all notifications
 
 // ============================================
 // Health Check

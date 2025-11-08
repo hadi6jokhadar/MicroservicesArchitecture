@@ -40,6 +40,8 @@ Client → API Endpoint → Handler → MediatR Command → Handler → Service 
 
 1. **Client sends POST request** to `/api/notifications/send`
 
+   **Note:** No `x-tenant-id` header required - tenantId comes from request body.
+
    ```json
    {
      "tenantId": "tenant-123",
@@ -52,17 +54,22 @@ Client → API Endpoint → Handler → MediatR Command → Handler → Service 
    }
    ```
 
-2. **NotificationApiHandlers.SendNotificationHandler** receives request
+2. **Endpoint bypasses tenant middleware** (has `BypassTenantAttribute`)
+
+   - No `x-tenant-id` header validation
+   - TenantId from request body is used instead
+
+3. **NotificationApiHandlers.SendNotificationHandler** receives request
 
    - Validates input via FluentValidation
    - Creates `SendNotificationCommand`
    - Sends to MediatR pipeline
 
-3. **SendNotificationCommandHandler** processes command
+4. **SendNotificationCommandHandler** processes command
 
    - Delegates to `INotificationService.SendNotificationAsync()`
 
-4. **NotificationService.SendNotificationAsync()** executes:
+5. **NotificationService.SendNotificationAsync()** executes:
    - Parses `DeliveryType` enum:
      - `SignalR` - Real-time WebSocket delivery
      - `Firebase` - Push notification via FCM

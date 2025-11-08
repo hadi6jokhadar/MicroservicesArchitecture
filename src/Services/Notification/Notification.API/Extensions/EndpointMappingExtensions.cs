@@ -14,14 +14,16 @@ public static class EndpointMappingExtensions
     {
         var notificationGroup = app.MapGroup("/api/notifications")
             .WithTags("Notifications")
-            .RequireAuthorization(policy => policy.RequireRole("User", "Service", "SuperAdmin"))
+            .RequireAuthorization(policy => policy.RequireRole("Service", "User", "Admin", "SuperAdmin"))
             .WithOpenApi();
 
         // Send notification (accessible by users, services, and SuperAdmin)
+        // Note: Bypasses tenant middleware - tenantId comes from request body instead of x-tenant-id header
         notificationGroup.MapPost("/send", NotificationApiHandlers.SendNotificationHandler)
             .WithName("SendNotification")
             .WithSummary("Send a notification")
-            .WithDescription("Queue a notification for delivery to a user via SignalR or Firebase. Accessible by authenticated users, internal services, and SuperAdmin.")
+            .WithDescription("Queue a notification for delivery to a user via SignalR or Firebase. TenantId should be provided in the request body. Accessible by authenticated users, internal services, and SuperAdmin.")
+            .WithMetadata(new BypassTenantAttribute())
             .Produces<SendNotificationResponse>(200)
             .ProducesValidationProblem();
 

@@ -15,7 +15,7 @@ The hub behavior is controlled by the `MultiTenancy:Enabled` configuration in `a
 ```json
 {
   "MultiTenancy": {
-    "Enabled": true  // or false
+    "Enabled": true // or false
   }
 }
 ```
@@ -27,31 +27,89 @@ The hub behavior is controlled by the `MultiTenancy:Enabled` configuration in `a
 
 ## Connection Modes
 
+### JWT Authentication for SignalR Hub
+
+The hub supports **dual JWT authentication** based on the `JwtMode` configuration:
+
+#### JwtMode: Shared
+
+All connections validate JWT tokens using the **global JWT secret** from `appsettings.json`.
+
+```javascript
+const connection = new signalR.HubConnectionBuilder()
+  .withUrl("/hubs/notifications", {
+    accessTokenFactory: () => globalJwtToken,
+  })
+  .build();
+```
+
+#### JwtMode: PerTenant
+
+Connections validate JWT tokens based on whether a `tenantId` is provided:
+
+**With tenantId** - Validates using **tenant-specific JWT secret** from database:
+
+```javascript
+const connection = new signalR.HubConnectionBuilder()
+  .withUrl("/hubs/notifications?tenantId=ihsandev", {
+    accessTokenFactory: () => tenantSpecificJwtToken,
+  })
+  .build();
+```
+
+**Without tenantId** - Validates using **global JWT secret** from appsettings.json:
+
+```javascript
+const connection = new signalR.HubConnectionBuilder()
+  .withUrl("/hubs/notifications", {
+    accessTokenFactory: () => globalJwtToken,
+  })
+  .build();
+```
+
+**Important Notes:**
+
+- The `tenantId` parameter must be in the **query string** of the WebSocket URL
+- Token validation parameters are set during the `OnMessageReceived` event
+- Each request gets fresh validation parameters to prevent cross-request pollution
+- The hub uses `OptionalTenantAttribute`, so tenant context is optional
+
+---
+
 ### 1. Authenticated Connection (With JWT Token)
 
 **Recommended for personalized notifications**
 
 #### JavaScript/TypeScript Client
-```javascript
-const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/hubs/notifications", {
-        accessTokenFactory: () => getJwtToken()  // JWT token provided
-    })
-    .withAutomaticReconnect()
-    .build();
 
-// Add tenant header if multi-tenancy is enabled
-connection.headers = { "x-tenant-id": "tenant-123" };
+```javascript
+// For tenant users (PerTenant mode)
+const connection = new signalR.HubConnectionBuilder()
+  .withUrl("/hubs/notifications?tenantId=tenant-123", {
+    accessTokenFactory: () => getTenantJwtToken(), // Tenant-specific JWT
+  })
+  .withAutomaticReconnect()
+  .build();
+
+// For SuperAdmin or global users
+const connection = new signalR.HubConnectionBuilder()
+  .withUrl("/hubs/notifications", {
+    accessTokenFactory: () => getGlobalJwtToken(), // Global JWT
+  })
+  .withAutomaticReconnect()
+  .build();
 
 await connection.start();
 ```
 
 #### What Happens
+
+- Token validated (tenant-specific or global based on tenantId parameter)
 - UserId extracted from JWT claims (`ClaimTypes.NameIdentifier`)
 - User can receive:
   - ✅ Global notifications
   - ✅ User-specific notifications
-  - ✅ Tenant-wide notifications (if tenant header provided)
+  - ✅ Tenant-wide notifications (if tenantId provided)
 
 ---
 
@@ -60,23 +118,23 @@ await connection.start();
 **For public notifications or non-authenticated users**
 
 #### JavaScript/TypeScript Client
+
 ```javascript
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/hubs/notifications")  // No token
-    .withAutomaticReconnect()
-    .build();
-
-// Optionally add tenant header
-connection.headers = { "x-tenant-id": "tenant-123" };
+  .withUrl("/hubs/notifications?tenantId=tenant-123") // No token, but can specify tenant
+  .withAutomaticReconnect()
+  .build();
 
 await connection.start();
 ```
 
 #### What Happens
+
+- No authentication required
 - No userId available
 - User can receive:
   - ✅ Global notifications
-  - ✅ Tenant-wide notifications (if tenant header provided)
+  - ✅ Tenant-wide notifications (if tenantId provided in URL)
   - ❌ User-specific notifications (no userId to target)
 
 ---
@@ -87,19 +145,19 @@ The hub automatically assigns connections to appropriate groups based on authent
 
 ### Multi-Tenancy Mode (`MultiTenancy:Enabled = true`)
 
-| Connection Type | Groups Joined | Description |
-|----------------|---------------|-------------|
-| **Anonymous + No Tenant** | `global` | Only receives global broadcasts |
-| **Anonymous + Tenant** | `global`, `tenant:{tenantId}` | Receives global + tenant broadcasts |
-| **Authenticated + No Tenant** | `global`, `user:{userId}` | Receives global + cross-tenant user notifications |
-| **Authenticated + Tenant** | `global`, `tenant:{tenantId}`, `tenant:{tenantId}:user:{userId}` | Receives all notification types |
+| Connection Type               | Groups Joined                                                    | Description                                       |
+| ----------------------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
+| **Anonymous + No Tenant**     | `global`                                                         | Only receives global broadcasts                   |
+| **Anonymous + Tenant**        | `global`, `tenant:{tenantId}`                                    | Receives global + tenant broadcasts               |
+| **Authenticated + No Tenant** | `global`, `user:{userId}`                                        | Receives global + cross-tenant user notifications |
+| **Authenticated + Tenant**    | `global`, `tenant:{tenantId}`, `tenant:{tenantId}:user:{userId}` | Receives all notification types                   |
 
 ### Single-Tenant Mode (`MultiTenancy:Enabled = false`)
 
-| Connection Type | Groups Joined | Description |
-|----------------|---------------|-------------|
-| **Anonymous** | `global`, `all-clients` | Receives global + all-clients broadcasts |
-| **Authenticated** | `global`, `all-clients`, `user:{userId}` | Receives all notification types |
+| Connection Type   | Groups Joined                            | Description                              |
+| ----------------- | ---------------------------------------- | ---------------------------------------- |
+| **Anonymous**     | `global`, `all-clients`                  | Receives global + all-clients broadcasts |
+| **Authenticated** | `global`, `all-clients`, `user:{userId}` | Receives all notification types          |
 
 ---
 
@@ -112,6 +170,7 @@ The hub automatically assigns connections to appropriate groups based on authent
 **Target**: Every connected client (authenticated and anonymous, all tenants)
 
 #### API Request
+
 ```json
 POST /api/notifications/send
 {
@@ -125,9 +184,11 @@ POST /api/notifications/send
 ```
 
 #### SignalR Group
+
 - `global`
 
 #### Who Receives
+
 - ✅ All authenticated users
 - ✅ All anonymous users
 - ✅ All tenants (if multi-tenancy enabled)
@@ -142,6 +203,7 @@ POST /api/notifications/send
 **Target**: All connected clients in single-tenant application
 
 #### API Request
+
 ```json
 POST /api/notifications/send
 {
@@ -155,6 +217,7 @@ POST /api/notifications/send
 ```
 
 #### Configuration Required
+
 ```json
 {
   "MultiTenancy": {
@@ -164,9 +227,11 @@ POST /api/notifications/send
 ```
 
 #### SignalR Group
+
 - `all-clients`
 
 #### Who Receives
+
 - ✅ All authenticated users
 - ✅ All anonymous users
 - ✅ Same as global in single-tenant context
@@ -180,6 +245,7 @@ POST /api/notifications/send
 **Target**: All users (authenticated and anonymous) connected to a specific tenant
 
 #### API Request
+
 ```json
 POST /api/notifications/send
 {
@@ -193,6 +259,7 @@ POST /api/notifications/send
 ```
 
 #### Configuration Required
+
 ```json
 {
   "MultiTenancy": {
@@ -202,9 +269,11 @@ POST /api/notifications/send
 ```
 
 #### SignalR Group
+
 - `tenant:acme-corp`
 
 #### Who Receives
+
 - ✅ All authenticated users in tenant "acme-corp"
 - ✅ All anonymous users connected with `x-tenant-id: acme-corp`
 - ❌ Users in other tenants
@@ -219,6 +288,7 @@ POST /api/notifications/send
 **Target**: Specific authenticated user within a tenant
 
 #### API Request
+
 ```json
 POST /api/notifications/send
 {
@@ -232,6 +302,7 @@ POST /api/notifications/send
 ```
 
 #### Configuration Required
+
 ```json
 {
   "MultiTenancy": {
@@ -241,9 +312,11 @@ POST /api/notifications/send
 ```
 
 #### SignalR Group
+
 - `tenant:acme-corp:user:5`
 
 #### Who Receives
+
 - ✅ User with ID 5 connected to tenant "acme-corp" with valid JWT
 - ❌ Other users
 - ❌ Anonymous connections (no userId)
@@ -258,6 +331,7 @@ POST /api/notifications/send
 **Target**: Specific authenticated user (no tenant context needed)
 
 #### API Request
+
 ```json
 POST /api/notifications/send
 {
@@ -271,6 +345,7 @@ POST /api/notifications/send
 ```
 
 #### Configuration Required
+
 ```json
 {
   "MultiTenancy": {
@@ -280,9 +355,11 @@ POST /api/notifications/send
 ```
 
 #### SignalR Group
+
 - `user:5`
 
 #### Who Receives
+
 - ✅ User with ID 5 with valid JWT token
 - ❌ Other users
 - ❌ Anonymous connections
@@ -295,56 +372,56 @@ POST /api/notifications/send
 
 ```typescript
 class NotificationClient {
-    private connection: signalR.HubConnection;
+  private connection: signalR.HubConnection;
 
-    async connect(jwtToken: string, tenantId?: string) {
-        this.connection = new signalR.HubConnectionBuilder()
-            .withUrl("/hubs/notifications", {
-                accessTokenFactory: () => jwtToken
-            })
-            .withAutomaticReconnect()
-            .build();
+  async connect(jwtToken: string, tenantId?: string) {
+    this.connection = new signalR.HubConnectionBuilder()
+      .withUrl("/hubs/notifications", {
+        accessTokenFactory: () => jwtToken,
+      })
+      .withAutomaticReconnect()
+      .build();
 
-        // Add tenant header if multi-tenancy is enabled
-        if (tenantId) {
-            this.connection.headers = { "x-tenant-id": tenantId };
-        }
-
-        // Subscribe to notifications
-        this.connection.on("ReceiveNotification", (notification) => {
-            this.handleNotification(notification);
-            this.acknowledgeDelivery(notification.queueItemId);
-        });
-
-        await this.connection.start();
-        console.log("✅ Connected as authenticated user");
+    // Add tenant header if multi-tenancy is enabled
+    if (tenantId) {
+      this.connection.headers = { "x-tenant-id": tenantId };
     }
 
-    private handleNotification(notification: any) {
-        console.log("📩 New notification:", notification);
-        
-        // Display to user (toast, push notification, etc.)
-        this.showNotification(notification.title, notification.message);
-    }
+    // Subscribe to notifications
+    this.connection.on("ReceiveNotification", (notification) => {
+      this.handleNotification(notification);
+      this.acknowledgeDelivery(notification.queueItemId);
+    });
 
-    private async acknowledgeDelivery(queueItemId: number) {
-        try {
-            await this.connection.invoke("AcknowledgeDelivery", queueItemId);
-            console.log("✅ Acknowledged:", queueItemId);
-        } catch (err) {
-            console.error("❌ Ack failed:", err);
-        }
-    }
+    await this.connection.start();
+    console.log("✅ Connected as authenticated user");
+  }
 
-    private showNotification(title: string, message: string) {
-        if (Notification.permission === "granted") {
-            new Notification(title, { body: message });
-        }
-    }
+  private handleNotification(notification: any) {
+    console.log("📩 New notification:", notification);
 
-    async disconnect() {
-        await this.connection.stop();
+    // Display to user (toast, push notification, etc.)
+    this.showNotification(notification.title, notification.message);
+  }
+
+  private async acknowledgeDelivery(queueItemId: number) {
+    try {
+      await this.connection.invoke("AcknowledgeDelivery", queueItemId);
+      console.log("✅ Acknowledged:", queueItemId);
+    } catch (err) {
+      console.error("❌ Ack failed:", err);
     }
+  }
+
+  private showNotification(title: string, message: string) {
+    if (Notification.permission === "granted") {
+      new Notification(title, { body: message });
+    }
+  }
+
+  async disconnect() {
+    await this.connection.stop();
+  }
 }
 
 // Usage - Authenticated user in tenant
@@ -358,40 +435,40 @@ await client.connect("eyJhbGciOiJIUzI1Ni...", "acme-corp");
 
 ```typescript
 class AnonymousNotificationClient {
-    private connection: signalR.HubConnection;
+  private connection: signalR.HubConnection;
 
-    async connect(tenantId?: string) {
-        this.connection = new signalR.HubConnectionBuilder()
-            .withUrl("/hubs/notifications")  // No token
-            .withAutomaticReconnect()
-            .build();
+  async connect(tenantId?: string) {
+    this.connection = new signalR.HubConnectionBuilder()
+      .withUrl("/hubs/notifications") // No token
+      .withAutomaticReconnect()
+      .build();
 
-        // Optionally add tenant for tenant-wide broadcasts
-        if (tenantId) {
-            this.connection.headers = { "x-tenant-id": tenantId };
-        }
-
-        // Subscribe to notifications
-        this.connection.on("ReceiveNotification", (notification) => {
-            console.log("📩 Global/Tenant notification:", notification);
-            this.displayPublicNotification(notification);
-        });
-
-        await this.connection.start();
-        console.log("✅ Connected anonymously");
+    // Optionally add tenant for tenant-wide broadcasts
+    if (tenantId) {
+      this.connection.headers = { "x-tenant-id": tenantId };
     }
 
-    private displayPublicNotification(notification: any) {
-        // Display public announcements
-        const banner = document.createElement("div");
-        banner.className = "notification-banner";
-        banner.textContent = `${notification.title}: ${notification.message}`;
-        document.body.appendChild(banner);
-    }
+    // Subscribe to notifications
+    this.connection.on("ReceiveNotification", (notification) => {
+      console.log("📩 Global/Tenant notification:", notification);
+      this.displayPublicNotification(notification);
+    });
 
-    async disconnect() {
-        await this.connection.stop();
-    }
+    await this.connection.start();
+    console.log("✅ Connected anonymously");
+  }
+
+  private displayPublicNotification(notification: any) {
+    // Display public announcements
+    const banner = document.createElement("div");
+    banner.className = "notification-banner";
+    banner.textContent = `${notification.title}: ${notification.message}`;
+    document.body.appendChild(banner);
+  }
+
+  async disconnect() {
+    await this.connection.stop();
+  }
 }
 
 // Usage - Anonymous user (only global notifications)
@@ -425,7 +502,7 @@ public class NotificationClient
             .WithUrl("https://api.example.com/hubs/notifications", options =>
             {
                 options.AccessTokenProvider = () => Task.FromResult(jwtToken);
-                
+
                 if (_isMultiTenancyEnabled && !string.IsNullOrEmpty(tenantId))
                 {
                     options.Headers.Add("x-tenant-id", tenantId);
@@ -474,7 +551,7 @@ public class NotificationClient
         // Display local notification
         DependencyService.Get<INotificationService>()
             .ShowNotification(notification.Title, notification.Message);
-        
+
         // Acknowledge if authenticated
         _ = AcknowledgeDeliveryAsync(notification.QueueItemId);
     }
@@ -523,16 +600,16 @@ public class NotificationHub : Hub
 {
     // Send to ALL clients (global broadcast)
     Task SendGlobalNotification(object notification)
-    
+
     // Send to all clients (single-tenant mode only)
     Task SendToAllClients(object notification)
-    
+
     // Send to all clients in a tenant (multi-tenant mode)
     Task SendToTenant(string tenantId, object notification)
-    
+
     // Send to specific user in tenant (multi-tenant mode)
     Task SendToUserInTenant(string tenantId, string userId, object notification)
-    
+
     // Send to specific user (single-tenant mode)
     Task SendToUser(string userId, object notification)
 }
@@ -669,6 +746,7 @@ Has JWT Token?
 **Two-Database Architecture:**
 
 1. **Global Database** (`NotificationDbContext`)
+
    - Table: `NotificationQueue`
    - Stores: Queue items for all tenants
    - Purpose: Delivery workflow management
@@ -679,6 +757,7 @@ Has JWT Token?
    - Purpose: Persistent storage, read/unread tracking
 
 **Configuration:**
+
 ```json
 {
   "DatabaseSettings": {
@@ -702,6 +781,7 @@ Has JWT Token?
    - Purpose: Simplified deployment for single-tenant apps
 
 **Configuration:**
+
 ```json
 {
   "DatabaseSettings": {
@@ -723,6 +803,7 @@ Has JWT Token?
 **Symptom**: Anonymous connections established but notifications not received
 
 **Solution**:
+
 1. Verify connection joins `global` group (check server logs)
 2. Ensure notifications sent to correct group:
    - Global: `global` group
@@ -736,6 +817,7 @@ Has JWT Token?
 **Symptom**: Warning logged about missing `x-tenant-id` header
 
 **Solution**:
+
 - For authenticated tenant users: Add `x-tenant-id` header to connection
   ```javascript
   connection.headers = { "x-tenant-id": "your-tenant-id" };
@@ -749,6 +831,7 @@ Has JWT Token?
 **Symptom**: Notifications sent but specific user doesn't receive them
 
 **Checklist**:
+
 1. ✅ User connected with valid JWT token?
 2. ✅ UserId extracted from token claims (`ClaimTypes.NameIdentifier`)?
 3. ✅ Correct group targeted:
@@ -765,6 +848,7 @@ Has JWT Token?
 **Root Cause**: Tenant isolation broken
 
 **Solution**:
+
 1. Verify `x-tenant-id` header sent by client
 2. Check background processor sets correct tenant context
 3. Ensure groups use consistent tenant naming: `tenant:{tenantId}`
@@ -809,15 +893,15 @@ new NotificationQueueItem
 ```typescript
 // ✅ Good - Proper lifecycle management
 connection.onclose(() => {
-    console.log("Disconnected, attempting reconnect...");
+  console.log("Disconnected, attempting reconnect...");
 });
 
 connection.onreconnecting(() => {
-    console.log("Reconnecting...");
+  console.log("Reconnecting...");
 });
 
 connection.onreconnected(() => {
-    console.log("Reconnected successfully");
+  console.log("Reconnected successfully");
 });
 ```
 
@@ -826,12 +910,12 @@ connection.onreconnected(() => {
 ```typescript
 // ✅ Good - Acknowledge notifications
 connection.on("ReceiveNotification", async (notification) => {
-    displayNotification(notification);
-    
-    // Acknowledge if authenticated
-    if (isAuthenticated) {
-        await connection.invoke("AcknowledgeDelivery", notification.queueItemId);
-    }
+  displayNotification(notification);
+
+  // Acknowledge if authenticated
+  if (isAuthenticated) {
+    await connection.invoke("AcknowledgeDelivery", notification.queueItemId);
+  }
 });
 ```
 
@@ -841,23 +925,23 @@ connection.on("ReceiveNotification", async (notification) => {
 
 ### Supported Connection Types
 
-| Mode | JWT Token | x-tenant-id | Groups Joined | Can Receive |
-|------|-----------|-------------|---------------|-------------|
-| **Multi-Tenant Authenticated** | ✅ Yes | ✅ Yes | `global`, `tenant:X`, `tenant:X:user:Y` | All notifications |
-| **Multi-Tenant Authenticated (No Tenant)** | ✅ Yes | ❌ No | `global`, `user:Y` | Global + User-specific |
-| **Multi-Tenant Anonymous** | ❌ No | ✅ Yes | `global`, `tenant:X` | Global + Tenant broadcasts |
-| **Multi-Tenant Anonymous (No Tenant)** | ❌ No | ❌ No | `global` | Global only |
-| **Single-Tenant Authenticated** | ✅ Yes | N/A | `global`, `all-clients`, `user:Y` | All notifications |
-| **Single-Tenant Anonymous** | ❌ No | N/A | `global`, `all-clients` | Global + All-clients broadcasts |
+| Mode                                       | JWT Token | x-tenant-id | Groups Joined                           | Can Receive                     |
+| ------------------------------------------ | --------- | ----------- | --------------------------------------- | ------------------------------- |
+| **Multi-Tenant Authenticated**             | ✅ Yes    | ✅ Yes      | `global`, `tenant:X`, `tenant:X:user:Y` | All notifications               |
+| **Multi-Tenant Authenticated (No Tenant)** | ✅ Yes    | ❌ No       | `global`, `user:Y`                      | Global + User-specific          |
+| **Multi-Tenant Anonymous**                 | ❌ No     | ✅ Yes      | `global`, `tenant:X`                    | Global + Tenant broadcasts      |
+| **Multi-Tenant Anonymous (No Tenant)**     | ❌ No     | ❌ No       | `global`                                | Global only                     |
+| **Single-Tenant Authenticated**            | ✅ Yes    | N/A         | `global`, `all-clients`, `user:Y`       | All notifications               |
+| **Single-Tenant Anonymous**                | ❌ No     | N/A         | `global`, `all-clients`                 | Global + All-clients broadcasts |
 
 ### Notification Targeting Options
 
-| Scenario | `tenantId` | `userId` | Multi-Tenant | Single-Tenant | Target Group |
-|----------|-----------|---------|--------------|---------------|--------------|
-| **Global Broadcast** | `null` | `null` | ✅ | ✅ | `global` |
-| **All Clients (Single-Tenant)** | `null` | `null` | ❌ | ✅ | `all-clients` |
-| **Tenant Broadcast** | `"acme"` | `null` | ✅ | ❌ | `tenant:acme` |
-| **User in Tenant** | `"acme"` | `5` | ✅ | ❌ | `tenant:acme:user:5` |
-| **User (Single-Tenant)** | `null` | `5` | ❌ | ✅ | `user:5` |
+| Scenario                        | `tenantId` | `userId` | Multi-Tenant | Single-Tenant | Target Group         |
+| ------------------------------- | ---------- | -------- | ------------ | ------------- | -------------------- |
+| **Global Broadcast**            | `null`     | `null`   | ✅           | ✅            | `global`             |
+| **All Clients (Single-Tenant)** | `null`     | `null`   | ❌           | ✅            | `all-clients`        |
+| **Tenant Broadcast**            | `"acme"`   | `null`   | ✅           | ❌            | `tenant:acme`        |
+| **User in Tenant**              | `"acme"`   | `5`      | ✅           | ❌            | `tenant:acme:user:5` |
+| **User (Single-Tenant)**        | `null`     | `5`      | ❌           | ✅            | `user:5`             |
 
 The notification hub now provides maximum flexibility for all notification scenarios while maintaining security and proper tenant isolation.
