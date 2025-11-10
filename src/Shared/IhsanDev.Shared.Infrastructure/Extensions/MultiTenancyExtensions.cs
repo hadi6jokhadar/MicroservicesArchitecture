@@ -40,8 +40,8 @@ public static class MultiTenancyExtensions
         // Register database migration service
         services.AddScoped<IDatabaseMigrationService, DatabaseMigrationService>();
 
-        // Add memory cache for tenant configuration caching
-        services.AddMemoryCache();
+        // Add cache service (Redis if enabled, otherwise memory cache)
+        services.AddCacheService(configuration);
 
         // Configure HttpClient for Tenant Service API with service authentication
         var tenantServiceUrl = configuration["MultiTenancy:TenantServiceUrl"]

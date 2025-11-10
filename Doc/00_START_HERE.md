@@ -22,6 +22,8 @@
 - 🔔 **Notifications?** → [NOTIFICATION_SYSTEM_FLOW.md](NOTIFICATION_SYSTEM_FLOW.md)
 - 🧪 **Testing?** → [SHARED_TESTING_FILES.md](SHARED_TESTING_FILES.md)
 - ⚡ **Performance?** → [CACHING_STRATEGY_COMPARISON.md](CACHING_STRATEGY_COMPARISON.md)
+- 🚀 **Redis Caching?** → [REDIS_CACHE_QUICK_REFERENCE.md](REDIS_CACHE_QUICK_REFERENCE.md)
+- 🔄 **Redis vs Memory Cache?** → [REDIS_ENABLED_VS_DISABLED_GUIDE.md](REDIS_ENABLED_VS_DISABLED_GUIDE.md)
 
 ---
 
@@ -57,6 +59,10 @@ Doc/
 │
 ├─ Development Guides
 │  ├─ CACHING_STRATEGY_COMPARISON.md        ← MemoryCache vs Redis
+│  ├─ REDIS_CACHE_MIGRATION_PLAN.md         ← 🔴 NEW: Complete Redis migration guide
+│  ├─ REDIS_CACHE_MIGRATION_SUMMARY.md      ← 🔴 NEW: Implementation summary
+│  ├─ REDIS_CACHE_QUICK_REFERENCE.md        ← 🔴 NEW: Developer quick reference
+│  ├─ REDIS_ENABLED_VS_DISABLED_GUIDE.md    ← 🔴 NEW: Redis vs MemoryCache behavior
 │  ├─ CUSTOM_LOGGER_USAGE.md                ← Logging best practices
 │  └─ MINIMAL_API_MIGRATION.md              ← Migrating to Minimal APIs
 │
@@ -200,9 +206,12 @@ Request → Middleware extracts TenantId → Fetches DB connection
 
 **Solution Path:**
 
-1. Read [CACHING_STRATEGY_COMPARISON.md](CACHING_STRATEGY_COMPARISON.md)
-2. **Current recommendation:** Start with MemoryCache
-3. **Switch to Redis when:** Multiple service instances or high traffic
+1. Read [REDIS_ENABLED_VS_DISABLED_GUIDE.md](REDIS_ENABLED_VS_DISABLED_GUIDE.md) - **START HERE** for detailed comparison
+2. Read [CACHING_STRATEGY_COMPARISON.md](CACHING_STRATEGY_COMPARISON.md) - Original cache analysis
+3. **Quick Answer:**
+   - **Development/Single Instance:** Set `"Redis:Enabled": false` (uses MemoryCache automatically)
+   - **Production/Multiple Instances:** Set `"Redis:Enabled": true` (uses Redis distributed cache)
+4. **No code changes needed!** Just toggle the configuration flag
 
 ### **Scenario 5: "How do I handle file uploads?"**
 

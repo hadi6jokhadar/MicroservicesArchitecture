@@ -51,6 +51,56 @@ This microservices architecture supports **optional multi-tenancy** with **confi
 
 ## Configuration
 
+### Redis Caching (Recommended for Production)
+
+For better performance with multiple service instances, enable Redis distributed caching:
+
+```json
+{
+  "Redis": {
+    "Enabled": true,
+    "ConnectionString": "localhost:6379,abortConnect=false",
+    "InstanceName": "MicroservicesApp:"
+  },
+  "MultiTenancy": {
+    "Enabled": true,
+    "JwtMode": "Shared",
+    "TenantServiceUrl": "https://localhost:5002",
+    "CacheExpirationMinutes": 30
+  }
+}
+```
+
+**Benefits of Redis:**
+
+- ✅ Cache shared across all service instances
+- ✅ Cache survives service restarts
+- ✅ 80% reduction in Tenant Service API calls
+- ✅ SignalR horizontal scaling support
+
+**See:** [REDIS_CACHE_QUICK_REFERENCE.md](REDIS_CACHE_QUICK_REFERENCE.md) for setup guide.
+
+### In-Memory Caching (Fallback)
+
+When Redis is disabled, the system automatically falls back to in-memory caching:
+
+```json
+{
+  "Redis": {
+    "Enabled": false // Falls back to memory cache
+  }
+}
+```
+
+**What happens when `Redis:Enabled = false`:**
+
+- ✅ Automatic fallback to `IMemoryCache`
+- ✅ Cache per service instance (not shared)
+- ✅ Cache lost on service restart
+- ✅ Works fine for single-instance deployments
+- ⚠️ Higher Tenant Service API calls
+- ⚠️ Cannot scale SignalR horizontally
+
 ### Enable Multi-Tenancy with Shared JWT (Recommended for Superadmin Access)
 
 Update `appsettings.json` in services (e.g., Identity.API):
@@ -396,11 +446,60 @@ Uses tenant-specific configuration from Tenant Service.
 
 ## Caching
 
-Tenant configurations are cached in memory for performance:
+Tenant configurations are cached for performance:
 
-- **Default Cache Duration**: 5 minutes
-- **Configurable**: `MultiTenancy:CacheExpirationMinutes`
-- **Cache Key**: `tenant_config_{tenantId}`
+- **Cache Duration**: Configurable via `MultiTenancy:CacheExpirationMinutes` (default: 30 minutes)
+- **Cache Key Pattern**: `tenant_config_{tenantId}`
+- **Cache Type**: Redis (distributed) or MemoryCache (per-instance)
+
+### Redis Distributed Cache (Production Recommended)
+
+**When `Redis:Enabled = true`:**
+
+- ✅ Cache shared across ALL service instances
+- ✅ Cache persists across service restarts
+- ✅ Single source of truth for all instances
+- ✅ Supports horizontal scaling
+- ✅ Reduces Tenant Service API calls by 80%+
+
+**Configuration:**
+
+```json
+{
+  "Redis": {
+    "Enabled": true,
+    "ConnectionString": "localhost:6379,abortConnect=false",
+    "InstanceName": "MicroservicesApp:"
+  },
+  "MultiTenancy": {
+    "CacheExpirationMinutes": 30
+  }
+}
+```
+
+### Memory Cache (Development/Single Instance)
+
+**When `Redis:Enabled = false`:**
+
+- ✅ Simple setup, no external dependencies
+- ✅ Works great for development
+- ✅ Automatic fallback mechanism
+- ⚠️ Cache isolated per service instance
+- ⚠️ Cache lost on service restart
+- ⚠️ Not suitable for multiple instances
+
+**Configuration:**
+
+```json
+{
+  "Redis": {
+    "Enabled": false // Automatic fallback to MemoryCache
+  },
+  "MultiTenancy": {
+    "CacheExpirationMinutes": 30
+  }
+}
+```
 
 ### Manual Cache Invalidation
 

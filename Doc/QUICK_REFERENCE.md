@@ -97,12 +97,19 @@ curl https://localhost:5002/api/your-endpoint \
   "MultiTenancy": {
     "Enabled": true,
     "TenantServiceUrl": "https://localhost:5002",
-    "CacheExpirationMinutes": 5
+    "CacheExpirationMinutes": 30
+  },
+  "Redis": {
+    "Enabled": true,
+    "ConnectionString": "localhost:6379,abortConnect=false",
+    "InstanceName": "MicroservicesApp:"
   }
 }
 ```
 
 **⚠️ Important:** When `Enabled: true`, `x-tenant-id` header is **REQUIRED** for all requests. No fallback to appsettings.json.
+
+**💡 Caching:** Redis enabled for distributed cache (multi-instance support). Set `Redis:Enabled: false` to use in-memory cache fallback.
 
 **⚠️ Startup Configuration:** When multi-tenancy is enabled, skip database initialization at startup:
 

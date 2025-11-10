@@ -373,7 +373,7 @@ builder.Services.AddMultiTenancy(builder.Configuration);
 - ✅ `ITenantContext` - Access current tenant
 - ✅ `ITenantService` - Load tenant configuration from Tenant Service
 - ✅ **Tenant resolution middleware** - Automatically intercepts requests and loads tenant data
-- ✅ In-memory caching - High-performance tenant configuration caching
+- ✅ Distributed/In-memory caching - High-performance tenant configuration caching (Redis with automatic MemoryCache fallback)
 - ✅ HTTP client for Tenant Service - Pre-configured HttpClient
 
 **Important**: You **DO NOT need to manually implement or register the tenant middleware**. It's already included in the shared infrastructure (`IhsanDev.Shared.Infrastructure`) and automatically added to your middleware pipeline when you call `AddMultiTenancy()`.
@@ -1065,7 +1065,7 @@ var order = new Order
 
 ### Tenant Data
 
-1. ✅ **Cache tenant configuration**: Use in-memory cache (already implemented in shared library)
+1. ✅ **Cache tenant configuration**: Use distributed Redis cache or in-memory cache fallback (already implemented in shared library)
 2. ✅ **Handle missing tenants gracefully**: Fall back to default configuration
 3. ✅ **Validate tenant ownership**: Ensure user belongs to the tenant
 4. ✅ **Log tenant context**: Include tenant ID in all logs for tracing

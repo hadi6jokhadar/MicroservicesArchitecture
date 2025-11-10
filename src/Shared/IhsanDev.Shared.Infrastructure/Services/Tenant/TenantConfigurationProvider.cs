@@ -1,26 +1,26 @@
 using System.Text.Json;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using IhsanDev.Shared.Infrastructure.Services.Cache;
 
 namespace IhsanDev.Shared.Infrastructure.Services.Tenant;
 
 /// <summary>
-/// Provides tenant configuration by fetching from Tenant Service API with caching
+/// Provides tenant configuration by fetching from Tenant Service API with distributed caching
 /// </summary>
 public class TenantConfigurationProvider : ITenantConfigurationProvider
 {
     private readonly HttpClient _httpClient;
-    private readonly IMemoryCache _cache;
+    private readonly ICacheService _cache;
     private readonly IConfiguration _configuration;
     private readonly ILogger<TenantConfigurationProvider> _logger;
     private readonly TimeSpan _cacheExpiration;
 
     public TenantConfigurationProvider(
         IHttpClientFactory httpClientFactory,
-        IMemoryCache cache,
+        ICacheService cache,
         IConfiguration configuration,
         ILogger<TenantConfigurationProvider> logger)
     {
@@ -46,7 +46,8 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
 
         // Check cache first
         var cacheKey = $"tenant_config_{tenantId}";
-        if (_cache.TryGetValue<TenantInfo>(cacheKey, out var cachedTenant))
+        var cachedTenant = await _cache.GetAsync<TenantInfo>(cacheKey, cancellationToken);
+        if (cachedTenant != null)
         {
             _logger.LogDebug("Tenant configuration for '{TenantId}' retrieved from cache", tenantId);
             return cachedTenant;
@@ -81,7 +82,7 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
             var tenantInfo = ParseTenantInfo(tenantConfig);
 
             // Cache the result
-            _cache.Set(cacheKey, tenantInfo, _cacheExpiration);
+            await _cache.SetAsync(cacheKey, tenantInfo, _cacheExpiration, cancellationToken);
             _logger.LogInformation("Tenant configuration for '{TenantId}' fetched and cached", tenantId);
 
             return tenantInfo;
@@ -93,18 +94,17 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
         }
     }
 
-    public void ClearCache(string tenantId)
+    public async void ClearCache(string tenantId)
     {
         var cacheKey = $"tenant_config_{tenantId}";
-        _cache.Remove(cacheKey);
+        await _cache.RemoveAsync(cacheKey);
         _logger.LogInformation("Cache cleared for tenant '{TenantId}'", tenantId);
     }
 
-    public void ClearAllCache()
+    public async void ClearAllCache()
     {
-        // Note: IMemoryCache doesn't have a clear all method
-        // In production, consider using distributed cache (Redis) with key patterns
-        _logger.LogWarning("ClearAllCache called - MemoryCache doesn't support clearing all entries");
+        await _cache.RemoveByPatternAsync("tenant_config_*");
+        _logger.LogInformation("All tenant configuration cache cleared");
     }
 
     private TenantInfo ParseTenantInfo(TenantConfigResponse response)

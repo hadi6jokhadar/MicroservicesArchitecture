@@ -220,7 +220,7 @@ builder.Services.AddCors(options =>
 // ============================================
 // SignalR Configuration
 // ============================================
-builder.Services.AddSignalR(options =>
+var signalRBuilder = builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Configuration.GetValue<bool>("SignalR:EnableDetailedErrors", false);
     options.ClientTimeoutInterval = TimeSpan.Parse(
@@ -228,6 +228,55 @@ builder.Services.AddSignalR(options =>
     options.KeepAliveInterval = TimeSpan.Parse(
         builder.Configuration["SignalR:KeepAliveInterval"] ?? "00:00:15");
 });
+
+// Add Redis backplane for horizontal scaling (if enabled)
+var redisEnabled = builder.Configuration.GetValue<bool>("Redis:Enabled", false);
+if (redisEnabled)
+{
+    var redisConnection = builder.Configuration["Redis:ConnectionString"];
+    
+    if (!string.IsNullOrEmpty(redisConnection))
+    {
+        signalRBuilder.AddStackExchangeRedis(redisOptions =>
+        {
+            redisOptions.Configuration.EndPoints.Add(redisConnection.Split(',')[0]);
+            
+            // Parse connection options
+            var connectionParts = redisConnection.Split(',');
+            foreach (var part in connectionParts.Skip(1))
+            {
+                if (part.Trim().StartsWith("abortConnect=", StringComparison.OrdinalIgnoreCase))
+                {
+                    var value = part.Split('=')[1].Trim();
+                    redisOptions.Configuration.AbortOnConnectFail = bool.Parse(value);
+                }
+                else if (part.Trim().StartsWith("password=", StringComparison.OrdinalIgnoreCase))
+                {
+                    var value = part.Split('=')[1].Trim();
+                    redisOptions.Configuration.Password = value;
+                }
+                else if (part.Trim().StartsWith("ssl=", StringComparison.OrdinalIgnoreCase))
+                {
+                    var value = part.Split('=')[1].Trim();
+                    redisOptions.Configuration.Ssl = bool.Parse(value);
+                }
+            }
+            
+            // Set channel prefix for SignalR messages
+            redisOptions.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("SignalR");
+        });
+        
+        Console.WriteLine($"SignalR Redis backplane configured with connection: {redisConnection}");
+    }
+    else
+    {
+        Console.WriteLine("WARNING: Redis is enabled but connection string is missing. SignalR running without backplane (single instance only)");
+    }
+}
+else
+{
+    Console.WriteLine("INFO: Redis is disabled. SignalR running without backplane (single instance only)");
+}
 
 // Configure SignalR hub authorization
 builder.Services.AddAuthorization(options =>
