@@ -23,6 +23,8 @@ public class NotificationProcessor : BackgroundService
     private readonly int _minBatchSize;
     private readonly int _maxBatchSize;
     private readonly bool _dynamicBatchSizing;
+    private readonly int _maxRetryAttempts;
+    private readonly int _baseRetryDelaySeconds;
 
     public NotificationProcessor(
         IServiceProvider serviceProvider,
@@ -42,9 +44,13 @@ public class NotificationProcessor : BackgroundService
         _maxBatchSize = configuration.GetValue<int>("NotificationProcessing:MaxBatchSize", 500);
         _dynamicBatchSizing = configuration.GetValue<bool>("NotificationProcessing:DynamicBatchSizing", true);
         
+        // Retry configuration with exponential backoff
+        _maxRetryAttempts = configuration.GetValue<int>("NotificationProcessing:MaxRetryAttempts", 3);
+        _baseRetryDelaySeconds = configuration.GetValue<int>("NotificationProcessing:RetryDelaySeconds", 30);
+        
         _logger.LogInformation(
-            "Notification Processor configured - Interval: {Interval}s, Dynamic Batching: {Dynamic}, Range: {Min}-{Max}",
-            intervalSeconds, _dynamicBatchSizing, _minBatchSize, _maxBatchSize);
+            "Notification Processor configured - Interval: {Interval}s, Dynamic Batching: {Dynamic}, Range: {Min}-{Max}, MaxRetries: {Retries}, BaseRetryDelay: {RetryDelay}s",
+            intervalSeconds, _dynamicBatchSizing, _minBatchSize, _maxBatchSize, _maxRetryAttempts, _baseRetryDelaySeconds);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -77,9 +83,12 @@ public class NotificationProcessor : BackgroundService
         // Calculate dynamic batch size based on queue depth
         var batchSize = await CalculateBatchSizeAsync(globalDbContext, cancellationToken);
 
-        // Get pending items that haven't expired
+        // Get pending items that haven't expired and are ready for (re)processing
+        // Exponential backoff: NextRetryAt field determines when failed items can retry
         var pendingItems = await globalDbContext.NotificationQueue
-            .Where(q => q.QueueStatus == QueueStatus.Pending && q.ExpiresAt > DateTime.UtcNow)
+            .Where(q => q.QueueStatus == QueueStatus.Pending 
+                && q.ExpiresAt > DateTime.UtcNow
+                && (q.NextRetryAt == null || q.NextRetryAt <= DateTime.UtcNow)) // Ready for retry
             .OrderBy(q => q.Priority) // Immediate first, then Waitable
             .ThenBy(q => q.Created)
             .Take(batchSize) // Dynamic batch size for 100k scale
@@ -95,14 +104,57 @@ public class NotificationProcessor : BackgroundService
             pendingItems.Count, 
             batchSize);
 
-        foreach (var item in pendingItems)
+        // Group notifications by tenant for parallel processing
+        var groupedByTenant = pendingItems
+            .GroupBy(item => item.TenantId ?? "global")
+            .ToList();
+
+        _logger.LogDebug(
+            "Grouped {TotalNotifications} notifications into {GroupCount} tenant groups",
+            pendingItems.Count,
+            groupedByTenant.Count);
+
+        // Process each tenant group in parallel
+        var processingTasks = groupedByTenant.Select(async tenantGroup =>
+        {
+            var tenantId = tenantGroup.Key;
+            var items = tenantGroup.ToList();
+
+            try
+            {
+                await ProcessTenantGroupAsync(scope, globalDbContext, hubContext, tenantId, items, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing tenant group {TenantId} with {Count} items", tenantId, items.Count);
+            }
+        });
+
+        // Wait for all tenant groups to complete
+        await Task.WhenAll(processingTasks);
+    }
+
+    /// <summary>
+    /// Process a group of notifications for a single tenant in batch
+    /// Optimizes database operations by batching SaveChanges calls
+    /// </summary>
+    private async Task ProcessTenantGroupAsync(
+        IServiceScope scope,
+        NotificationDbContext globalDbContext,
+        IHubContext<NotificationHub> hubContext,
+        string tenantId,
+        List<Domain.Entities.NotificationQueueItem> items,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Processing {Count} notifications for tenant {TenantId}", items.Count, tenantId);
+
+        foreach (var item in items)
         {
             try
             {
                 // Mark as processing
                 item.QueueStatus = QueueStatus.Processing;
                 item.LastModified = DateTime.UtcNow;
-                await globalDbContext.SaveChangesAsync(cancellationToken);
 
                 // Step 1: Persist to tenant database (if tenant-specific)
                 int? persistedNotificationId = null;
@@ -133,23 +185,25 @@ public class NotificationProcessor : BackgroundService
                 item.ProcessedAt = DateTime.UtcNow;
                 item.LastModified = DateTime.UtcNow;
 
-                _logger.LogInformation(
-                    "Notification processed: {QueueItemId} for User: {UserId}, Tenant: {TenantId}, DeliveryType: {DeliveryType}",
+                _logger.LogDebug(
+                    "Notification processed: {QueueItemId} for User: {UserId}, Tenant: {TenantId}",
                     item.Id,
                     item.UserId ?? 0,
-                    item.TenantId ?? "none",
-                    item.DeliveryType);
+                    item.TenantId ?? "none");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing notification {QueueItemId}", item.Id);
                 
-                // Mark as failed after max retries
+                // Increment retry count
                 item.RetryCount++;
-                if (item.RetryCount >= 3)
+                
+                // Check if max retries exceeded
+                if (item.RetryCount >= _maxRetryAttempts)
                 {
                     item.QueueStatus = QueueStatus.Failed;
                     item.Error = ex.Message;
+                    item.NextRetryAt = null; // No more retries
                     _logger.LogError(
                         "Notification {QueueItemId} failed after {RetryCount} attempts: {Error}",
                         item.Id,
@@ -158,16 +212,37 @@ public class NotificationProcessor : BackgroundService
                 }
                 else
                 {
-                    item.QueueStatus = QueueStatus.Pending; // Retry later
+                    // Exponential backoff: delay = baseDelay * 2^(retryCount - 1)
+                    // Retry 1: 30s, Retry 2: 60s, Retry 3: 120s
+                    var delaySeconds = _baseRetryDelaySeconds * Math.Pow(2, item.RetryCount - 1);
+                    item.NextRetryAt = DateTime.UtcNow.AddSeconds(delaySeconds);
+                    item.QueueStatus = QueueStatus.Pending; // Will retry after NextRetryAt
+                    
                     _logger.LogWarning(
-                        "Notification {QueueItemId} retry {RetryCount}/3",
+                        "Notification {QueueItemId} retry {RetryCount}/{MaxRetries} scheduled for {NextRetryAt} (delay: {DelaySeconds}s)",
                         item.Id,
-                        item.RetryCount);
+                        item.RetryCount,
+                        _maxRetryAttempts,
+                        item.NextRetryAt,
+                        delaySeconds);
                 }
                 item.LastModified = DateTime.UtcNow;
             }
+        }
 
+        // Batch save all changes for this tenant group
+        try
+        {
             await globalDbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation(
+                "Completed processing {Count} notifications for tenant {TenantId}",
+                items.Count,
+                tenantId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save changes for tenant {TenantId}", tenantId);
+            throw;
         }
     }
 

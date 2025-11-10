@@ -57,6 +57,12 @@ public class NotificationQueueItem : BaseEntity
     public int RetryCount { get; set; } = 0;
 
     /// <summary>
+    /// Next retry timestamp (for exponential backoff)
+    /// Null = ready for immediate processing
+    /// </summary>
+    public DateTime? NextRetryAt { get; set; }
+
+    /// <summary>
     /// Timestamp when notification was processed
     /// </summary>
     public DateTime? ProcessedAt { get; set; }
