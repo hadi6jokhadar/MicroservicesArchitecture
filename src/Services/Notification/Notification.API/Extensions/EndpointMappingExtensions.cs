@@ -19,13 +19,16 @@ public static class EndpointMappingExtensions
 
         // Send notification (accessible by users, services, and SuperAdmin)
         // Note: Bypasses tenant middleware - tenantId comes from request body instead of x-tenant-id header
+        // Rate limited per-tenant to prevent DoS attacks
         notificationGroup.MapPost("/send", NotificationApiHandlers.SendNotificationHandler)
             .WithName("SendNotification")
             .WithSummary("Send a notification")
-            .WithDescription("Queue a notification for delivery to a user via SignalR or Firebase. TenantId should be provided in the request body. Accessible by authenticated users, internal services, and SuperAdmin.")
+            .WithDescription("Queue a notification for delivery to a user via SignalR or Firebase. TenantId should be provided in the request body. Accessible by authenticated users, internal services, and SuperAdmin. Rate limited to 1000 requests/minute per tenant.")
             .WithMetadata(new BypassTenantAttribute())
+            .RequireRateLimiting("PerTenant")
             .Produces<SendNotificationResponse>(200)
-            .ProducesValidationProblem();
+            .ProducesValidationProblem()
+            .Produces(429); // Too Many Requests
 
         // Note: Acknowledgment is handled via SignalR Hub.AcknowledgeDelivery() method
         // No need for duplicate REST API endpoint

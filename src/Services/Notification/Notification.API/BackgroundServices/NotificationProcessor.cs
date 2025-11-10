@@ -20,6 +20,9 @@ public class NotificationProcessor : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<NotificationProcessor> _logger;
     private readonly TimeSpan _processingInterval;
+    private readonly int _minBatchSize;
+    private readonly int _maxBatchSize;
+    private readonly bool _dynamicBatchSizing;
 
     public NotificationProcessor(
         IServiceProvider serviceProvider,
@@ -28,11 +31,20 @@ public class NotificationProcessor : BackgroundService
         _serviceProvider = serviceProvider;
         _logger = logger;
         
-        // Get processing interval from configuration (default 5 seconds)
+        // Get processing interval from configuration (default 2 seconds for 100k scale)
         using var scope = _serviceProvider.CreateScope();
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-        var intervalSeconds = configuration.GetValue<int>("NotificationProcessing:ProcessingIntervalSeconds", 5);
+        var intervalSeconds = configuration.GetValue<int>("NotificationProcessing:ProcessingIntervalSeconds", 2);
         _processingInterval = TimeSpan.FromSeconds(intervalSeconds);
+        
+        // Dynamic batch sizing configuration
+        _minBatchSize = configuration.GetValue<int>("NotificationProcessing:MinBatchSize", 50);
+        _maxBatchSize = configuration.GetValue<int>("NotificationProcessing:MaxBatchSize", 500);
+        _dynamicBatchSizing = configuration.GetValue<bool>("NotificationProcessing:DynamicBatchSizing", true);
+        
+        _logger.LogInformation(
+            "Notification Processor configured - Interval: {Interval}s, Dynamic Batching: {Dynamic}, Range: {Min}-{Max}",
+            intervalSeconds, _dynamicBatchSizing, _minBatchSize, _maxBatchSize);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -62,12 +74,15 @@ public class NotificationProcessor : BackgroundService
         var globalDbContext = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
         var hubContext = scope.ServiceProvider.GetRequiredService<IHubContext<NotificationHub>>();
 
+        // Calculate dynamic batch size based on queue depth
+        var batchSize = await CalculateBatchSizeAsync(globalDbContext, cancellationToken);
+
         // Get pending items that haven't expired
         var pendingItems = await globalDbContext.NotificationQueue
             .Where(q => q.QueueStatus == QueueStatus.Pending && q.ExpiresAt > DateTime.UtcNow)
             .OrderBy(q => q.Priority) // Immediate first, then Waitable
             .ThenBy(q => q.Created)
-            .Take(50) // Process in batches
+            .Take(batchSize) // Dynamic batch size for 100k scale
             .ToListAsync(cancellationToken);
 
         if (!pendingItems.Any())
@@ -75,7 +90,10 @@ public class NotificationProcessor : BackgroundService
             return;
         }
 
-        _logger.LogInformation("Processing {Count} pending notifications", pendingItems.Count);
+        _logger.LogInformation(
+            "Processing {Count} pending notifications (batch size: {BatchSize})", 
+            pendingItems.Count, 
+            batchSize);
 
         foreach (var item in pendingItems)
         {
@@ -151,6 +169,55 @@ public class NotificationProcessor : BackgroundService
 
             await globalDbContext.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Calculate dynamic batch size based on queue depth
+    /// Scales from MinBatchSize (50) to MaxBatchSize (500) based on pending items
+    /// Critical for handling 100k+ concurrent users
+    /// </summary>
+    private async Task<int> CalculateBatchSizeAsync(
+        NotificationDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        if (!_dynamicBatchSizing)
+        {
+            // Use max batch size if dynamic sizing is disabled
+            return _maxBatchSize;
+        }
+
+        // Count pending items in queue
+        var pendingCount = await dbContext.NotificationQueue
+            .CountAsync(q => q.QueueStatus == QueueStatus.Pending && q.ExpiresAt > DateTime.UtcNow, 
+                cancellationToken);
+
+        // Calculate batch size based on queue depth
+        // Low load (< 100): Use minimum batch size (50)
+        // Medium load (100-1000): Scale linearly
+        // High load (> 1000): Use maximum batch size (500)
+        int batchSize;
+        
+        if (pendingCount < 100)
+        {
+            batchSize = _minBatchSize;
+        }
+        else if (pendingCount > 1000)
+        {
+            batchSize = _maxBatchSize;
+        }
+        else
+        {
+            // Linear scaling between min and max
+            var scaleFactor = (pendingCount - 100) / 900.0; // 0.0 to 1.0
+            batchSize = _minBatchSize + (int)((_maxBatchSize - _minBatchSize) * scaleFactor);
+        }
+
+        _logger.LogDebug(
+            "Dynamic batch sizing: {PendingCount} pending items → batch size {BatchSize}",
+            pendingCount,
+            batchSize);
+
+        return batchSize;
     }
 
     /// <summary>

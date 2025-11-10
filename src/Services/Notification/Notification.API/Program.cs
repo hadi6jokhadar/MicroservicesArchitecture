@@ -218,15 +218,20 @@ builder.Services.AddCors(options =>
 });
 
 // ============================================
-// SignalR Configuration
+// SignalR Configuration (Optimized for 100k+ connections)
 // ============================================
 var signalRBuilder = builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Configuration.GetValue<bool>("SignalR:EnableDetailedErrors", false);
     options.ClientTimeoutInterval = TimeSpan.Parse(
-        builder.Configuration["SignalR:ClientTimeoutInterval"] ?? "00:01:00");
+        builder.Configuration["SignalR:ClientTimeoutInterval"] ?? "00:02:00");
     options.KeepAliveInterval = TimeSpan.Parse(
-        builder.Configuration["SignalR:KeepAliveInterval"] ?? "00:00:15");
+        builder.Configuration["SignalR:KeepAliveInterval"] ?? "00:00:30");
+    
+    // Optimizations for high-scale (100k+ connections)
+    options.MaximumReceiveMessageSize = builder.Configuration.GetValue<long?>("SignalR:MaximumReceiveMessageSize") ?? 102400; // 100KB
+    options.StreamBufferCapacity = builder.Configuration.GetValue<int>("SignalR:StreamBufferCapacity", 10);
+    options.MaximumParallelInvocationsPerClient = 1; // Prevent client abuse
 });
 
 // Add Redis backplane for horizontal scaling (if enabled)
@@ -297,6 +302,84 @@ builder.Services.AddResponseCompression(options =>
     options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
     options.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults.MimeTypes.Concat(
         new[] { "application/octet-stream" }); // For SignalR
+});
+
+// ============================================
+// Rate Limiting (DoS Protection)
+// ============================================
+builder.Services.AddRateLimiter(options =>
+{
+    // Global rate limit across all requests
+    options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: "global",
+            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:Global:PermitLimit", 10000),
+                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:Global:WindowMinutes", 1)),
+                QueueLimit = 0
+            }));
+
+    // Per-IP rate limiting
+    options.AddPolicy("PerIP", context =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PerIP:PermitLimit", 100),
+                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:PerIP:WindowMinutes", 1)),
+                QueueLimit = 10
+            }));
+
+    // Per-Tenant rate limiting (for multi-tenant scenarios)
+    options.AddPolicy("PerTenant", context =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Request.Headers["x-tenant-id"].FirstOrDefault() ?? "default",
+            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PerTenant:PermitLimit", 1000),
+                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:PerTenant:WindowMinutes", 1)),
+                QueueLimit = 50
+            }));
+
+    // Per-User rate limiting (for authenticated requests)
+    options.AddPolicy("PerUser", context =>
+    {
+        var userId = context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
+        return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: userId,
+            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PerUser:PermitLimit", 500),
+                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:PerUser:WindowMinutes", 1)),
+                QueueLimit = 20
+            });
+    });
+
+    // Rejection status code
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // On rejected - log the rate limit violation
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+        var endpoint = context.HttpContext.GetEndpoint()?.DisplayName ?? "Unknown";
+        var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+        var tenantId = context.HttpContext.Request.Headers["x-tenant-id"].FirstOrDefault() ?? "None";
+        
+        logger.LogWarning("Rate limit exceeded - Endpoint: {Endpoint}, IP: {IP}, TenantId: {TenantId}", 
+            endpoint, ip, tenantId);
+
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            error = "Too many requests",
+            message = "Rate limit exceeded. Please try again later.",
+            retryAfter = context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter)
+                ? retryAfter.TotalSeconds
+                : 60
+        }, cancellationToken);
+    };
 });
 
 // ============================================
@@ -400,6 +483,9 @@ app.UseSwaggerUI();
 
 app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance
+
+// Rate limiting (must be early in pipeline)
+app.UseRateLimiter();
 
 // Only redirect to HTTPS in production (disabled in development for easier testing)
 if (!app.Environment.IsDevelopment())
