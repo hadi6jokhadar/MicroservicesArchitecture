@@ -25,6 +25,10 @@ public class NotificationProcessor : BackgroundService
     private readonly bool _dynamicBatchSizing;
     private readonly int _maxRetryAttempts;
     private readonly int _baseRetryDelaySeconds;
+    private readonly bool _priorityQueueEnabled;
+    private readonly int _immediatePriorityPercentage;
+    private readonly int _waitablePriorityPercentage;
+    private readonly int _waitableAgingThresholdMinutes;
 
     public NotificationProcessor(
         IServiceProvider serviceProvider,
@@ -48,9 +52,16 @@ public class NotificationProcessor : BackgroundService
         _maxRetryAttempts = configuration.GetValue<int>("NotificationProcessing:MaxRetryAttempts", 3);
         _baseRetryDelaySeconds = configuration.GetValue<int>("NotificationProcessing:RetryDelaySeconds", 30);
         
+        // Priority queue configuration
+        _priorityQueueEnabled = configuration.GetValue<bool>("NotificationProcessing:PriorityQueueEnabled", true);
+        _immediatePriorityPercentage = configuration.GetValue<int>("NotificationProcessing:ImmediatePriorityPercentage", 80);
+        _waitablePriorityPercentage = configuration.GetValue<int>("NotificationProcessing:WaitablePriorityPercentage", 20);
+        _waitableAgingThresholdMinutes = configuration.GetValue<int>("NotificationProcessing:WaitableAgingThresholdMinutes", 60);
+        
         _logger.LogInformation(
-            "Notification Processor configured - Interval: {Interval}s, Dynamic Batching: {Dynamic}, Range: {Min}-{Max}, MaxRetries: {Retries}, BaseRetryDelay: {RetryDelay}s",
-            intervalSeconds, _dynamicBatchSizing, _minBatchSize, _maxBatchSize, _maxRetryAttempts, _baseRetryDelaySeconds);
+            "Notification Processor configured - Interval: {Interval}s, Dynamic Batching: {Dynamic}, Range: {Min}-{Max}, MaxRetries: {Retries}, BaseRetryDelay: {RetryDelay}s, PriorityQueue: {PriorityQueue} (Immediate: {Immediate}%, Waitable: {Waitable}%, Aging: {Aging}min)",
+            intervalSeconds, _dynamicBatchSizing, _minBatchSize, _maxBatchSize, _maxRetryAttempts, _baseRetryDelaySeconds, 
+            _priorityQueueEnabled, _immediatePriorityPercentage, _waitablePriorityPercentage, _waitableAgingThresholdMinutes);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -83,16 +94,25 @@ public class NotificationProcessor : BackgroundService
         // Calculate dynamic batch size based on queue depth
         var batchSize = await CalculateBatchSizeAsync(globalDbContext, cancellationToken);
 
-        // Get pending items that haven't expired and are ready for (re)processing
-        // Exponential backoff: NextRetryAt field determines when failed items can retry
-        var pendingItems = await globalDbContext.NotificationQueue
-            .Where(q => q.QueueStatus == QueueStatus.Pending 
-                && q.ExpiresAt > DateTime.UtcNow
-                && (q.NextRetryAt == null || q.NextRetryAt <= DateTime.UtcNow)) // Ready for retry
-            .OrderBy(q => q.Priority) // Immediate first, then Waitable
-            .ThenBy(q => q.Created)
-            .Take(batchSize) // Dynamic batch size for 100k scale
-            .ToListAsync(cancellationToken);
+        List<Domain.Entities.NotificationQueueItem> pendingItems;
+
+        if (_priorityQueueEnabled)
+        {
+            // Weighted priority batching to prevent starvation
+            pendingItems = await GetWeightedPriorityBatchAsync(globalDbContext, batchSize, cancellationToken);
+        }
+        else
+        {
+            // Simple priority-based query (old behavior)
+            pendingItems = await globalDbContext.NotificationQueue
+                .Where(q => q.QueueStatus == QueueStatus.Pending 
+                    && q.ExpiresAt > DateTime.UtcNow
+                    && (q.NextRetryAt == null || q.NextRetryAt <= DateTime.UtcNow))
+                .OrderBy(q => q.Priority)
+                .ThenBy(q => q.Created)
+                .Take(batchSize)
+                .ToListAsync(cancellationToken);
+        }
 
         if (!pendingItems.Any())
         {
@@ -100,9 +120,11 @@ public class NotificationProcessor : BackgroundService
         }
 
         _logger.LogInformation(
-            "Processing {Count} pending notifications (batch size: {BatchSize})", 
+            "Processing {Count} pending notifications (batch size: {BatchSize}, Immediate: {ImmediateCount}, Waitable: {WaitableCount})", 
             pendingItems.Count, 
-            batchSize);
+            batchSize,
+            pendingItems.Count(x => x.Priority == Priority.Immediate),
+            pendingItems.Count(x => x.Priority == Priority.Waitable));
 
         // Group notifications by tenant for parallel processing
         var groupedByTenant = pendingItems
@@ -293,6 +315,64 @@ public class NotificationProcessor : BackgroundService
             batchSize);
 
         return batchSize;
+    }
+
+    /// <summary>
+    /// Get weighted priority batch to prevent starvation of low-priority notifications
+    /// Implements weighted batching: 80% Immediate, 20% Waitable
+    /// Age-based boost: Waitable items older than threshold become Immediate priority
+    /// </summary>
+    private async Task<List<Domain.Entities.NotificationQueueItem>> GetWeightedPriorityBatchAsync(
+        NotificationDbContext dbContext,
+        int totalBatchSize,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var agingThreshold = now.AddMinutes(-_waitableAgingThresholdMinutes);
+
+        // Calculate allocation per priority
+        var immediateCount = (int)(totalBatchSize * (_immediatePriorityPercentage / 100.0));
+        var waitableCount = totalBatchSize - immediateCount;
+
+        _logger.LogDebug(
+            "Weighted priority batching - Total: {Total}, Immediate: {Immediate} ({ImmediatePercent}%), Waitable: {Waitable} ({WaitablePercent}%)",
+            totalBatchSize, immediateCount, _immediatePriorityPercentage, waitableCount, _waitablePriorityPercentage);
+
+        // Fetch Immediate priority items (includes aged Waitable items)
+        var immediateItems = await dbContext.NotificationQueue
+            .Where(q => q.QueueStatus == QueueStatus.Pending 
+                && q.ExpiresAt > now
+                && (q.NextRetryAt == null || q.NextRetryAt <= now)
+                && (q.Priority == Priority.Immediate || q.Created < agingThreshold)) // Age boost
+            .OrderBy(q => q.Created) // FIFO for fairness
+            .Take(immediateCount)
+            .ToListAsync(cancellationToken);
+
+        // Fetch Waitable priority items (not yet aged)
+        var waitableItems = await dbContext.NotificationQueue
+            .Where(q => q.QueueStatus == QueueStatus.Pending 
+                && q.ExpiresAt > now
+                && (q.NextRetryAt == null || q.NextRetryAt <= now)
+                && q.Priority == Priority.Waitable
+                && q.Created >= agingThreshold) // Not aged yet
+            .OrderBy(q => q.Created) // FIFO for fairness
+            .Take(waitableCount)
+            .ToListAsync(cancellationToken);
+
+        var agedWaitableCount = immediateItems.Count(x => x.Priority == Priority.Waitable && x.Created < agingThreshold);
+
+        _logger.LogDebug(
+            "Fetched weighted batch - Immediate: {ImmediateCount} (aged Waitable: {AgedCount}), Waitable: {WaitableCount}",
+            immediateItems.Count,
+            agedWaitableCount,
+            waitableItems.Count);
+
+        // Combine both lists
+        var result = new List<Domain.Entities.NotificationQueueItem>(immediateItems.Count + waitableItems.Count);
+        result.AddRange(immediateItems);
+        result.AddRange(waitableItems);
+
+        return result;
     }
 
     /// <summary>

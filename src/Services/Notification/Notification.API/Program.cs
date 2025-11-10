@@ -449,6 +449,24 @@ builder.Services.AddAutoMapper(
 );
 
 // ============================================
+// Health Checks
+// ============================================
+var healthCheckEnabled = builder.Configuration.GetValue<bool>("DatabaseSettings:HealthCheckEnabled", true);
+if (healthCheckEnabled)
+{
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(
+            connectionString: builder.Configuration["DatabaseSettings:ConnectionString"]!,
+            name: "notification-global-database",
+            tags: new[] { "database", "postgresql", "global" },
+            timeout: TimeSpan.FromSeconds(5))
+        .AddCheck(
+            name: "notification-service",
+            () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Notification service is running"),
+            tags: new[] { "service" });
+}
+
+// ============================================
 // Build & Configure Pipeline
 // ============================================
 var app = builder.Build();
@@ -457,6 +475,10 @@ var app = builder.Build();
 // Log Startup Configuration
 // ============================================
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
+if (healthCheckEnabled)
+{
+    logger.LogInformation("Health checks enabled for database monitoring and automatic failover");
+}
 logger.LogInformation("========================================");
 logger.LogInformation("Notification API Starting...");
 logger.LogInformation("========================================");
@@ -551,9 +573,43 @@ app.MapHub<NotificationHub>("/hubs/notifications")
 // ============================================
 // Health Check
 // ============================================
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "notification" }))
-    .WithName("HealthCheck")
+if (healthCheckEnabled)
+{
+    app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var result = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                status = report.Status.ToString(),
+                checks = report.Entries.Select(e => new
+                {
+                    name = e.Key,
+                    status = e.Value.Status.ToString(),
+                    description = e.Value.Description,
+                    duration = e.Value.Duration.TotalMilliseconds
+                }),
+                totalDuration = report.TotalDuration.TotalMilliseconds
+            });
+            await context.Response.WriteAsync(result);
+        }
+    })
+    .WithName("DetailedHealthCheck")
     .AllowAnonymous();
+    
+    // Simple health check for load balancers
+    app.MapHealthChecks("/health/ready")
+        .WithName("ReadinessCheck")
+        .AllowAnonymous();
+}
+else
+{
+    // Fallback simple health check
+    app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "notification" }))
+        .WithName("HealthCheck")
+        .AllowAnonymous();
+}
 
 // ============================================
 // Start Application

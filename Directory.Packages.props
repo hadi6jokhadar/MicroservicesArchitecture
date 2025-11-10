@@ -45,6 +45,8 @@
     <!-- Redis Caching -->
     <PackageVersion Include="StackExchange.Redis" Version="2.7.10" />
     <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.0" />
+    <!-- Health Checks -->
+    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.1" />
     <!-- Firebase -->
     <PackageVersion Include="FirebaseAdmin" Version="3.0.1" />
     <!-- Testing -->

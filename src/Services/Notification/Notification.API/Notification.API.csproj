@@ -17,6 +17,8 @@
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <!-- SignalR Redis Backplane -->
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" />
+    <!-- Health Checks -->
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
   </ItemGroup>
 
   <ItemGroup>
