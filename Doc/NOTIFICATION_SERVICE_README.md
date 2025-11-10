@@ -386,6 +386,7 @@ console.log("Connected to notification hub!");
 ```
 
 **Connection String Breakdown:**
+
 - `Host=localhost,localhost:5433` - Multi-host support for automatic failover
 - `Port=5432` - Primary database port
 - `Minimum Pool Size=20` - Always-ready connections
@@ -429,6 +430,7 @@ console.log("Connected to notification hub!");
 ```
 
 **Performance Features:**
+
 - **Dynamic Batch Sizing**: Automatically scales from 50-500 based on queue depth
 - **Priority Queue**: Weighted batching prevents Waitable notification starvation
 - **Age-Based Boost**: Old Waitable items automatically promoted to Immediate
@@ -469,6 +471,7 @@ console.log("Connected to notification hub!");
 ```
 
 **Benefits:**
+
 - Shared cache across all service instances
 - 95%+ cache hit rate for tenant configuration
 - Automatic fallback to MemoryCache when disabled

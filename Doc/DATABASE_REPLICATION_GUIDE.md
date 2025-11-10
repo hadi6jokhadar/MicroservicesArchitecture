@@ -29,11 +29,13 @@ This guide provides step-by-step instructions to set up PostgreSQL primary-repli
 ### Why Database Replication?
 
 **Current Risk:**
+
 - Global queue database is a single point of failure
 - If database goes down, **ALL tenants** lose notification functionality
 - No automatic failover or disaster recovery
 
 **Solution Benefits:**
+
 - ✅ **High Availability:** Automatic failover to replica
 - ✅ **Disaster Recovery:** Data replicated to secondary server
 - ✅ **Read Scaling:** Distribute read queries to replicas
@@ -87,6 +89,7 @@ This guide provides step-by-step instructions to set up PostgreSQL primary-repli
 ### Replication Types
 
 1. **Asynchronous Replication** (Default)
+
    - Primary doesn't wait for replica confirmation
    - Higher performance, minimal data loss risk
    - Recommended for most use cases
@@ -116,11 +119,13 @@ This guide provides step-by-step instructions to set up PostgreSQL primary-repli
 ### Hardware Requirements
 
 **Primary Server:**
+
 - CPU: 4+ cores
 - RAM: 8GB+ (16GB recommended for 100k users)
 - Disk: 100GB+ SSD (fast I/O critical)
 
 **Replica Server:**
+
 - CPU: 4+ cores
 - RAM: 8GB+
 - Disk: 100GB+ SSD (same size as primary)
@@ -276,7 +281,7 @@ psql -U postgres -c "SELECT * FROM pg_replication_slots;"
 
 ```sql
 -- On PRIMARY
-SELECT 
+SELECT
     client_addr,
     state,
     sync_state,
@@ -287,6 +292,7 @@ FROM pg_stat_replication;
 ```
 
 **Expected Output:**
+
 ```
  client_addr | state     | sync_state | replay_lag | write_lag | flush_lag
 -------------+-----------+------------+------------+-----------+-----------
@@ -323,7 +329,7 @@ SELECT * FROM replication_test;
 ### Docker Compose Setup
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   postgres-primary:
@@ -396,6 +402,7 @@ networks:
 ```
 
 **Npgsql Features:**
+
 - `Target Session Attributes=read-write` - Only connect to primary
 - `Load Balance Hosts=true` - Try hosts in random order
 - Automatic failover if primary is down
@@ -429,6 +436,7 @@ Host=primary,replica;Port=5432,5433;...
 ```
 
 **Behavior:**
+
 1. Try to connect to `primary:5432`
 2. If fails, try `replica:5433`
 3. Promote replica to primary (manual step)
@@ -514,7 +522,7 @@ app.MapHealthChecks("/health/database", new HealthCheckOptions
 
 ```sql
 -- Query on PRIMARY
-SELECT 
+SELECT
     client_addr,
     application_name,
     state,
@@ -524,6 +532,7 @@ FROM pg_stat_replication;
 ```
 
 **Alert Thresholds:**
+
 - ⚠️ Warning: Lag > 10 seconds
 - 🔴 Critical: Lag > 60 seconds
 
@@ -538,7 +547,7 @@ REPLICA_HOST="postgres-replica"
 LAG_THRESHOLD=10  # seconds
 
 LAG=$(psql -h $PRIMARY_HOST -U postgres -t -c "
-SELECT COALESCE(EXTRACT(EPOCH FROM MAX(replay_lag)), 0) 
+SELECT COALESCE(EXTRACT(EPOCH FROM MAX(replay_lag)), 0)
 FROM pg_stat_replication;
 ")
 
@@ -619,12 +628,14 @@ SELECT * FROM test_replication ORDER BY id DESC LIMIT 1;
 ### Issue: Replica Not Connecting
 
 **Symptoms:**
+
 - Replica logs show "could not connect to primary"
 - No entries in `pg_stat_replication` on primary
 
 **Solutions:**
 
 1. **Check Network Connectivity**
+
    ```bash
    # From replica
    ping postgres-primary
@@ -632,22 +643,25 @@ SELECT * FROM test_replication ORDER BY id DESC LIMIT 1;
    ```
 
 2. **Verify `pg_hba.conf`**
+
    ```bash
    # On primary
    cat /etc/postgresql/pg_hba.conf | grep replication
    ```
 
 3. **Check Replication User**
+
    ```sql
    -- On primary
    SELECT rolname, rolreplication FROM pg_roles WHERE rolname = 'replicator';
    ```
 
 4. **Review Logs**
+
    ```bash
    # Primary logs
    docker logs postgres-primary | grep replication
-   
+
    # Replica logs
    docker logs postgres-replica | grep "could not"
    ```
@@ -655,22 +669,26 @@ SELECT * FROM test_replication ORDER BY id DESC LIMIT 1;
 ### Issue: High Replication Lag
 
 **Symptoms:**
+
 - `replay_lag` > 10 seconds
 - Data not appearing on replica quickly
 
 **Solutions:**
 
 1. **Increase WAL Sender Processes**
+
    ```conf
    # postgresql.conf
    max_wal_senders = 20  # Increase from 10
    ```
 
 2. **Optimize Network**
+
    - Increase network bandwidth
    - Reduce latency between primary and replica
 
 3. **Tune Replica Performance**
+
    ```conf
    # postgresql.conf (replica)
    max_standby_streaming_delay = 60s  # Increase from 30s
@@ -686,17 +704,20 @@ SELECT * FROM test_replication ORDER BY id DESC LIMIT 1;
 ### Issue: Replication Slot Full
 
 **Symptoms:**
+
 - Primary disk fills up with WAL files
 - Logs show "replication slot is full"
 
 **Solutions:**
 
 1. **Check Slot Status**
+
    ```sql
    SELECT * FROM pg_replication_slots;
    ```
 
 2. **Increase `wal_keep_size`**
+
    ```conf
    # postgresql.conf
    wal_keep_size = 2GB  # Increase from 1GB
@@ -712,6 +733,7 @@ SELECT * FROM test_replication ORDER BY id DESC LIMIT 1;
 ## Summary
 
 ✅ **Completed Steps:**
+
 1. Configure primary database for replication
 2. Create replication user
 3. Set up replica with base backup
@@ -720,6 +742,7 @@ SELECT * FROM test_replication ORDER BY id DESC LIMIT 1;
 6. Add health checks and monitoring
 
 🎯 **Production Readiness:**
+
 - High availability: ✅
 - Automatic failover: ✅
 - Data redundancy: ✅
@@ -727,6 +750,7 @@ SELECT * FROM test_replication ORDER BY id DESC LIMIT 1;
 - Documented procedures: ✅
 
 🔥 **Critical Next Steps:**
+
 1. Set up automated monitoring alerts
 2. Practice failover procedures
 3. Configure backup strategy

@@ -90,7 +90,7 @@ This guide provides step-by-step instructions for setting up PostgreSQL primary-
 │ (Port 5432)   │    │  (Port 5433)  │
 └───────────────┘    └───────────────┘
    Write Master       Read Replica
-                      
+
    ✅ Automatic Failover
    ✅ High Availability
 ```
@@ -334,7 +334,7 @@ export DATABASE_PASSWORD="secure_password_from_keyvault"
 
 ```sql
 -- View active replication connections
-SELECT 
+SELECT
     application_name,
     client_addr,
     state,
@@ -346,7 +346,7 @@ SELECT
 FROM pg_stat_replication;
 
 -- Expected output:
---  application_name | client_addr |   state   | sent_lsn  | write_lsn | flush_lsn | replay_lsn | sync_state 
+--  application_name | client_addr |   state   | sent_lsn  | write_lsn | flush_lsn | replay_lsn | sync_state
 -- ------------------+-------------+-----------+-----------+-----------+-----------+------------+------------
 --  replica1         | 172.18.0.3  | streaming | 0/3000000 | 0/3000000 | 0/3000000 | 0/3000000  | async
 ```
@@ -361,7 +361,7 @@ psql -h replica_ip -U postgres
 SELECT pg_is_in_recovery();  -- Should be 't' (true)
 
 -- Check replication lag
-SELECT 
+SELECT
     CASE WHEN pg_is_in_recovery() THEN
         pg_last_wal_receive_lsn() - pg_last_wal_replay_lsn()
     ELSE
@@ -440,11 +440,13 @@ Healthy
 ### Monitoring Recommendations
 
 1. **Prometheus Metrics** (Future Enhancement)
+
    - Database connection pool usage
    - Replication lag
    - Failover events
 
 2. **Alerting Rules**
+
    - Alert if replication lag > 10 MB
    - Alert if primary unreachable
    - Alert if replica recovery mode disabled
@@ -534,7 +536,7 @@ sudo systemctl start postgresql
 
 ```sql
 -- On Primary
-SELECT 
+SELECT
     application_name,
     client_addr,
     state,
@@ -551,7 +553,7 @@ FROM pg_stat_replication;
 
 ```sql
 -- On Replica
-SELECT 
+SELECT
     CASE WHEN pg_is_in_recovery() THEN
         pg_wal_lsn_diff(pg_last_wal_receive_lsn(), pg_last_wal_replay_lsn())
     ELSE
@@ -570,11 +572,13 @@ curl http://localhost:5004/health | jq '.checks[] | select(.name == "notificatio
 ### Recommended Monitoring Tools
 
 1. **pgAdmin** - Included in Docker Compose
+
    - URL: http://localhost:5050
    - Email: admin@microservices.local
    - Password: admin
 
 2. **Prometheus + Grafana** (Production)
+
    - postgres_exporter for metrics
    - Pre-built PostgreSQL dashboards
 
@@ -589,6 +593,7 @@ curl http://localhost:5004/health | jq '.checks[] | select(.name == "notificatio
 ### Issue 1: Replica Not Connecting to Primary
 
 **Symptoms:**
+
 - Replica shows "not in recovery mode"
 - `pg_stat_replication` on primary shows no connections
 
@@ -611,6 +616,7 @@ tail -f /var/lib/postgresql/data/log/postgresql-*.log
 ### Issue 2: Replication Lag Increasing
 
 **Symptoms:**
+
 - `lag_bytes` continuously growing
 - Replica falling behind primary
 
@@ -625,7 +631,7 @@ ALTER SYSTEM SET wal_sender_timeout = '60s';
 SELECT pg_reload_conf();
 
 -- 3. Check for long-running queries on replica
-SELECT pid, now() - pg_stat_activity.query_start AS duration, query 
+SELECT pid, now() - pg_stat_activity.query_start AS duration, query
 FROM pg_stat_activity
 WHERE state = 'active' AND pid <> pg_backend_pid()
 ORDER BY duration DESC;
@@ -637,6 +643,7 @@ sudo systemctl restart postgresql
 ### Issue 3: Connection String Not Failing Over
 
 **Symptoms:**
+
 - Application doesn't connect to replica when primary is down
 - Error: "Could not connect to server"
 
@@ -664,6 +671,7 @@ sudo systemctl restart postgresql
 ### Issue 4: Health Checks Failing
 
 **Symptoms:**
+
 - `/health` endpoint returns "Unhealthy"
 - Database check timing out
 
@@ -703,10 +711,12 @@ synchronous_commit = off
 ```
 
 **Pros:**
+
 - ✅ Better write performance
 - ✅ No blocking if replica is slow
 
 **Cons:**
+
 - ❌ Potential data loss if primary fails before replication
 
 #### Synchronous (Recommended for Zero Data Loss)
@@ -718,10 +728,12 @@ synchronous_standby_names = 'replica1'
 ```
 
 **Pros:**
+
 - ✅ Zero data loss
 - ✅ Guaranteed replication before commit
 
 **Cons:**
+
 - ❌ Slower writes (waits for replica confirmation)
 - ❌ If replica down, writes block
 
@@ -738,6 +750,7 @@ For 100,000+ concurrent users with replication:
 ```
 
 **Calculation:**
+
 - Notification Service instances: 5
 - Max pool size per instance: 500
 - Total connections: 2,500

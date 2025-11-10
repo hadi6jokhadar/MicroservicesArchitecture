@@ -362,6 +362,7 @@ The Notification Service provides real-time push notifications via SignalR and o
 The Notification Service has been fully optimized to handle enterprise-scale workloads:
 
 **📊 Current Capacity:**
+
 - **100,000+ concurrent SignalR connections** (Redis backplane)
 - **15,000 notifications/minute** (25x throughput improvement)
 - **100,000 API requests/minute** (rate limiting protection)
@@ -369,6 +370,7 @@ The Notification Service has been fully optimized to handle enterprise-scale wor
 - **99.9%+ uptime** (database replication with automatic failover)
 
 **⚡ Performance Optimizations (All 10 Bottlenecks Resolved):**
+
 1. ✅ Dynamic Batch Sizing - Scales from 50-500 based on queue depth
 2. ✅ Parallel Processing - 5x faster with 80% fewer DB operations
 3. ✅ Tenant Config Cache - Redis distributed caching, 95% fewer API calls

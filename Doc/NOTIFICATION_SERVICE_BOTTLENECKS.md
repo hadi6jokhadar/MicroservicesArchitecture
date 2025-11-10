@@ -1398,7 +1398,7 @@ private async Task<List<NotificationQueueItem>> GetWeightedPriorityBatchAsync(
 
     // Fetch Immediate priority items (includes aged Waitable items)
     var immediateItems = await dbContext.NotificationQueue
-        .Where(q => q.QueueStatus == QueueStatus.Pending 
+        .Where(q => q.QueueStatus == QueueStatus.Pending
             && q.ExpiresAt > now
             && (q.NextRetryAt == null || q.NextRetryAt <= now)
             && (q.Priority == Priority.Immediate || q.Created < agingThreshold)) // Age boost
@@ -1408,7 +1408,7 @@ private async Task<List<NotificationQueueItem>> GetWeightedPriorityBatchAsync(
 
     // Fetch Waitable priority items (not yet aged)
     var waitableItems = await dbContext.NotificationQueue
-        .Where(q => q.QueueStatus == QueueStatus.Pending 
+        .Where(q => q.QueueStatus == QueueStatus.Pending
             && q.ExpiresAt > now
             && (q.NextRetryAt == null || q.NextRetryAt <= now)
             && q.Priority == Priority.Waitable
@@ -1558,7 +1558,7 @@ curl http://localhost:5004/health/ready
 │ (Port 5432)│      │ (Port 5433)│
 └────────────┘      └────────────┘
  Write Master        Read Replica
- 
+
 ✅ Automatic Failover
 ✅ Streaming Replication
 ✅ Replication Slots
@@ -1567,6 +1567,7 @@ curl http://localhost:5004/health/ready
 **Automatic Failover:**
 
 Npgsql automatically handles failover:
+
 1. Try to connect to primary (localhost:5432)
 2. If primary down, connect to replica (localhost:5433)
 3. Verify write capability with `Target Session Attributes=primary`
