@@ -29,17 +29,28 @@ public class NotificationDbContext : BaseDbContext
         {
             entity.ToTable("NotificationQueue");
             
-            entity.HasIndex(e => new { e.QueueStatus, e.Created })
-                .HasDatabaseName("IX_NotificationQueue_Status_Created");
+            // Composite index for queue processing (fetch pending items)
+            entity.HasIndex(e => new { e.QueueStatus, e.ExpiresAt, e.NextRetryAt, e.Priority, e.Created })
+                .HasDatabaseName("IX_NotificationQueue_Processing")
+                .HasFilter("\"QueueStatus\" = 0"); // Only pending items
             
-            entity.HasIndex(e => e.TenantId)
-                .HasDatabaseName("IX_NotificationQueue_TenantId");
+            // Composite index for cleanup operations (critical for 100k+ scale)
+            entity.HasIndex(e => new { e.QueueStatus, e.LastModified })
+                .HasDatabaseName("IX_NotificationQueue_Cleanup")
+                .HasFilter("\"QueueStatus\" IN (2, 3, 4)"); // Sent, Failed, Expired
             
-            entity.HasIndex(e => e.UserId)
-                .HasDatabaseName("IX_NotificationQueue_UserId");
+            // Index for expiration checks (filter removed - NOW() is not immutable in PostgreSQL)
+            entity.HasIndex(e => new { e.ExpiresAt, e.QueueStatus })
+                .HasDatabaseName("IX_NotificationQueue_Expiration")
+                .HasFilter("\"QueueStatus\" = 0");
             
-            entity.HasIndex(e => e.ExpiresAt)
-                .HasDatabaseName("IX_NotificationQueue_ExpiresAt");
+            // Tenant-based queries
+            entity.HasIndex(e => new { e.TenantId, e.QueueStatus, e.Created })
+                .HasDatabaseName("IX_NotificationQueue_Tenant");
+            
+            // User-based queries
+            entity.HasIndex(e => new { e.UserId, e.QueueStatus, e.Created })
+                .HasDatabaseName("IX_NotificationQueue_User");
 
             entity.Property(e => e.TenantId)
                 .HasMaxLength(100);
