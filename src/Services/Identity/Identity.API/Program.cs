@@ -303,6 +303,9 @@ app.MapAdminEndpoints();
 // Map auth-related endpoints (authentication)
 app.MapAuthEndpoints();
 
+// Map device token endpoints
+app.MapDeviceTokenEndpoints();
+
 // Keep controllers if you still have other controllers that haven't been converted
 // app.MapControllers();
 

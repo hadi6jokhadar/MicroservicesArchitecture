@@ -14,6 +14,7 @@ public static class InfrastructureServiceExtensions
     {
         // Register repositories
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
         
         // Register services
         services.AddScoped<IUserService, UserService>();

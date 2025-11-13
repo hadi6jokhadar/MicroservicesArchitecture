@@ -21,8 +21,10 @@
 - 📁 **File Storage?** → [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md)
 - 🔑 **Project Isolation?** → [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md)
 - 🔔 **Notifications?** → [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
+- 📱 **Device Tokens?** → [DEVICE_TOKEN_QUICK_REFERENCE.md](DEVICE_TOKEN_QUICK_REFERENCE.md)
 - 🧪 **Testing?** → [SHARED_TESTING_FILES.md](SHARED_TESTING_FILES.md)
 - ⚡ **Performance?** → [BOTTLENECKS_COMPLETION_SUMMARY.md](BOTTLENECKS_COMPLETION_SUMMARY.md)
+- 📱 **Device Tokens?** → [DEVICE_TOKEN_QUICK_REFERENCE.md](DEVICE_TOKEN_QUICK_REFERENCE.md)
 - 🚀 **Redis Caching?** → [REDIS_CACHE_QUICK_REFERENCE.md](REDIS_CACHE_QUICK_REFERENCE.md)
 - 🔄 **Redis vs Memory Cache?** → [REDIS_ENABLED_VS_DISABLED_GUIDE.md](REDIS_ENABLED_VS_DISABLED_GUIDE.md)
 - 💾 **Database Replication?** → [DATABASE_REPLICATION_SETUP_GUIDE.md](DATABASE_REPLICATION_SETUP_GUIDE.md)
@@ -53,10 +55,15 @@ Doc/
 │  ├─ PHONE_VERIFICATION_LOGIN_GUIDE.md     ← Phone/Email OTP authentication
 │  ├─ OTP_SECURITY_AND_VALIDATION_UPDATE.md ← 🔴 NEW: OTP security system
 │  ├─ PHONE_VERIFICATION_QUICK_REFERENCE.md ← Quick OTP reference
+│  ├─ DEVICE_TOKEN_REFACTORING_SUMMARY.md   ← 🔴 NEW: Device token complete summary
+│  ├─ DEVICE_TOKEN_MANAGEMENT_GUIDE.md      ← 🔴 NEW: Device token developer guide
+│  ├─ DEVICE_TOKEN_QUICK_REFERENCE.md       ← 🔴 NEW: Device token API reference
 │  ├─ NOTIFICATION_SERVICE_README.md        ← Complete notification service guide
 │  ├─ NOTIFICATION_SYSTEM_FLOW.md           ← Complete notification system
 │  ├─ NOTIFICATION_HUB_GUIDE.md             ← SignalR hub comprehensive guide
 │  ├─ NOTIFICATION_HUB_QUICK_REFERENCE.md   ← Quick notification reference
+│  ├─ DEVICE_TOKEN_MANAGEMENT_GUIDE.md      ← 🔴 NEW: Device token management
+│  ├─ DEVICE_TOKEN_QUICK_REFERENCE.md       ← 🔴 NEW: Quick device token API reference
 │  ├─ JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md  ← JWT flow example walkthrough
 │  └─ JWT_SECRET_AND_VALIDATION_FLOW.md     ← JWT validation explained
 │
@@ -269,6 +276,9 @@ Request → Middleware extracts TenantId → Fetches DB connection
 | **DATABASE_REPLICATION_SETUP_GUIDE.md** | ✅ Production   | Nov 2025     | NEW - PostgreSQL HA replication |
 | **BOTTLENECKS_COMPLETION_SUMMARY.md**   | ✅ Production   | Nov 2025     | NEW - Performance achievements  |
 | **PERFORMANCE_OPTIMIZATION_GUIDE.md**   | ✅ Production   | Nov 2025     | All 10 bottlenecks resolved     |
+| **DEVICE_TOKEN_REFACTORING_SUMMARY.md** | ✅ Production   | Nov 2025     | NEW - Device token refactoring  |
+| **DEVICE_TOKEN_MANAGEMENT_GUIDE.md**    | ✅ Production   | Nov 2025     | NEW - Device token dev guide    |
+| **DEVICE_TOKEN_QUICK_REFERENCE.md**     | ✅ Production   | Nov 2025     | NEW - Device token API ref      |
 | **PROJECT_ISOLATION_STRATEGY_GUIDE.md** | ⚠️ Needs Update | Oct 2024     | Update for multi-DB pattern     |
 | **CACHING_STRATEGY_COMPARISON.md**      | ✅ Production   | Oct 2024     | Performance guide               |
 | **TENANT_MIDDLEWARE_EXPLAINED.md**      | ✅ Production   | Oct 2024     | Implementation details          |

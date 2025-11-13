@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using IhsanDev.Shared.Kernel.Entities;
 
 namespace Identity.Infrastructure.Persistence;
 
@@ -28,6 +29,7 @@ public class IdentityDbContext : BaseDbContext
     }
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -125,6 +127,16 @@ public class IdentityDbContext : BaseDbContext
             entity.Property(e => e.FirstName).HasMaxLength(100);
             entity.Property(e => e.LastName).HasMaxLength(100);
             entity.Property(e => e.Role).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<DeviceToken>(entity =>
+        {
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.Token);
+            entity.HasIndex(e => new { e.UserId, e.Platform });
+            entity.Property(e => e.Token).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.DeviceIdentifier).HasMaxLength(100);
+            entity.Property(e => e.Platform).HasConversion<string>();
         });
     }
 }

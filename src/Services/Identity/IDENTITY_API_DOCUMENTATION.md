@@ -61,6 +61,26 @@ The service follows clean architecture principles with modern .NET patterns:
 | `/api/admin/users/{id}`               | DELETE | Delete user (soft delete)                   | Admin/SuperAdmin |
 | `/api/admin/users/{id}/toggle-status` | PATCH  | Enable/disable user account                 | Admin/SuperAdmin |
 
+### 4. Device Tokens (`api/device-tokens`)
+
+**Device token management endpoints for push notifications:**
+
+| Endpoint                                    | Method | Description                            | Authentication |
+| ------------------------------------------- | ------ | -------------------------------------- | -------------- |
+| `/api/device-tokens`                        | POST   | Add new device token                   | Bearer Token   |
+| `/api/device-tokens/{id}`                   | GET    | Get device token by ID                 | Bearer Token   |
+| `/api/device-tokens/user/{userId}`          | GET    | Get all device tokens for a user       | Bearer Token   |
+| `/api/device-tokens/user/{userId}/platform` | GET    | Get device tokens by user and platform | Bearer Token   |
+| `/api/device-tokens/{id}`                   | PUT    | Update device token                    | Bearer Token   |
+| `/api/device-tokens/{id}`                   | DELETE | Delete device token                    | Bearer Token   |
+| `/api/device-tokens/user/{userId}`          | DELETE | Delete all device tokens for a user    | Bearer Token   |
+
+**Platform Values:**
+
+- `0` = iOS (Apple Push Notification Service)
+- `1` = Android (Firebase Cloud Messaging)
+- `2` = Web (Firebase Cloud Messaging for Web)
+
 ## Request/Response Models
 
 ### Authentication Models
@@ -361,4 +381,65 @@ Key configuration settings in `appsettings.json`:
 }
 ```
 
+### Device Token Models
+
+```csharp
+// Add Device Token Request
+{
+  "userId": 1,
+  "token": "fcm_token_string_or_apns_token",
+  "platform": 1, // 0=iOS, 1=Android, 2=Web
+  "deviceIdentifier": "device-unique-id", // optional
+  "isPrimary": true // optional, default false
+}
+
+// Update Device Token Request
+{
+  "token": "new_fcm_token", // optional
+  "deviceIdentifier": "new-device-id", // optional
+  "isPrimary": true // optional
+}
+
+// Device Token Response
+{
+  "id": 123,
+  "userId": 1,
+  "token": "fcm_token_string",
+  "platform": 1,
+  "deviceIdentifier": "android-device-123",
+  "lastVerifiedAt": "2025-11-13T10:00:00Z",
+  "isPrimary": true,
+  "created": "2025-11-13T09:00:00Z"
+}
+
+// Get User Tokens Response
+[
+  {
+    "id": 1,
+    "userId": 1,
+    "token": "fcm_token_android",
+    "platform": 1,
+    "deviceIdentifier": "android-device",
+    "lastVerifiedAt": "2025-11-13T10:00:00Z",
+    "isPrimary": true,
+    "created": "2025-11-13T09:00:00Z"
+  },
+  {
+    "id": 2,
+    "userId": 1,
+    "token": "apns_token_ios",
+    "platform": 0,
+    "deviceIdentifier": "iphone-12",
+    "lastVerifiedAt": "2025-11-13T08:00:00Z",
+    "isPrimary": false,
+    "created": "2025-11-12T15:00:00Z"
+  }
+]
+```
+
 This comprehensive Identity Service provides enterprise-level user management capabilities with clean architecture, proper security measures, and extensive functionality for both end users and administrators.
+
+**For detailed device token documentation, see:**
+
+- [Device Token Management Guide](../../../Doc/DEVICE_TOKEN_MANAGEMENT_GUIDE.md)
+- [Device Token Quick Reference](../../../Doc/DEVICE_TOKEN_QUICK_REFERENCE.md)

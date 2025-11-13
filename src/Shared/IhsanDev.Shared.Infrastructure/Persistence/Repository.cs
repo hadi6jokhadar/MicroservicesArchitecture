@@ -50,6 +50,7 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
     {
         entity.IsArchived = true;
         entity.LastModified = DateTime.UtcNow;
+        _dbSet.Update(entity);
         await _context.SaveChangesAsync(cancellationToken);
         return true;
     }

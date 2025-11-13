@@ -16,8 +16,7 @@ public class UserDtoIncludesToken : BaseUserDto, IMapFrom<User>
     // ^ Token properties
     public string? AccessToken { get; set; }
     public string? RefreshToken { get; set; }    
-    public DateTime? RefreshTokenExpiryTime { get; set; }    
-    public string? FirebaseToken { get; set; }
+    public DateTime? RefreshTokenExpiryTime { get; set; }
     
     // OTP verification
     public string? VerificationCode { get; set; }

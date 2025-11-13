@@ -16,11 +16,12 @@ public class TenantHeaderOperationFilter : IOperationFilter
         {
             Name = "x-tenant-id",
             In = ParameterLocation.Header,
-            Description = "Tenant ID for multi-tenancy support (optional)",
+            Description = "Tenant ID for multi-tenancy support (use 'ihsandev' for testing)",
             Required = false,
             Schema = new OpenApiSchema
             {
-                Type = "string"
+                Type = "string",
+                Default = new Microsoft.OpenApi.Any.OpenApiString("ihsandev")
             }
         });
     }

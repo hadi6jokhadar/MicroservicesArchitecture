@@ -1,8 +1,9 @@
 # ✅ CORS Implementation Summary
 
-## Status: **WORKING & TESTED** 🎉
+**Last Updated:** November 13, 2025  
+**Status:** ✅ WORKING & TESTED (Updated to merged mode)
 
-The tenant-aware CORS system has been successfully implemented and tested.
+The tenant-aware CORS system has been successfully implemented and updated to use merged mode (base + tenant origins).
 
 ---
 
@@ -14,12 +15,15 @@ Location: `src/Shared/IhsanDev.Shared.Infrastructure/Middleware/TenantAwareCorsM
 
 **Features:**
 
-- ✅ Validates origin against tenant-specific or appsettings.json configuration
+- ✅ Validates origin against merged configuration (base + tenant origins)
+- ✅ Base origins from appsettings.json ALWAYS included
+- ✅ Tenant-specific origins merged when available
 - ✅ Supports all HTTP methods (GET, POST, PUT, DELETE, PATCH, OPTIONS)
 - ✅ Dynamically allows headers requested by the browser
 - ✅ Handles preflight (OPTIONS) requests properly
 - ✅ Sets CORS headers immediately for actual requests
 - ✅ Rejects invalid origins with 403 Forbidden for preflight requests
+- ✅ Swagger-friendly: Development origins always work
 
 ### 2. **Extension Method**
 
@@ -47,9 +51,11 @@ app.UseTenantAwareCors();                        // 2nd
 
 ### Origin Validation
 
-- Only validates the `Origin` header
+- Validates the `Origin` header against merged list
+- **Merged mode:** Base origins (appsettings.json) ∪ Tenant origins (tenant config)
 - Uses case-insensitive comparison
-- Checks tenant-specific origins first, then falls back to appsettings.json
+- Base origins ALWAYS included, ensuring development tools work
+- Tenant origins added when available (no error if missing)
 
 ### Header Handling
 
@@ -75,20 +81,27 @@ app.UseTenantAwareCors();                        // 2nd
 
 ## Testing Results
 
-### ✅ Test 1: Default CORS (No Tenant)
+### ✅ Test 1: Base CORS (No Tenant)
 
 - **Origin:** `http://localhost:4200`
 - **Source:** `appsettings.json` → `Cors:AllowedOrigins`
 - **Result:** ✅ Working
 
-### ✅ Test 2: Tenant-Specific CORS
+### ✅ Test 2: Merged CORS (With Tenant)
 
-- **Origin:** `http://localhost:4200`
+- **Origin:** `http://localhost:4200` or `https://tenant-domain.com`
 - **Tenant:** `ihsandev`
-- **Source:** Tenant configuration
-- **Result:** ✅ Working
+- **Source:** Merged (base origins + tenant configuration)
+- **Result:** ✅ Both base and tenant origins work
 
-### ✅ Test 3: Invalid Origin Rejection
+### ✅ Test 3: Swagger UI (Development)
+
+- **Origin:** `http://localhost:5001`
+- **Tenant:** Missing or invalid
+- **Source:** Base origins from appsettings.json
+- **Result:** ✅ No CORS errors, Swagger fully functional
+
+### ✅ Test 4: Invalid Origin Rejection
 
 - **Origin:** `https://malicious-site.com`
 - **Result:** ✅ Properly rejected (403 Forbidden)

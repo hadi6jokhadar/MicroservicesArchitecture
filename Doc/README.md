@@ -46,7 +46,8 @@ This solution implements a **microservices architecture** with a focus on:
 
 - ✅ **Multi-Database Support**: PostgreSQL, SQL Server, MySQL, SQLite
 - ✅ **JWT Authentication**: Secure token-based authentication with refresh tokens
-- ✅ **Real-Time Notifications**: SignalR hub with optional Firebase Cloud Messaging
+- ✅ **Real-Time Notifications**: SignalR hub with Firebase Cloud Messaging
+- ✅ **Device Token Management**: Multi-device, multi-platform token management
 - ✅ **Multi-Tenancy Support**: Optional per-tenant configuration with isolated databases
 - ✅ **Distributed Caching**: Redis support with automatic MemoryCache fallback
 - ✅ **Centralized Package Management**: Consistent versioning across services
@@ -59,6 +60,7 @@ This solution implements a **microservices architecture** with a focus on:
 
 ### Advanced Features
 
+- 📱 **Device Token Management**: Multi-device push notification support with CQRS
 - 🔄 **MediatR Pipeline**: Request/response handling with behaviors
 - 🛡️ **BCrypt Password Hashing**: Secure password storage
 - 🎯 **Dependency Injection**: Built-in DI container

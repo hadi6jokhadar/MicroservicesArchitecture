@@ -2,6 +2,7 @@ using Identity.API.Filters;
 using Identity.API.Handlers;
 using Identity.Application.Commands;
 using Identity.Application.Commands.Auth;
+using Identity.Application.Commands.DeviceToken;
 using Identity.Application.DTOs;
 
 namespace Identity.API.Extensions;
@@ -192,6 +193,74 @@ public static class EndpointMappingExtensions
             .WithSummary("Delete user")
             .WithDescription("Permanently delete user account (Admin only)")
             .Produces<object>(200);
+
+        return app;
+    }
+
+    /// <summary>
+    /// Map device token management endpoints
+    /// </summary>
+    public static WebApplication MapDeviceTokenEndpoints(this WebApplication app)
+    {
+        var deviceTokenGroup = app.MapGroup("/api/device-tokens")
+            .WithTags("Device Token Management")
+            .RequireAuthorization()
+            .WithOpenApi();
+
+        // Add device token
+        deviceTokenGroup.MapPost("/", DeviceTokenApiHandlers.AddDeviceToken)
+            .WithName("AddDeviceToken")
+            .WithSummary("Add a new device token")
+            .WithDescription("Register a new device token for push notifications")
+            .Produces<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>(201)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<AddDeviceTokenCommand>>();
+
+        // Get device token by ID
+        deviceTokenGroup.MapGet("/{id:int}", DeviceTokenApiHandlers.GetDeviceTokenById)
+            .WithName("GetDeviceTokenById")
+            .WithSummary("Get device token by ID")
+            .WithDescription("Retrieve a specific device token by ID")
+            .Produces<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>(200)
+            .Produces(404);
+
+        // Get all device tokens for a user
+        deviceTokenGroup.MapGet("/user/{userId:int}", DeviceTokenApiHandlers.GetUserDeviceTokens)
+            .WithName("GetUserDeviceTokens")
+            .WithSummary("Get all device tokens for a user")
+            .WithDescription("Retrieve all device tokens registered for a specific user")
+            .Produces<List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>(200);
+
+        // Get device tokens by user and platform
+        deviceTokenGroup.MapGet("/user/{userId:int}/platform", DeviceTokenApiHandlers.GetUserDeviceTokensByPlatform)
+            .WithName("GetUserDeviceTokensByPlatform")
+            .WithSummary("Get device tokens by user and platform")
+            .WithDescription("Retrieve device tokens for a specific user filtered by platform")
+            .Produces<List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>(200);
+
+        // Update device token
+        deviceTokenGroup.MapPut("/{id:int}", DeviceTokenApiHandlers.UpdateDeviceToken)
+            .WithName("UpdateDeviceToken")
+            .WithSummary("Update a device token")
+            .WithDescription("Update an existing device token's information")
+            .Produces<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>(200)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<UpdateDeviceTokenCommand>>();
+
+        // Delete device token
+        deviceTokenGroup.MapDelete("/{id:int}", DeviceTokenApiHandlers.DeleteDeviceToken)
+            .WithName("DeleteDeviceToken")
+            .WithSummary("Delete a device token")
+            .WithDescription("Remove a specific device token")
+            .Produces(204)
+            .Produces(404);
+
+        // Delete all user device tokens
+        deviceTokenGroup.MapDelete("/user/{userId:int}", DeviceTokenApiHandlers.DeleteAllUserDeviceTokens)
+            .WithName("DeleteAllUserDeviceTokens")
+            .WithSummary("Delete all device tokens for a user")
+            .WithDescription("Remove all device tokens registered for a specific user")
+            .Produces(204);
 
         return app;
     }

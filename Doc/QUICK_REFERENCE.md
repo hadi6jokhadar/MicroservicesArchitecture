@@ -247,6 +247,20 @@ var data = await _dbContext.Orders
     .ToListAsync(); // Automatic tenant DB
 ```
 
+### **Pattern 4: Device Token Registration**
+
+```csharp
+// Register device token for push notifications
+var command = new AddDeviceTokenCommand(
+    userId: currentUserId,
+    token: "fcm-token-here",
+    platform: Platform.Android,
+    deviceIdentifier: "device-uuid",
+    isPrimary: true
+);
+await _mediator.Send(command);
+```
+
 ---
 
 ## 📚 Quick Navigation
@@ -260,6 +274,7 @@ var data = await _dbContext.Orders
 | **Multi-Tenancy**   | `MULTI_TENANCY_GUIDE.md`              |
 | **Quick Setup**     | `MULTI_TENANCY_QUICK_START.md`        |
 | **File Storage**    | `FILE_MANAGER_SERVICE_GUIDE.md`       |
+| **Device Tokens**   | `DEVICE_TOKEN_MANAGEMENT_GUIDE.md`    |
 | **Caching**         | `CACHING_STRATEGY_COMPARISON.md`      |
 | **Testing**         | `SHARED_TESTING_FILES.md`             |
 
@@ -331,6 +346,16 @@ var data = await _dbContext.Orders
 - POST `/api/auth/login-with-code-by-phone` - Login with phone + OTP code
 - POST `/api/auth/login-with-code-by-email` - Login with email + OTP code
 - GET `/api/user/profile` - Get user info
+
+**Device Token Endpoints:**
+
+- POST `/api/device-tokens` - Register device token
+- GET `/api/device-tokens/{id}` - Get token by ID
+- GET `/api/device-tokens/user/{userId}` - Get all user tokens
+- GET `/api/device-tokens/user/{userId}/platform/{platform}` - Get tokens by platform (0=iOS, 1=Android, 2=Web)
+- PUT `/api/device-tokens/{id}` - Update token
+- DELETE `/api/device-tokens/{id}` - Delete token (soft delete)
+- DELETE `/api/device-tokens/user/{userId}` - Delete all user tokens
 
 **Tenant Service Endpoints:**
 

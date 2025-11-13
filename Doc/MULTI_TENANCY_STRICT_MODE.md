@@ -1,13 +1,23 @@
 # 🔒 Multi-Tenancy Strict Mode - Behavior Changes
 
-**Last Updated:** October 29, 2025  
-**Status:** ✅ Production Ready
+**Last Updated:** November 13, 2025  
+**Status:** ⚠️ PARTIALLY OUTDATED (CORS behavior changed - see TENANT_AWARE_CORS_GUIDE.md)
+
+---
+
+## ⚠️ Important Notice
+
+**CORS Behavior Changed:** This document describes the original strict mode where CORS must come from tenant config only. As of November 13, 2025, CORS now uses **merged mode** - base origins from appsettings.json are ALWAYS included and merged with tenant-specific origins.
+
+**For current CORS behavior, see:** [TENANT_AWARE_CORS_GUIDE.md](TENANT_AWARE_CORS_GUIDE.md)
+
+The rest of this document (Database and JWT strict behavior) remains accurate.
 
 ---
 
 ## Overview
 
-The multi-tenancy system has been updated to enforce **strict separation** between multi-tenant and single-tenant modes. This document explains the new behavior and requirements.
+The multi-tenancy system has been updated to enforce **strict separation** between multi-tenant and single-tenant modes. This document explains the behavior and requirements, with the exception of CORS which now uses merged mode.
 
 ---
 
@@ -109,7 +119,7 @@ if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("Mu
 3. **Tenant configuration must be complete**
    - Database connection string is required
    - JWT settings are required (for PerTenant mode)
-   - CORS origins are required
+   - CORS origins are optional (merged with base origins from appsettings.json)
 
 #### Error Responses
 

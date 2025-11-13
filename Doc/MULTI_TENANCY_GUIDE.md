@@ -176,17 +176,18 @@ When disabled, the system behaves as single-tenant with no tenant resolution and
    - If missing: Returns `400 Bad Request` with error message
    - Error: "Multi-tenancy is enabled. The 'x-tenant-id' header is required for all requests."
 
-2. **NO fallback to appsettings.json**
+2. **Base configuration from appsettings.json is ALWAYS included**
 
-   - All configuration (Database, JWT, CORS) **MUST** come from tenant settings
+   - CORS origins: Base origins from appsettings.json are merged with tenant-specific origins
+   - Database, JWT: Must come from tenant settings (if tenant exists)
    - If tenant not found: Returns `404 Not Found`
    - If tenant database not configured: Throws `InvalidOperationException`
-   - If tenant JWT not configured: Throws `InvalidOperationException`
+   - If tenant JWT not configured (PerTenant mode): Throws `InvalidOperationException`
 
-3. **Tenant configuration is mandatory**
+3. **Tenant configuration requirements**
    - Database connection string must be in tenant settings
-   - JWT settings must be in tenant settings (for PerTenant mode)
-   - CORS origins must be in tenant settings
+   - JWT settings must be in tenant settings (for PerTenant mode only)
+   - CORS origins are optional - if missing, base origins from appsettings.json are used
 
 ### When Multi-Tenancy is **DISABLED** (`"Enabled": false`)
 

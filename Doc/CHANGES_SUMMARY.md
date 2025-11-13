@@ -1,12 +1,60 @@
 # Multi-Tenancy Strict Mode - Changes Summary
 
-**Date:** October 29, 2025  
-**Version:** 2.0.0  
+**Date:** November 13, 2025  
+**Version:** 2.1.1  
 **Status:** ✅ Implemented
 
 ---
 
 ## 📝 Summary
+
+### Version 2.1.1 (November 13, 2025)
+
+**CORS and Swagger Improvements**
+
+Fixed multi-tenancy CORS issues for Swagger UI and improved developer experience:
+
+- ✅ Updated TenantAwareCorsMiddleware to always include appsettings.json CORS origins
+- ✅ Merged tenant-specific and appsettings origins instead of replacing them
+- ✅ Added default tenant ID ("ihsandev") to Swagger x-tenant-id header
+- ✅ Fixed Swagger CORS errors on http://localhost:5001
+- ✅ Both HTTP and HTTPS Swagger endpoints now work correctly
+
+**Files Modified:**
+
+- `TenantAwareCorsMiddleware.cs` - Changed GetAllowedOrigins to merge origins
+- `TenantHeaderOperationFilter.cs` - Added default value for x-tenant-id header
+
+---
+
+### Version 2.1.0 (November 13, 2025)
+
+**Device Token Refactoring**
+
+Successfully refactored device token management from a monolithic `FirebaseToken` property to a comprehensive separate entity system:
+
+- ✅ Created DeviceToken entity with 7 properties (UserId, Token, Platform, DeviceIdentifier, LastVerifiedAt, IsPrimary)
+- ✅ Created Platform enum (iOS, Android, Web)
+- ✅ Implemented full CQRS pattern (8 commands/queries, 8 handlers)
+- ✅ Added 7 RESTful API endpoints with validation
+- ✅ Created 28 integration tests (100% passing)
+- ✅ Fixed critical soft delete bug in base Repository<T>
+- ✅ Supports multiple devices per user across platforms
+- ✅ Primary device designation (one per user per platform)
+- ✅ Token deduplication and ordering
+
+**Documentation:**
+
+- Created DEVICE_TOKEN_REFACTORING_SUMMARY.md
+- Created DEVICE_TOKEN_MANAGEMENT_GUIDE.md
+- Created DEVICE_TOKEN_QUICK_REFERENCE.md
+- Updated all relevant documentation files
+
+---
+
+### Version 2.0.0 (October 29, 2025)
+
+**Multi-Tenancy Strict Mode**
 
 Implemented **strict separation** between multi-tenant and single-tenant modes to enforce clear behavior:
 

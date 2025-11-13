@@ -14,7 +14,5 @@ public abstract class BaseUser : BaseEntity
     
     public DateTime? RefreshTokenExpiryTime { get; set; }
     
-    public string? FirebaseToken { get; set; }
-    
     public DateTime? LastLogin { get; set; }
 }

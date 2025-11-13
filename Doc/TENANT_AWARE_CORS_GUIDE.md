@@ -1,17 +1,22 @@
 # 🌐 Tenant-Aware CORS Configuration Guide
 
+**Version:** 2.0.0  
+**Status:** ✅ Production Ready  
+**Last Updated:** November 13, 2025
+
 ## Overview
 
-The microservices architecture now supports **tenant-aware CORS** configuration, allowing each tenant to have their own allowed origins with strict mode enforcement (no fallback when multi-tenancy is enabled).
+The microservices architecture now supports **tenant-aware CORS** configuration, allowing each tenant to have their own allowed origins with **merged mode** (base origins + tenant-specific origins combined).
 
 ### Key Features
 
 - ✅ **Tenant-Specific Origins**: Each tenant can define their own allowed CORS origins
-- ✅ **Strict Mode Support**: When multi-tenancy enabled, CORS must come from tenant config (no fallback)
+- ✅ **Merged Mode**: Base origins from appsettings.json are ALWAYS included, then merged with tenant-specific origins
 - ✅ **Single-Tenant Mode**: Uses appsettings.json CORS when multi-tenancy is disabled
 - ✅ **Dynamic Resolution**: CORS origins are resolved at request time based on tenant context
 - ✅ **Middleware-Based**: Uses custom middleware for runtime CORS validation
 - ✅ **Zero Configuration**: Works automatically when multi-tenancy is enabled
+- ✅ **Swagger-Friendly**: Base origins ensure Swagger UI (http://localhost:5001) always works
 
 ---
 
@@ -20,19 +25,21 @@ The microservices architecture now supports **tenant-aware CORS** configuration,
 ### Request Flow
 
 ```
-1. Request arrives with Origin header and x-tenant-id
+1. Request arrives with Origin header (with or without x-tenant-id)
    ↓
-2. TenantMiddleware extracts tenant ID
+2. TenantMiddleware extracts tenant ID (if provided)
    ↓
-3. TenantConfigurationProvider fetches tenant config (with caching)
+3. TenantConfigurationProvider fetches tenant config (with caching, if tenant exists)
    ↓
 4. TenantAwareCorsMiddleware validates Origin header
    ├─ Multi-tenancy ENABLED?
-   │  └─ Use ONLY tenant-specific AllowedOrigins (no fallback)
+   │  ├─ Get base origins from appsettings.json (ALWAYS included)
+   │  ├─ Get tenant origins from TenantInfo.Configuration.Cors.AllowedOrigins (if tenant exists)
+   │  └─ Merge both using Union (base + tenant = combined list)
    └─ Multi-tenancy DISABLED?
       └─ Use ONLY appsettings.json Cors:AllowedOrigins
    ↓
-5. If Origin is valid:
+5. If Origin is valid in combined list:
    ├─ Set Access-Control-Allow-Origin header
    └─ Set Access-Control-Allow-Credentials header
    ↓
@@ -43,9 +50,11 @@ The microservices architecture now supports **tenant-aware CORS** configuration,
 
 **When Multi-Tenancy is ENABLED (`"Enabled": true`):**
 
-- **ONLY tenant-specific CORS** - Read from `TenantInfo.Configuration.Cors.AllowedOrigins`
-- No fallback to appsettings.json
-- If tenant CORS config is missing → Error
+- **Base origins ALWAYS included** - Read from `appsettings.json` → `Cors:AllowedOrigins`
+- **Tenant origins merged** - Read from `TenantInfo.Configuration.Cors.AllowedOrigins` (if tenant exists)
+- **Combined list** = Base origins ∪ Tenant origins (union, no duplicates)
+- If tenant CORS config is missing → Uses only base origins (no error)
+- **Swagger-friendly**: Base origins ensure development tools (http://localhost:5001) always work
 
 **When Multi-Tenancy is DISABLED (`"Enabled": false`):**
 
@@ -58,11 +67,10 @@ The microservices architecture now supports **tenant-aware CORS** configuration,
 
 ### Application-Level CORS (appsettings.json)
 
-This configuration is used when:
+This configuration is used:
 
-- **Multi-tenancy is disabled** (`"MultiTenancy:Enabled": false`)
-
-This configuration is **NOT used** when multi-tenancy is enabled (strict mode).
+- **Always when multi-tenancy is enabled** (as base origins, merged with tenant origins)
+- **Exclusively when multi-tenancy is disabled** (`"MultiTenancy:Enabled": false`)
 
 **Identity Service** (`appsettings.json`):
 
@@ -70,6 +78,9 @@ This configuration is **NOT used** when multi-tenancy is enabled (strict mode).
 {
   "Cors": {
     "AllowedOrigins": [
+      "http://localhost:5001",
+      "https://localhost:5001",
+      "https://localhost:5101",
       "http://localhost:4200",
       "http://localhost:3000",
       "https://myapp.com"
@@ -77,6 +88,12 @@ This configuration is **NOT used** when multi-tenancy is enabled (strict mode).
   }
 }
 ```
+
+**Purpose of Base Origins:**
+
+- Development tools (Swagger UI at http://localhost:5001)
+- Local development servers (Angular, React, etc.)
+- Shared production domains that ALL tenants need
 
 ### Tenant-Specific CORS
 
@@ -92,7 +109,11 @@ Each tenant can define their own allowed origins in their configuration.
 }
 ```
 
-When tenant `company-abc` makes a request, only origins from `["https://abc-company.com", "https://app.abc-company.com"]` will be allowed.
+When tenant `company-abc` makes a request, the allowed origins will be:
+
+- **Base origins**: `["http://localhost:5001", "https://localhost:5001", "https://localhost:5101", ...]` (from appsettings.json)
+- **Tenant origins**: `["https://abc-company.com", "https://app.abc-company.com"]` (from tenant config)
+- **Combined**: All origins from both sources (union, no duplicates)
 
 ---
 
@@ -232,17 +253,25 @@ private static string[] GetAllowedOrigins(
     IConfiguration configuration,
     ITenantContext tenantContext)
 {
+    // Always get base origins from appsettings.json
+    var appSettingsOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?? Array.Empty<string>();
+
     var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled");
 
+    // If multi-tenancy enabled and tenant has CORS config, merge with base origins
     if (multiTenancyEnabled &&
         tenantContext.HasTenant &&
         tenantContext.CurrentTenant?.Configuration?.Cors?.AllowedOrigins?.Length > 0)
     {
-        return tenantContext.CurrentTenant.Configuration.Cors.AllowedOrigins;
+        var tenantOrigins = tenantContext.CurrentTenant.Configuration.Cors.AllowedOrigins;
+
+        // Merge base and tenant origins (union removes duplicates)
+        return appSettingsOrigins.Union(tenantOrigins).ToArray();
     }
 
-    return configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-        ?? Array.Empty<string>();
+    // Fallback: Use only base origins (multi-tenancy disabled OR tenant has no CORS config)
+    return appSettingsOrigins;
 }
 ```
 
@@ -253,10 +282,10 @@ Located at: `src/Shared/IhsanDev.Shared.Infrastructure/Extensions/MultiTenancyEx
 ```csharp
 /// <summary>
 /// Add tenant-aware CORS middleware to the request pipeline
-/// This middleware validates CORS origins based on tenant-specific configuration
+/// This middleware validates CORS origins based on merged configuration:
+/// - Base origins from appsettings.json (ALWAYS included)
+/// - Tenant-specific origins from tenant config (if available)
 /// Must be called AFTER UseTenantResolution()
-/// Automatically uses tenant-specific CORS origins when multi-tenancy is enabled,
-/// otherwise falls back to appsettings.json configuration
 /// Handles both preflight (OPTIONS) and actual requests
 /// </summary>
 public static IApplicationBuilder UseTenantAwareCors(
@@ -270,7 +299,7 @@ public static IApplicationBuilder UseTenantAwareCors(
 
 ## Testing
 
-### Test Case 1: Request Without Tenant (Uses Default CORS)
+### Test Case 1: Request Without Tenant (Uses Base CORS)
 
 **Request**:
 
@@ -283,10 +312,11 @@ curl -X POST "https://localhost:5001/api/auth/login" \
 
 **Expected Behavior**:
 
-- CORS validation uses `appsettings.json` → `Cors:AllowedOrigins`
+- CORS validation uses `appsettings.json` → `Cors:AllowedOrigins` (base origins only)
 - Origin `http://localhost:4200` is allowed (if in config)
+- No tenant-specific origins added
 
-### Test Case 2: Request With Tenant (Uses Tenant-Specific CORS)
+### Test Case 2: Request With Tenant (Uses Merged CORS)
 
 **Request**:
 
@@ -295,39 +325,48 @@ curl -X POST "https://localhost:5001/api/auth/login" \
   -H "Content-Type: application/json" \
   -H "Origin: https://abc-company.com" \
   -H "x-tenant-id: company-abc" \
-  -d '{"email": "user@abc-company.com", "password": "Password123!"}'
+  -d '{"email": "user@example.com", "password": "Password123!"}'
 ```
 
 **Expected Behavior**:
 
-- CORS validation uses tenant `company-abc` configuration
-- Origin `https://abc-company.com` is allowed (if in tenant config)
-- Origin `http://localhost:4200` is rejected (not in tenant config)
+- CORS validation uses **merged origins**:
+  - Base origins from appsettings.json (e.g., http://localhost:5001, http://localhost:4200)
+  - Tenant origins from company-abc config (e.g., https://abc-company.com, https://app.abc-company.com)
+- Origin `https://abc-company.com` is allowed (from tenant config)
+- Origin `http://localhost:5001` also allowed (from base config)
 
-### Test Case 3: Tenant Without CORS Config (Error in Strict Mode)
+### Test Case 3: Swagger UI Request (Uses Base CORS)
+
+**Scenario**: Developer opens Swagger UI at `http://localhost:5001/swagger`
+
+**Expected Behavior**:
+
+- Swagger UI sends API requests with `Origin: http://localhost:5001`
+- Even if x-tenant-id header is missing or invalid, base origins are checked
+- Origin `http://localhost:5001` is allowed (from appsettings.json base origins)
+- **No CORS errors** - Developer can test APIs without tenant context
+
+### Test Case 4: Tenant Without CORS Config (Uses Base CORS Only)
 
 **Request**:
 
 ```bash
 curl -X POST "https://localhost:5001/api/auth/login" \
   -H "Content-Type: application/json" \
-  -H "Origin: http://localhost:3000" \
+  -H "Origin: http://localhost:4200" \
   -H "x-tenant-id: tenant-without-cors" \
   -d '{"email": "user@example.com", "password": "Password123!"}'
 ```
 
-**Expected Behavior (Multi-Tenancy Enabled)**:
+**Expected Behavior**:
 
-- Tenant doesn't have CORS configuration
-- Request fails with error: "Tenant CORS configuration is not available"
-- No fallback to appsettings.json
+- Tenant doesn't have CORS configuration in their config
+- Fallback to base origins from appsettings.json
+- Origin `http://localhost:4200` is allowed (if in base config)
+- **No error** - Base origins always provide fallback
 
-**Expected Behavior (Multi-Tenancy Disabled)**:
-
-- Uses `appsettings.json` → `Cors:AllowedOrigins`
-- Origin `http://localhost:3000` is allowed (if in config)
-
-### Test Case 4: Invalid Origin (Blocked)
+### Test Case 5: Invalid Origin (Blocked)
 
 **Request**:
 

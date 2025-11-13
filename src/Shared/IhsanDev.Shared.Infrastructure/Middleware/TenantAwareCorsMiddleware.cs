@@ -80,17 +80,22 @@ public class TenantAwareCorsMiddleware
 
     private static string[] GetAllowedOrigins(IConfiguration configuration, ITenantContext tenantContext)
     {
-        // If multi-tenancy is enabled and tenant has CORS config, use tenant-specific origins
+        // Always get appsettings CORS configuration as base
+        var appSettingsOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+        
+        // If multi-tenancy is enabled and tenant has CORS config, merge with tenant-specific origins
         var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled");
         
         if (multiTenancyEnabled && 
             tenantContext.HasTenant && 
             tenantContext.CurrentTenant?.Configuration?.Cors?.AllowedOrigins?.Length > 0)
         {
-            return tenantContext.CurrentTenant.Configuration.Cors.AllowedOrigins;
+            // Merge appsettings origins with tenant-specific origins (tenant origins take precedence)
+            var tenantOrigins = tenantContext.CurrentTenant.Configuration.Cors.AllowedOrigins;
+            return appSettingsOrigins.Union(tenantOrigins).ToArray();
         }
 
         // Fallback to appsettings CORS configuration
-        return configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+        return appSettingsOrigins;
     }
 }
