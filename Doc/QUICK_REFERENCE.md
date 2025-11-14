@@ -274,6 +274,8 @@ await _mediator.Send(command);
 | **Multi-Tenancy**   | `MULTI_TENANCY_GUIDE.md`              |
 | **Quick Setup**     | `MULTI_TENANCY_QUICK_START.md`        |
 | **File Storage**    | `FILE_MANAGER_SERVICE_GUIDE.md`       |
+| **Notifications**   | `NOTIFICATION_SERVICE_README.md`      |
+| **Firebase Push**   | `FIREBASE_PUSH_NOTIFICATION_FLOW.md`  |
 | **Device Tokens**   | `DEVICE_TOKEN_MANAGEMENT_GUIDE.md`    |
 | **Caching**         | `CACHING_STRATEGY_COMPARISON.md`      |
 | **Testing**         | `SHARED_TESTING_FILES.md`             |
@@ -356,6 +358,14 @@ await _mediator.Send(command);
 - PUT `/api/device-tokens/{id}` - Update token
 - DELETE `/api/device-tokens/{id}` - Delete token (soft delete)
 - DELETE `/api/device-tokens/user/{userId}` - Delete all user tokens
+
+**Notification Service Endpoints:**
+
+- POST `/api/notifications/send` - Send notification (SignalR, Firebase, or Both)
+- GET `/api/notifications/status/{queueItemId}` - Check queue status
+- GET `/api/notifications/user/{userId}` - Get user notifications
+- PUT `/api/notifications/{notificationId}/read` - Mark as read
+- GET `/api/notifications/admin/queue` - Queue management (SuperAdmin only)
 
 **Tenant Service Endpoints:**
 

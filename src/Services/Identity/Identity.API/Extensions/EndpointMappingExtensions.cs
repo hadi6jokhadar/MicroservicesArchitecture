@@ -204,7 +204,7 @@ public static class EndpointMappingExtensions
     {
         var deviceTokenGroup = app.MapGroup("/api/device-tokens")
             .WithTags("Device Token Management")
-            .RequireAuthorization()
+            .RequireAuthorization(policy => policy.RequireRole("Service", "User", "Admin", "SuperAdmin"))
             .WithOpenApi();
 
         // Add device token
@@ -261,6 +261,26 @@ public static class EndpointMappingExtensions
             .WithSummary("Delete all device tokens for a user")
             .WithDescription("Remove all device tokens registered for a specific user")
             .Produces(204);
+
+        // Batch operations (service-to-service)
+        deviceTokenGroup.MapPost("/batch", DeviceTokenApiHandlers.GetBatchDeviceTokens)
+            .WithName("GetBatchDeviceTokens")
+            .WithSummary("Get device tokens for multiple users (batch)")
+            .WithDescription("Retrieve device tokens for multiple users in a single request. For service-to-service communication.")
+            .Produces<Dictionary<int, List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>>(200);
+
+        deviceTokenGroup.MapDelete("/batch", DeviceTokenApiHandlers.DeleteBatchDeviceTokens)
+            .WithName("DeleteBatchDeviceTokens")
+            .WithSummary("Delete multiple device tokens (batch)")
+            .WithDescription("Delete multiple device tokens in a single request. For service-to-service communication.")
+            .Produces<object>(200);
+
+        // Get all device tokens for current tenant
+        deviceTokenGroup.MapGet("/tenant", DeviceTokenApiHandlers.GetTenantDeviceTokens)
+            .WithName("GetTenantDeviceTokens")
+            .WithSummary("Get all device tokens for current tenant")
+            .WithDescription("Retrieve all device tokens for the current tenant. Requires x-tenant-id header.")
+            .Produces<List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>(200);
 
         return app;
     }

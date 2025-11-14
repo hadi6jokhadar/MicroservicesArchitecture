@@ -118,32 +118,46 @@ dotnet watch test
 
 ### Database Providers
 
-#### SQLite In-Memory (Default) ✅ Recommended
+#### PostgreSQL (Default) ✅ Production-Ready
 
-- ⚡ **Extremely fast** - runs entirely in memory
-- 🔄 **Isolated** - each test run gets fresh database
-- 🚀 **No setup required** - works out of the box
-- Default configuration, no changes needed
+- 🏭 **Production-like** - matches real environment
+- 🔄 **Isolated** - each test gets clean database state
+- 🚀 **Auto-cleanup** - tables truncated before each test
+- 📊 **Better debugging** - persistent between runs for inspection
 
-#### PostgreSQL (Optional)
-
-To use PostgreSQL instead for production-like testing:
+**Configuration** in `CustomWebApplicationFactory.cs`:
 
 ```csharp
-public class MyTests : IntegrationTestBase
+public CustomWebApplicationFactory()
 {
-    public MyTests(CustomWebApplicationFactory factory) : base(factory)
-    {
-        Factory.UsePostgreSQL = true; // Switch to PostgreSQL
-    }
+    UsePostgreSQL = true;  // Default setting
+    PostgreSqlConnectionString = "Host=localhost;Port=5432;Database=notificationTestdb;...";
 }
 ```
 
-Update connection string in `CustomWebApplicationFactory.cs`:
+**Auto-cleanup strategy**:
+
+- Database created once per test run
+- Tables truncated before **each test method** (via `IAsyncLifetime`)
+- No data accumulation between tests
+- Fast cleanup without dropping database
+
+#### SQLite In-Memory (Alternative)
+
+To use SQLite instead for faster testing:
 
 ```csharp
-"Host=localhost;Database=notification_test;Username=postgres;Password=postgres"
+public CustomWebApplicationFactory()
+{
+    UsePostgreSQL = false; // Switch to SQLite
+}
 ```
+
+**Trade-offs**:
+
+- ⚡ Faster test execution
+- 🔄 Full database recreation per test class
+- ⚠️ Some PostgreSQL features not supported
 
 ### Multi-Tenancy Configuration
 
@@ -216,6 +230,35 @@ await ExecuteTenantDbContextAsync(async context =>
 ```
 
 ### Cleanup
+
+**Auto-cleanup with IAsyncLifetime** (✅ Implemented):
+
+All test classes implement `IAsyncLifetime` to ensure clean database state:
+
+```csharp
+public class MyTests : IntegrationTestBase, IAsyncLifetime
+{
+    public async Task InitializeAsync()
+    {
+        // Automatically called BEFORE each test method
+        await CleanupAllTestDataAsync();
+    }
+
+    public Task DisposeAsync()
+    {
+        return Task.CompletedTask;
+    }
+}
+```
+
+**What this does**:
+
+- ✅ Cleans both databases before **each test method**
+- ✅ Prevents data accumulation between tests
+- ✅ Ensures test isolation and independence
+- ✅ No manual cleanup needed in test code
+
+**Manual cleanup** (if needed):
 
 ```csharp
 // Clean global queue
@@ -327,7 +370,7 @@ public async Task SendNotification_ShouldCreateQueueAndPersistNotification()
 
 ## 🎯 Best Practices
 
-- ✅ Each test is independent and isolated
+- ✅ Each test is independent and isolated (via `IAsyncLifetime` cleanup)
 - ✅ Tests use meaningful descriptive names
 - ✅ Comprehensive assertions with FluentAssertions
 - ✅ Test both success and failure scenarios
@@ -335,6 +378,55 @@ public async Task SendNotification_ShouldCreateQueueAndPersistNotification()
 - ✅ Test both global and tenant-specific databases
 - ✅ Clean separation of queue and notification concerns
 - ✅ Mock external dependencies (Identity Service, Firebase)
+- ✅ Database cleanup automated before each test
+- ✅ PostgreSQL for production-like testing
+
+## 🐛 Troubleshooting
+
+### Tests Finding Accumulated Data
+
+**Problem**: Tests fail with "Expected 1 but found 20" errors.
+
+**Solution**: Ensure test classes implement `IAsyncLifetime`:
+
+```csharp
+public class MyTests : IntegrationTestBase, IAsyncLifetime
+{
+    public async Task InitializeAsync()
+    {
+        await CleanupAllTestDataAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+}
+```
+
+### VS Code Crashes When Running Tests
+
+**Problem**: Database drops cause VS Code instability.
+
+**Solution**: Use table truncation instead of database drops:
+
+```csharp
+// ❌ Don't do this (drops database)
+globalDb.Database.EnsureDeleted();
+
+// ✅ Do this (truncates tables)
+globalDb.Database.ExecuteSqlRaw("TRUNCATE TABLE \"NotificationQueue\" RESTART IDENTITY CASCADE");
+```
+
+This is already implemented in `CustomWebApplicationFactory`.
+
+### PostgreSQL Connection Issues
+
+**Problem**: Tests can't connect to PostgreSQL.
+
+**Solutions**:
+
+1. Ensure PostgreSQL is running: `pg_isready`
+2. Check connection string in `CustomWebApplicationFactory.cs`
+3. Verify database exists or enable auto-creation
+4. Check user permissions
 
 ## 🔍 Debugging Tests
 

@@ -170,6 +170,34 @@ public class NotificationProcessor : BackgroundService
     {
         _logger.LogDebug("Processing {Count} notifications for tenant {TenantId}", items.Count, tenantId);
 
+        // FIX #1: Batch fetch device tokens for all users in this tenant group
+        var firebaseService = scope.ServiceProvider.GetService<Application.Interfaces.IFirebaseService>();
+        var identityClient = scope.ServiceProvider.GetService<Application.Interfaces.IIdentityServiceClient>();
+        
+        Dictionary<int, List<Application.DTOs.DeviceTokenDto>>? deviceTokensCache = null;
+        
+        if (firebaseService?.IsEnabled == true && identityClient != null)
+        {
+            var userIds = items
+                .Where(x => x.UserId.HasValue && x.DeliveryType != DeliveryType.SignalR)
+                .Select(x => x.UserId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (userIds.Any())
+            {
+                deviceTokensCache = await identityClient.GetBatchDeviceTokensAsync(
+                    userIds,
+                    tenantId,
+                    cancellationToken);
+
+                _logger.LogInformation(
+                    "Batch fetched device tokens for {UserCount} users in tenant {TenantId}",
+                    deviceTokensCache.Count,
+                    tenantId);
+            }
+        }
+
         foreach (var item in items)
         {
             try
@@ -178,8 +206,10 @@ public class NotificationProcessor : BackgroundService
                 item.QueueStatus = QueueStatus.Processing;
                 item.LastModified = DateTime.UtcNow;
 
-                // Step 1: Persist to tenant database (if tenant-specific)
+                // Step 1: Persist to tenant database
                 int? persistedNotificationId = null;
+                
+                // For tenant-specific notifications (has tenantId)
                 if (!string.IsNullOrWhiteSpace(item.TenantId))
                 {
                     persistedNotificationId = await PersistToTenantDatabaseAsync(
@@ -189,6 +219,18 @@ public class NotificationProcessor : BackgroundService
                     
                     item.NotificationId = persistedNotificationId;
                 }
+                // For global notifications (no tenantId, no userId) - save to all tenant databases
+                else if (!item.UserId.HasValue && string.IsNullOrWhiteSpace(item.TenantId))
+                {
+                    await PersistGlobalNotificationToAllTenantsAsync(
+                        scope.ServiceProvider,
+                        item,
+                        cancellationToken);
+                    
+                    _logger.LogDebug(
+                        "Global notification persisted to all tenant databases - QueueItemId={QueueItemId}",
+                        item.Id);
+                }
 
                 // Step 2: Send via SignalR (if enabled)
                 if (item.DeliveryType == DeliveryType.SignalR || item.DeliveryType == DeliveryType.Both)
@@ -196,10 +238,14 @@ public class NotificationProcessor : BackgroundService
                     await SendViaSignalRAsync(hubContext, item, cancellationToken);
                 }
 
-                // Step 3: Send via Firebase (if enabled)
+                // Step 3: Send via Firebase (if enabled) - using cached tokens
                 if (item.DeliveryType == DeliveryType.Firebase || item.DeliveryType == DeliveryType.Both)
                 {
-                    await SendViaFirebaseAsync(scope.ServiceProvider, item, cancellationToken);
+                    await SendViaFirebaseAsync(
+                        scope.ServiceProvider, 
+                        item, 
+                        deviceTokensCache, 
+                        cancellationToken);
                 }
                 
                 // Mark as sent
@@ -458,6 +504,102 @@ public class NotificationProcessor : BackgroundService
     }
 
     /// <summary>
+    /// Persist global notification to all tenant databases
+    /// Used for global broadcasts (no tenantId, no userId)
+    /// </summary>
+    private async Task PersistGlobalNotificationToAllTenantsAsync(
+        IServiceProvider serviceProvider,
+        Domain.Entities.NotificationQueueItem queueItem,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var tenantClient = serviceProvider.GetService<Application.Interfaces.ITenantServiceClient>();
+            
+            if (tenantClient == null)
+            {
+                _logger.LogWarning(
+                    "Tenant Service client not available. Cannot persist global notification to tenant databases - QueueItemId={QueueItemId}",
+                    queueItem.Id);
+                return;
+            }
+
+            // Get all active tenants
+            var tenantIds = await tenantClient.GetAllActiveTenantIdsAsync(cancellationToken);
+
+            if (!tenantIds.Any())
+            {
+                _logger.LogWarning(
+                    "No active tenants found. Global notification not persisted to any tenant database - QueueItemId={QueueItemId}",
+                    queueItem.Id);
+                return;
+            }
+
+            _logger.LogInformation(
+                "Persisting global notification to {TenantCount} tenant databases - QueueItemId={QueueItemId}",
+                tenantIds.Count,
+                queueItem.Id);
+
+            var successCount = 0;
+            var failureCount = 0;
+
+            foreach (var tenantId in tenantIds)
+            {
+                try
+                {
+                    // Create a temporary queue item with tenantId for persistence
+                    var tenantQueueItem = new Domain.Entities.NotificationQueueItem
+                    {
+                        Id = queueItem.Id,
+                        TenantId = tenantId, // Override with specific tenantId
+                        UserId = null, // Global notification has no specific user
+                        Title = queueItem.Title,
+                        Message = queueItem.Message,
+                        Data = queueItem.Data,
+                        DeliveryType = queueItem.DeliveryType,
+                        Priority = queueItem.Priority,
+                        QueueStatus = queueItem.QueueStatus,
+                        NotificationId = queueItem.NotificationId,
+                        Created = queueItem.Created,
+                        LastModified = queueItem.LastModified
+                    };
+
+                    await PersistToTenantDatabaseAsync(
+                        serviceProvider,
+                        tenantQueueItem,
+                        cancellationToken);
+
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    failureCount++;
+                    _logger.LogError(
+                        ex,
+                        "Failed to persist global notification to tenant {TenantId} database - QueueItemId={QueueItemId}",
+                        tenantId,
+                        queueItem.Id);
+                    // Continue to next tenant even if one fails
+                }
+            }
+
+            _logger.LogInformation(
+                "Global notification persistence completed - Success: {SuccessCount}, Failed: {FailureCount}, QueueItemId={QueueItemId}",
+                successCount,
+                failureCount,
+                queueItem.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error persisting global notification to tenant databases - QueueItemId={QueueItemId}",
+                queueItem.Id);
+            // Don't throw - global notification should still be sent even if persistence fails
+        }
+    }
+
+    /// <summary>
     /// Send notification via SignalR based on targeting rules
     /// </summary>
     private async Task SendViaSignalRAsync(
@@ -572,25 +714,350 @@ public class NotificationProcessor : BackgroundService
 
     /// <summary>
     /// Send notification via Firebase Cloud Messaging
+    /// Handles 3 scenarios:
+    /// 1. Global notification (no userId, no tenantId) - loops through ALL tenants
+    /// 2. Tenant notification (tenantId, no userId) - sends to all devices in tenant
+    /// 3. User notification (userId + tenantId) - sends to specific user's devices
     /// </summary>
     private async Task SendViaFirebaseAsync(
         IServiceProvider serviceProvider,
         Domain.Entities.NotificationQueueItem queueItem,
+        Dictionary<int, List<Application.DTOs.DeviceTokenDto>>? deviceTokensCache,
         CancellationToken cancellationToken)
     {
         try
         {
-            // Firebase Cloud Messaging implementation pending
-            // Required steps:
-            // 1. Get device tokens for user from Identity Service
-            // 2. Send push notification via Firebase Admin SDK
-            // 3. Handle delivery status and token invalidation
+            var firebaseService = serviceProvider.GetService<Application.Interfaces.IFirebaseService>();
+            var identityClient = serviceProvider.GetService<Application.Interfaces.IIdentityServiceClient>();
+            var tenantClient = serviceProvider.GetService<Application.Interfaces.ITenantServiceClient>();
 
-            _logger.LogDebug(
-                "Firebase notification not implemented - QueueItemId={QueueItemId}",
+            // Check if Firebase is enabled
+            if (firebaseService == null || !firebaseService.IsEnabled)
+            {
+                _logger.LogDebug(
+                    "Firebase is not enabled or service not registered - QueueItemId={QueueItemId}",
+                    queueItem.Id);
+                return;
+            }
+
+            if (identityClient == null)
+            {
+                _logger.LogWarning(
+                    "Identity Service client not registered. Cannot retrieve device tokens - QueueItemId={QueueItemId}",
+                    queueItem.Id);
+                return;
+            }
+
+            List<Application.DTOs.DeviceTokenDto> deviceTokens;
+
+            // Determine notification type and fetch appropriate device tokens
+            if (!queueItem.UserId.HasValue && string.IsNullOrWhiteSpace(queueItem.TenantId))
+            {
+                // Scenario 1: Global notification - loop through ALL tenants
+                _logger.LogInformation(
+                    "Processing GLOBAL notification - QueueItemId={QueueItemId}",
+                    queueItem.Id);
+
+                if (tenantClient == null)
+                {
+                    _logger.LogWarning(
+                        "Tenant Service client not registered. Cannot retrieve tenants for global notification - QueueItemId={QueueItemId}",
+                        queueItem.Id);
+                    return;
+                }
+
+                // Get all active tenant IDs
+                var tenantIds = await tenantClient.GetAllActiveTenantIdsAsync(cancellationToken);
+                
+                if (!tenantIds.Any())
+                {
+                    _logger.LogWarning(
+                        "No active tenants found for global notification - QueueItemId={QueueItemId}",
+                        queueItem.Id);
+                    return;
+                }
+
+                _logger.LogInformation(
+                    "Found {TenantCount} active tenants for global notification - QueueItemId={QueueItemId}",
+                    tenantIds.Count,
+                    queueItem.Id);
+
+                // Loop through each tenant and send notifications
+                deviceTokens = new List<Application.DTOs.DeviceTokenDto>();
+                int totalSuccessCount = 0;
+                int totalFailureCount = 0;
+
+                foreach (var tenantId in tenantIds)
+                {
+                    try
+                    {
+                        var tenantDeviceTokens = await identityClient.GetTenantDeviceTokensAsync(
+                            tenantId,
+                            cancellationToken);
+
+                        if (!tenantDeviceTokens.Any())
+                        {
+                            _logger.LogDebug(
+                                "No device tokens found for tenant {TenantId} - QueueItemId={QueueItemId}",
+                                tenantId,
+                                queueItem.Id);
+                            continue;
+                        }
+
+                        _logger.LogInformation(
+                            "Sending global notification to {TokenCount} devices in tenant {TenantId} - QueueItemId={QueueItemId}",
+                            tenantDeviceTokens.Count,
+                            tenantId,
+                            queueItem.Id);
+
+                        // Prepare data payload
+                        var tenantData = new Dictionary<string, string>
+                        {
+                            { "queueItemId", queueItem.Id.ToString() },
+                            { "notificationId", queueItem.NotificationId?.ToString() ?? "0" },
+                            { "tenantId", tenantId },
+                            { "userId", "0" },
+                            { "priority", queueItem.Priority.ToString() }
+                        };
+
+                        if (!string.IsNullOrWhiteSpace(queueItem.Data))
+                        {
+                            tenantData["customData"] = queueItem.Data;
+                        }
+
+                        var tenantTokens = tenantDeviceTokens.Select(dt => dt.Token).ToList();
+
+                        // Send to tenant's devices
+                        var tenantResults = await firebaseService.SendToMultipleDevicesAsync(
+                            tenantTokens,
+                            queueItem.Title,
+                            queueItem.Message ?? string.Empty,
+                            tenantData,
+                            cancellationToken);
+
+                        totalSuccessCount += tenantResults.SuccessCount;
+                        totalFailureCount += tenantResults.FailureCount;
+
+                        // Handle invalid tokens
+                        if (tenantResults.InvalidTokenIds.Any())
+                        {
+                            // Convert token strings to token IDs
+                            var invalidTokenIdsToDelete = tenantDeviceTokens
+                                .Where(dt => tenantResults.InvalidTokenIds.Contains(dt.Token))
+                                .Select(dt => dt.Id)
+                                .ToList();
+
+                            if (invalidTokenIdsToDelete.Any())
+                            {
+                                await identityClient.DeleteBatchDeviceTokensAsync(
+                                    invalidTokenIdsToDelete,
+                                    tenantId,
+                                    cancellationToken);
+
+                                _logger.LogInformation(
+                                    "Deleted {Count} invalid device tokens for tenant {TenantId}",
+                                    invalidTokenIdsToDelete.Count,
+                                    tenantId);
+                            }
+                        }
+
+                        _logger.LogInformation(
+                            "Global notification sent to tenant {TenantId}: Success={Success}, Failed={Failed} - QueueItemId={QueueItemId}",
+                            tenantId,
+                            tenantResults.SuccessCount,
+                            tenantResults.FailureCount,
+                            queueItem.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(
+                            ex,
+                            "Error sending global notification to tenant {TenantId} - QueueItemId={QueueItemId}",
+                            tenantId,
+                            queueItem.Id);
+                    }
+                }
+
+                _logger.LogInformation(
+                    "Global notification completed across {TenantCount} tenants: Total Success={TotalSuccess}, Total Failed={TotalFailed} - QueueItemId={QueueItemId}",
+                    tenantIds.Count,
+                    totalSuccessCount,
+                    totalFailureCount,
+                    queueItem.Id);
+
+                return; // Exit early as we handled everything
+            }
+            else if (!queueItem.UserId.HasValue && !string.IsNullOrWhiteSpace(queueItem.TenantId))
+            {
+                // Scenario 2: Tenant notification - get all device tokens for tenant
+                _logger.LogInformation(
+                    "Processing TENANT notification for tenant {TenantId} - QueueItemId={QueueItemId}",
+                    queueItem.TenantId,
+                    queueItem.Id);
+
+                deviceTokens = await identityClient.GetTenantDeviceTokensAsync(
+                    queueItem.TenantId,
+                    cancellationToken);
+            }
+            else if (queueItem.UserId.HasValue)
+            {
+                // Scenario 3: User notification - get device tokens for specific user
+                _logger.LogInformation(
+                    "Processing USER notification for user {UserId} - QueueItemId={QueueItemId}",
+                    queueItem.UserId,
+                    queueItem.Id);
+
+                // Try cache first for user notifications
+                if (deviceTokensCache != null && deviceTokensCache.TryGetValue(queueItem.UserId.Value, out var cachedTokens))
+                {
+                    deviceTokens = cachedTokens;
+                    _logger.LogDebug(
+                        "Using cached device tokens for user {UserId} - QueueItemId={QueueItemId}",
+                        queueItem.UserId,
+                        queueItem.Id);
+                }
+                else
+                {
+                    // Fallback to individual API call (cache miss)
+                    deviceTokens = await identityClient.GetUserDeviceTokensAsync(
+                        queueItem.UserId.Value,
+                        queueItem.TenantId,
+                        cancellationToken);
+
+                    _logger.LogDebug(
+                        "Fetched device tokens from API for user {UserId} (cache miss) - QueueItemId={QueueItemId}",
+                        queueItem.UserId,
+                        queueItem.Id);
+                }
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Invalid notification configuration - QueueItemId={QueueItemId}",
+                    queueItem.Id);
+                return;
+            }
+
+            if (!deviceTokens.Any())
+            {
+                var notificationType = !queueItem.UserId.HasValue && string.IsNullOrWhiteSpace(queueItem.TenantId) 
+                    ? "GLOBAL" 
+                    : !queueItem.UserId.HasValue 
+                        ? "TENANT" 
+                        : "USER";
+
+                _logger.LogDebug(
+                    "No device tokens found for {NotificationType} notification - QueueItemId={QueueItemId}",
+                    notificationType,
+                    queueItem.Id);
+                return;
+            }
+
+            var notificationScope = !queueItem.UserId.HasValue && string.IsNullOrWhiteSpace(queueItem.TenantId)
+                ? "globally"
+                : !queueItem.UserId.HasValue
+                    ? $"for tenant {queueItem.TenantId}"
+                    : $"for user {queueItem.UserId}";
+
+            _logger.LogInformation(
+                "Sending Firebase notification to {TokenCount} device(s) {Scope} - QueueItemId={QueueItemId}",
+                deviceTokens.Count,
+                notificationScope,
                 queueItem.Id);
 
-            await Task.CompletedTask;
+            // Prepare data payload
+            var data = new Dictionary<string, string>
+            {
+                { "queueItemId", queueItem.Id.ToString() },
+                { "notificationId", queueItem.NotificationId?.ToString() ?? "0" },
+                { "tenantId", queueItem.TenantId ?? "" },
+                { "userId", queueItem.UserId?.ToString() ?? "0" },
+                { "priority", queueItem.Priority.ToString() }
+            };
+
+            // Add custom data if available
+            if (!string.IsNullOrWhiteSpace(queueItem.Data))
+            {
+                data["customData"] = queueItem.Data;
+            }
+
+            // Extract just the tokens
+            var tokens = deviceTokens.Select(dt => dt.Token).ToList();
+
+            // Send to multiple devices
+            var results = await firebaseService.SendToMultipleDevicesAsync(
+                tokens,
+                queueItem.Title,
+                queueItem.Message ?? string.Empty,
+                data,
+                cancellationToken);
+
+            // Process results and remove invalid tokens
+            var invalidTokenIds = new List<int>();
+            var successCount = 0;
+            var failureCount = 0;
+
+            foreach (var deviceToken in deviceTokens)
+            {
+                if (results.TokenResults.TryGetValue(deviceToken.Token, out var success))
+                {
+                    if (success)
+                    {
+                        successCount++;
+                        _logger.LogDebug(
+                            "Firebase notification sent successfully to device {DeviceId} (TokenId: {TokenId}) for user {UserId}",
+                            deviceToken.DeviceIdentifier ?? "unknown",
+                            deviceToken.Id,
+                            deviceToken.UserId);
+                    }
+                    else
+                    {
+                        failureCount++;
+                        invalidTokenIds.Add(deviceToken.Id);
+                        _logger.LogWarning(
+                            "Firebase notification failed for device {DeviceId} (TokenId: {TokenId}) - token may be invalid or expired",
+                            deviceToken.DeviceIdentifier ?? "unknown",
+                            deviceToken.Id);
+                    }
+                }
+            }
+
+            _logger.LogInformation(
+                "Firebase notification completed - Success: {SuccessCount}, Failed: {FailureCount}, QueueItemId={QueueItemId}",
+                successCount,
+                failureCount,
+                queueItem.Id);
+
+            // Remove invalid tokens from database using batch delete
+            if (invalidTokenIds.Any() && identityClient != null)
+            {
+                _logger.LogInformation(
+                    "Removing {Count} invalid/expired device tokens for user {UserId} using batch delete",
+                    invalidTokenIds.Count,
+                    queueItem.UserId);
+
+                try
+                {
+                    var deletedCount = await identityClient.DeleteBatchDeviceTokensAsync(
+                        invalidTokenIds,
+                        queueItem.TenantId,
+                        cancellationToken);
+
+                    _logger.LogInformation(
+                        "Successfully deleted {DeletedCount} of {TotalCount} invalid device tokens for user {UserId}",
+                        deletedCount,
+                        invalidTokenIds.Count,
+                        queueItem.UserId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to batch delete {Count} invalid device tokens for user {UserId}",
+                        invalidTokenIds.Count,
+                        queueItem.UserId);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -598,7 +1065,6 @@ public class NotificationProcessor : BackgroundService
                 ex,
                 "Failed to send Firebase notification for QueueItemId={QueueItemId}",
                 queueItem.Id);
-            throw;
         }
     }
 }

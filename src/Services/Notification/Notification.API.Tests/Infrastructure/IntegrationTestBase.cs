@@ -15,6 +15,9 @@ namespace Notification.API.Tests.Infrastructure;
 /// IMPORTANT: Notification Service uses TWO databases:
 /// 1. NotificationDbContext - Global queue database (for queue items)
 /// 2. TenantNotificationDbContext - Tenant-specific database (for notification history)
+///
+/// Database is created fresh by CustomWebApplicationFactory.ConfigureWebHost using EnsureCreated().
+/// Tests should be independent and not rely on database cleanup between tests.
 /// </summary>
 public abstract class IntegrationTestBase : 
     IhsanDev.Shared.Testing.Infrastructure.IntegrationTestBase<NotificationDbContext, Program>,
@@ -22,11 +25,6 @@ public abstract class IntegrationTestBase :
 {
     protected IntegrationTestBase(CustomWebApplicationFactory factory) : base(factory)
     {
-        // Note: Setting UsePostgreSQL here is too late - factory is already configured
-        // To use PostgreSQL, override in CustomWebApplicationFactory constructor instead
-        
-        // Clean up both databases before each test to ensure isolation
-        CleanupAllTestDataAsync().Wait();
     }
 
     // ============================================
@@ -193,11 +191,12 @@ public abstract class IntegrationTestBase :
     }
 
     // ============================================
-    // Cleanup Helpers
+    // Cleanup Helpers (Optional - Not Required for Tests)
     // ============================================
     
     /// <summary>
     /// Clean up all queue items from global database
+    /// NOTE: Not typically needed - database is recreated fresh for each test run
     /// </summary>
     protected async Task CleanupGlobalQueueAsync()
     {
@@ -210,6 +209,7 @@ public abstract class IntegrationTestBase :
 
     /// <summary>
     /// Clean up all notifications from tenant database
+    /// NOTE: Not typically needed - database is recreated fresh for each test run
     /// </summary>
     protected async Task CleanupTenantNotificationsAsync()
     {
@@ -222,6 +222,7 @@ public abstract class IntegrationTestBase :
 
     /// <summary>
     /// Clean up all test data from both databases
+    /// NOTE: Not typically needed - database is recreated fresh for each test run
     /// </summary>
     protected async Task CleanupAllTestDataAsync()
     {

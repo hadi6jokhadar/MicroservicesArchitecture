@@ -233,7 +233,7 @@ Background Service (every 5s) → Query Pending → Process → Persist → Deli
    **Step 4: Send via Firebase** 🚧 (TODO)
 
    ```csharp
-   // TODO: Implement Firebase Cloud Messaging
+   // ✅ Firebase Cloud Messaging implemented - See FIREBASE_PUSH_NOTIFICATIONS_GUIDE.md
    // 1. Get device tokens for user from Identity Service
    // 2. Send push notification via Firebase Admin SDK
    // 3. Handle delivery status and token invalidation

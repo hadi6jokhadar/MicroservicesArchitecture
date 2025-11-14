@@ -16,11 +16,21 @@ namespace Notification.API.Tests.Endpoints;
 /// - User isolation
 /// </summary>
 [Collection("Sequential")]
-public class UserNotificationsEndpointsTests : IntegrationTestBase
+public class UserNotificationsEndpointsTests : IntegrationTestBase, IAsyncLifetime
 {
     public UserNotificationsEndpointsTests(CustomWebApplicationFactory factory) : base(factory)
     {
-        factory.UsePostgreSQL = true;
+    }
+
+    public async Task InitializeAsync()
+    {
+        // Clean database before each test to prevent data accumulation
+        await CleanupAllTestDataAsync();
+    }
+
+    public Task DisposeAsync()
+    {
+        return Task.CompletedTask;
     }
 
     #region GetUserNotifications Tests

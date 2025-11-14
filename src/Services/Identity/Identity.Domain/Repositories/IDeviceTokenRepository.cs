@@ -52,4 +52,15 @@ public interface IDeviceTokenRepository
     /// Check if a device token exists
     /// </summary>
     Task<bool> ExistsAsync(string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all device tokens (for global notifications)
+    /// </summary>
+    Task<List<DeviceToken>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all device tokens for a specific tenant (for tenant-wide notifications)
+    /// Note: This requires tenant context to be set
+    /// </summary>
+    Task<List<DeviceToken>> GetAllForCurrentTenantAsync(CancellationToken cancellationToken = default);
 }

@@ -27,6 +27,7 @@ namespace Notification.Infrastructure.Migrations.Global
                     Data = table.Column<string>(type: "jsonb", nullable: true),
                     QueueStatus = table.Column<int>(type: "integer", nullable: false),
                     RetryCount = table.Column<int>(type: "integer", nullable: false),
+                    NextRetryAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     ProcessedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     Error = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
@@ -44,24 +45,32 @@ namespace Notification.Infrastructure.Migrations.Global
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_NotificationQueue_ExpiresAt",
+                name: "IX_NotificationQueue_Cleanup",
                 table: "NotificationQueue",
-                column: "ExpiresAt");
+                columns: new[] { "QueueStatus", "LastModified" },
+                filter: "\"QueueStatus\" IN (2, 3, 4)");
 
             migrationBuilder.CreateIndex(
-                name: "IX_NotificationQueue_Status_Created",
+                name: "IX_NotificationQueue_Expiration",
                 table: "NotificationQueue",
-                columns: new[] { "QueueStatus", "Created" });
+                columns: new[] { "ExpiresAt", "QueueStatus" },
+                filter: "\"QueueStatus\" = 0");
 
             migrationBuilder.CreateIndex(
-                name: "IX_NotificationQueue_TenantId",
+                name: "IX_NotificationQueue_Processing",
                 table: "NotificationQueue",
-                column: "TenantId");
+                columns: new[] { "QueueStatus", "ExpiresAt", "NextRetryAt", "Priority", "Created" },
+                filter: "\"QueueStatus\" = 0");
 
             migrationBuilder.CreateIndex(
-                name: "IX_NotificationQueue_UserId",
+                name: "IX_NotificationQueue_Tenant",
                 table: "NotificationQueue",
-                column: "UserId");
+                columns: new[] { "TenantId", "QueueStatus", "Created" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_NotificationQueue_User",
+                table: "NotificationQueue",
+                columns: new[] { "UserId", "QueueStatus", "Created" });
         }
 
         /// <inheritdoc />

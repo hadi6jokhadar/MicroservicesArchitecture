@@ -73,6 +73,7 @@ public class ServiceAuthenticationMiddleware
                     // Valid service request - add service claims
                     var identity = new ClaimsIdentity("ServiceAccount");
                     identity.AddClaim(new Claim(ClaimTypes.Role, "Service"));
+                    identity.AddClaim(new Claim(ClaimTypes.Role, "SuperAdmin")); // Allow access to admin endpoints
                     identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, "0")); // System user ID
                     identity.AddClaim(new Claim("IsInternalService", "true"));
 

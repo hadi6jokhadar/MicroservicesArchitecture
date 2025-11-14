@@ -51,9 +51,9 @@ public static class TenantApiHandlers
     /// Get all active tenants with pagination
     /// </summary>
     public static async Task<IResult> GetAllActiveTenantsHandler(
-        int pageNumber,
-        int pageSize,
-        IMediator mediator,
+        int pageNumber = 1,
+        int pageSize = 100,
+        IMediator mediator = null!,
         CancellationToken ct = default)
     {
         var query = new GetAllActiveTenantsQuery(pageNumber, pageSize);

@@ -11,7 +11,7 @@ public static class DeviceTokenApiHandlers
     /// Add a new device token
     /// </summary>
     public static async Task<IResult> AddDeviceToken(
-        AddDeviceTokenRequest request,
+        [FromBody] AddDeviceTokenRequest request,
         IMediator mediator,
         CancellationToken cancellationToken = default)
     {
@@ -74,7 +74,7 @@ public static class DeviceTokenApiHandlers
     /// </summary>
     public static async Task<IResult> UpdateDeviceToken(
         int id,
-        UpdateDeviceTokenRequest request,
+        [FromBody] UpdateDeviceTokenRequest request,
         IMediator mediator,
         CancellationToken cancellationToken = default)
     {
@@ -113,6 +113,56 @@ public static class DeviceTokenApiHandlers
         var result = await mediator.Send(command, cancellationToken);
         return Results.NoContent();
     }
+
+    /// <summary>
+    /// Get device tokens for multiple users in batch (service-to-service only)
+    /// </summary>
+    public static async Task<IResult> GetBatchDeviceTokens(
+        [FromBody] BatchUserIdsRequest request,
+        IMediator mediator,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetBatchDeviceTokensQuery(request.UserIds);
+        var result = await mediator.Send(query, cancellationToken);
+        return Results.Ok(result);
+    }
+
+    /// <summary>
+    /// Delete multiple device tokens in batch (service-to-service only)
+    /// </summary>
+    public static async Task<IResult> DeleteBatchDeviceTokens(
+        [FromBody] BatchTokenIdsRequest request,
+        IMediator mediator,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new DeleteBatchDeviceTokensCommand(request.TokenIds);
+        var deletedCount = await mediator.Send(command, cancellationToken);
+        return Results.Ok(new { deletedCount });
+    }
+
+    /// <summary>
+    /// Get all device tokens (for global notifications - service-to-service only)
+    /// </summary>
+    public static async Task<IResult> GetAllDeviceTokens(
+        IMediator mediator,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetAllDeviceTokensQuery();
+        var result = await mediator.Send(query, cancellationToken);
+        return Results.Ok(result);
+    }
+
+    /// <summary>
+    /// Get all device tokens for current tenant (for tenant-wide notifications)
+    /// </summary>
+    public static async Task<IResult> GetTenantDeviceTokens(
+        IMediator mediator,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetTenantDeviceTokensQuery();
+        var result = await mediator.Send(query, cancellationToken);
+        return Results.Ok(result);
+    }
 }
 
 // Request DTOs
@@ -127,3 +177,7 @@ public record UpdateDeviceTokenRequest(
     string? Token = null,
     string? DeviceIdentifier = null,
     bool? IsPrimary = null);
+
+public record BatchUserIdsRequest(List<int> UserIds);
+
+public record BatchTokenIdsRequest(List<int> TokenIds);

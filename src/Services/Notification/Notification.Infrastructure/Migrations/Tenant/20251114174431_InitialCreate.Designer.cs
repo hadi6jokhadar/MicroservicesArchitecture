@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Notification.Infrastructure.Migrations.Global
+namespace Notification.Infrastructure.Migrations.Tenant
 {
-    [DbContext(typeof(NotificationDbContext))]
-    [Migration("20251110201245_AddNextRetryAtAndOptimizedIndexes")]
-    partial class AddNextRetryAtAndOptimizedIndexes
+    [DbContext(typeof(TenantNotificationDbContext))]
+    [Migration("20251114174431_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -25,7 +25,7 @@ namespace Notification.Infrastructure.Migrations.Global
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Notification.Domain.Entities.NotificationQueueItem", b =>
+            modelBuilder.Entity("Notification.Domain.Entities.Notification", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -42,17 +42,10 @@ namespace Notification.Infrastructure.Migrations.Global
                     b.Property<string>("Data")
                         .HasColumnType("jsonb");
 
-                    b.Property<int>("DeliveryType")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Error")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("LastModified")
@@ -65,30 +58,14 @@ namespace Notification.Infrastructure.Migrations.Global
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
-                    b.Property<DateTime?>("NextRetryAt")
+                    b.Property<int?>("QueueItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ReadAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("NotificationId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("ProcessedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("QueueStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("RetryCount")
-                        .HasColumnType("integer");
 
                     b.Property<bool>("Status")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("TenantId")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -100,25 +77,16 @@ namespace Notification.Infrastructure.Migrations.Global
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExpiresAt", "QueueStatus")
-                        .HasDatabaseName("IX_NotificationQueue_Expiration")
-                        .HasFilter("\"QueueStatus\" = 0");
+                    b.HasIndex("Created")
+                        .HasDatabaseName("IX_Notifications_Created");
 
-                    b.HasIndex("QueueStatus", "LastModified")
-                        .HasDatabaseName("IX_NotificationQueue_Cleanup")
-                        .HasFilter("\"QueueStatus\" IN (2, 3, 4)");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_Notifications_UserId");
 
-                    b.HasIndex("TenantId", "QueueStatus", "Created")
-                        .HasDatabaseName("IX_NotificationQueue_Tenant");
+                    b.HasIndex("UserId", "IsRead")
+                        .HasDatabaseName("IX_Notifications_UserId_IsRead");
 
-                    b.HasIndex("UserId", "QueueStatus", "Created")
-                        .HasDatabaseName("IX_NotificationQueue_User");
-
-                    b.HasIndex("QueueStatus", "ExpiresAt", "NextRetryAt", "Priority", "Created")
-                        .HasDatabaseName("IX_NotificationQueue_Processing")
-                        .HasFilter("\"QueueStatus\" = 0");
-
-                    b.ToTable("NotificationQueue", (string)null);
+                    b.ToTable("Notifications", (string)null);
                 });
 #pragma warning restore 612, 618
         }

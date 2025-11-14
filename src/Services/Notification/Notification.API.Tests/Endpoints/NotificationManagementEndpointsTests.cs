@@ -15,11 +15,21 @@ namespace Notification.API.Tests.Endpoints;
 /// - User authorization checks
 /// </summary>
 [Collection("Sequential")]
-public class NotificationManagementEndpointsTests : IntegrationTestBase
+public class NotificationManagementEndpointsTests : IntegrationTestBase, IAsyncLifetime
 {
     public NotificationManagementEndpointsTests(CustomWebApplicationFactory factory) : base(factory)
     {
-        factory.UsePostgreSQL = true;
+    }
+
+    public async Task InitializeAsync()
+    {
+        // Clean database before each test to prevent data accumulation
+        await CleanupAllTestDataAsync();
+    }
+
+    public Task DisposeAsync()
+    {
+        return Task.CompletedTask;
     }
 
     #region MarkNotificationAsRead Tests

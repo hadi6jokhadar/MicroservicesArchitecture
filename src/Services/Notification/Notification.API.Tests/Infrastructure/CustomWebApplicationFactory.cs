@@ -27,8 +27,8 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
         // Set database provider - change this to switch between SQLite and PostgreSQL
         UsePostgreSQL = true;  // Set to true to use PostgreSQL for tests
         
-        // Use test database for global queue
-        PostgreSqlConnectionString = "Host=localhost;Port=5432;Database=notification_global_test;Username=postgres;Password=CHANGE_ME_DB_PASSWORD;Minimum Pool Size=5;Maximum Pool Size=50;Connection Idle Lifetime=300;Connection Pruning Interval=10;Pooling=true;";
+        // Optional: Customize PostgreSQL connection string
+        PostgreSqlConnectionString = "Host=localhost;Port=5432;Database=notificationTestdb;Username=postgres;Password=CHANGE_ME_DB_PASSWORD;Minimum Pool Size=5;Maximum Pool Size=50;Connection Idle Lifetime=300;Connection Pruning Interval=10;Pooling=true;";
     }
     
     protected override Dictionary<string, string?> GetTestConfiguration()
@@ -42,10 +42,8 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
         config["Jwt:AccessTokenExpirationMinutes"] = "60";
         config["Jwt:RefreshTokenExpirationDays"] = "7";
         
-        // Disable multi-tenancy for testing (simplifies test setup)
-        // When enabled, tenant middleware requires x-tenant-id header and fetches tenant config
+        // Disable multi-tenancy for testing
         config["MultiTenancy:Enabled"] = "false";
-        config["MultiTenancy:JwtMode"] = "Shared";
         
         // Notification processing configuration
         config["NotificationProcessing:WaitableBatchIntervalSeconds"] = "5";
@@ -53,10 +51,8 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
         
         // SignalR configuration
         config["SignalR:EnableDetailedErrors"] = "true";
-        config["SignalR:ClientTimeoutInterval"] = "00:02:00";
-        config["SignalR:KeepAliveInterval"] = "00:00:30";
         
-        // Identity Service configuration (for device token management)
+        // Identity Service configuration
         config["IdentityService:BaseUrl"] = "https://localhost:5001";
         
         return config;
@@ -68,81 +64,125 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
         
         builder.ConfigureServices(services =>
         {
-            // ============================================
-            // Configure Global Notification Queue Database
-            // ============================================
-            // This database stores the notification queue (NotificationQueueItem)
-            // It's shared across all tenants and uses appsettings.json connection
-            // Migrations folder: Migrations/Global
+            // Disable background services in tests (they query DB before it's created)
+            var hostedServices = services.Where(d => 
+                d.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) &&
+                d.ImplementationType?.Namespace?.StartsWith("Notification.API") == true).ToList();
+            foreach (var service in hostedServices)
+                services.Remove(service);
+            
+            // Remove existing DbContext registrations
             services.RemoveAll<DbContextOptions<NotificationDbContext>>();
             services.RemoveAll<NotificationDbContext>();
-
-            if (UsePostgreSQL)
-            {
-                services.AddDbContext<NotificationDbContext>(options =>
-                {
-                    options.UseNpgsql(PostgreSqlConnectionString, npgsqlOptions =>
-                    {
-                        npgsqlOptions.MigrationsAssembly(typeof(NotificationDbContext).Assembly.GetName().Name);
-                        npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "public");
-                    });
-                    options.EnableSensitiveDataLogging();
-                    options.EnableDetailedErrors();
-                });
-            }
-            else
-            {
-                services.AddDbContext<NotificationDbContext>(options =>
-                {
-                    options.UseSqlite("DataSource=:memory:");
-                    options.EnableSensitiveDataLogging();
-                    options.EnableDetailedErrors();
-                });
-            }
-
-            // ============================================
-            // Configure Tenant-Specific Notification Database
-            // ============================================
-            // This database stores notification history (Notification entity)
-            // In production: uses tenant-specific connection from TenantContext
-            // In testing: uses the same test database (multi-tenancy disabled)
-            // Migrations folder: Migrations/Tenant
             services.RemoveAll<DbContextOptions<TenantNotificationDbContext>>();
             services.RemoveAll<TenantNotificationDbContext>();
 
+            // Configure Global Queue Database with proper migration assembly
             if (UsePostgreSQL)
             {
+                services.AddDbContext<NotificationDbContext>(options =>
+                    options.UseNpgsql(PostgreSqlConnectionString, npgsql =>
+                        npgsql.MigrationsAssembly(typeof(NotificationDbContext).Assembly.GetName().Name))
+                           .EnableSensitiveDataLogging()
+                           .EnableDetailedErrors());
+                
                 services.AddDbContext<TenantNotificationDbContext>(options =>
-                {
-                    options.UseNpgsql(PostgreSqlConnectionString, npgsqlOptions =>
-                    {
-                        npgsqlOptions.MigrationsAssembly(typeof(TenantNotificationDbContext).Assembly.GetName().Name);
-                        npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory_Tenant", "public");
-                    });
-                    options.EnableSensitiveDataLogging();
-                    options.EnableDetailedErrors();
-                });
+                    options.UseNpgsql(PostgreSqlConnectionString, npgsql =>
+                        npgsql.MigrationsAssembly(typeof(TenantNotificationDbContext).Assembly.GetName().Name))
+                           .EnableSensitiveDataLogging()
+                           .EnableDetailedErrors());
             }
             else
             {
+                var connection = new SqliteConnection("DataSource=:memory:");
+                connection.Open();
+                
+                services.AddDbContext<NotificationDbContext>(options =>
+                    options.UseSqlite(connection).EnableSensitiveDataLogging().EnableDetailedErrors());
+                
                 services.AddDbContext<TenantNotificationDbContext>(options =>
-                {
-                    options.UseSqlite("DataSource=:memory:");
-                    options.EnableSensitiveDataLogging();
-                    options.EnableDetailedErrors();
-                });
+                    options.UseSqlite(connection).EnableSensitiveDataLogging().EnableDetailedErrors());
             }
 
-            // Build service provider - database migrations already applied manually
-            // DO NOT call EnsureDeleted() or EnsureCreated() as it would drop test data
-            // The test databases should be set up once before running tests
+            // Build service provider and initialize databases
+            var sp = services.BuildServiceProvider();
+            using var scope = sp.CreateScope();
+            
+            var globalDb = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+            var tenantDb = scope.ServiceProvider.GetRequiredService<TenantNotificationDbContext>();
+            
+            // CRITICAL: Both contexts share the same database but have different tables
+            // NotificationDbContext -> NotificationQueue table (global queue)
+            // TenantNotificationDbContext -> Notifications table (tenant-specific history)
+            
+            if (UsePostgreSQL)
+            {
+                // For PostgreSQL, ensure database exists and apply migrations
+                globalDb.Database.Migrate();  // Creates/updates NotificationQueue table
+                tenantDb.Database.Migrate();  // Creates/updates Notifications table
+                
+                // Clean existing data for fresh test state
+                try
+                {
+                    globalDb.Database.ExecuteSqlRaw("TRUNCATE TABLE \"NotificationQueue\" RESTART IDENTITY CASCADE");
+                }
+                catch
+                {
+                    // Ignore if table doesn't exist yet (first run)
+                }
+                
+                try
+                {
+                    tenantDb.Database.ExecuteSqlRaw("TRUNCATE TABLE \"Notifications\" RESTART IDENTITY CASCADE");
+                }
+                catch
+                {
+                    // Ignore if table doesn't exist yet (first run)
+                }
+            }
+            else
+            {
+                // For SQLite in-memory, use EnsureCreated (migrations don't work with in-memory)
+                globalDb.Database.EnsureDeleted();
+                globalDb.Database.EnsureCreated();  // Creates NotificationQueue table
+                tenantDb.Database.EnsureCreated();   // Creates Notifications table
+            }
+            
+            SeedTestData(globalDb);
+            SeedTestData(tenantDb);
         });
     }
 
     protected override void SeedTestData<TDbContext>(TDbContext context)
     {
         // Notification-specific seed data if needed
-        // For example, you could seed some test queue items or notifications here
         context.SaveChanges();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            // Clean up test database when factory is disposed (after each test class)
+            try
+            {
+                using var scope = Services.CreateScope();
+                var globalDb = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+                var tenantDb = scope.ServiceProvider.GetRequiredService<TenantNotificationDbContext>();
+                
+                if (UsePostgreSQL)
+                {
+                    // For PostgreSQL, truncate tables to clean up data but keep schema
+                    globalDb.Database.ExecuteSqlRaw("TRUNCATE TABLE \"NotificationQueue\" RESTART IDENTITY CASCADE");
+                    tenantDb.Database.ExecuteSqlRaw("TRUNCATE TABLE \"Notifications\" RESTART IDENTITY CASCADE");
+                }
+            }
+            catch
+            {
+                // Ignore cleanup errors during disposal
+            }
+        }
+        
+        base.Dispose(disposing);
     }
 }

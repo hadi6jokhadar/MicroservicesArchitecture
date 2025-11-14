@@ -258,13 +258,153 @@ When adding tests to a new microservice:
 - [ ] Create service-specific `CustomWebApplicationFactory`
   - [ ] Inherit from shared base
   - [ ] Override `GetTestConfiguration()`
-  - [ ] Configure service DbContext
+  - [ ] Configure service DbContext(s)
+  - [ ] Use table truncation (not database drops) for cleanup
 - [ ] Create service-specific `IntegrationTestBase`
   - [ ] Inherit from shared base
   - [ ] Add auth helpers if needed
   - [ ] Add entity creation helpers
+  - [ ] Add cleanup helpers if needed
+- [ ] Implement `IAsyncLifetime` in test classes
+  - [ ] Call cleanup in `InitializeAsync()`
+  - [ ] Ensures clean state before each test
 - [ ] Write tests using `SendAsync()` pattern
 - [ ] Verify all tests pass
+
+## 🎯 Database Cleanup Best Practices
+
+### ✅ DO: Use IAsyncLifetime for Automatic Cleanup
+
+```csharp
+public class MyEndpointsTests : IntegrationTestBase, IAsyncLifetime
+{
+    public async Task InitializeAsync()
+    {
+        // Called BEFORE each test method
+        await CleanupAllTestDataAsync();
+    }
+
+    public Task DisposeAsync()
+    {
+        return Task.CompletedTask;
+    }
+}
+```
+
+**Benefits:**
+
+- Automatic cleanup before each test
+- Prevents data accumulation
+- No manual cleanup needed in test code
+- Ensures test isolation
+
+### ✅ DO: Use Table Truncation (PostgreSQL)
+
+```csharp
+// In CustomWebApplicationFactory or cleanup methods
+context.Database.ExecuteSqlRaw("TRUNCATE TABLE \"TableName\" RESTART IDENTITY CASCADE");
+```
+
+**Benefits:**
+
+- Fast execution
+- Preserves schema
+- Resets auto-increment counters
+- No VS Code crashes
+
+### ❌ DON'T: Drop Database During Tests
+
+```csharp
+// ❌ DON'T do this - causes crashes and slowness
+context.Database.EnsureDeleted();
+```
+
+**Problems:**
+
+- Causes VS Code crashes
+- Slow (drops and recreates schema)
+- Breaks concurrent test execution
+- Unnecessary overhead
+
+### ✅ DO: Create Database Once, Truncate Tables Per Test
+
+```csharp
+// In CustomWebApplicationFactory.ConfigureWebHost()
+if (UsePostgreSQL)
+{
+    globalDb.Database.Migrate();  // Once per test run
+    tenantDb.Database.Migrate();
+
+    // Clean existing data
+    try
+    {
+        globalDb.Database.ExecuteSqlRaw("TRUNCATE TABLE \"TableName\" RESTART IDENTITY CASCADE");
+    }
+    catch { /* Ignore if table doesn't exist yet */ }
+}
+```
+
+## 🐛 Common Issues & Solutions
+
+### Issue: Tests Find Accumulated Data
+
+**Problem:** Tests fail with "Expected 1 but found 20" errors.
+
+**Root Cause:** Tests within the same class share factory instance, data accumulates.
+
+**Solution:** Implement `IAsyncLifetime` in all test classes:
+
+```csharp
+public class MyTests : IntegrationTestBase, IAsyncLifetime
+{
+    public async Task InitializeAsync()
+    {
+        await CleanupAllTestDataAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+}
+```
+
+### Issue: VS Code Crashes When Running Tests
+
+**Problem:** VS Code becomes unresponsive during test execution.
+
+**Root Cause:** `EnsureDeleted()` called on PostgreSQL database during concurrent test initialization.
+
+**Solution:** Use table truncation instead:
+
+```csharp
+// ❌ Don't do this
+globalDb.Database.EnsureDeleted();
+
+// ✅ Do this
+globalDb.Database.Migrate();
+globalDb.Database.ExecuteSqlRaw("TRUNCATE TABLE \"TableName\" RESTART IDENTITY CASCADE");
+```
+
+### Issue: Multiple Databases in One Service
+
+**Problem:** Service uses multiple DbContexts (e.g., Notification: GlobalQueue + TenantNotifications).
+
+**Solution:** Configure both in factory, provide helpers for both:
+
+```csharp
+// In CustomWebApplicationFactory
+services.AddDbContext<NotificationDbContext>(options => ...);
+services.AddDbContext<TenantNotificationDbContext>(options => ...);
+
+// In IntegrationTestBase
+protected async Task ExecuteGlobalDbContextAsync(Func<NotificationDbContext, Task> action) { }
+protected async Task ExecuteTenantDbContextAsync(Func<TenantNotificationDbContext, Task> action) { }
+
+// Cleanup both
+protected async Task CleanupAllTestDataAsync()
+{
+    await CleanupGlobalQueueAsync();
+    await CleanupTenantNotificationsAsync();
+}
+```
 
 ## 🎉 Success Metrics
 

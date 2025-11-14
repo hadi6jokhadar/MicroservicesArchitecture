@@ -60,4 +60,24 @@ public class DeviceTokenRepository : Repository<DeviceToken>, IDeviceTokenReposi
         return await _dbSet
             .AnyAsync(x => x.Token == token && !x.IsArchived, cancellationToken);
     }
+
+    public async Task<List<DeviceToken>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .Where(x => !x.IsArchived)
+            .OrderByDescending(x => x.Created)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<DeviceToken>> GetAllForCurrentTenantAsync(CancellationToken cancellationToken = default)
+    {
+        // The tenant context is already set by middleware, so this query
+        // will automatically filter to the current tenant's database
+        return await _dbSet
+            .AsNoTracking()
+            .Where(x => !x.IsArchived)
+            .OrderByDescending(x => x.Created)
+            .ToListAsync(cancellationToken);
+    }
 }

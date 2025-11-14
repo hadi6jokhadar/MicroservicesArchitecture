@@ -17,11 +17,21 @@ namespace Notification.API.Tests.Endpoints;
 /// - Priority and delivery type handling
 /// </summary>
 [Collection("Sequential")]
-public class SendNotificationEndpointsTests : IntegrationTestBase
+public class SendNotificationEndpointsTests : IntegrationTestBase, IAsyncLifetime
 {
     public SendNotificationEndpointsTests(CustomWebApplicationFactory factory) : base(factory)
     {
-        factory.UsePostgreSQL = true;
+    }
+
+    public async Task InitializeAsync()
+    {
+        // Clean database before each test to prevent data accumulation
+        await CleanupAllTestDataAsync();
+    }
+
+    public Task DisposeAsync()
+    {
+        return Task.CompletedTask;
     }
 
     #region SendNotification Tests

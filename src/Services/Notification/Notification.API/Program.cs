@@ -388,15 +388,20 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
+// Memory cache for caching device tokens and other data
+builder.Services.AddMemoryCache();
+
 // Register infrastructure services (repositories, services, etc.)
 builder.Services.AddInfrastructureServices();
 
 // HTTP Client for Identity Service (for device tokens)
-builder.Services.AddHttpClient("IdentityService", client =>
-{
-    client.BaseAddress = new Uri(builder.Configuration["IdentityService:BaseUrl"] ?? "https://localhost:5001");
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-});
+builder.Services.AddHttpClient<Notification.Application.Interfaces.IIdentityServiceClient, Notification.Infrastructure.Services.IdentityServiceClient>();
+
+// HTTP Client for Tenant Service (for global notifications)
+builder.Services.AddHttpClient<Notification.Application.Interfaces.ITenantServiceClient, Notification.Infrastructure.Services.TenantServiceClient>();
+
+// Firebase Cloud Messaging Service
+builder.Services.AddSingleton<Notification.Application.Interfaces.IFirebaseService, Notification.Infrastructure.Services.FirebaseService>();
 
 // ============================================
 // Background Services
