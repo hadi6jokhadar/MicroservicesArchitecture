@@ -1,5 +1,3 @@
-using AutoMapper;
-using IhsanDev.Shared.Application.Common.Mappings;
 using Notification.Domain.Entities;
 
 namespace Notification.Application.DTOs;
@@ -7,7 +5,7 @@ namespace Notification.Application.DTOs;
 /// <summary>
 /// Response DTO after sending notification
 /// </summary>
-public class SendNotificationResponse : IMapFrom<NotificationQueueItem>
+public class SendNotificationResponse
 {
     /// <summary>
     /// Queue item unique identifier
@@ -22,7 +20,7 @@ public class SendNotificationResponse : IMapFrom<NotificationQueueItem>
     /// <summary>
     /// Timestamp when notification was queued
     /// </summary>
-    public DateTime QueuedAt { get; set; }
+    public string QueuedAt { get; set; } = string.Empty;
 
     /// <summary>
     /// Priority level
@@ -34,13 +32,18 @@ public class SendNotificationResponse : IMapFrom<NotificationQueueItem>
     /// </summary>
     public string? DeliveryType { get; set; }
 
-    public void Mapping(Profile profile)
+    /// <summary>
+    /// Maps NotificationQueueItem entity to SendNotificationResponse
+    /// </summary>
+    public static SendNotificationResponse MapFrom(NotificationQueueItem queueItem)
     {
-        profile.CreateMap<NotificationQueueItem, SendNotificationResponse>()
-            .ForMember(dest => dest.QueueItemId, opt => opt.MapFrom(src => src.Id))
-            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.QueueStatus.ToString()))
-            .ForMember(dest => dest.QueuedAt, opt => opt.MapFrom(src => src.Created))
-            .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.Priority.ToString()))
-            .ForMember(dest => dest.DeliveryType, opt => opt.MapFrom(src => src.DeliveryType.ToString()));
+        return new SendNotificationResponse
+        {
+            QueueItemId = queueItem.Id,
+            Status = queueItem.QueueStatus.ToString(),
+            QueuedAt = queueItem.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            Priority = queueItem.Priority.ToString(),
+            DeliveryType = queueItem.DeliveryType.ToString()
+        };
     }
 }

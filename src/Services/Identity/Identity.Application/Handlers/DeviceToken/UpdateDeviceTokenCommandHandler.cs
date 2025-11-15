@@ -68,9 +68,9 @@ public class UpdateDeviceTokenCommandHandler : IRequestHandler<UpdateDeviceToken
             Token = deviceToken.Token,
             Platform = deviceToken.Platform,
             DeviceIdentifier = deviceToken.DeviceIdentifier,
-            LastVerifiedAt = deviceToken.LastVerifiedAt,
+            LastVerifiedAt = deviceToken.LastVerifiedAt?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             IsPrimary = deviceToken.IsPrimary,
-            Created = deviceToken.Created
+            Created = deviceToken.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture)
         };
     }
 }

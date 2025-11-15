@@ -56,12 +56,85 @@ Services/{ServiceName}/
 ### Shared Libraries (src/Shared/)
 
 - **IhsanDev.Shared.Kernel**: Base entities (`BaseEntity`, `BaseUser`), tenant interfaces (`ITenantContext`, `ITenantConfigurationProvider`)
-- **IhsanDev.Shared.Application**: CQRS interfaces, FluentValidation behaviors, `AppException`
-- **IhsanDev.Shared.Infrastructure**: Middlewares (`TenantMiddleware`, `DatabaseMigrationMiddleware`), `INotificationServiceClient`
+- **IhsanDev.Shared.Application**: CQRS interfaces, FluentValidation behaviors, `AppException`, manual mapping patterns
+- **IhsanDev.Shared.Infrastructure**: Middlewares (`TenantMiddleware`, `DatabaseMigrationMiddleware`), `INotificationServiceClient`, DateTime UTC handling
 - **IhsanDev.Shared.Authentication**: JWT generation/validation, service-to-service auth middleware
 - **IhsanDev.Shared.Testing**: `TenantTestHelper`, WebApplicationFactory setups
 
 ## Essential Patterns & Conventions
+
+### DateTime Standardization (ISO 8601 UTC)
+
+**ALL DateTime properties in DTOs are strings formatted as UTC:**
+
+```csharp
+// DTO Definition
+public class MyDto
+{
+    public string Created { get; set; } = string.Empty;
+    public string? LastModified { get; set; }
+}
+
+// MapFrom Method (ALWAYS use ToUniversalTime)
+public static MyDto MapFrom(MyEntity entity)
+{
+    return new MyDto
+    {
+        Id = entity.Id,
+        Created = entity.Created.ToUniversalTime()
+            .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
+        LastModified = entity.LastModified?.ToUniversalTime()
+            .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
+    };
+}
+
+// LINQ Select (EF Core queries)
+var dtoQuery = query.Select(e => new MyDto
+{
+    Id = e.Id,
+    Created = e.Created.ToUniversalTime()
+        .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
+});
+```
+
+**Critical Rules:**
+- ✅ **ALWAYS** use `.ToUniversalTime()` before `.ToString()`
+- ✅ Format: `"yyyy-MM-ddTHH:mm:ssZ"` with `CultureInfo.InvariantCulture`
+- ✅ PostgreSQL configured with `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false)`
+- ✅ Test parsing: `DateTime.Parse(dto.Created, null, DateTimeStyles.RoundtripKind)`
+- ❌ **NEVER** use `DateTime.ToString()` without `.ToUniversalTime()` first
+- See: `Doc/DATETIME_STANDARDIZATION_SUMMARY.md`
+
+### Manual Mapping Pattern (No AutoMapper)
+
+**All DTOs use static MapFrom methods:**
+
+```csharp
+public class UserDto
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string Created { get; set; } = string.Empty;
+    
+    public static UserDto MapFrom(User user)
+    {
+        return new UserDto
+        {
+            Id = user.Id,
+            Email = user.Email,
+            Created = user.Created.ToUniversalTime()
+                .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
+        };
+    }
+}
+```
+
+**Benefits:**
+- ✅ Explicit, type-safe mappings
+- ✅ No reflection overhead
+- ✅ IDE autocomplete support
+- ✅ Easier debugging and refactoring
+- See: `Doc/AUTOMAPPER_REMOVAL_SUMMARY.md`
 
 ### CQRS with MediatR
 

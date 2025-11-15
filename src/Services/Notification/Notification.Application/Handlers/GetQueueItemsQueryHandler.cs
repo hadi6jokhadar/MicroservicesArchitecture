@@ -1,5 +1,3 @@
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using IhsanDev.Shared.Application.Common.Models;
 using MediatR;
 using Notification.Application.Commands;
@@ -15,14 +13,11 @@ namespace Notification.Application.Handlers;
 public class GetQueueItemsQueryHandler : IRequestHandler<GetQueueItemsCommand, PaginatedList<QueueItemDto>>
 {
     private readonly INotificationQueueRepository _queueRepository;
-    private readonly IMapper _mapper;
 
     public GetQueueItemsQueryHandler(
-        INotificationQueueRepository queueRepository,
-        IMapper mapper)
+        INotificationQueueRepository queueRepository)
     {
         _queueRepository = queueRepository;
-        _mapper = mapper;
     }
 
     public async Task<PaginatedList<QueueItemDto>> Handle(
@@ -41,8 +36,26 @@ public class GetQueueItemsQueryHandler : IRequestHandler<GetQueueItemsCommand, P
             searchTerm: request.SearchTerm
         );
 
-        // Project to DTOs and paginate
-        var dtoQuery = query.ProjectTo<QueueItemDto>(_mapper.ConfigurationProvider);
+        // Manual projection to DTOs
+        var dtoQuery = query.Select(q => new QueueItemDto
+        {
+            Id = q.Id,
+            TenantId = q.TenantId,
+            UserId = q.UserId,
+            DeliveryType = q.DeliveryType,
+            Priority = q.Priority,
+            Title = q.Title,
+            Message = q.Message,
+            Data = q.Data,
+            QueueStatus = q.QueueStatus,
+            RetryCount = q.RetryCount,
+            ProcessedAt = q.ProcessedAt != null ? q.ProcessedAt.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null,
+            ExpiresAt = q.ExpiresAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            Error = q.Error,
+            NotificationId = q.NotificationId,
+            CreatedAt = q.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            UpdatedAt = q.LastModified != null ? q.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null
+        });
 
         // Create paginated result
         return await PaginatedList<QueueItemDto>.CreateAsync(

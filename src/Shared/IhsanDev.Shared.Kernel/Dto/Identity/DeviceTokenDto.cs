@@ -12,9 +12,9 @@ public class DeviceTokenDto
     public string Token { get; set; } = string.Empty;
     public Platform Platform { get; set; }
     public string? DeviceIdentifier { get; set; }
-    public DateTime? LastVerifiedAt { get; set; }
+    public string? LastVerifiedAt { get; set; }
     public bool IsPrimary { get; set; }
-    public DateTime Created { get; set; }
+    public string Created { get; set; } = string.Empty;
 }
 
 /// <summary>

@@ -1,5 +1,3 @@
-using AutoMapper;
-using IhsanDev.Shared.Application.Common.Mappings;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using System.Text.Json;
 using Tenant.Domain.Entities;
@@ -9,23 +7,35 @@ namespace Tenant.Application.DTOs;
 /// <summary>
 /// Tenant configuration data transfer object (includes sensitive data field)
 /// </summary>
-public class TenantConfigDto : IMapFrom<TenantSettings>
+public class TenantConfigDto
 {
     public int Id { get; set; }
     public string TenantId { get; set; } = string.Empty;
     public string TenantName { get; set; } = string.Empty;
     public int UserId { get; set; }
-    public DateTime StartDate { get; set; }
-    public DateTime ExpireDate { get; set; }
+    public string StartDate { get; set; } = string.Empty;
+    public string ExpireDate { get; set; } = string.Empty;
     public TenantConfiguration? Data { get; set; }
     public bool IsActive { get; set; }
     public bool IsExpired { get; set; }
 
-    public void Mapping(Profile profile)
+    /// <summary>
+    /// Maps TenantSettings entity to TenantConfigDto
+    /// </summary>
+    public static TenantConfigDto MapFrom(TenantSettings tenant)
     {
-        profile.CreateMap<TenantSettings, TenantConfigDto>()
-            .ForMember(dest => dest.IsExpired, opt => opt.MapFrom(src => src.IsExpired))
-            .ForMember(dest => dest.Data, opt => opt.MapFrom(src => DeserializeData(src.Data)));
+        return new TenantConfigDto
+        {
+            Id = tenant.Id,
+            TenantId = tenant.TenantId,
+            TenantName = tenant.TenantName,
+            UserId = tenant.UserId,
+            StartDate = tenant.StartDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            ExpireDate = tenant.ExpireDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            IsActive = tenant.IsActive,
+            IsExpired = tenant.IsExpired,
+            Data = DeserializeData(tenant.Data)
+        };
     }
 
     private static TenantConfiguration? DeserializeData(string data)
@@ -52,22 +62,36 @@ public class TenantConfigDto : IMapFrom<TenantSettings>
 /// <summary>
 /// Tenant response DTO (excludes sensitive data field)
 /// </summary>
-public class TenantDto : IMapFrom<TenantSettings>
+public class TenantDto
 {
     public int Id { get; set; }
     public string TenantId { get; set; } = string.Empty;
     public string TenantName { get; set; } = string.Empty;
     public int UserId { get; set; }
-    public DateTime StartDate { get; set; }
-    public DateTime ExpireDate { get; set; }
+    public string StartDate { get; set; } = string.Empty;
+    public string ExpireDate { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public bool IsExpired { get; set; }
-    public DateTime Created { get; set; }
-    public DateTime? LastModified { get; set; }
+    public string Created { get; set; } = string.Empty;
+    public string? LastModified { get; set; }
 
-    public void Mapping(Profile profile)
+    /// <summary>
+    /// Maps TenantSettings entity to TenantDto
+    /// </summary>
+    public static TenantDto MapFrom(TenantSettings tenant)
     {
-        profile.CreateMap<TenantSettings, TenantDto>()
-            .ForMember(dest => dest.IsExpired, opt => opt.MapFrom(src => src.IsExpired));
+        return new TenantDto
+        {
+            Id = tenant.Id,
+            TenantId = tenant.TenantId,
+            TenantName = tenant.TenantName,
+            UserId = tenant.UserId,
+            StartDate = tenant.StartDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            ExpireDate = tenant.ExpireDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            IsActive = tenant.IsActive,
+            IsExpired = tenant.IsExpired,
+            Created = tenant.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            LastModified = tenant.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture)
+        };
     }
 }

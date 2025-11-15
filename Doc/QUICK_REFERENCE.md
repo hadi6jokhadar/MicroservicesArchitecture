@@ -154,6 +154,50 @@ Tenant databases will be initialized automatically per-request.
 
 ---
 
+## 📅 DateTime Handling
+
+### **All DateTime Properties Use ISO 8601 UTC Format**
+
+```csharp
+// DTOs use string instead of DateTime
+public class MyDto
+{
+    public string Created { get; set; } = string.Empty;
+    public string? LastModified { get; set; }
+}
+
+// Mapping pattern (always use ToUniversalTime)
+public static MyDto MapFrom(MyEntity entity)
+{
+    return new MyDto
+    {
+        Id = entity.Id,
+        Created = entity.Created.ToUniversalTime()
+            .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
+        LastModified = entity.LastModified?.ToUniversalTime()
+            .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
+    };
+}
+```
+
+### **API Response Example:**
+
+```json
+{
+  "id": "123",
+  "created": "2025-11-15T16:29:40Z",
+  "lastModified": "2025-11-15T16:29:40Z"
+}
+```
+
+**Important:**
+- ✅ Always use `.ToUniversalTime()` before `.ToString()`
+- ✅ PostgreSQL configured with `EnableLegacyTimestampBehavior = false`
+- ✅ Format: `"yyyy-MM-ddTHH:mm:ssZ"` with `CultureInfo.InvariantCulture`
+- ✅ "Z" suffix indicates UTC timezone
+
+---
+
 ## 🔧 Create New Service (3 Steps)
 
 ### **1. Authentication**
@@ -265,20 +309,22 @@ await _mediator.Send(command);
 
 ## 📚 Quick Navigation
 
-| Need                | Document                              |
-| ------------------- | ------------------------------------- |
-| **Getting Started** | `00_START_HERE.md`                    |
-| **Architecture**    | `DATABASE_PER_TENANT_ARCHITECTURE.md` |
-| **Authentication**  | `SHARED_IDENTITY_SERVICE_GUIDE.md`    |
-| **New Service**     | `NEW_SERVICE_INTEGRATION_GUIDE.md`    |
-| **Multi-Tenancy**   | `MULTI_TENANCY_GUIDE.md`              |
-| **Quick Setup**     | `MULTI_TENANCY_QUICK_START.md`        |
-| **File Storage**    | `FILE_MANAGER_SERVICE_GUIDE.md`       |
-| **Notifications**   | `NOTIFICATION_SERVICE_README.md`      |
-| **Firebase Push**   | `FIREBASE_PUSH_NOTIFICATION_FLOW.md`  |
-| **Device Tokens**   | `DEVICE_TOKEN_MANAGEMENT_GUIDE.md`    |
-| **Caching**         | `CACHING_STRATEGY_COMPARISON.md`      |
-| **Testing**         | `SHARED_TESTING_FILES.md`             |
+| Need                | Document                                 |
+| ------------------- | ---------------------------------------- |
+| **Getting Started** | `00_START_HERE.md`                       |
+| **Architecture**    | `DATABASE_PER_TENANT_ARCHITECTURE.md`    |
+| **Authentication**  | `SHARED_IDENTITY_SERVICE_GUIDE.md`       |
+| **New Service**     | `NEW_SERVICE_INTEGRATION_GUIDE.md`       |
+| **Multi-Tenancy**   | `MULTI_TENANCY_GUIDE.md`                 |
+| **Quick Setup**     | `MULTI_TENANCY_QUICK_START.md`           |
+| **File Storage**    | `FILE_MANAGER_SERVICE_GUIDE.md`          |
+| **Notifications**   | `NOTIFICATION_SERVICE_README.md`         |
+| **Firebase Push**   | `FIREBASE_PUSH_NOTIFICATION_FLOW.md`     |
+| **Device Tokens**   | `DEVICE_TOKEN_MANAGEMENT_GUIDE.md`       |
+| **Caching**         | `CACHING_STRATEGY_COMPARISON.md`         |
+| **Testing**         | `SHARED_TESTING_FILES.md`                |
+| **DateTime Format** | `DATETIME_STANDARDIZATION_SUMMARY.md`    |
+| **AutoMapper**      | `AUTOMAPPER_REMOVAL_SUMMARY.md` (legacy) |
 
 ---
 
@@ -289,6 +335,7 @@ await _mediator.Send(command);
 | **401 Unauthorized**          | Check JWT secret matches Identity Service                        |
 | **Tenant not found**          | Verify tenant exists: `GET /api/tenants/{id}`                    |
 | **Connection error**          | Check Tenant Service URL in configuration                        |
+| **DateTime timezone issues**  | Ensure using `.ToUniversalTime()` before `.ToString()`           |
 | **Cache issues**              | Clear cache or restart service                                   |
 | **Missing claims**            | Verify Identity Service includes claims in JWT                   |
 | **OTP code invalid/expired**  | Codes expire after 5 minutes; request new code                   |

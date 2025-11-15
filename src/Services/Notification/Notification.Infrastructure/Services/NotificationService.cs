@@ -1,4 +1,3 @@
-using AutoMapper;
 using Microsoft.Extensions.Logging;
 using Notification.Application.Commands;
 using Notification.Application.DTOs;
@@ -13,18 +12,15 @@ public class NotificationService : INotificationService
 {
     private readonly INotificationQueueRepository _queueRepository;
     private readonly INotificationRepository _notificationRepository;
-    private readonly IMapper _mapper;
     private readonly ILogger<NotificationService> _logger;
 
     public NotificationService(
         INotificationQueueRepository queueRepository,
         INotificationRepository notificationRepository,
-        IMapper mapper,
         ILogger<NotificationService> logger)
     {
         _queueRepository = queueRepository;
         _notificationRepository = notificationRepository;
-        _mapper = mapper;
         _logger = logger;
     }
 
@@ -60,7 +56,7 @@ public class NotificationService : INotificationService
             {
                 QueueItemId = queueItem.Id,
                 Status = "Queued",
-                QueuedAt = queueItem.Created,
+                QueuedAt = queueItem.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
                 Priority = queueItem.Priority.ToString(),
                 DeliveryType = queueItem.DeliveryType.ToString()
             };
@@ -140,7 +136,7 @@ public class NotificationService : INotificationService
                 return null;
             }
 
-            return _mapper.Map<QueueItemStatusResponse>(queueItem);
+            return QueueItemStatusResponse.MapFrom(queueItem);
         }
         catch (Exception ex)
         {
@@ -172,7 +168,7 @@ public class NotificationService : INotificationService
                 .Take(take)
                 .ToList();
 
-            return _mapper.Map<List<NotificationResponse>>(paginatedNotifications);
+            return paginatedNotifications.Select(NotificationResponse.MapFrom).ToList();
         }
         catch (Exception ex)
         {

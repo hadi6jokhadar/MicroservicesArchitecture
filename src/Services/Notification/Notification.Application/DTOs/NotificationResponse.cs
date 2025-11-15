@@ -1,12 +1,9 @@
-using AutoMapper;
-using IhsanDev.Shared.Application.Common.Mappings;
-
 namespace Notification.Application.DTOs;
 
 /// <summary>
 /// Response DTO for notification details
 /// </summary>
-public class NotificationResponse : IMapFrom<Domain.Entities.Notification>
+public class NotificationResponse
 {
     /// <summary>
     /// Notification unique identifier
@@ -36,21 +33,33 @@ public class NotificationResponse : IMapFrom<Domain.Entities.Notification>
     /// <summary>
     /// Timestamp when notification was created
     /// </summary>
-    public DateTime CreatedAt { get; set; }
+    public string CreatedAt { get; set; } = string.Empty;
 
     /// <summary>
     /// Timestamp when notification was read
     /// </summary>
-    public DateTime? ReadAt { get; set; }
+    public string? ReadAt { get; set; }
 
     /// <summary>
     /// User ID (null for broadcast notifications)
     /// </summary>
     public int? UserId { get; set; }
 
-    public void Mapping(Profile profile)
+    /// <summary>
+    /// Maps Notification entity to NotificationResponse
+    /// </summary>
+    public static NotificationResponse MapFrom(Domain.Entities.Notification notification)
     {
-        profile.CreateMap<Domain.Entities.Notification, NotificationResponse>()
-            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.Created));
+        return new NotificationResponse
+        {
+            Id = notification.Id,
+            Title = notification.Title,
+            Message = notification.Message,
+            Data = notification.Data,
+            IsRead = notification.IsRead,
+            CreatedAt = notification.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            ReadAt = notification.ReadAt?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            UserId = notification.UserId
+        };
     }
 }

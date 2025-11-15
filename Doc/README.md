@@ -54,7 +54,8 @@ This solution implements a **microservices architecture** with a focus on:
 - ✅ **Centralized Package Management**: Consistent versioning across services
 - ✅ **Global Exception Handling**: Centralized error management
 - ✅ **Input Validation**: FluentValidation integration
-- ✅ **Auto Mapping**: AutoMapper for object transformations
+- ✅ **Manual Mapping**: Explicit MapFrom methods for type-safe transformations
+- ✅ **DateTime Standardization**: ISO 8601 UTC format for all timestamps
 - ✅ **Swagger/OpenAPI**: Interactive API documentation
 - ✅ **Minimal APIs**: Modern endpoint routing with performance benefits (migrated from controllers)
 - ✅ **Endpoint Handlers**: Organized API handlers for better maintainability
@@ -91,7 +92,6 @@ This solution implements a **microservices architecture** with a focus on:
 | --------------------- | ----------------------------------------------- | ------- | ------------------------ |
 | **CQRS & Mediator**   | MediatR                                         | 12.2.0  | Command/Query handling   |
 | **Validation**        | FluentValidation                                | 12.0.0  | Input validation         |
-| **Mapping**           | AutoMapper                                      | 12.0.1  | Object-to-object mapping |
 | **Authentication**    | Microsoft.AspNetCore.Authentication.JwtBearer   | 8.0.0   | JWT authentication       |
 | **Security**          | BCrypt.Net-Next                                 | 4.0.3   | Password hashing         |
 | **Caching**           | StackExchange.Redis                             | 2.7.10  | Distributed caching      |
@@ -278,9 +278,9 @@ The API will be available at:
 
 - CQRS interfaces (`ICommand`, `IQuery`)
 - Validation behaviors with FluentValidation
-- Common DTOs and response models
+- Common DTOs with manual MapFrom methods
 - Application exceptions (`AppException`)
-- AutoMapper configuration extensions
+- DateTime standardization helpers
 
 ### 🔧 IhsanDev.Shared.Infrastructure
 

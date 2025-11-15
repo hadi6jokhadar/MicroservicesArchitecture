@@ -11,11 +11,11 @@ public abstract class BaseDto
 
     public bool Status { get; set; } = true;
 
-    public DateTime Created { get; set; } = DateTime.UtcNow;
+    public string Created { get; set; } = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture);
 
     public string? CreatedBy { get; set; }
 
-    public DateTime? LastModified { get; set; }
+    public string? LastModified { get; set; }
 
     public string? LastModifiedBy { get; set; }
 }

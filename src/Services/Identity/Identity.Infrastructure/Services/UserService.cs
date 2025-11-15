@@ -1,4 +1,3 @@
-using AutoMapper;
 using Identity.Application.DTOs;
 using Identity.Application.Services;
 using Identity.Domain.Entities;
@@ -19,22 +18,19 @@ public class UserService : IUserService
     private readonly IConfiguration _configuration;
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
-    private readonly IMapper _mapper;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<UserService> _logger;
 
     public UserService(
         IConfiguration configuration, 
         IUserRepository userRepository, 
-        IPasswordHasher passwordHasher, 
-        IMapper mapper,
+        IPasswordHasher passwordHasher,
         ITenantContext tenantContext,
         ILogger<UserService> logger)
     {
         _configuration = configuration;
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
-        _mapper = mapper;
         _tenantContext = tenantContext;
         _logger = logger;
     }
@@ -131,11 +127,12 @@ public class UserService : IUserService
         
         await _userRepository.UpdateRefreshTokenAsync(user.Id, refreshToken, refreshTokenExpiry);
 
-        var authenticationResult = _mapper.Map<UserDtoIncludesToken>(user);
+        // Manual mapping
+        var authenticationResult = UserDtoIncludesToken.MapFrom(user);
     
         authenticationResult.AccessToken = accessToken;
         authenticationResult.RefreshToken = refreshToken;
-        authenticationResult.RefreshTokenExpiryTime = tokenDescriptor.Expires.Value;
+        authenticationResult.RefreshTokenExpiryTime = tokenDescriptor.Expires.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture);
         
         return authenticationResult;
     }

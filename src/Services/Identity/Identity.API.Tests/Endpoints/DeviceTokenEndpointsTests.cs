@@ -293,7 +293,7 @@ public class DeviceTokenEndpointsTests : IntegrationTestBase
         result.Token.Should().Be("updated-token");
         result.DeviceIdentifier.Should().Be("new-device-001");
         result.IsPrimary.Should().BeTrue();
-        result.LastVerifiedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        DateTime.Parse(result.LastVerifiedAt!, null, System.Globalization.DateTimeStyles.RoundtripKind).Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 
     [Fact]

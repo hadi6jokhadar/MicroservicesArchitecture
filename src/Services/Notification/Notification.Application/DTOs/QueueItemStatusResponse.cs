@@ -1,5 +1,3 @@
-using AutoMapper;
-using IhsanDev.Shared.Application.Common.Mappings;
 using Notification.Domain.Entities;
 
 namespace Notification.Application.DTOs;
@@ -7,7 +5,7 @@ namespace Notification.Application.DTOs;
 /// <summary>
 /// Response DTO for notification queue item status
 /// </summary>
-public class QueueItemStatusResponse : IMapFrom<NotificationQueueItem>
+public class QueueItemStatusResponse
 {
     /// <summary>
     /// Queue item unique identifier
@@ -27,7 +25,7 @@ public class QueueItemStatusResponse : IMapFrom<NotificationQueueItem>
     /// <summary>
     /// Timestamp when processed
     /// </summary>
-    public DateTime? ProcessedAt { get; set; }
+    public string? ProcessedAt { get; set; }
 
     /// <summary>
     /// Error message if failed
@@ -42,13 +40,22 @@ public class QueueItemStatusResponse : IMapFrom<NotificationQueueItem>
     /// <summary>
     /// Timestamp when created
     /// </summary>
-    public DateTime CreatedAt { get; set; }
+    public string CreatedAt { get; set; } = string.Empty;
 
-    public void Mapping(Profile profile)
+    /// <summary>
+    /// Maps NotificationQueueItem entity to QueueItemStatusResponse
+    /// </summary>
+    public static QueueItemStatusResponse MapFrom(NotificationQueueItem queueItem)
     {
-        profile.CreateMap<NotificationQueueItem, QueueItemStatusResponse>()
-            .ForMember(dest => dest.QueueItemId, opt => opt.MapFrom(src => src.Id))
-            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.QueueStatus.ToString()))
-            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.Created));
+        return new QueueItemStatusResponse
+        {
+            QueueItemId = queueItem.Id,
+            Status = queueItem.QueueStatus.ToString(),
+            RetryCount = queueItem.RetryCount,
+            ProcessedAt = queueItem.ProcessedAt?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            Error = queueItem.Error,
+            NotificationId = queueItem.NotificationId,
+            CreatedAt = queueItem.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture)
+        };
     }
 }

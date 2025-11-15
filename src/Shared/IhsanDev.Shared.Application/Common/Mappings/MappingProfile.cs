@@ -1,49 +1,30 @@
-using System.Reflection;
-using AutoMapper;
-
 namespace IhsanDev.Shared.Application.Common.Mappings;
 
-public class MappingProfile : Profile
+/// <summary>
+/// Manual mapping helper class
+/// Replaces AutoMapper's Profile functionality with simple delegate-based mapping
+/// </summary>
+public static class ManualMapper
 {
-    public MappingProfile()
+    /// <summary>
+    /// Maps a single entity to a DTO using a mapping function
+    /// </summary>
+    public static TDto Map<TSource, TDto>(TSource source, Func<TSource, TDto> mappingFunc)
     {
-        ApplyMappingsFromAssembly(Assembly.GetExecutingAssembly());
+        if (source == null)
+            throw new ArgumentNullException(nameof(source));
+        
+        return mappingFunc(source);
     }
-
-    protected MappingProfile(Assembly assembly)
+    
+    /// <summary>
+    /// Maps a collection of entities to DTOs using a mapping function
+    /// </summary>
+    public static List<TDto> MapList<TSource, TDto>(IEnumerable<TSource> source, Func<TSource, TDto> mappingFunc)
     {
-        ApplyMappingsFromAssembly(assembly);
-    }
-
-    protected void ApplyMappingsFromAssembly(Assembly assembly)
-    {
-        var mapFromType = typeof(IMapFrom<>);
-        var mappingMethodName = nameof(IMapFrom<object>.Mapping);
-
-        bool HasInterface(Type t) => t.IsGenericType && t.GetGenericTypeDefinition() == mapFromType;
-
-        var types = assembly.GetExportedTypes()
-            .Where(t => t.GetInterfaces().Any(HasInterface))
-            .ToList();
-
-        foreach (var type in types)
-        {
-            var instance = Activator.CreateInstance(type);
-            var methodInfo = type.GetMethod(mappingMethodName);
-
-            if (methodInfo != null)
-            {
-                methodInfo.Invoke(instance, new object[] { this });
-            }
-            else
-            {
-                var interfaces = type.GetInterfaces().Where(HasInterface).ToList();
-                foreach (var @interface in interfaces)
-                {
-                    var interfaceMethodInfo = @interface.GetMethod(mappingMethodName, new[] { typeof(Profile) });
-                    interfaceMethodInfo?.Invoke(instance, new object[] { this });
-                }
-            }
-        }
+        if (source == null)
+            throw new ArgumentNullException(nameof(source));
+        
+        return source.Select(mappingFunc).ToList();
     }
 }

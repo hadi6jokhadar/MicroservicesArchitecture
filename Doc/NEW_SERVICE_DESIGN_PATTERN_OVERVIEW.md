@@ -17,6 +17,8 @@ A **comprehensive 3-stage guide** for creating production-ready microservices th
 - ✅ Caching strategy (Redis or MemoryCache)
 - ✅ CQRS with MediatR
 - ✅ FluentValidation
+- ✅ Manual mapping with static MapFrom methods
+- ✅ DateTime standardization (ISO 8601 UTC)
 - ✅ Shared libraries integration
 - ✅ Complete testing suite
 - ✅ Deployment configuration

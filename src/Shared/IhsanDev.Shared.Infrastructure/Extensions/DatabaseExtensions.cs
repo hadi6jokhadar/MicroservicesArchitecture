@@ -81,6 +81,10 @@ public static class DatabaseExtensions
         switch (settings.Provider)
         {
             case DatabaseProvider.PostgreSql:
+                // Configure Npgsql to handle all DateTimes as UTC
+                // This ensures DateTime values from PostgreSQL are always treated as UTC
+                AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
+                
                 options.UseNpgsql(
                     settings.ConnectionString,
                     npgsqlOptions =>

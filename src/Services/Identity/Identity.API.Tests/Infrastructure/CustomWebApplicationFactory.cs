@@ -20,6 +20,10 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
 {
     public CustomWebApplicationFactory()
     {
+        // CRITICAL: Configure Npgsql to handle all DateTime as UTC
+        // This MUST be set before any Npgsql operations to ensure proper timezone handling
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
+        
         // Set database provider - change this to switch between SQLite and PostgreSQL
         UsePostgreSQL = true;  // Set to true to use PostgreSQL for tests
         

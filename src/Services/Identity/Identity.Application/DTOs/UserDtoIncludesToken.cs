@@ -1,13 +1,11 @@
 using System.Globalization;
-using AutoMapper;
 using Identity.Domain.Entities;
-using IhsanDev.Shared.Application.Common.Mappings;
 using IhsanDev.Shared.Kernel.Dto.Identity;
 using IhsanDev.Shared.Kernel.Enums.Identity;
 
 namespace Identity.Application.DTOs;
 
-public class UserDtoIncludesToken : BaseUserDto, IMapFrom<User>
+public class UserDtoIncludesToken : BaseUserDto
 {
     public UserRole Role { get; set; } = UserRole.User;
     public string? RoleName { get; set; }    
@@ -16,7 +14,7 @@ public class UserDtoIncludesToken : BaseUserDto, IMapFrom<User>
     // ^ Token properties
     public string? AccessToken { get; set; }
     public string? RefreshToken { get; set; }    
-    public DateTime? RefreshTokenExpiryTime { get; set; }
+    public string? RefreshTokenExpiryTime { get; set; }
     
     // OTP verification
     public string? VerificationCode { get; set; }
@@ -24,11 +22,26 @@ public class UserDtoIncludesToken : BaseUserDto, IMapFrom<User>
     // Additional user data
     public string? Data { get; set; }
     
-    public void Mapping(Profile profile)
+    /// <summary>
+    /// Maps User entity to UserDtoIncludesToken
+    /// </summary>
+    public static UserDtoIncludesToken MapFrom(User user)
     {
-        profile.CreateMap<User, UserDtoIncludesToken>()
-            .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.ToString()))
-            .ForMember(dust => dust.Created, opt => opt.MapFrom(src => src.Created.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)))
-            .ForMember(dust => dust.LastModified, opt => opt.MapFrom(src => src.LastModified != null ? ((DateTime)src.LastModified).ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture) : null));
+        return new UserDtoIncludesToken
+        {
+            Id = user.Id,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            Status = user.Status,
+            Created = user.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
+            LastModified = user.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
+            Role = user.Role,
+            RoleName = user.Role.ToString(),
+            ProfilePictureUrl = user.ProfilePictureUrl,
+            VerificationCode = user.VerificationCode,
+            Data = user.Data
+        };
     }
 }

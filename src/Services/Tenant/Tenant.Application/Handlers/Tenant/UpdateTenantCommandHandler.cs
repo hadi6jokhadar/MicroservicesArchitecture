@@ -1,4 +1,3 @@
-using AutoMapper;
 using IhsanDev.Shared.Application.Exceptions;
 using MediatR;
 using System.Text.Json;
@@ -14,12 +13,10 @@ namespace Tenant.Application.Handlers.Tenant;
 public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, TenantDto>
 {
     private readonly ITenantRepository _tenantRepository;
-    private readonly IMapper _mapper;
 
-    public UpdateTenantCommandHandler(ITenantRepository tenantRepository, IMapper mapper)
+    public UpdateTenantCommandHandler(ITenantRepository tenantRepository)
     {
         _tenantRepository = tenantRepository;
-        _mapper = mapper;
     }
 
     public async Task<TenantDto> Handle(UpdateTenantCommand request, CancellationToken cancellationToken)
@@ -49,7 +46,7 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, T
 
             await _tenantRepository.UpdateAsync(tenant, cancellationToken);
 
-            return _mapper.Map<TenantDto>(tenant);
+            return TenantDto.MapFrom(tenant);
         }
         catch (AppException)
         {

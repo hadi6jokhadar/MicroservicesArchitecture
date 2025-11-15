@@ -1,5 +1,3 @@
-using AutoMapper;
-using IhsanDev.Shared.Application.Common.Mappings;
 using Notification.Domain.Entities;
 using Notification.Domain.Enums;
 
@@ -8,7 +6,7 @@ namespace Notification.Application.DTOs;
 /// <summary>
 /// DTO for notification queue item details (SuperAdmin view)
 /// </summary>
-public class QueueItemDto : IMapFrom<NotificationQueueItem>
+public class QueueItemDto
 {
     public int Id { get; set; }
     public string? TenantId { get; set; }
@@ -20,17 +18,36 @@ public class QueueItemDto : IMapFrom<NotificationQueueItem>
     public string? Data { get; set; }
     public QueueStatus QueueStatus { get; set; }
     public int RetryCount { get; set; }
-    public DateTime? ProcessedAt { get; set; }
-    public DateTime ExpiresAt { get; set; }
+    public string? ProcessedAt { get; set; }
+    public string ExpiresAt { get; set; } = string.Empty;
     public string? Error { get; set; }
     public int? NotificationId { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
+    public string CreatedAt { get; set; } = string.Empty;
+    public string? UpdatedAt { get; set; }
 
-    public void Mapping(Profile profile)
+    /// <summary>
+    /// Maps NotificationQueueItem entity to QueueItemDto
+    /// </summary>
+    public static QueueItemDto MapFrom(NotificationQueueItem queueItem)
     {
-        profile.CreateMap<NotificationQueueItem, QueueItemDto>()
-            .ForMember(d => d.CreatedAt, opt => opt.MapFrom(s => s.Created))
-            .ForMember(d => d.UpdatedAt, opt => opt.MapFrom(s => s.LastModified));
+        return new QueueItemDto
+        {
+            Id = queueItem.Id,
+            TenantId = queueItem.TenantId,
+            UserId = queueItem.UserId,
+            DeliveryType = queueItem.DeliveryType,
+            Priority = queueItem.Priority,
+            Title = queueItem.Title,
+            Message = queueItem.Message,
+            Data = queueItem.Data,
+            QueueStatus = queueItem.QueueStatus,
+            RetryCount = queueItem.RetryCount,
+            ProcessedAt = queueItem.ProcessedAt?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            ExpiresAt = queueItem.ExpiresAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            Error = queueItem.Error,
+            NotificationId = queueItem.NotificationId,
+            CreatedAt = queueItem.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            UpdatedAt = queueItem.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture)
+        };
     }
 }

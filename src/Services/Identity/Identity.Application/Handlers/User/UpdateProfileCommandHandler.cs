@@ -1,4 +1,3 @@
-using AutoMapper;
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
 using Identity.Application.Commands;
@@ -11,12 +10,10 @@ namespace Identity.Application.Handlers.Commands;
 public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand, UserDto>
 {
     private readonly IUserRepository _userRepository;
-    private readonly IMapper _mapper;
 
-    public UpdateProfileCommandHandler(IUserRepository userRepository, IMapper mapper)
+    public UpdateProfileCommandHandler(IUserRepository userRepository)
     {
         _userRepository = userRepository;
-        _mapper = mapper;
     }
 
     public async Task<UserDto> Handle(UpdateProfileCommand request, CancellationToken cancellationToken)
@@ -39,7 +36,7 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
 
             await _userRepository.UpdateAsync(user, cancellationToken);
 
-            var userProfile = _mapper.Map<UserDto>(user);
+            var userProfile = UserDto.MapFrom(user);
             return userProfile;
         }
         catch (AppException)

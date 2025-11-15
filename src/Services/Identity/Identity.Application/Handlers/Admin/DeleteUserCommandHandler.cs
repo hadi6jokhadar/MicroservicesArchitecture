@@ -1,4 +1,3 @@
-using AutoMapper;
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
 using Identity.Application.Commands;

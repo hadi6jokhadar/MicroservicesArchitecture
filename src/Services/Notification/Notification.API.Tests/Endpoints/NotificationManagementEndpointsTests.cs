@@ -60,7 +60,7 @@ public class NotificationManagementEndpointsTests : IntegrationTestBase, IAsyncL
         updatedNotification.Should().NotBeNull();
         updatedNotification!.IsRead.Should().BeTrue();
         updatedNotification.ReadAt.Should().NotBeNull();
-        updatedNotification.ReadAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        updatedNotification.ReadAt!.Value.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 
     [Fact]

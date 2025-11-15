@@ -1,4 +1,3 @@
-using AutoMapper;
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
 using Identity.Application.Commands;
@@ -14,13 +13,11 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
 {
     private readonly IUserRepository _userRepository;
     private readonly IUserService _userService;
-    private readonly IMapper _mapper;
 
-    public CreateUserCommandHandler(IUserRepository userRepository, IUserService userService, IMapper mapper)
+    public CreateUserCommandHandler(IUserRepository userRepository, IUserService userService)
     {
         _userRepository = userRepository;
         _userService = userService;
-        _mapper = mapper;
     }
 
     public async Task<UserDto> Handle(CreateUserCommand request, CancellationToken cancellationToken)
@@ -49,7 +46,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
 
             await _userRepository.AddAsync(user, cancellationToken);
 
-            var userDto = _mapper.Map<UserDto>(user);
+            var userDto = UserDto.MapFrom(user);
             return userDto;
         }
         catch (AppException)

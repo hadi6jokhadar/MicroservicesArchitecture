@@ -46,6 +46,9 @@ builder.Services.AddDatabaseContext<TenantDbContext>(
     builder.Configuration,
     migrationAssembly: typeof(TenantDbContext).Assembly.GetName().Name);
 
+// Register database migration service (required for UseDefaultDatabaseMigration middleware)
+builder.Services.AddDatabaseMigration();
+
 // ============================================
 // Authentication & Authorization
 // ============================================
@@ -143,12 +146,6 @@ builder.Services.AddSwaggerGen(options =>
     // Add x-tenant-id header parameter for all endpoints
     options.OperationFilter<TenantHeaderOperationFilter>();
 });
-
-// AutoMapper - Using specific assemblies
-builder.Services.AddAutoMapper(
-    applicationAssembly,  // Tenant.Application
-    typeof(IhsanDev.Shared.Application.Common.Mappings.MappingProfile).Assembly  // Shared.Application
-);
 
 // Infrastructure Services
 builder.Services.AddInfrastructureServices();

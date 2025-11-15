@@ -59,7 +59,7 @@ public class SendNotificationEndpointsTests : IntegrationTestBase, IAsyncLifetim
         result.Status.Should().Be("Queued");
         result.Priority.Should().Be("Immediate");
         result.DeliveryType.Should().Be("Both");
-        result.QueuedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        DateTime.Parse(result.QueuedAt, null, System.Globalization.DateTimeStyles.RoundtripKind).Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
 
         // Verify queue item was created in global database
         var queueItem = await ExecuteGlobalDbContextAsync(async context =>

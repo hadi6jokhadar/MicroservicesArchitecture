@@ -1,5 +1,3 @@
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using IhsanDev.Shared.Application.Common.Mappings;
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
@@ -16,12 +14,10 @@ namespace Tenant.Application.Handlers.Tenant;
 public class GetTenantConfigQueryHandler : IRequestHandler<GetTenantConfigQuery, TenantConfigDto?>
 {
     private readonly ITenantRepository _tenantRepository;
-    private readonly IMapper _mapper;
 
-    public GetTenantConfigQueryHandler(ITenantRepository tenantRepository, IMapper mapper)
+    public GetTenantConfigQueryHandler(ITenantRepository tenantRepository)
     {
         _tenantRepository = tenantRepository;
-        _mapper = mapper;
     }
 
     public async Task<TenantConfigDto?> Handle(GetTenantConfigQuery request, CancellationToken cancellationToken)
@@ -34,7 +30,7 @@ public class GetTenantConfigQueryHandler : IRequestHandler<GetTenantConfigQuery,
                 return null;
             }
 
-            return _mapper.Map<TenantConfigDto>(tenant);
+            return TenantConfigDto.MapFrom(tenant);
         }
         catch (Exception ex)
         {
@@ -49,12 +45,10 @@ public class GetTenantConfigQueryHandler : IRequestHandler<GetTenantConfigQuery,
 public class GetTenantByIdQueryHandler : IRequestHandler<GetTenantByIdQuery, TenantDto?>
 {
     private readonly ITenantRepository _tenantRepository;
-    private readonly IMapper _mapper;
 
-    public GetTenantByIdQueryHandler(ITenantRepository tenantRepository, IMapper mapper)
+    public GetTenantByIdQueryHandler(ITenantRepository tenantRepository)
     {
         _tenantRepository = tenantRepository;
-        _mapper = mapper;
     }
 
     public async Task<TenantDto?> Handle(GetTenantByIdQuery request, CancellationToken cancellationToken)
@@ -67,7 +61,7 @@ public class GetTenantByIdQueryHandler : IRequestHandler<GetTenantByIdQuery, Ten
                 return null;
             }
 
-            return _mapper.Map<TenantDto>(tenant);
+            return TenantDto.MapFrom(tenant);
         }
         catch (Exception ex)
         {
@@ -82,12 +76,10 @@ public class GetTenantByIdQueryHandler : IRequestHandler<GetTenantByIdQuery, Ten
 public class GetTenantByUserQueryHandler : IRequestHandler<GetTenantByUserQuery, TenantDto?>
 {
     private readonly ITenantRepository _tenantRepository;
-    private readonly IMapper _mapper;
 
-    public GetTenantByUserQueryHandler(ITenantRepository tenantRepository, IMapper mapper)
+    public GetTenantByUserQueryHandler(ITenantRepository tenantRepository)
     {
         _tenantRepository = tenantRepository;
-        _mapper = mapper;
     }
 
     public async Task<TenantDto?> Handle(GetTenantByUserQuery request, CancellationToken cancellationToken)
@@ -100,7 +92,7 @@ public class GetTenantByUserQueryHandler : IRequestHandler<GetTenantByUserQuery,
                 return null;
             }
 
-            return _mapper.Map<TenantDto>(tenant);
+            return TenantDto.MapFrom(tenant);
         }
         catch (Exception ex)
         {
@@ -115,12 +107,10 @@ public class GetTenantByUserQueryHandler : IRequestHandler<GetTenantByUserQuery,
 public class GetAllActiveTenantsQueryHandler : IRequestHandler<GetAllActiveTenantsQuery, PaginatedList<TenantDto>>
 {
     private readonly ITenantRepository _tenantRepository;
-    private readonly IMapper _mapper;
 
-    public GetAllActiveTenantsQueryHandler(ITenantRepository tenantRepository, IMapper mapper)
+    public GetAllActiveTenantsQueryHandler(ITenantRepository tenantRepository)
     {
         _tenantRepository = tenantRepository;
-        _mapper = mapper;
     }
 
     public async Task<PaginatedList<TenantDto>> Handle(GetAllActiveTenantsQuery request, CancellationToken cancellationToken)
@@ -135,9 +125,22 @@ public class GetAllActiveTenantsQueryHandler : IRequestHandler<GetAllActiveTenan
             // Order by created date (newest first)
             query = query.OrderByDescending(t => t.Created);
 
-            // Use AutoMapper's ProjectTo for efficient mapping and pagination
-            var paginatedList = await query
-                .ProjectTo<TenantDto>(_mapper.ConfigurationProvider)
+            // Manual projection to DTO
+            var dtoQuery = query.Select(t => new TenantDto
+            {
+                Id = t.Id,
+                TenantId = t.TenantId,
+                TenantName = t.TenantName,
+                UserId = t.UserId,
+                StartDate = t.StartDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+                ExpireDate = t.ExpireDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+                IsActive = t.IsActive,
+                IsExpired = t.IsExpired,
+                Created = t.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+                LastModified = t.LastModified != null ? t.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null
+            });
+
+            var paginatedList = await dtoQuery
                 .PaginatedListAsync(request.PageNumber, request.PageSize, cancellationToken);
 
             return paginatedList;

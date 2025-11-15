@@ -1,4 +1,3 @@
-using AutoMapper;
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
 using Identity.Application.DTOs;
@@ -11,12 +10,10 @@ namespace Identity.Application.Handlers.Commands;
 public class GetUserByIdCommandHandler : IRequestHandler<GetUserByIdCommand, UserDto>
 {
     private readonly IUserRepository _userRepository;
-    private readonly IMapper _mapper;
 
-    public GetUserByIdCommandHandler(IUserRepository userRepository, IMapper mapper)
+    public GetUserByIdCommandHandler(IUserRepository userRepository)
     {
         _userRepository = userRepository;
-        _mapper = mapper;
     }
 
     public async Task<UserDto> Handle(GetUserByIdCommand request, CancellationToken cancellationToken)
@@ -27,7 +24,7 @@ public class GetUserByIdCommandHandler : IRequestHandler<GetUserByIdCommand, Use
             if (user == null)
                 throw new NotFoundException("User not found");
 
-            var userDto = _mapper.Map<UserDto>(user);
+            var userDto = UserDto.MapFrom(user);
             return userDto;
         }
         catch (AppException)

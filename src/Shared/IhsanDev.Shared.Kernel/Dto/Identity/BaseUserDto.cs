@@ -17,5 +17,5 @@ public abstract class BaseUserDto : BaseDto
     
     public bool EmailConfirmed { get; set; } = false;
     
-    public DateTime? LastLogin { get; set; }
+    public string? LastLogin { get; set; }
 }

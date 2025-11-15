@@ -80,6 +80,8 @@ Doc/
 │  └─ JWT_SECRET_AND_VALIDATION_FLOW.md     ← JWT validation explained
 │
 ├─ Development Guides
+│  ├─ AUTOMAPPER_REMOVAL_SUMMARY.md         ← ✅ AutoMapper removal complete
+│  ├─ DATETIME_STANDARDIZATION_SUMMARY.md   ← ✅ DateTime ISO 8601 UTC format
 │  ├─ CACHING_STRATEGY_COMPARISON.md        ← MemoryCache vs Redis
 │  ├─ REDIS_CACHE_MIGRATION_PLAN.md         ← 🔴 NEW: Complete Redis migration guide
 │  ├─ REDIS_CACHE_MIGRATION_SUMMARY.md      ← 🔴 NEW: Implementation summary

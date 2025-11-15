@@ -1,13 +1,11 @@
 using System.Globalization;
-using AutoMapper;
 using Identity.Domain.Entities;
-using IhsanDev.Shared.Application.Common.Mappings;
 using IhsanDev.Shared.Kernel.Dto.Identity;
 using IhsanDev.Shared.Kernel.Enums.Identity;
 
 namespace Identity.Application.DTOs;
 
-public class UserDto : BaseUserDto, IMapFrom<User>
+public class UserDto : BaseUserDto
 {
     public UserRole Role { get; set; } = UserRole.User;
     public string? RoleName { get; set; }
@@ -21,9 +19,26 @@ public class UserDto : BaseUserDto, IMapFrom<User>
     // Additional user data
     public string? Data { get; set; }
     
-    public void Mapping(Profile profile)
+    /// <summary>
+    /// Maps User entity to UserDto
+    /// </summary>
+    public static UserDto MapFrom(User user)
     {
-        profile.CreateMap<User, UserDto>()
-            .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role.ToString()));
+        return new UserDto
+        {
+            Id = user.Id,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            Status = user.Status,
+            Created = user.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
+            LastModified = user.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
+            Role = user.Role,
+            RoleName = user.Role.ToString(),
+            ProfilePictureUrl = user.ProfilePictureUrl,
+            VerificationCode = user.VerificationCode,
+            Data = user.Data
+        };
     }
 }

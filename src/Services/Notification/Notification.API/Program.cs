@@ -447,12 +447,6 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<IhsanDev.Shared.Infrastructure.Filters.TenantHeaderOperationFilter>();
 });
 
-// AutoMapper - Using specific assemblies to ensure all mappings are found
-builder.Services.AddAutoMapper(
-    applicationAssembly,  // Notification.Application
-    typeof(IhsanDev.Shared.Application.Common.Mappings.MappingProfile).Assembly  // Shared.Application
-);
-
 // ============================================
 // Health Checks
 // ============================================
