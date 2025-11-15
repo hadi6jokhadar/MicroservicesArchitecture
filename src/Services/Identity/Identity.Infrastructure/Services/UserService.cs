@@ -92,8 +92,8 @@ public class UserService : IUserService
                 ?? throw new InvalidOperationException("JWT Secret is not configured in appsettings.json");
             jwtIssuer = _configuration["Jwt:Issuer"] ?? "IdentityService";
             jwtAudience = _configuration["Jwt:Audience"] ?? "MicroservicesApp";
-            expiryMinutes = int.Parse(_configuration["Jwt:ExpiryInMinutes"] ?? "60");
-            refreshTokenExpiryDays = int.Parse(_configuration["Jwt:RefreshTokenExpiryInDays"] ?? "7");
+            expiryMinutes = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60);
+            refreshTokenExpiryDays = _configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7);
         }
         
         var key = Encoding.UTF8.GetBytes(jwtSecret);

@@ -35,8 +35,8 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
         config["Jwt:Secret"] = "test-super-secret-jwt-key-minimum-32-characters-long";
         config["Jwt:Issuer"] = "TestIdentityService";
         config["Jwt:Audience"] = "TestMicroservicesApp";
-        config["Jwt:ExpiryInMinutes"] = "60";
-        config["Jwt:RefreshTokenExpiryInDays"] = "7";
+        config["Jwt:AccessTokenExpirationMinutes"] = "60";
+        config["Jwt:RefreshTokenExpirationDays"] = "7";
         
         // Disable multi-tenancy for testing
         config["MultiTenancy:Enabled"] = "false";

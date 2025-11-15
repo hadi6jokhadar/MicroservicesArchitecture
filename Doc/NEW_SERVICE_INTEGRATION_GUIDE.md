@@ -111,7 +111,7 @@ Add JWT configuration to `appsettings.json`:
     "Secret": "your-super-secret-jwt-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "AccessTokenExpirationMinutes": 60
+    "AccessTokenExpirationMinutes": 21600
   }
 }
 ```

@@ -368,7 +368,7 @@ console.log("Connected to notification hub!");
     "Secret": "your-secret-key-32-chars-minimum",
     "Issuer": "IhsanDev",
     "Audience": "MicroservicesApp",
-    "AccessTokenExpirationMinutes": 60
+    "AccessTokenExpirationMinutes": 21600
   }
 }
 ```

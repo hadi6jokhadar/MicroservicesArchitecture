@@ -166,9 +166,9 @@ protected TenantConfiguration CreateDefaultTenantConfiguration()
         },
         Otp = new OtpSettings
         {
-            ExpiryInMinutes = 5,
+            ExpirationSeconds = 300,
             MaxAttempts = 5,
-            LockoutDurationInMinutes = 30
+            LockoutMinutes = 30
         },
         // ✅ Add your new property to test data
         Email = new EmailSettings
@@ -228,7 +228,7 @@ curl -X POST "https://localhost:5002/api/admin/tenant" \
         "secret": "tenant-secret-key-minimum-32-chars",
         "issuer": "TestCorp",
         "audience": "TestCorpApp",
-        "accessTokenExpirationMinutes": 60,
+        "accessTokenExpirationMinutes": 21600,
         "refreshTokenExpirationDays": 7
       },
       "database": {
@@ -239,9 +239,9 @@ curl -X POST "https://localhost:5002/api/admin/tenant" \
         "allowedOrigins": ["https://testcorp.com"]
       },
       "otp": {
-        "expiryInMinutes": 5,
+        "expirationSeconds": 300,
         "maxAttempts": 5,
-        "lockoutDurationInMinutes": 30
+        "lockoutMinutes": 30
       },
       "email": {
         "provider": "SendGrid",

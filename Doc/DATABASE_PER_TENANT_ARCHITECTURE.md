@@ -335,7 +335,8 @@ private IdentityDbContext CreateTenantDbContext(string connectionString)
     "Secret": "superadmin-shared-secret-key",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "ExpiryInMinutes": 120
+    "AccessTokenExpirationMinutes": 120,
+    "RefreshTokenExpirationDays": 7
   }
 }
 ```
@@ -505,7 +506,8 @@ VALUES (
         "jwt": {
             "issuer": "IdentityService",
             "audience": "MicroservicesApp",
-            "accessTokenExpirationMinutes": 60
+            "AccessTokenExpirationMinutes": 21600,
+            "refreshTokenExpirationDays": 7
         }
     }'
 );
@@ -809,7 +811,8 @@ builder.Services.AddDatabaseContext<IdentityDbContext>(builder.Configuration);
     "Secret": "your-secret-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "ExpiryInMinutes": 60
+    "AccessTokenExpirationMinutes": 21600,
+    "RefreshTokenExpirationDays": 7
   }
 }
 ```
@@ -842,7 +845,8 @@ When `JwtMode = "Shared"`:
     "Secret": "shared-secret-for-all-tenants-32-chars-minimum",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "ExpiryInMinutes": 60
+    "AccessTokenExpirationMinutes": 21600,
+    "RefreshTokenExpirationDays": 7
   }
 }
 ```
@@ -885,7 +889,7 @@ When `JwtMode = "PerTenant"`:
       "secret": "tenant-123-unique-secret-key",
       "issuer": "IdentityService",
       "audience": "MicroservicesApp",
-      "accessTokenExpirationMinutes": 60
+      "AccessTokenExpirationMinutes": 21600
     },
     "database": {
       "connectionString": "Host=tenant-db-1;Database=tenant_123;..."

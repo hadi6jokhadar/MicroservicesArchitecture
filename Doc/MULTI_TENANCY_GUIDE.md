@@ -117,7 +117,8 @@ Update `appsettings.json` in services (e.g., Identity.API):
     "Secret": "your-shared-secret-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "ExpiryInMinutes": 60
+    "AccessTokenExpirationMinutes": 21600,
+    "RefreshTokenExpirationDays": 7
   }
 }
 ```
@@ -156,7 +157,8 @@ Update `appsettings.json` in services (e.g., Identity.API):
     "Secret": "your-secret-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "ExpiryInMinutes": 60
+    "AccessTokenExpirationMinutes": 21600,
+    "RefreshTokenExpirationDays": 7
   }
 }
 ```
@@ -227,7 +229,8 @@ Update `appsettings.Development.json` in Tenant.API:
     "Secret": "your-tenant-service-secret-key-minimum-32-characters",
     "Issuer": "IhsanDev",
     "Audience": "MicroservicesApp",
-    "ExpiryInMinutes": 60
+    "AccessTokenExpirationMinutes": 21600,
+    "RefreshTokenExpirationDays": 7
   },
   "Cors": {
     "AllowedOrigins": ["http://localhost:5001", "https://localhost:5101"]
@@ -279,7 +282,7 @@ The service will be available at:
       "secret": "tenant-specific-secret-key-min-256-bits",
       "issuer": "CompanyABC",
       "audience": "CompanyABCApp",
-      "accessTokenExpirationMinutes": 60,
+      "AccessTokenExpirationMinutes": 21600,
       "refreshTokenExpirationDays": 7
     },
     "database": {
@@ -290,9 +293,9 @@ The service will be available at:
       "allowedOrigins": ["https://companyabc.com"]
     },
     "otp": {
-      "expiryInMinutes": 5,
+      "expirationSeconds": 300,
       "maxAttempts": 5,
-      "lockoutDurationInMinutes": 30
+      "lockoutMinutes": 30
     }
   }
 }
@@ -310,7 +313,7 @@ The `data` field is a JSON object containing tenant-specific settings:
     "secret": "tenant-specific-secret-key-minimum-256-bits",
     "issuer": "TenantIssuer",
     "audience": "TenantAudience",
-    "accessTokenExpirationMinutes": 60,
+    "AccessTokenExpirationMinutes": 21600,
     "refreshTokenExpirationDays": 7
   },
   "database": {
@@ -321,9 +324,9 @@ The `data` field is a JSON object containing tenant-specific settings:
     "allowedOrigins": ["https://tenant-app.com", "https://tenant-admin.com"]
   },
   "otp": {
-    "expiryInMinutes": 5,
+    "expirationSeconds": 300,
     "maxAttempts": 5,
-    "lockoutDurationInMinutes": 30
+    "lockoutMinutes": 30
   }
 }
 ```

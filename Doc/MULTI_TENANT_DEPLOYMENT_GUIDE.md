@@ -53,7 +53,7 @@ private (string Secret, string Issuer, string Audience, int ExpirationMinutes) G
     "Secret": "project-a-secret-key-256-bits",
     "Issuer": "ProjectA-IdentityService",
     "Audience": "ProjectA-App",
-    "AccessTokenExpirationMinutes": 60
+    "AccessTokenExpirationMinutes": 21600
   },
   "DatabaseSettings": {
     "Provider": "PostgreSql",
@@ -84,7 +84,7 @@ private (string Secret, string Issuer, string Audience, int ExpirationMinutes) G
     "Secret": "project-b-default-secret-key-256-bits",
     "Issuer": "ProjectB-IdentityService",
     "Audience": "ProjectB-App",
-    "AccessTokenExpirationMinutes": 60
+    "AccessTokenExpirationMinutes": 21600
   },
   "DatabaseSettings": {
     "Provider": "PostgreSql",
@@ -131,7 +131,7 @@ Identity.API/
     "Secret": "{{ PROJECT_A_JWT_SECRET_FROM_KEYVAULT }}",
     "Issuer": "ProjectA-IdentityService",
     "Audience": "ProjectA-WebApp",
-    "AccessTokenExpirationMinutes": 60
+    "AccessTokenExpirationMinutes": 21600
   },
   "DatabaseSettings": {
     "Provider": "PostgreSql",
@@ -306,7 +306,7 @@ data:
       "Jwt": {
         "Issuer": "ProjectA-IdentityService",
         "Audience": "ProjectA-App",
-        "AccessTokenExpirationMinutes": 60
+        "AccessTokenExpirationMinutes": 21600
       },
       "Cors": {
         "AllowedOrigins": ["https://projecta.com"]

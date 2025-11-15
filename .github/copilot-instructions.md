@@ -202,7 +202,7 @@ dotnet ef database update
     "Secret": "your-secret-minimum-32-chars",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "AccessTokenExpirationMinutes": 60,
+    "AccessTokenExpirationMinutes": 21600,
     "RefreshTokenExpirationDays": 7
   }
 }

@@ -130,7 +130,7 @@ Update `appsettings.json` in `Identity.API`:
     "Secret": "your-super-secret-jwt-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "AccessTokenExpirationMinutes": 60,
+    "AccessTokenExpirationMinutes": 21600,
     "RefreshTokenExpirationDays": 7
   }
 }
@@ -256,7 +256,7 @@ Content-Type: application/json
     "Secret": "your-secret-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "AccessTokenExpirationMinutes": 60,
+    "AccessTokenExpirationMinutes": 21600,
     "RefreshTokenExpirationDays": 7
   }
 }

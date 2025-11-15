@@ -30,18 +30,18 @@ builder.Services.AddAuthentication(options =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        
+
         // Convert secret string to cryptographic key
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(secretKey)
         ),
-        
+
         ValidateIssuer = true,
         ValidIssuer = "IdentityService",
-        
+
         ValidateAudience = true,
         ValidAudience = "MicroservicesApp",
-        
+
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
@@ -56,7 +56,7 @@ builder.Services.AddAuthentication(options =>
     "Secret": "your-super-secret-jwt-key-minimum-32-characters-must-match-identity-service",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "AccessTokenExpirationMinutes": 60
+    "AccessTokenExpirationMinutes": 21600
   }
 }
 ```
@@ -72,10 +72,10 @@ builder.Services.AddAuthentication(options =>
 ```javascript
 // Client includes JWT token
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/hubs/notifications", {
-        accessTokenFactory: () => "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-    })
-    .build();
+  .withUrl("/hubs/notifications", {
+    accessTokenFactory: () => "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  })
+  .build();
 
 await connection.start();
 ```
@@ -84,8 +84,10 @@ await connection.start();
 
 ```javascript
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/hubs/notifications?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
-    .build();
+  .withUrl(
+    "/hubs/notifications?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  )
+  .build();
 ```
 
 #### **HTTP Request Format**
@@ -121,7 +123,7 @@ options.Events = new JwtBearerEvents
 
         // Check if request is for SignalR hub
         var path = context.HttpContext.Request.Path;
-        if (!string.IsNullOrEmpty(accessToken) && 
+        if (!string.IsNullOrEmpty(accessToken) &&
             path.StartsWithSegments("/hubs/notifications"))
         {
             // Set token for validation
@@ -154,7 +156,7 @@ var signature = token.Split('.')[2];
 
 // 2. Verify signature using secret key
 var computedSignature = HMACSHA256(
-    header + "." + payload, 
+    header + "." + payload,
     secretKey  // From appsettings.json
 );
 
@@ -191,13 +193,13 @@ context.User = new ClaimsPrincipal(new ClaimsIdentity(claims));
 
 #### **What Gets Validated?**
 
-| Check | Description | Config Source |
-|-------|-------------|---------------|
-| **Signature** | HMAC SHA256 hash matches | `Jwt:Secret` |
-| **Issuer** | `iss` claim = "IdentityService" | `Jwt:Issuer` |
-| **Audience** | `aud` claim = "MicroservicesApp" | `Jwt:Audience` |
-| **Expiration** | `exp` claim > current time | Built-in |
-| **Not Before** | `nbf` claim < current time | Built-in |
+| Check          | Description                      | Config Source  |
+| -------------- | -------------------------------- | -------------- |
+| **Signature**  | HMAC SHA256 hash matches         | `Jwt:Secret`   |
+| **Issuer**     | `iss` claim = "IdentityService"  | `Jwt:Issuer`   |
+| **Audience**   | `aud` claim = "MicroservicesApp" | `Jwt:Audience` |
+| **Expiration** | `exp` claim > current time       | Built-in       |
+| **Not Before** | `nbf` claim < current time       | Built-in       |
 
 ---
 
@@ -234,12 +236,12 @@ public override async Task OnConnectedAsync()
 {
     // JWT has ALREADY been validated by middleware
     // Hub just reads the validated claims from Context.User
-    
+
     var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier);
     var userId = userIdClaim?.Value;  // "1"
-    
+
     var isAuthenticated = Context.User?.Identity?.IsAuthenticated ?? false;
-    
+
     if (isAuthenticated)
     {
         // User has valid JWT token
@@ -307,18 +309,18 @@ options.Events = new JwtBearerEvents
     OnMessageReceived = context =>
     {
         // ... extract token ...
-        
+
         // Support per-tenant JWT validation
         if (jwtMode == JwtMode.PerTenant)
         {
             var tenantContext = context.HttpContext.RequestServices
                 .GetService<ITenantContext>();
-            
-            if (tenantContext?.HasTenant == true && 
+
+            if (tenantContext?.HasTenant == true &&
                 tenantContext.CurrentTenant?.Configuration?.Jwt != null)
             {
                 var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
-                
+
                 // Override with tenant-specific secret
                 if (!string.IsNullOrEmpty(tenantJwt.Secret))
                 {
@@ -326,14 +328,14 @@ options.Events = new JwtBearerEvents
                         new SymmetricSecurityKey(
                             Encoding.UTF8.GetBytes(tenantJwt.Secret)
                         );
-                    context.Options.TokenValidationParameters.ValidIssuer = 
+                    context.Options.TokenValidationParameters.ValidIssuer =
                         tenantJwt.Issuer;
-                    context.Options.TokenValidationParameters.ValidAudience = 
+                    context.Options.TokenValidationParameters.ValidAudience =
                         tenantJwt.Audience;
                 }
             }
         }
-        
+
         return Task.CompletedTask;
     }
 };
@@ -342,6 +344,7 @@ options.Events = new JwtBearerEvents
 ### **How Tenant-Specific Secrets Work**
 
 1. **Tenant Service** stores JWT configuration per tenant:
+
 ```json
 {
   "tenantId": "ihsandev",
@@ -366,11 +369,13 @@ options.Events = new JwtBearerEvents
 ### **1. Secret Key Storage**
 
 ❌ **Bad** - Hardcoded in code:
+
 ```csharp
 var secret = "my-secret-key";  // DON'T DO THIS
 ```
 
 ✅ **Good** - Configuration file:
+
 ```json
 // appsettings.json (for development)
 {
@@ -381,12 +386,14 @@ var secret = "my-secret-key";  // DON'T DO THIS
 ```
 
 ✅ **Better** - Environment variables:
+
 ```bash
 # Production
 export JWT__SECRET="prod-secret-key-from-azure-keyvault"
 ```
 
 ✅ **Best** - Azure Key Vault / AWS Secrets Manager:
+
 ```csharp
 builder.Configuration.AddAzureKeyVault(
     vaultUri: "https://myvault.vault.azure.net/",
@@ -399,6 +406,7 @@ var secret = builder.Configuration["Jwt:Secret"];  // From Key Vault
 ### **2. Secret Rotation**
 
 When rotating secrets:
+
 1. Add new secret alongside old secret
 2. Update Identity Service to sign with new secret
 3. Keep validating with both secrets for transition period
@@ -447,12 +455,14 @@ All services that validate JWTs must use the **same secret**:
 ### **Configuration Management**
 
 **Option 1: Shared Configuration**
+
 ```bash
 # All services read from same config source
 export JWT__SECRET="shared-secret-key"
 ```
 
 **Option 2: Configuration Server**
+
 ```csharp
 // Spring Cloud Config / Azure App Configuration
 builder.Configuration.AddAzureAppConfiguration(options =>
@@ -463,6 +473,7 @@ builder.Configuration.AddAzureAppConfiguration(options =>
 ```
 
 **Option 3: Per-Tenant (Advanced)**
+
 - Each tenant has own secret
 - Stored in Tenant Service database
 - Fetched dynamically during validation
@@ -476,6 +487,7 @@ builder.Configuration.AddAzureAppConfiguration(options =>
 **Possible Causes:**
 
 1. **Secret Mismatch**
+
    ```
    Identity Service: Signs with "secret-A"
    Notification Service: Validates with "secret-B"
@@ -483,6 +495,7 @@ builder.Configuration.AddAzureAppConfiguration(options =>
    ```
 
 2. **Token Expired**
+
    ```
    JWT exp claim: 1730809200 (Nov 5, 2025 14:00)
    Current time:  1730812800 (Nov 5, 2025 15:00)
@@ -490,6 +503,7 @@ builder.Configuration.AddAzureAppConfiguration(options =>
    ```
 
 3. **Wrong Issuer/Audience**
+
    ```
    JWT iss: "WrongIssuer"
    Expected: "IdentityService"
@@ -506,6 +520,7 @@ builder.Configuration.AddAzureAppConfiguration(options =>
 ### **Debugging Steps**
 
 1. **Enable Detailed Errors**
+
    ```json
    {
      "SignalR": {
@@ -515,6 +530,7 @@ builder.Configuration.AddAzureAppConfiguration(options =>
    ```
 
 2. **Check Logs**
+
    ```bash
    # Look for JWT validation errors
    dotnet run
@@ -525,6 +541,7 @@ builder.Configuration.AddAzureAppConfiguration(options =>
    ```
 
 3. **Decode JWT** (without secret)
+
    ```bash
    # Visit https://jwt.io
    # Paste token to see claims (header + payload only)

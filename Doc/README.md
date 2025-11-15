@@ -229,7 +229,7 @@ Update JWT configuration in `appsettings.json`:
     "Secret": "your-super-secret-jwt-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "AccessTokenExpirationMinutes": 60,
+    "AccessTokenExpirationMinutes": 21600,
     "RefreshTokenExpirationDays": 7
   }
 }
@@ -713,7 +713,7 @@ Supports multiple database providers through configuration:
     "Secret": "your-secret-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "AccessTokenExpirationMinutes": 60,
+    "AccessTokenExpirationMinutes": 21600,
     "RefreshTokenExpirationDays": 7
   }
 }

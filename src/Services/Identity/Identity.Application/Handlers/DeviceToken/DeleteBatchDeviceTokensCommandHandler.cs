@@ -28,10 +28,21 @@ public class DeleteBatchDeviceTokensCommandHandler : IRequestHandler<DeleteBatch
             return 0;
         }
 
+        // Deduplicate token IDs to prevent processing the same token multiple times
+        // This handles race conditions where multiple notifications might try to delete the same invalid token
+        var uniqueTokenIds = request.TokenIds.Distinct().ToList();
+        
+        if (uniqueTokenIds.Count < request.TokenIds.Count)
+        {
+            _logger.LogDebug(
+                "Removed {DuplicateCount} duplicate token IDs from batch delete request",
+                request.TokenIds.Count - uniqueTokenIds.Count);
+        }
+
         var deletedCount = 0;
 
         // Delete all tokens in parallel
-        var tasks = request.TokenIds.Select(async tokenId =>
+        var tasks = uniqueTokenIds.Select(async tokenId =>
         {
             try
             {
@@ -54,9 +65,10 @@ public class DeleteBatchDeviceTokensCommandHandler : IRequestHandler<DeleteBatch
         deletedCount = results.Sum();
 
         _logger.LogInformation(
-            "Batch deleted {DeletedCount} of {TotalCount} device tokens",
+            "Batch deleted {DeletedCount} of {TotalCount} device tokens (processed {UniqueCount} unique IDs)",
             deletedCount,
-            request.TokenIds.Count);
+            request.TokenIds.Count,
+            uniqueTokenIds.Count);
 
         return deletedCount;
     }

@@ -371,7 +371,7 @@ Key configuration settings in `appsettings.json`:
     "Secret": "your-secret-key-minimum-256-bits-long",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "ExpiryInMinutes": 60,
+    "ExpiryInMinutes": 21600,
     "RefreshTokenExpiryInDays": 7
   },
   "DatabaseSettings": {

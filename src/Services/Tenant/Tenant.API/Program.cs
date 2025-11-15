@@ -176,6 +176,10 @@ app.UseResponseCompression(); // Enable response compression for better network 
 app.UseHttpsRedirection();
 app.UseCors();
 
+// Automatic database migration for default database
+// Ensures the database from appsettings.json is created and migrated
+app.UseDefaultDatabaseMigration<TenantDbContext>();
+
 // Service authentication middleware (must be BEFORE UseAuthentication)
 // Allows service-to-service communication with shared secret
 app.UseServiceAuthentication();

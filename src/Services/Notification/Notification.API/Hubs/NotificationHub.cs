@@ -83,9 +83,6 @@ public class NotificationHub : Hub
                             "Authenticated user {UserId} connected without tenant ID in multi-tenancy mode. ConnectionId: {ConnectionId}. Only global notifications will be received.",
                             userId,
                             Context.ConnectionId);
-                        
-                        // Still add to user group for potential cross-tenant notifications
-                        await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
                     }
                 }
                 else

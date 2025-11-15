@@ -202,9 +202,8 @@ Looking at your `Identity.API/appsettings.json`:
     "Secret": "CHANGE_ME_JWT_SECRET",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp", // ← Generic audience (not project-specific)
-    "ExpiryInMinutes": 60,
-    "AccessTokenExpirationMinutes": 60,
-    "RefreshTokenExpiryInDays": 7
+    "AccessTokenExpirationMinutes": 21600,
+    "RefreshTokenExpirationDays": 7
   }
 }
 ```
@@ -1209,8 +1208,8 @@ options.TokenValidationParameters = new TokenValidationParameters
 ```json
 {
   "Jwt": {
-    "ExpiryInMinutes": 15, // Short-lived access token
-    "RefreshTokenExpiryInDays": 7 // Longer refresh token
+    "AccessTokenExpirationMinutes": 15, // Short-lived access token
+    "RefreshTokenExpirationDays": 7 // Longer refresh token
   }
 }
 ```

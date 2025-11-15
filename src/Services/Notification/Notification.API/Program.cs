@@ -530,22 +530,24 @@ app.UseTenantResolution(builder.Configuration);
 app.UseTenantAwareCors();
 
 // Note: Standard UseCors() is NOT needed because TenantAwareCors handles everything
+// DO NOT call app.UseCors() - it will conflict with TenantAwareCorsMiddleware
 
 // Automatic database migration - use EITHER tenant or default based on configuration
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
 if (multiTenancyEnabled)
 {
     // Multi-tenancy enabled: Use tenant database migration
-    // This ensures tenant databases are created and migrated automatically
+    // NotificationDbContext → Global queue database (shared across all tenants)
+    // TenantNotificationDbContext → Each tenant's notification history database
     app.UseTenantDatabaseMigration<NotificationDbContext>(builder.Configuration);
-    
-    // Also handle tenant-specific notification database
     app.UseTenantDatabaseMigration<TenantNotificationDbContext>(builder.Configuration);
 }
 else
 {
     // Multi-tenancy disabled: Use default database migration
-    // This ensures the default database from appsettings.json is created and migrated
+    // Both contexts use the same global database from appsettings.json
+    // NotificationDbContext → Global queue database
+    // TenantNotificationDbContext → Global notification history (same DB, TenantNotificationDbContext.OnConfiguring handles fallback)
     app.UseDefaultDatabaseMigration<NotificationDbContext>();
     app.UseDefaultDatabaseMigration<TenantNotificationDbContext>();
 }

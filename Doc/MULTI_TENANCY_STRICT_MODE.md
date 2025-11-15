@@ -236,7 +236,7 @@ if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("Mu
       "Secret": "acme-corp-secret-key-minimum-32-characters",
       "Issuer": "IdentityService",
       "Audience": "MicroservicesApp",
-      "AccessTokenExpirationMinutes": 60,
+      "AccessTokenExpirationMinutes": 21600,
       "RefreshTokenExpirationDays": 7
     },
     "Cors": {
@@ -288,7 +288,8 @@ curl -X POST https://localhost:5001/api/auth/login \
     "Secret": "shared-secret-for-all-tenants-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "ExpiryInMinutes": 60
+    "AccessTokenExpirationMinutes": 21600,
+    "RefreshTokenExpirationDays": 7
   }
 }
 ```
@@ -333,7 +334,8 @@ curl -X POST https://localhost:5001/api/auth/login \
     "Secret": "your-secret-key-minimum-32-characters",
     "Issuer": "IdentityService",
     "Audience": "MicroservicesApp",
-    "ExpiryInMinutes": 60
+    "AccessTokenExpirationMinutes": 21600,
+    "RefreshTokenExpirationDays": 7
   },
   "Cors": {
     "AllowedOrigins": ["http://localhost:4200", "http://localhost:3000"]

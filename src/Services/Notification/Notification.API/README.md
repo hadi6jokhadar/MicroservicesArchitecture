@@ -187,7 +187,7 @@ connection.on("ReceiveNotification", (notification) => {
     "Secret": "your-secret-key-minimum-32-characters",
     "Issuer": "IhsanDev",
     "Audience": "MicroservicesApp",
-    "ExpiryInMinutes": 60
+    "ExpiryInMinutes": 21600
   },
 
   "SignalR": {

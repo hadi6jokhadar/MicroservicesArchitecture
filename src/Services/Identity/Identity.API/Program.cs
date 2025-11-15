@@ -267,6 +267,7 @@ app.UseTenantResolution(builder.Configuration);
 app.UseTenantAwareCors();
 
 // Note: Standard UseCors() is NOT needed because TenantAwareCors handles everything
+// DO NOT call app.UseCors() - it will conflict with TenantAwareCorsMiddleware
 
 // Automatic database migration - use EITHER tenant or default based on configuration
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
