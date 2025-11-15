@@ -98,6 +98,7 @@ var dtoQuery = query.Select(e => new MyDto
 ```
 
 **Critical Rules:**
+
 - ✅ **ALWAYS** use `.ToUniversalTime()` before `.ToString()`
 - ✅ Format: `"yyyy-MM-ddTHH:mm:ssZ"` with `CultureInfo.InvariantCulture`
 - ✅ PostgreSQL configured with `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false)`
@@ -115,7 +116,7 @@ public class UserDto
     public int Id { get; set; }
     public string Email { get; set; } = string.Empty;
     public string Created { get; set; } = string.Empty;
-    
+
     public static UserDto MapFrom(User user)
     {
         return new UserDto
@@ -130,6 +131,7 @@ public class UserDto
 ```
 
 **Benefits:**
+
 - ✅ Explicit, type-safe mappings
 - ✅ No reflection overhead
 - ✅ IDE autocomplete support

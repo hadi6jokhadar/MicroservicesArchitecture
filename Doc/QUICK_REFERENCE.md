@@ -191,6 +191,7 @@ public static MyDto MapFrom(MyEntity entity)
 ```
 
 **Important:**
+
 - ✅ Always use `.ToUniversalTime()` before `.ToString()`
 - ✅ PostgreSQL configured with `EnableLegacyTimestampBehavior = false`
 - ✅ Format: `"yyyy-MM-ddTHH:mm:ssZ"` with `CultureInfo.InvariantCulture`

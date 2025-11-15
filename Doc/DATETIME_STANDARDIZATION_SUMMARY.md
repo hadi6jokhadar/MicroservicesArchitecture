@@ -21,6 +21,7 @@ All DateTime properties in DTOs have been changed from `DateTime` type to `strin
 **Format:** `"yyyy-MM-ddTHH:mm:ssZ"` with `CultureInfo.InvariantCulture`
 
 **Example:**
+
 - **Before:** `public DateTime Created { get; set; }`
 - **After:** `public string Created { get; set; } = string.Empty;`
 
@@ -35,6 +36,7 @@ Created = entity.Created.ToUniversalTime()
 ```
 
 **Why `.ToUniversalTime()`?**
+
 - PostgreSQL returns DateTime with `DateTimeKind.Unspecified`
 - Without UTC conversion, values are treated as local time
 - `.ToUniversalTime()` ensures consistent UTC output
@@ -44,34 +46,26 @@ Created = entity.Created.ToUniversalTime()
 ## 🔧 Modified Files by Service
 
 ### Shared Kernel (2 files)
+
 1. ✅ **BaseDto.cs** - `Created` and `LastModified` changed to string
 2. ✅ **BaseUserDto.cs** - `LastLogin` changed to string
 
 ### Identity Service (12 files)
 
 **DTOs:**
+
 1. ✅ **UserDto.cs** - `Created`, `LastModified` → string
 2. ✅ **UserDtoIncludesToken.cs** - `Created`, `LastModified`, `RefreshTokenExpiryTime` → string
 3. ✅ **DeviceTokenDto.cs** (Shared) - `LastVerifiedAt`, `Created` → string
 
-**Handlers (9 DeviceToken handlers):**
-4. ✅ **AddDeviceTokenCommandHandler.cs**
-5. ✅ **UpdateDeviceTokenCommandHandler.cs**
-6. ✅ **GetDeviceTokenByIdQueryHandler.cs**
-7. ✅ **GetDeviceTokenByTokenQueryHandler.cs**
-8. ✅ **GetBatchDeviceTokensQueryHandler.cs**
-9. ✅ **GetAllDeviceTokensQueryHandler.cs**
-10. ✅ **GetTenantDeviceTokensQueryHandler.cs**
-11. ✅ **GetUserDeviceTokensByPlatformQueryHandler.cs**
-12. ✅ **GetUserDeviceTokensQueryHandler.cs**
+**Handlers (9 DeviceToken handlers):** 4. ✅ **AddDeviceTokenCommandHandler.cs** 5. ✅ **UpdateDeviceTokenCommandHandler.cs** 6. ✅ **GetDeviceTokenByIdQueryHandler.cs** 7. ✅ **GetDeviceTokenByTokenQueryHandler.cs** 8. ✅ **GetBatchDeviceTokensQueryHandler.cs** 9. ✅ **GetAllDeviceTokensQueryHandler.cs** 10. ✅ **GetTenantDeviceTokensQueryHandler.cs** 11. ✅ **GetUserDeviceTokensByPlatformQueryHandler.cs** 12. ✅ **GetUserDeviceTokensQueryHandler.cs**
 
-**Other Handlers:**
-13. ✅ **GetUsersCommandHandler.cs** - Manual Select statement
+**Other Handlers:** 13. ✅ **GetUsersCommandHandler.cs** - Manual Select statement
 
-**Services:**
-14. ✅ **UserService.cs** - RefreshTokenExpiryTime formatting
+**Services:** 14. ✅ **UserService.cs** - RefreshTokenExpiryTime formatting
 
 ### Tenant Service (3 files)
+
 1. ✅ **TenantDto.cs** - `StartDate`, `ExpireDate`, `Created`, `LastModified` → string
 2. ✅ **TenantConfigDto.cs** - `StartDate`, `ExpireDate` → string
 3. ✅ **TenantQueryHandlers.cs** - Manual Select statement with all date fields
@@ -79,18 +73,18 @@ Created = entity.Created.ToUniversalTime()
 ### Notification Service (6 files)
 
 **DTOs:**
+
 1. ✅ **NotificationResponse.cs** - `CreatedAt`, `ReadAt` → string
 2. ✅ **QueueItemDto.cs** - `ProcessedAt`, `ExpiresAt`, `CreatedAt`, `UpdatedAt` → string
 3. ✅ **SendNotificationResponse.cs** - `QueuedAt` → string
 4. ✅ **QueueItemStatusResponse.cs** - `ProcessedAt`, `CreatedAt` → string
 
-**Handlers:**
-5. ✅ **GetQueueItemsQueryHandler.cs** - Manual Select statement
+**Handlers:** 5. ✅ **GetQueueItemsQueryHandler.cs** - Manual Select statement
 
-**Services:**
-6. ✅ **NotificationService.cs** - QueuedAt formatting
+**Services:** 6. ✅ **NotificationService.cs** - QueuedAt formatting
 
 ### Testing Infrastructure (3 files)
+
 1. ✅ **DeviceTokenEndpointsTests.cs** - DateTime parsing with DateTimeStyles.RoundtripKind
 2. ✅ **SendNotificationEndpointsTests.cs** - DateTime parsing updated
 3. ✅ **NotificationManagementEndpointsTests.cs** - DateTime parsing updated
@@ -156,9 +150,9 @@ var dtoQuery = query.Select(u => new UserDto
     Email = u.Email,
     Created = u.Created.ToUniversalTime()
         .ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
-    LastModified = u.LastModified != null 
+    LastModified = u.LastModified != null
         ? u.LastModified.Value.ToUniversalTime()
-            .ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) 
+            .ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture)
         : null
 });
 ```
@@ -182,18 +176,19 @@ LastVerifiedAt = deviceToken.LastVerifiedAt?.ToUniversalTime()
 ```csharp
 // Parse ISO 8601 string back to DateTime for assertions
 var parsedCreated = DateTime.Parse(
-    result.Created, 
-    null, 
+    result.Created,
+    null,
     DateTimeStyles.RoundtripKind
 );
 
 parsedCreated.Should().BeCloseTo(
-    DateTime.UtcNow, 
+    DateTime.UtcNow,
     TimeSpan.FromSeconds(5)
 );
 ```
 
 **Why `DateTimeStyles.RoundtripKind`?**
+
 - Preserves the "Z" timezone indicator
 - Ensures parsed DateTime is treated as UTC
 - Prevents timezone conversion issues
@@ -203,17 +198,19 @@ parsedCreated.Should().BeCloseTo(
 ## 📊 Impact Summary
 
 ### Modified Files
-| Category | Files Modified | Lines Changed |
-|----------|---------------|---------------|
-| **Shared Kernel** | 2 | ~15 |
-| **Identity Service** | 14 | ~150 |
-| **Tenant Service** | 3 | ~40 |
-| **Notification Service** | 6 | ~60 |
-| **Testing** | 3 | ~25 |
-| **Infrastructure** | 1 (DatabaseExtensions) | ~5 |
-| **Total** | **29 files** | **~295 lines** |
+
+| Category                 | Files Modified         | Lines Changed  |
+| ------------------------ | ---------------------- | -------------- |
+| **Shared Kernel**        | 2                      | ~15            |
+| **Identity Service**     | 14                     | ~150           |
+| **Tenant Service**       | 3                      | ~40            |
+| **Notification Service** | 6                      | ~60            |
+| **Testing**              | 3                      | ~25            |
+| **Infrastructure**       | 1 (DatabaseExtensions) | ~5             |
+| **Total**                | **29 files**           | **~295 lines** |
 
 ### DateTime Properties Standardized
+
 - **Total Properties:** ~50+ across all DTOs
 - **Services Affected:** 3 (Identity, Tenant, Notification)
 - **Shared Libraries:** 2 (Kernel, Application)
@@ -223,21 +220,25 @@ parsedCreated.Should().BeCloseTo(
 ## ✅ Benefits
 
 ### 1. Consistency
+
 - ✅ All API responses use same DateTime format
 - ✅ No timezone ambiguity
 - ✅ ISO 8601 standard compliance
 
 ### 2. Client Simplicity
+
 - ✅ Clients don't need to handle DateTime parsing
 - ✅ Strings are universally compatible (JavaScript, Python, etc.)
 - ✅ Clear UTC timezone with "Z" suffix
 
 ### 3. Database Compatibility
+
 - ✅ Proper handling of PostgreSQL timestamps
 - ✅ No DateTimeKind.Unspecified issues
 - ✅ Explicit UTC conversion
 
 ### 4. Testing Reliability
+
 - ✅ Consistent test assertions
 - ✅ No timezone-related test failures
 - ✅ DateTimeStyles.RoundtripKind ensures correctness
@@ -259,12 +260,13 @@ public static IServiceCollection AddDatabaseContext<TContext>(
 {
     // Ensure DateTime values from PostgreSQL are treated as UTC
     AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
-    
+
     // ... rest of configuration
 }
 ```
 
 **Impact:**
+
 - All services using PostgreSQL automatically benefit
 - DateTime values from database are marked as UTC
 - No manual DateTimeKind specification needed
@@ -274,14 +276,16 @@ public static IServiceCollection AddDatabaseContext<TContext>(
 ## 🧪 Test Results
 
 ### Before Fix (Timezone Issue)
+
 ```
-Expected <2025-11-15 16:29:40> to be within 5s from actual, 
+Expected <2025-11-15 16:29:40> to be within 5s from actual,
 but <2025-11-15 19:29:40> was off by 2h, 59m, 59s
 ```
 
 **Issue:** 3-hour timezone offset (local time formatted as UTC)
 
 ### After Fix (All Passing)
+
 ```
 ✅ Identity.API.Tests: 107 passed
 ✅ Tenant.API.Tests: All passed
@@ -295,6 +299,7 @@ but <2025-11-15 19:29:40> was off by 2h, 59m, 59s
 ## 📚 API Response Examples
 
 ### Before (DateTime type)
+
 ```json
 {
   "id": "123",
@@ -303,9 +308,11 @@ but <2025-11-15 19:29:40> was off by 2h, 59m, 59s
   "lastModified": "2025-11-15T16:29:40.1886296"
 }
 ```
+
 **Issue:** No timezone indicator, ambiguous
 
 ### After (String type with ISO 8601)
+
 ```json
 {
   "id": "123",
@@ -314,6 +321,7 @@ but <2025-11-15 19:29:40> was off by 2h, 59m, 59s
   "lastModified": "2025-11-15T16:29:40Z"
 }
 ```
+
 **✅ Clear:** UTC timezone with "Z" suffix, ISO 8601 compliant
 
 ---
@@ -325,6 +333,7 @@ but <2025-11-15 19:29:40> was off by 2h, 59m, 59s
 If you have an existing service that needs DateTime standardization:
 
 **Step 1: Update DTOs**
+
 ```csharp
 // Change DateTime properties to string
 public class MyDto
@@ -335,6 +344,7 @@ public class MyDto
 ```
 
 **Step 2: Update MapFrom Methods**
+
 ```csharp
 public static MyDto MapFrom(MyEntity entity)
 {
@@ -347,6 +357,7 @@ public static MyDto MapFrom(MyEntity entity)
 ```
 
 **Step 3: Update LINQ Queries**
+
 ```csharp
 var dtoQuery = query.Select(e => new MyDto
 {
@@ -356,6 +367,7 @@ var dtoQuery = query.Select(e => new MyDto
 ```
 
 **Step 4: Update Tests**
+
 ```csharp
 var parsed = DateTime.Parse(result.CreatedAt, null, DateTimeStyles.RoundtripKind);
 parsed.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
@@ -366,12 +378,14 @@ parsed.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
 ## ⚠️ Important Notes
 
 ### DO ✅
+
 - ✅ Always use `.ToUniversalTime()` before `.ToString()`
 - ✅ Use `CultureInfo.InvariantCulture` for consistency
 - ✅ Include "Z" suffix in format string
 - ✅ Use `DateTimeStyles.RoundtripKind` when parsing in tests
 
 ### DON'T ❌
+
 - ❌ Use `DateTime.ToString("yyyy-MM-ddTHH:mm:ssZ")` without `.ToUniversalTime()`
 - ❌ Format DateTimeKind.Unspecified as UTC (it will use local time!)
 - ❌ Assume PostgreSQL DateTime is UTC without Npgsql configuration
@@ -435,6 +449,7 @@ parsed.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
 **DateTime standardization is complete across the entire solution.** All DateTime properties now use ISO 8601 formatted strings with explicit UTC timezone, providing consistent, unambiguous API responses and eliminating timezone-related bugs.
 
 **Impact:**
+
 - **Consistency:** All APIs return same DateTime format
 - **Reliability:** No timezone conversion issues
 - **Compatibility:** ISO 8601 standard, universally supported

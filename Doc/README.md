@@ -88,16 +88,16 @@ This solution implements a **microservices architecture** with a focus on:
 
 ### Key Libraries & Packages
 
-| Category              | Package                                         | Version | Purpose                  |
-| --------------------- | ----------------------------------------------- | ------- | ------------------------ |
-| **CQRS & Mediator**   | MediatR                                         | 12.2.0  | Command/Query handling   |
-| **Validation**        | FluentValidation                                | 12.0.0  | Input validation         |
-| **Authentication**    | Microsoft.AspNetCore.Authentication.JwtBearer   | 8.0.0   | JWT authentication       |
-| **Security**          | BCrypt.Net-Next                                 | 4.0.3   | Password hashing         |
-| **Caching**           | StackExchange.Redis                             | 2.7.10  | Distributed caching      |
-| **Caching**           | Microsoft.Extensions.Caching.StackExchangeRedis | 8.0.0   | Redis integration        |
-| **Database**          | Multiple EF Core providers                      | 8.0.0   | Data access              |
-| **API Documentation** | Swashbuckle.AspNetCore                          | 6.5.0   | Swagger/OpenAPI          |
+| Category              | Package                                         | Version | Purpose                |
+| --------------------- | ----------------------------------------------- | ------- | ---------------------- |
+| **CQRS & Mediator**   | MediatR                                         | 12.2.0  | Command/Query handling |
+| **Validation**        | FluentValidation                                | 12.0.0  | Input validation       |
+| **Authentication**    | Microsoft.AspNetCore.Authentication.JwtBearer   | 8.0.0   | JWT authentication     |
+| **Security**          | BCrypt.Net-Next                                 | 4.0.3   | Password hashing       |
+| **Caching**           | StackExchange.Redis                             | 2.7.10  | Distributed caching    |
+| **Caching**           | Microsoft.Extensions.Caching.StackExchangeRedis | 8.0.0   | Redis integration      |
+| **Database**          | Multiple EF Core providers                      | 8.0.0   | Data access            |
+| **API Documentation** | Swashbuckle.AspNetCore                          | 6.5.0   | Swagger/OpenAPI        |
 
 ### Database Providers
 
