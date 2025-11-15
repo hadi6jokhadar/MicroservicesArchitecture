@@ -18,6 +18,7 @@
 ### **Need Something Specific?**
 
 - 🏢 **Multi-Tenancy?** → [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md)
+- 🆕 **Create New Service?** → [NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md](NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md)
 - 📁 **File Storage?** → [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md)
 - 🔑 **Project Isolation?** → [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md)
 - 🔔 **Notifications?** → [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
@@ -25,7 +26,6 @@
 - 📱 **Device Tokens?** → [DEVICE_TOKEN_QUICK_REFERENCE.md](DEVICE_TOKEN_QUICK_REFERENCE.md)
 - 🧪 **Testing?** → [SHARED_TESTING_FILES.md](SHARED_TESTING_FILES.md)
 - ⚡ **Performance?** → [BOTTLENECKS_COMPLETION_SUMMARY.md](BOTTLENECKS_COMPLETION_SUMMARY.md)
-- 📱 **Device Tokens?** → [DEVICE_TOKEN_QUICK_REFERENCE.md](DEVICE_TOKEN_QUICK_REFERENCE.md)
 - 🚀 **Redis Caching?** → [REDIS_CACHE_QUICK_REFERENCE.md](REDIS_CACHE_QUICK_REFERENCE.md)
 - 🔄 **Redis vs Memory Cache?** → [REDIS_ENABLED_VS_DISABLED_GUIDE.md](REDIS_ENABLED_VS_DISABLED_GUIDE.md)
 - 💾 **Database Replication?** → [DATABASE_REPLICATION_SETUP_GUIDE.md](DATABASE_REPLICATION_SETUP_GUIDE.md)
@@ -42,7 +42,12 @@ Doc/
 │  ├─ DATABASE_PER_TENANT_ARCHITECTURE.md   ← 🔴 CRITICAL: Your architecture explained
 │  ├─ AUTOMATIC_DATABASE_MIGRATION.md       ← 🔴 NEW: Auto database creation for tenants
 │  ├─ SHARED_IDENTITY_SERVICE_GUIDE.md      ← Authentication for all services
-│  └─ NEW_SERVICE_INTEGRATION_GUIDE.md      ← Step-by-step new service creation
+│  ├─ NEW_SERVICE_INTEGRATION_GUIDE.md      ← Step-by-step new service creation
+│  │
+│  ├─ 🆕 New Service Design Patterns (Complete 3-Stage Guide)
+│  │  ├─ NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md  ← 🔴 NEW: Stage 1 - Architecture & Structure
+│  │  ├─ NEW_SERVICE_DESIGN_PATTERN_STAGE_2.md  ← 🔴 NEW: Stage 2 - Configuration & Integration
+│  │  └─ NEW_SERVICE_DESIGN_PATTERN_STAGE_3.md  ← 🔴 NEW: Stage 3 - Implementation & Testing
 │
 ├─ Service-Specific Guides
 │  ├─ MULTI_TENANCY_GUIDE.md                ← Comprehensive multi-tenancy
@@ -181,12 +186,15 @@ Doc/
 
 ### **Scenario 1: "I need to create a new microservice"**
 
-**Solution Path:**
+**Solution Path (NEW - 3-Stage Design Pattern):**
 
-1. Read [NEW_SERVICE_INTEGRATION_GUIDE.md](NEW_SERVICE_INTEGRATION_GUIDE.md)
-2. Follow authentication setup (Part 1)
-3. Optionally add multi-tenancy (Part 2)
-4. Set up testing (Part 3)
+1. 🏗️ [NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md](NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md) - Architecture & Structure
+2. 🔧 [NEW_SERVICE_DESIGN_PATTERN_STAGE_2.md](NEW_SERVICE_DESIGN_PATTERN_STAGE_2.md) - Configuration & Integration
+3. 🚀 [NEW_SERVICE_DESIGN_PATTERN_STAGE_3.md](NEW_SERVICE_DESIGN_PATTERN_STAGE_3.md) - Implementation & Testing
+
+**Alternative (Quick Reference):**
+
+- [NEW_SERVICE_INTEGRATION_GUIDE.md](NEW_SERVICE_INTEGRATION_GUIDE.md) - Step-by-step guide
 
 **Key Files:**
 
