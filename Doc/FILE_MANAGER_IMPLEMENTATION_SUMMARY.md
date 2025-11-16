@@ -81,6 +81,7 @@ Successfully implemented a complete File Manager Service following the Clean Arc
 ### 6. **NEW v2.0.0: Static File Serving** ✅
 
 **Implementation:**
+
 - **PhysicalFileProvider** middleware serving files from `FilesSavePath`
 - **URL Pattern**: `/{tenantId}/{userId|system}/{group}/{filename}`
 - **Example**: `https://localhost:5005/ihsandev/1/personal/abc-123.pdf`
@@ -91,6 +92,7 @@ Successfully implemented a complete File Manager Service following the Clean Arc
   - ServeUnknownFileTypes enabled
 
 **Program.cs Configuration**:
+
 ```csharp
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -108,6 +110,7 @@ app.UseStaticFiles(new StaticFileOptions
 ### 7. **NEW v2.0.0: Tenant Configuration Caching** ✅
 
 **Implementation** (in Tenant Service):
+
 - **7-day TTL** for all tenant configuration caches
 - **Redis** distributed cache with automatic MemoryCache fallback
 - **Cache Keys**:
@@ -115,11 +118,13 @@ app.UseStaticFiles(new StaticFileOptions
   - Paginated: `all_active_tenants_with_config_page_{n}_size_{m}`
 
 **Cache Invalidation**:
+
 - Create Tenant → Cache new + invalidate paginated lists
 - Update Tenant → Invalidate specific + paginated lists
 - Delete Tenant → Invalidate specific + paginated lists
 
 **Benefits for FileManager**:
+
 - 95% fewer API calls to Tenant Service
 - ~100ms → ~5ms for tenant config retrieval
 - Better horizontal scaling support
@@ -127,14 +132,16 @@ app.UseStaticFiles(new StaticFileOptions
 ### 8. **NEW v2.0.0: Path/URL Separation** ✅
 
 **Response Structure**:
+
 ```json
 {
-  "path": "ihsandev/1/personal/abc-123.pdf",  // Storage path (backend)
-  "url": "https://localhost:5005/ihsandev/1/personal/abc-123.pdf"  // Public URL (frontend)
+  "path": "ihsandev/1/personal/abc-123.pdf", // Storage path (backend)
+  "url": "https://localhost:5005/ihsandev/1/personal/abc-123.pdf" // Public URL (frontend)
 }
 ```
 
 **Implementation**:
+
 - `Path`: Relative path stored in database
 - `Url`: Full public URL constructed from configuration
 - MapFrom method generates URLs automatically
@@ -143,10 +150,12 @@ app.UseStaticFiles(new StaticFileOptions
 ### 9. **NEW v2.0.0: Improved Error Handling** ✅
 
 **Delete Operations**:
+
 - **Before**: Threw `FileNotFoundException` → 500 error
 - **After**: Returns `false` → 404 Not Found
 
 **FileManagerService.cs**:
+
 ```csharp
 public async Task<bool> DeleteFileAsync(int id, ...)
 {
@@ -162,6 +171,7 @@ public async Task<bool> DeleteFileAsync(int id, ...)
 ```
 
 **Endpoint Handler**:
+
 ```csharp
 var result = await mediator.Send(command, cancellationToken);
 return result ? Results.NoContent() : Results.NotFound(); // ✅ Proper REST semantics
@@ -170,6 +180,7 @@ return result ? Results.NoContent() : Results.NotFound(); // ✅ Proper REST sem
 ### 10. **NEW v2.0.0: TenantMiddleware Optimization** ✅
 
 **Static File Detection**:
+
 - Skips tenant resolution for file extension requests
 - Condition: `path.Contains(".") && !path.StartsWith("/api/")`
 - Improves static file serving performance

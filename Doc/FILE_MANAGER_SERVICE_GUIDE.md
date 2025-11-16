@@ -54,19 +54,19 @@
 
 ### **Key Characteristics:**
 
-| Aspect              | File Manager Service                                       |
-| ------------------- | ---------------------------------------------------------- |
-| **Type**            | Storage/Media Service                                      |
-| **Purpose**         | Store, retrieve, manage files for all projects             |
-| **Deployment**      | ONE shared service                                         |
-| **Port**            | 5005 (Development)                                         |
-| **Storage Backend** | Local file system (production: Azure Blob, AWS S3, MinIO) |
-| **Access Control**  | User ID + Tenant ID + File Permissions                     |
-| **Metadata**        | File info stored in PostgreSQL (name, size, owner, tenant) |
-| **Scaling**         | Horizontally scalable (stateless API + cloud storage)      |
+| Aspect              | File Manager Service                                          |
+| ------------------- | ------------------------------------------------------------- |
+| **Type**            | Storage/Media Service                                         |
+| **Purpose**         | Store, retrieve, manage files for all projects                |
+| **Deployment**      | ONE shared service                                            |
+| **Port**            | 5005 (Development)                                            |
+| **Storage Backend** | Local file system (production: Azure Blob, AWS S3, MinIO)     |
+| **Access Control**  | User ID + Tenant ID + File Permissions                        |
+| **Metadata**        | File info stored in PostgreSQL (name, size, owner, tenant)    |
+| **Scaling**         | Horizontally scalable (stateless API + cloud storage)         |
 | **Caching**         | Redis distributed cache (7-day TTL) with MemoryCache fallback |
-| **Static Files**    | Direct file serving via PhysicalFileProvider               |
-| **Status**          | ✅ Production Ready (v2.0.0)                                |
+| **Static Files**    | Direct file serving via PhysicalFileProvider                  |
+| **Status**          | ✅ Production Ready (v2.0.0)                                  |
 
 ---
 

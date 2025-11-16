@@ -278,6 +278,7 @@ Client → x-tenant-id header → TenantMiddleware → TenantContext → Dynamic
    ```
 
 3. **Access file directly**:
+
    ```http
    GET https://localhost:5005/acme-corp/1/personal/abc-123.pdf
    (Browser can display directly - no authentication needed)
@@ -293,6 +294,7 @@ Client → x-tenant-id header → TenantMiddleware → TenantContext → Dynamic
 ## Caching Strategy
 
 **Tenant Configuration Caching:**
+
 - **7-day TTL**: Tenant configs cached for 7 days
 - **Cache Keys**: `tenant_config_{tenantId}`, `all_active_tenants_with_config_page_{n}_size_{m}`
 - **Invalidation**: Automatic on tenant Create/Update/Delete
@@ -301,6 +303,7 @@ Client → x-tenant-id header → TenantMiddleware → TenantContext → Dynamic
 ## Static File Serving
 
 **Direct File Access:**
+
 - Files served directly from `{RootStoragePath}` via PhysicalFileProvider
 - URL Pattern: `/{tenantId}/{userId|system}/{group}/{filename}`
 - No authentication required (consider security implications)
@@ -395,7 +398,8 @@ else
 
 ### Issue: File URL returns 404
 
-**Solution**: 
+**Solution**:
+
 - Verify `FileManagerOptions:RootStoragePath` exists and is accessible
 - Check file path in database matches physical location
 - Ensure static files middleware is registered: `app.UseStaticFiles()`
@@ -403,6 +407,7 @@ else
 ### Issue: Cache not working
 
 **Solution**:
+
 - Check Redis connection if `Redis:Enabled = true`
 - System automatically falls back to MemoryCache if Redis unavailable
 - Verify cache expiration settings (7 days for tenant configs)
