@@ -64,3 +64,21 @@ public class GetAllActiveTenantsQueryValidator : AbstractValidator<GetAllActiveT
             .LessThanOrEqualTo(100).WithMessage("Page size must not exceed 100");
     }
 }
+
+/// <summary>
+/// Query to get all active tenants with configuration (includes Data field)
+/// </summary>
+public record GetAllActiveTenantsWithConfigQuery(int PageNumber = 1, int PageSize = 100) : IRequest<PaginatedList<TenantConfigDto>>;
+
+public class GetAllActiveTenantsWithConfigQueryValidator : AbstractValidator<GetAllActiveTenantsWithConfigQuery>
+{
+    public GetAllActiveTenantsWithConfigQueryValidator()
+    {
+        RuleFor(x => x.PageNumber)
+            .GreaterThan(0).WithMessage("Page number must be greater than 0");
+
+        RuleFor(x => x.PageSize)
+            .GreaterThan(0).WithMessage("Page size must be greater than 0")
+            .LessThanOrEqualTo(1000).WithMessage("Page size must not exceed 1000");
+    }
+}

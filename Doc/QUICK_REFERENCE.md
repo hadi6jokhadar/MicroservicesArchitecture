@@ -7,13 +7,14 @@
 ## 🏗️ Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────┐
 │              SHARED SERVICES (Deploy ONCE)               │
 │  ┌───────────────┐  ┌────────────────┐  ┌──────────┐   │
 │  │ Identity      │  │ Tenant         │  │ File     │   │
 │  │ (Port 5001)   │  │ (Port 5002)    │  │ Manager  │   │
+│  │               │  │                │  │ (5005)   │   │
 │  └───────────────┘  └────────────────┘  └──────────┘   │
-└─────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────┘
             │                    │
     ┌───────┴────────────────────┴───────┐
     │                                    │
@@ -319,6 +320,7 @@ await _mediator.Send(command);
 | **Multi-Tenancy**   | `MULTI_TENANCY_GUIDE.md`                 |
 | **Quick Setup**     | `MULTI_TENANCY_QUICK_START.md`           |
 | **File Storage**    | `FILE_MANAGER_SERVICE_GUIDE.md`          |
+| **File API Ref**    | `FILE_MANAGER_QUICK_REFERENCE.md`        |
 | **Notifications**   | `NOTIFICATION_SERVICE_README.md`         |
 | **Firebase Push**   | `FIREBASE_PUSH_NOTIFICATION_FLOW.md`     |
 | **Device Tokens**   | `DEVICE_TOKEN_MANAGEMENT_GUIDE.md`       |
@@ -420,6 +422,18 @@ await _mediator.Send(command);
 - GET `/api/tenants/{tenantId}` - Get tenant config
 - POST `/api/tenants` - Create tenant (admin)
 - GET `/api/tenants` - List active tenants
+
+**File Manager Endpoints:**
+
+- POST `/api/filemanager/files` - Upload file
+- GET `/api/filemanager/files/{id}` - Get file metadata
+- GET `/api/filemanager/files/{id}/download` - Download file
+- GET `/{tenantId}/{userId}/{group}/{filename}` - Access file via public URL
+- GET `/api/filemanager/files` - List files (paginated)
+- PUT `/api/filemanager/files/{id}` - Update file metadata
+- DELETE `/api/filemanager/files/{id}` - Delete file (returns 404 if not found)
+- DELETE `/api/filemanager/files/temp` - Delete all temp files
+- DELETE `/api/filemanager/files/temp/old?days=30` - Delete old temp files
 
 ---
 

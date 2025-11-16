@@ -15,12 +15,10 @@ public class IdentityServiceClient : IIdentityServiceClient
     private readonly HttpClient _httpClient;
     private readonly ILogger<IdentityServiceClient> _logger;
     private readonly IMemoryCache _cache;
-    private readonly string _sharedSecret;
     private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(5);
 
     public IdentityServiceClient(
         HttpClient httpClient,
-        IConfiguration configuration,
         ILogger<IdentityServiceClient> logger,
         IMemoryCache cache)
     {
@@ -28,26 +26,9 @@ public class IdentityServiceClient : IIdentityServiceClient
         _logger = logger;
         _cache = cache;
 
-        var baseUrl = configuration.GetValue<string>("IdentityService:BaseUrl");
-        if (string.IsNullOrWhiteSpace(baseUrl))
-        {
-            throw new InvalidOperationException("IdentityService:BaseUrl is not configured");
-        }
-
-        _httpClient.BaseAddress = new Uri(baseUrl);
-
-        // Get shared secret for service-to-service authentication
-        _sharedSecret = configuration.GetValue<string>("ServiceCommunication:SharedSecret") ?? string.Empty;
-
-        if (!string.IsNullOrWhiteSpace(_sharedSecret))
-        {
-            _httpClient.DefaultRequestHeaders.Add("X-Service-Secret", _sharedSecret);
-        }
-
         _logger.LogInformation(
-            "IdentityServiceClient initialized with base URL: {BaseUrl}, Authentication: {HasAuth}",
-            baseUrl,
-            !string.IsNullOrWhiteSpace(_sharedSecret));
+            "IdentityServiceClient initialized with base URL: {BaseUrl}",
+            _httpClient.BaseAddress);
     }
 
     public async Task<List<DeviceTokenDto>> GetUserDeviceTokensAsync(

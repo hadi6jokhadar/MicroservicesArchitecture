@@ -32,6 +32,17 @@ public class TenantMiddleware
             return;
         }
 
+        // Skip tenant resolution for static files (images, videos, documents, etc.)
+        var path = context.Request.Path.Value ?? "";
+        var isStaticFile = path.Contains(".") && !path.StartsWith("/api/");
+        
+        if (isStaticFile)
+        {
+            _logger.LogDebug("Skipping tenant resolution for static file: {Path}", path);
+            await _next(context);
+            return;
+        }
+
         // Check if endpoint has metadata to bypass tenant resolution
         var endpoint = context.GetEndpoint();
         var bypassTenant = endpoint?.Metadata.GetMetadata<BypassTenantAttribute>() != null;

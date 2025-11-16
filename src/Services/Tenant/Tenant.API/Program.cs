@@ -148,9 +148,14 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Infrastructure Services
-builder.Services.AddInfrastructureServices();
+builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+// ============================================
+// Background Jobs
+// ============================================
+builder.Services.AddHostedService<Tenant.Infrastructure.BackgroundJobs.TenantCacheRefreshService>();
 
 // ============================================
 // Build & Configure Pipeline

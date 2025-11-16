@@ -1,4 +1,6 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Infrastructure.Services.Cache;
+using IhsanDev.Shared.Kernel.Dto.Tenant;
 using MediatR;
 using System.Text.Json;
 using Tenant.Application.Commands.Tenant;
@@ -14,10 +16,12 @@ namespace Tenant.Application.Handlers.Tenant;
 public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, TenantDto>
 {
     private readonly ITenantRepository _tenantRepository;
+    private readonly ICacheService _cacheService;
 
-    public CreateTenantCommandHandler(ITenantRepository tenantRepository)
+    public CreateTenantCommandHandler(ITenantRepository tenantRepository, ICacheService cacheService)
     {
         _tenantRepository = tenantRepository;
+        _cacheService = cacheService;
     }
 
     public async Task<TenantDto> Handle(CreateTenantCommand request, CancellationToken cancellationToken)
@@ -59,6 +63,23 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
             };
 
             var created = await _tenantRepository.AddAsync(tenantSettings, cancellationToken);
+
+            // Cache the new tenant immediately for instant availability
+            var tenantInfo = new TenantInfo
+            {
+                TenantId = created.TenantId,
+                TenantName = created.TenantName,
+                UserId = created.UserId,
+                IsActive = created.IsActive,
+                Configuration = request.Data
+            };
+
+            var cacheKey = $"tenant_config_{created.TenantId}";
+            var cacheExpiration = TimeSpan.FromDays(7); // 7 days cache, invalidated on updates
+            await _cacheService.SetAsync(cacheKey, tenantInfo, cacheExpiration, cancellationToken);
+
+            // Invalidate paginated tenant list cache (new tenant added)
+            await _cacheService.RemoveByPatternAsync("all_active_tenants_with_config_*", cancellationToken);
 
             return TenantDto.MapFrom(created);
         }

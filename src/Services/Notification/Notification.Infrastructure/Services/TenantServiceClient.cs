@@ -12,36 +12,17 @@ public class TenantServiceClient : ITenantServiceClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<TenantServiceClient> _logger;
-    private readonly string _sharedSecret;
 
     public TenantServiceClient(
         HttpClient httpClient,
-        IConfiguration configuration,
         ILogger<TenantServiceClient> logger)
     {
         _httpClient = httpClient;
         _logger = logger;
 
-        var baseUrl = configuration.GetValue<string>("MultiTenancy:TenantServiceUrl");
-        if (string.IsNullOrWhiteSpace(baseUrl))
-        {
-            throw new InvalidOperationException("MultiTenancy:TenantServiceUrl is not configured");
-        }
-
-        _httpClient.BaseAddress = new Uri(baseUrl);
-
-        // Get shared secret for service-to-service authentication
-        _sharedSecret = configuration.GetValue<string>("ServiceCommunication:SharedSecret") ?? string.Empty;
-
-        if (!string.IsNullOrWhiteSpace(_sharedSecret))
-        {
-            _httpClient.DefaultRequestHeaders.Add("X-Service-Secret", _sharedSecret);
-        }
-
         _logger.LogInformation(
-            "TenantServiceClient initialized with base URL: {BaseUrl}, Authentication: {HasAuth}",
-            baseUrl,
-            !string.IsNullOrWhiteSpace(_sharedSecret));
+            "TenantServiceClient initialized with base URL: {BaseUrl}",
+            _httpClient.BaseAddress);
     }
 
     public async Task<List<string>> GetAllActiveTenantIdsAsync(CancellationToken cancellationToken = default)

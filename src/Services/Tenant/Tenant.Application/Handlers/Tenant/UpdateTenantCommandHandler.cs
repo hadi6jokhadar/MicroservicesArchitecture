@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Infrastructure.Services.Cache;
 using MediatR;
 using System.Text.Json;
 using Tenant.Application.Commands.Tenant;
@@ -13,10 +14,12 @@ namespace Tenant.Application.Handlers.Tenant;
 public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, TenantDto>
 {
     private readonly ITenantRepository _tenantRepository;
+    private readonly ICacheService _cacheService;
 
-    public UpdateTenantCommandHandler(ITenantRepository tenantRepository)
+    public UpdateTenantCommandHandler(ITenantRepository tenantRepository, ICacheService cacheService)
     {
         _tenantRepository = tenantRepository;
+        _cacheService = cacheService;
     }
 
     public async Task<TenantDto> Handle(UpdateTenantCommand request, CancellationToken cancellationToken)
@@ -45,6 +48,13 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, T
             tenant.LastModified = DateTime.UtcNow;
 
             await _tenantRepository.UpdateAsync(tenant, cancellationToken);
+
+            // Invalidate cache for this tenant so it gets refreshed on next request
+            var cacheKey = $"tenant_config_{tenant.TenantId}";
+            await _cacheService.RemoveAsync(cacheKey, cancellationToken);
+
+            // Invalidate paginated tenant list cache (tenant data changed)
+            await _cacheService.RemoveByPatternAsync("all_active_tenants_with_config_*", cancellationToken);
 
             return TenantDto.MapFrom(tenant);
         }

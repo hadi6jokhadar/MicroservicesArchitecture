@@ -59,10 +59,14 @@
 | **Type**            | Storage/Media Service                                      |
 | **Purpose**         | Store, retrieve, manage files for all projects             |
 | **Deployment**      | ONE shared service                                         |
-| **Storage Backend** | Azure Blob Storage, AWS S3, MinIO, or local file system    |
+| **Port**            | 5005 (Development)                                         |
+| **Storage Backend** | Local file system (production: Azure Blob, AWS S3, MinIO) |
 | **Access Control**  | User ID + Tenant ID + File Permissions                     |
 | **Metadata**        | File info stored in PostgreSQL (name, size, owner, tenant) |
 | **Scaling**         | Horizontally scalable (stateless API + cloud storage)      |
+| **Caching**         | Redis distributed cache (7-day TTL) with MemoryCache fallback |
+| **Static Files**    | Direct file serving via PhysicalFileProvider               |
+| **Status**          | ✅ Production Ready (v2.0.0)                                |
 
 ---
 
@@ -1289,5 +1293,16 @@ Projects (Deploy per project):
 
 ---
 
-**Last Updated:** October 19, 2025  
-**Version:** 1.0.0
+**Last Updated:** November 2025  
+**Version:** 2.0.0
+
+## Recent Updates (v2.0.0 - November 2025)
+
+- ✅ **Tenant Config Caching**: Redis distributed cache with 7-day TTL
+- ✅ **Static File Serving**: Direct file access via public URLs
+- ✅ **Dual Path/URL Response**: Separate storage path and public URL fields
+- ✅ **Improved Error Handling**: RESTful 404 responses for missing files
+- ✅ **Cache Invalidation**: Automatic tenant config refresh on CRUD operations
+- ✅ **Multi-Tenant Static Files**: TenantMiddleware bypass for file extension requests
+- ✅ **Physical File Management**: Complete file deletion from both DB and disk
+- ✅ **Production Ready**: Full integration testing with WebApplicationFactory

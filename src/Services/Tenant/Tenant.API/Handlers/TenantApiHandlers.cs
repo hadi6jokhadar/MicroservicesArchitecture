@@ -106,4 +106,19 @@ public static class TenantApiHandlers
         
         return Results.Ok(new { message = "Tenant deleted successfully" });
     }
+
+    /// <summary>
+    /// Get all active tenants with configuration (Service/SuperAdmin only)
+    /// </summary>
+    public static async Task<IResult> GetAllActiveTenantsWithConfigHandler(
+        int pageNumber = 1,
+        int pageSize = 100,
+        IMediator mediator = null!,
+        CancellationToken ct = default)
+    {
+        var query = new GetAllActiveTenantsWithConfigQuery(pageNumber, pageSize);
+        var result = await mediator.Send(query, ct);
+        
+        return Results.Ok(result);
+    }
 }

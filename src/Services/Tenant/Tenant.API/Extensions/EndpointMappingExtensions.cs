@@ -28,6 +28,16 @@ public static class EndpointMappingExtensions
             .Produces(401)
             .Produces(403);
 
+        // Get all active tenants with configuration (Service/SuperAdmin only)
+        publicGroup.MapGet("/config", TenantApiHandlers.GetAllActiveTenantsWithConfigHandler)
+            .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
+            .WithName("GetAllTenantsWithConfig")
+            .WithSummary("Get all active tenants with configuration (Service-to-Service only)")
+            .WithDescription("Get paginated list of all active tenants including configuration data. This endpoint is restricted to authenticated internal services and SuperAdmin only.")
+            .Produces<object>(200)
+            .Produces(401)
+            .Produces(403);
+
         // Public tenant info endpoint (without sensitive data)
         publicGroup.MapGet("/{tenantId}", TenantApiHandlers.GetTenantByIdHandler)
             .WithName("GetTenantById")

@@ -19,7 +19,7 @@
 
 - 🏢 **Multi-Tenancy?** → [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md)
 - 🆕 **Create New Service?** → [NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md](NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md)
-- 📁 **File Storage?** → [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md)
+- 📁 **File Storage?** → [FILE_MANAGER_QUICK_REFERENCE.md](FILE_MANAGER_QUICK_REFERENCE.md) or [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md)
 - 🔑 **Project Isolation?** → [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md)
 - 🔔 **Notifications?** → [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
 - 🔥 **Firebase Push?** → [FIREBASE_QUICK_REFERENCE.md](FIREBASE_QUICK_REFERENCE.md)
@@ -55,6 +55,7 @@ Doc/
 │  ├─ MULTI_TENANCY_QUICK_START.md          ← Quick setup
 │  ├─ MULTI_TENANT_DEPLOYMENT_GUIDE.md      ← Deployment strategies
 │  ├─ FILE_MANAGER_SERVICE_GUIDE.md         ← File storage architecture
+│  ├─ FILE_MANAGER_QUICK_REFERENCE.md       ← 🔴 NEW: File Manager API quick reference
 │  ├─ PROJECT_ISOLATION_STRATEGY_GUIDE.md   ← User isolation patterns
 │  ├─ TENANT_MIDDLEWARE_EXPLAINED.md        ← How tenant middleware works
 │  ├─ TENANT_AWARE_CORS_GUIDE.md            ← Tenant-specific CORS
@@ -110,12 +111,12 @@ Doc/
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    SHARED SERVICES (ONE Each)                    │
+│                   SHARED SERVICES (ONE Each)                    │
 │                                                                   │
 │  ┌────────────────────┐  ┌──────────────────────┐  ┌────────┐  │
 │  │ Identity Service   │  │  Tenant Service      │  │  File  │  │
-│  │ (Port 5001)        │  │  (Port 5002)         │  │Manager │  │
-│  │ • JWT Auth         │  │  • Tenant Config     │  │(Opt.)  │  │
+│  │ (Port 5001)        │  │  (Port 5002)         │  │Manager│  │
+│  │ • JWT Auth         │  │  • Tenant Config     │  │(5005) │  │
 │  │ • User Management  │  │  • Multi-tenancy     │  │        │  │
 │  │ • Multi-tenant ✓   │  │  • Single DB (own)   │  │        │  │
 │  └────────────────────┘  └──────────────────────┘  └────────┘  │
@@ -288,7 +289,8 @@ Request → Middleware extracts TenantId → Fetches DB connection
 | **SHARED_IDENTITY_SERVICE_GUIDE.md**    | ✅ Production   | Jan 2025     | Complete with Tenant Service    |
 | **NEW_SERVICE_INTEGRATION_GUIDE.md**    | ✅ Production   | Oct 2024     | Comprehensive guide             |
 | **MULTI_TENANCY_GUIDE.md**              | ✅ Production   | Oct 2024     | Complete implementation         |
-| **FILE_MANAGER_SERVICE_GUIDE.md**       | ✅ Production   | Oct 2024     | Storage patterns                |
+| **FILE_MANAGER_SERVICE_GUIDE.md**       | ✅ Production   | Nov 2025     | Complete with caching & static files |
+| **FILE_MANAGER_QUICK_REFERENCE.md**     | ✅ Production   | Nov 2025     | API reference & examples        |
 | **NOTIFICATION_SERVICE_README.md**      | ✅ Production   | Nov 2025     | Complete notification guide     |
 | **DATABASE_REPLICATION_SETUP_GUIDE.md** | ✅ Production   | Nov 2025     | NEW - PostgreSQL HA replication |
 | **BOTTLENECKS_COMPLETION_SUMMARY.md**   | ✅ Production   | Nov 2025     | NEW - Performance achievements  |
@@ -431,6 +433,7 @@ Need to...?
 
 | Version | Date     | Changes                                                                                                                                                                                                                                     |
 | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.3     | Nov 2025 | ✅ File Manager Service v2.0.0 complete<br>✅ Redis caching for tenant configs (7-day TTL)<br>✅ Static file serving with public URLs<br>✅ Path/URL separation in responses<br>✅ Improved error handling (404 for missing files) |
 | 2.2     | Nov 2025 | ✅ Documentation cleanup (removed 15 outdated files)<br>✅ Removed temporary implementation summaries<br>✅ Removed bug fix documentation<br>✅ Kept 53 production-ready documents<br>✅ All services verified and up-to-date               |
 | 2.1     | Nov 2025 | ✅ Added DATABASE_REPLICATION_SETUP_GUIDE.md<br>✅ Added BOTTLENECKS_COMPLETION_SUMMARY.md<br>✅ Completed all 10 performance bottlenecks<br>✅ Updated NOTIFICATION_SERVICE_README.md<br>✅ Service now supports 100,000+ concurrent users |
 | 2.0     | Jan 2025 | ✅ Added DATABASE_PER_TENANT_ARCHITECTURE.md<br>✅ Updated SHARED_IDENTITY_SERVICE_GUIDE.md<br>✅ Consolidated documentation<br>✅ Removed redundant files                                                                                  |

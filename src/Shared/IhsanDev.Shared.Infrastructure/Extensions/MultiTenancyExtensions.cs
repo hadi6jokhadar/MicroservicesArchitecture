@@ -65,6 +65,20 @@ public static class MultiTenancyExtensions
                     ?? "UnknownService";
                 client.DefaultRequestHeaders.Add("X-Service-Name", serviceName);
             }
+        })
+        .ConfigurePrimaryHttpMessageHandler(() =>
+        {
+            var handler = new HttpClientHandler();
+            
+            // In development, bypass SSL certificate validation for self-signed certificates
+            // This is necessary for local HTTPS development with self-signed certificates
+            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+            {
+                handler.ServerCertificateCustomValidationCallback = 
+                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            }
+            
+            return handler;
         });
 
         return services;

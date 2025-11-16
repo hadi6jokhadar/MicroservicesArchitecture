@@ -395,10 +395,59 @@ builder.Services.AddMemoryCache();
 builder.Services.AddInfrastructureServices();
 
 // HTTP Client for Identity Service (for device tokens)
-builder.Services.AddHttpClient<Notification.Application.Interfaces.IIdentityServiceClient, Notification.Infrastructure.Services.IdentityServiceClient>();
+var isDevEnv = builder.Environment.IsDevelopment();
+builder.Services.AddHttpClient<Notification.Application.Interfaces.IIdentityServiceClient, Notification.Infrastructure.Services.IdentityServiceClient>(client =>
+{
+    var baseUrl = builder.Configuration.GetValue<string>("IdentityService:BaseUrl")
+        ?? throw new InvalidOperationException("IdentityService:BaseUrl is not configured");
+    
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+
+    var serviceSecret = builder.Configuration.GetValue<string>("ServiceCommunication:SharedSecret");
+    if (!string.IsNullOrEmpty(serviceSecret))
+    {
+        client.DefaultRequestHeaders.Add("X-Service-Secret", serviceSecret);
+        client.DefaultRequestHeaders.Add("X-Service-Name", "NotificationService");
+    }
+})
+.ConfigurePrimaryHttpMessageHandler(() =>
+{
+    var handler = new HttpClientHandler();
+    if (isDevEnv)
+    {
+        handler.ServerCertificateCustomValidationCallback = 
+            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+    }
+    return handler;
+});
 
 // HTTP Client for Tenant Service (for global notifications)
-builder.Services.AddHttpClient<Notification.Application.Interfaces.ITenantServiceClient, Notification.Infrastructure.Services.TenantServiceClient>();
+builder.Services.AddHttpClient<Notification.Application.Interfaces.ITenantServiceClient, Notification.Infrastructure.Services.TenantServiceClient>(client =>
+{
+    var baseUrl = builder.Configuration.GetValue<string>("MultiTenancy:TenantServiceUrl")
+        ?? throw new InvalidOperationException("MultiTenancy:TenantServiceUrl is not configured");
+    
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+
+    var serviceSecret = builder.Configuration.GetValue<string>("ServiceCommunication:SharedSecret");
+    if (!string.IsNullOrEmpty(serviceSecret))
+    {
+        client.DefaultRequestHeaders.Add("X-Service-Secret", serviceSecret);
+        client.DefaultRequestHeaders.Add("X-Service-Name", "NotificationService");
+    }
+})
+.ConfigurePrimaryHttpMessageHandler(() =>
+{
+    var handler = new HttpClientHandler();
+    if (isDevEnv)
+    {
+        handler.ServerCertificateCustomValidationCallback = 
+            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+    }
+    return handler;
+});
 
 // Firebase Cloud Messaging Service
 builder.Services.AddSingleton<Notification.Application.Interfaces.IFirebaseService, Notification.Infrastructure.Services.FirebaseService>();
