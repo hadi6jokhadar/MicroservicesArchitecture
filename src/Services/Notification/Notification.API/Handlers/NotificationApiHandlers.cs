@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Services.Identity;
 using MediatR;
 using Notification.Application.Commands;
 using Notification.Application.DTOs;
@@ -58,12 +59,24 @@ public static class NotificationApiHandlers
 
     /// <summary>
     /// Handle get user notifications request
+    /// UserId is extracted from JWT token claims
     /// </summary>
     public static async Task<IResult> GetUserNotificationsHandler(
-        int userId,
+        ICurrentUserService currentUserService,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
+        if (!currentUserService.IsAuthenticated || string.IsNullOrEmpty(currentUserService.UserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        if (!int.TryParse(currentUserService.UserId, out var userId))
+        {
+            return Results.BadRequest(new { error = "Invalid user ID in token" });
+        }
+
         var command = new GetUserNotificationsCommand(UserId: userId);
         var result = await mediator.Send(command, ct);
         return Results.Ok(result);
@@ -71,16 +84,26 @@ public static class NotificationApiHandlers
 
     /// <summary>
     /// Handle mark notification as read request
-    /// NOTE: UserId should be extracted from JWT claims in production
+    /// UserId is extracted from JWT token claims
     /// </summary>
     public static async Task<IResult> MarkAsReadHandler(
         int id,
+        ICurrentUserService currentUserService,
         IMediator mediator,
         ILocalizationService localizationService,
         CancellationToken ct = default)
     {
-        // Using placeholder userId=0 - should be extracted from authenticated user context
-        var command = new MarkNotificationAsReadCommand(NotificationId: id, UserId: 0);
+        if (!currentUserService.IsAuthenticated || string.IsNullOrEmpty(currentUserService.UserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        if (!int.TryParse(currentUserService.UserId, out var userId))
+        {
+            return Results.BadRequest(new { error = "Invalid user ID in token" });
+        }
+
+        var command = new MarkNotificationAsReadCommand(NotificationId: id, UserId: userId);
         var result = await mediator.Send(command, ct);
 
         if (!result)

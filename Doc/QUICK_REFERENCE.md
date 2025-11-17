@@ -413,11 +413,11 @@ await _mediator.Send(command);
 
 **Notification Service Endpoints:**
 
-- POST `/api/notifications/send` - Send notification (SignalR, Firebase, or Both)
-- GET `/api/notifications/status/{queueItemId}` - Check queue status
-- GET `/api/notifications/user/{userId}` - Get user notifications
-- PUT `/api/notifications/{notificationId}/read` - Mark as read
-- GET `/api/notifications/admin/queue` - Queue management (SuperAdmin only)
+- POST `/api/notifications/send` - Send notification (Service/SuperAdmin)
+- GET `/api/notifications/status/{queueItemId}` - Check queue status (Service/SuperAdmin)
+- GET `/api/notifications/queue` - Queue management (Service/SuperAdmin)
+- GET `/api/notifications/user` - Get my notifications (User/Admin - tenant-specific JWT)
+- PUT `/api/notifications/{notificationId}/read` - Mark as read (User/Admin - tenant-specific JWT)
 
 **Tenant Service Endpoints:**
 

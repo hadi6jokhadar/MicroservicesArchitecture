@@ -461,9 +461,11 @@ Client Receives → Acknowledges via SignalR → Command → Service → Update 
 
 ### 2. Get User Notifications
 
-**Endpoint**: `GET /api/notifications/user/{userId}`
+**Endpoint**: `GET /api/notifications/user`
 
-**Purpose**: Retrieve notification history for a user (from tenant DB)
+**Purpose**: Retrieve notification history for authenticated user (from tenant DB)
+
+**Authentication**: UserId is automatically extracted from JWT token
 
 **Response**:
 
@@ -486,6 +488,7 @@ Client Receives → Acknowledges via SignalR → Command → Service → Update 
 - Returns last 50 notifications
 - Ordered by most recent first
 - Reads from tenant-specific database
+- UserId extracted from JWT claims (no parameter needed)
 
 ---
 

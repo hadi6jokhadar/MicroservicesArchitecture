@@ -518,23 +518,44 @@ console.log("Connected to notification hub!");
 
 ## API Endpoints
 
-### Send Notification Endpoint
+The Notification Service provides two groups of endpoints with different authentication and authorization requirements:
 
-**Authentication:** JWT Bearer token  
-**Required Header:** None (tenantId comes from request body)
+### 🔧 Service/Admin Endpoints (Global Access)
 
-### Other User Notification Endpoints
+**Authentication:** Global JWT from appsettings.json  
+**Authorization:** Service or SuperAdmin role  
+**Tenant Context:** NOT required (bypasses tenant middleware)  
+**Use Case:** System services and administrators managing notifications across all tenants
 
-**Authentication:** Tenant-specific JWT (when `JwtMode = "PerTenant"`)  
-**Required Header:** `x-tenant-id: {tenantId}`
+**Endpoints:**
 
-### Send Notification
+- `POST /api/notifications/send` - Send notification
+- `GET /api/notifications/status/{id}` - Get queue status
+- `GET /api/notifications/queue` - Get all queue items with filters
+
+### 👤 User Endpoints (Tenant-Specific Access)
+
+**Authentication:** Tenant-specific JWT (when `JwtMode=PerTenant`) or Global JWT (when `JwtMode=Shared`)  
+**Authorization:** User, Admin, or SuperAdmin role  
+**Tenant Context:** REQUIRED (must provide `x-tenant-id` header)  
+**Use Case:** Regular users accessing their own notifications within their tenant  
+**UserId:** Automatically extracted from JWT token
+
+**Endpoints:**
+
+- `GET /api/notifications/user` - Get my notifications
+- `PUT /api/notifications/{id}/read` - Mark notification as read
+
+---
+
+### Send Notification (Service/Admin)
 
 **POST** `/api/notifications/send`
 
 Send a new notification to the queue.
 
-**Note:** This endpoint does NOT require the `x-tenant-id` header. The `tenantId` is provided in the request body.
+**Authentication:** Service or SuperAdmin role with Global JWT  
+**Tenant Context:** NOT required (tenantId comes from request body)
 
 **Validation Rules:**
 
@@ -612,16 +633,18 @@ curl -X POST "https://localhost:5104/api/notifications/send" \
 }
 ```
 
-### Get Queue Status
+### Get Queue Status (Service/Admin)
 
 **GET** `/api/notifications/status/{queueItemId}`
 
 Check the status of a queued notification.
 
+**Authentication:** Service or SuperAdmin role with Global JWT  
+**Tenant Context:** NOT required
+
 ```bash
 curl "https://localhost:5104/api/notifications/status/123" \
-  -H "Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN" \
-  -H "x-tenant-id: ihsandev"
+  -H "Authorization: Bearer GLOBAL_JWT_TOKEN"
 ```
 
 **Response:**
@@ -635,16 +658,18 @@ curl "https://localhost:5104/api/notifications/status/123" \
 }
 ```
 
-### Get User Notifications
+### Get User Notifications (User/Admin)
 
-**GET** `/api/notifications/user/{userId}`
+**GET** `/api/notifications/user`
 
-Get all notifications for a specific user.
+Get all notifications for the authenticated user. UserId is automatically extracted from JWT token.
 
-**Required Header:** `x-tenant-id: {tenantId}`
+**Authentication:** User, Admin, or SuperAdmin role
+**Required Header:** `x-tenant-id: {tenantId}` (for tenant users)
+**JWT:** Tenant-specific JWT (when JwtMode=PerTenant) or Global JWT (when JwtMode=Shared)
 
 ```bash
-curl "https://localhost:5104/api/notifications/user/1?pageNumber=1&pageSize=20" \
+curl "https://localhost:5104/api/notifications/user?pageNumber=1&pageSize=20" \
   -H "Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN" \
   -H "x-tenant-id: ihsandev"
 ```
@@ -673,9 +698,11 @@ curl "https://localhost:5104/api/notifications/user/1?pageNumber=1&pageSize=20" 
 
 **PUT** `/api/notifications/{notificationId}/read`
 
-Mark a notification as read.
+Mark a notification as read. UserId is automatically extracted from JWT token.
 
-**Required Header:** `x-tenant-id: {tenantId}`
+**Authentication:** User, Admin, or SuperAdmin role
+**Required Header:** `x-tenant-id: {tenantId}` (for tenant users)
+**JWT:** Tenant-specific JWT (when JwtMode=PerTenant) or Global JWT (when JwtMode=Shared)
 
 ```bash
 curl -X PUT "https://localhost:5104/api/notifications/456/read" \
@@ -693,13 +720,14 @@ curl -X PUT "https://localhost:5104/api/notifications/456/read" \
 
 ---
 
-### SuperAdmin Endpoints
+### Service/Admin Endpoints
 
 **Authentication:** Global JWT from appsettings.json  
-**Required Role:** SuperAdmin  
+**Required Role:** Service or SuperAdmin  
 **Header:** No `x-tenant-id` required (bypasses tenant middleware)
+**Use Case:** System services and administrators managing notifications across all tenants
 
-### Get Queue Items (SuperAdmin)
+### Get Queue Items (Service/SuperAdmin)
 
 **GET** `/api/notifications/admin/queue`
 

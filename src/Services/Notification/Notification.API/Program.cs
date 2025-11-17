@@ -130,7 +130,14 @@ builder.Services.AddAuthentication(options =>
             // Reset to default validation parameters for each request to prevent cross-request pollution
             context.Options.TokenValidationParameters = defaultValidationParameters.Clone();
 
-            // Handle SignalR hub requests
+            // Extract tenant ID from header or query string
+            var tenantId = context.Request.Headers["x-tenant-id"].FirstOrDefault()
+                ?? context.Request.Query["tenantId"].FirstOrDefault();
+
+            // Determine if endpoint should use tenant-specific JWT
+            var shouldUseTenantJwt = false;
+
+            // Check if this is a SignalR hub request
             if (path.StartsWithSegments("/hubs/notifications"))
             {
                 // Extract token from query string (required for SignalR WebSocket connections)
@@ -138,53 +145,78 @@ builder.Services.AddAuthentication(options =>
                 if (!string.IsNullOrEmpty(accessToken))
                 {
                     context.Token = accessToken;
-                    logger.LogInformation("SignalR: Token received from query string");
+                    logger.LogInformation("SignalR Hub: Token received from query string");
                 }
-
-                // Apply tenant-specific JWT validation when JwtMode is PerTenant
-                if (jwtMode == JwtMode.PerTenant)
+                
+                // If tenantId is provided, use tenant-specific JWT; otherwise use global JWT
+                if (!string.IsNullOrEmpty(tenantId))
                 {
-                    var tenantId = context.Request.Query["tenantId"].FirstOrDefault()
-                        ?? context.Request.Headers["x-tenant-id"].FirstOrDefault();
-                    
-                    if (!string.IsNullOrEmpty(tenantId))
+                    shouldUseTenantJwt = true;
+                    logger.LogInformation("SignalR Hub: Tenant user connection (TenantId: {TenantId})", tenantId);
+                }
+                else
+                {
+                    logger.LogInformation("SignalR Hub: Global user connection (no tenantId)");
+                }
+            }
+            // Check if this is a user endpoint (requires tenant context)
+            else if (path.StartsWithSegments("/api/notifications/user") || 
+                     (path.StartsWithSegments("/api/notifications/") && path.Value?.Contains("/read") == true))
+            {
+                // User endpoints require tenant-specific JWT when JwtMode is PerTenant
+                shouldUseTenantJwt = !string.IsNullOrEmpty(tenantId);
+                logger.LogInformation("User endpoint detected: {Path}, TenantId: {TenantId}, ShouldUseTenantJwt: {ShouldUseTenantJwt}", 
+                    path, tenantId ?? "null", shouldUseTenantJwt);
+            }
+
+            // Apply tenant-specific JWT validation when needed and JwtMode is PerTenant
+            if (shouldUseTenantJwt && jwtMode == JwtMode.PerTenant && !string.IsNullOrEmpty(tenantId))
+            {
+                var tenantConfigProvider = context.HttpContext.RequestServices.GetService<ITenantConfigurationProvider>();
+                if (tenantConfigProvider != null)
+                {
+                    try
                     {
-                        var tenantConfigProvider = context.HttpContext.RequestServices.GetService<ITenantConfigurationProvider>();
-                        if (tenantConfigProvider != null)
+                        var tenant = tenantConfigProvider.GetTenantConfigurationAsync(tenantId, context.HttpContext.RequestAborted)
+                            .GetAwaiter().GetResult();
+                        
+                        if (tenant?.Configuration?.Jwt != null)
                         {
-                            try
+                            var tenantJwt = tenant.Configuration.Jwt;
+                            if (!string.IsNullOrEmpty(tenantJwt.Secret))
                             {
-                                var tenant = tenantConfigProvider.GetTenantConfigurationAsync(tenantId, context.HttpContext.RequestAborted)
-                                    .GetAwaiter().GetResult();
-                                
-                                if (tenant?.Configuration?.Jwt != null)
+                                // Override with tenant-specific JWT validation parameters
+                                context.Options.TokenValidationParameters = new TokenValidationParameters
                                 {
-                                    var tenantJwt = tenant.Configuration.Jwt;
-                                    if (!string.IsNullOrEmpty(tenantJwt.Secret))
-                                    {
-                                        // Override with tenant-specific JWT validation parameters
-                                        context.Options.TokenValidationParameters = new TokenValidationParameters
-                                        {
-                                            ValidateIssuer = true,
-                                            ValidateAudience = true,
-                                            ValidateLifetime = true,
-                                            ValidateIssuerSigningKey = true,
-                                            ValidIssuer = tenantJwt.Issuer,
-                                            ValidAudience = tenantJwt.Audience,
-                                            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret)),
-                                            ClockSkew = TimeSpan.Zero
-                                        };
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                logger.LogError(ex, "SignalR: Failed to fetch tenant configuration for tenant: {TenantId}, falling back to global JWT", tenantId);
-                                // Keep default global JWT parameters (already set above)
+                                    ValidateIssuer = true,
+                                    ValidateAudience = true,
+                                    ValidateLifetime = true,
+                                    ValidateIssuerSigningKey = true,
+                                    ValidIssuer = tenantJwt.Issuer,
+                                    ValidAudience = tenantJwt.Audience,
+                                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret)),
+                                    ClockSkew = TimeSpan.Zero
+                                };
+                                
+                                logger.LogInformation("🔐 Using tenant-specific JWT validation for tenant: {TenantId} (Issuer: {Issuer})", 
+                                    tenantId, tenantJwt.Issuer);
                             }
                         }
+                        else
+                        {
+                            logger.LogWarning("Tenant {TenantId} has no JWT configuration, using global JWT", tenantId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to fetch tenant configuration for tenant: {TenantId}, falling back to global JWT", tenantId);
+                        // Keep default global JWT parameters (already set above)
                     }
                 }
+            }
+            else if (!string.IsNullOrEmpty(tenantId))
+            {
+                logger.LogInformation("Using global JWT validation (JwtMode: {JwtMode})", jwtMode);
             }
 
             return Task.CompletedTask;
