@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using IhsanDev.Shared.Application.Localization;
+using System.Globalization;
 
 namespace IhsanDev.Shared.Infrastructure.Middleware;
 
@@ -20,8 +22,12 @@ public class TenantAwareCorsMiddleware
     public async Task InvokeAsync(
         HttpContext context,
         ITenantContext tenantContext,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ILocalizationService localizationService)
     {
+        // Set culture early from Accept-Language header for CORS error messages
+        SetCultureFromRequest(context, localizationService);
+
         // Get the Origin header from the request
         var origin = context.Request.Headers["Origin"].FirstOrDefault();
 
@@ -67,7 +73,7 @@ public class TenantAwareCorsMiddleware
                 if (context.Request.Method == "OPTIONS")
                 {
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                    await context.Response.WriteAsync("CORS policy: Origin not allowed");
+                    await context.Response.WriteAsync(localizationService.GetString(LocalizationKeys.Cors.OriginNotAllowed));
                     return;
                 }
                 // For actual requests, let them through but don't set CORS headers
@@ -76,6 +82,45 @@ public class TenantAwareCorsMiddleware
         }
 
         await _next(context);
+    }
+
+    private void SetCultureFromRequest(HttpContext context, ILocalizationService localizationService)
+    {
+        try
+        {
+            // Check x-culture header first
+            if (context.Request.Headers.TryGetValue("x-culture", out var cultureHeader))
+            {
+                var culture = cultureHeader.ToString().ToLowerInvariant();
+                if (culture == "en" || culture == "ar")
+                {
+                    localizationService.SetCulture(culture);
+                    return;
+                }
+            }
+
+            // Check Accept-Language header
+            if (context.Request.Headers.TryGetValue("Accept-Language", out var acceptLanguageHeader))
+            {
+                var acceptLanguage = acceptLanguageHeader.ToString();
+                if (!string.IsNullOrWhiteSpace(acceptLanguage))
+                {
+                    var culture = acceptLanguage.Split(',')[0].Split(';')[0].Trim().Split('-')[0].ToLowerInvariant();
+                    if (culture == "en" || culture == "ar")
+                    {
+                        localizationService.SetCulture(culture);
+                        return;
+                    }
+                }
+            }
+
+            // Use default culture
+            localizationService.SetCulture("en");
+        }
+        catch
+        {
+            localizationService.SetCulture("en");
+        }
     }
 
     private static string[] GetAllowedOrigins(IConfiguration configuration, ITenantContext tenantContext)

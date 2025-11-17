@@ -1,5 +1,7 @@
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
 using IhsanDev.Shared.Kernel.Enums.Identity;
 using MediatR;
@@ -10,11 +12,12 @@ public record DeleteUserCommand(
     int Id
 ) : IRequest<bool>;
 
-public class DeleteUserCommandValidator : AbstractValidator<DeleteUserCommand>
+public class DeleteUserCommandValidator : LocalizedValidator<DeleteUserCommand>
 {
-    public DeleteUserCommandValidator()
+    public DeleteUserCommandValidator(ILocalizationService localizationService) 
+        : base(localizationService)
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("User ID is required");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "UserId", 0));
     }
 }

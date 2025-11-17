@@ -1,7 +1,9 @@
 using IhsanDev.Shared.Infrastructure.Attributes;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using IhsanDev.Shared.Application.Localization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 
 namespace IhsanDev.Shared.Infrastructure.Middleware;
 
@@ -22,8 +24,12 @@ public class TenantMiddleware
     public async Task InvokeAsync(
         HttpContext context,
         ITenantContext tenantContext,
-        ITenantConfigurationProvider tenantConfigProvider)
+        ITenantConfigurationProvider tenantConfigProvider,
+        ILocalizationService localizationService)
     {
+        // Set culture early from Accept-Language header for error messages
+        SetCultureFromRequest(context, localizationService);
+
         // Check if multi-tenancy is enabled
         if (!tenantContext.IsMultiTenantMode)
         {
@@ -73,9 +79,9 @@ public class TenantMiddleware
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(new
             {
-                error = "Missing required header",
-                message = "Multi-tenancy is enabled. The 'x-tenant-id' header is required for all requests.",
-                details = "Please provide a valid tenant ID in the 'x-tenant-id' header."
+                error = localizationService.GetString(LocalizationKeys.Tenant.MissingHeader),
+                message = localizationService.GetString(LocalizationKeys.Tenant.MissingHeaderMessage),
+                details = localizationService.GetString(LocalizationKeys.Tenant.MissingHeaderDetails)
             });
             return;
         }
@@ -95,7 +101,7 @@ public class TenantMiddleware
                 context.Response.StatusCode = StatusCodes.Status404NotFound;
                 await context.Response.WriteAsJsonAsync(new
                 {
-                    error = "Tenant not found or inactive",
+                    error = localizationService.GetString(LocalizationKeys.Tenant.NotFoundOrInactive),
                     tenantId
                 });
                 return;
@@ -107,7 +113,7 @@ public class TenantMiddleware
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsJsonAsync(new
                 {
-                    error = "Tenant is not active",
+                    error = localizationService.GetString(LocalizationKeys.Tenant.NotActive),
                     tenantId
                 });
                 return;
@@ -124,11 +130,68 @@ public class TenantMiddleware
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             await context.Response.WriteAsJsonAsync(new
             {
-                error = "Error resolving tenant configuration"
+                error = localizationService.GetString(LocalizationKeys.Tenant.ConfigurationError)
             });
             return;
         }
 
         await _next(context);
+    }
+
+    private void SetCultureFromRequest(HttpContext context, ILocalizationService localizationService)
+    {
+        try
+        {
+            // Check x-culture header first
+            if (context.Request.Headers.TryGetValue("x-culture", out var cultureHeader))
+            {
+                var culture = cultureHeader.ToString().ToLowerInvariant();
+                if (IsSupportedCulture(culture))
+                {
+                    localizationService.SetCulture(culture);
+                    return;
+                }
+            }
+
+            // Check Accept-Language header
+            if (context.Request.Headers.TryGetValue("Accept-Language", out var acceptLanguageHeader))
+            {
+                var acceptLanguage = acceptLanguageHeader.ToString();
+                var culture = ParseAcceptLanguage(acceptLanguage);
+                if (!string.IsNullOrEmpty(culture))
+                {
+                    localizationService.SetCulture(culture);
+                    return;
+                }
+            }
+
+            // Use default culture
+            localizationService.SetCulture("en");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error setting culture, using default");
+            localizationService.SetCulture("en");
+        }
+    }
+
+    private string? ParseAcceptLanguage(string acceptLanguage)
+    {
+        if (string.IsNullOrWhiteSpace(acceptLanguage))
+            return null;
+
+        var languages = acceptLanguage
+            .Split(',')
+            .Select(lang => lang.Split(';')[0].Trim())
+            .Select(lang => lang.Split('-')[0].ToLowerInvariant())
+            .Where(IsSupportedCulture)
+            .ToList();
+
+        return languages.FirstOrDefault();
+    }
+
+    private bool IsSupportedCulture(string culture)
+    {
+        return culture == "en" || culture == "ar";
     }
 }

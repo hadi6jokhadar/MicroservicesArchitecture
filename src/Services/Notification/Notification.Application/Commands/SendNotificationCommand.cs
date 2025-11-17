@@ -1,4 +1,6 @@
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using MediatR;
 using Notification.Application.DTOs;
 
@@ -17,26 +19,26 @@ public record SendNotificationCommand(
     string Priority = "Immediate"
 ) : IRequest<SendNotificationResponse>;
 
-public class SendNotificationCommandValidator : AbstractValidator<SendNotificationCommand>
+public class SendNotificationCommandValidator : LocalizedValidator<SendNotificationCommand>
 {
-    public SendNotificationCommandValidator()
+    public SendNotificationCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Title)
-            .NotEmpty().WithMessage("Title is required")
-            .MaximumLength(200).WithMessage("Title cannot exceed 200 characters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Title"))
+            .MaximumLength(200).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Title", "200"));
 
         RuleFor(x => x.Message)
-            .MaximumLength(1000).WithMessage("Message cannot exceed 1000 characters")
+            .MaximumLength(1000).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Message", "1000"))
             .When(x => !string.IsNullOrEmpty(x.Message));
 
         RuleFor(x => x.DeliveryType)
-            .NotEmpty().WithMessage("DeliveryType is required")
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "DeliveryType"))
             .Must(x => x == "SignalR" || x == "Firebase" || x == "Both")
-            .WithMessage("DeliveryType must be 'SignalR', 'Firebase', or 'Both'");
+            .WithMessage(L(LocalizationKeys.Validation.InvalidDeliveryType));
 
         RuleFor(x => x.Priority)
-            .NotEmpty().WithMessage("Priority is required")
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Priority"))
             .Must(x => x == "Immediate" || x == "Waitable")
-            .WithMessage("Priority must be 'Immediate' or 'Waitable'");
+            .WithMessage(L(LocalizationKeys.Validation.InvalidPriority));
     }
 }

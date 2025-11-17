@@ -7,6 +7,7 @@ using Identity.Application.DTOs;
 using Identity.Domain.Entities;
 using IhsanDev.Shared.Kernel.Enums.Identity;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 
 namespace Identity.Application.Handlers;
 
@@ -33,7 +34,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
             bool emailExists = await _userRepository.EmailExistsAsync(request.Email, cancellationToken);
             if (emailExists)
             {
-                throw new ConflictException("Email is already registered");
+                throw new ConflictException(LocalizationKeys.Exceptions.EmailAlreadyExists);
             }
 
             // Create user
@@ -61,9 +62,9 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Registration failed: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

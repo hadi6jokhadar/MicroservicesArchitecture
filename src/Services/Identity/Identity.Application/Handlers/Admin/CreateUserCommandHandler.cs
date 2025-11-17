@@ -1,5 +1,6 @@
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
 using Identity.Application.Services;
@@ -26,7 +27,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
         {
             var existingUser = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
             if (existingUser != null)
-                throw new ConflictException("User with this email already exists");
+                throw new ConflictException(LocalizationKeys.Exceptions.EmailAlreadyExists);
 
             var hashedPassword = _userService.HashPassword(request.Password);
 
@@ -53,9 +54,9 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Failed to create user: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

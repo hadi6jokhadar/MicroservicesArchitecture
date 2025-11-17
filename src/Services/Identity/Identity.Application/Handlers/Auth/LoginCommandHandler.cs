@@ -1,5 +1,6 @@
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
 using Identity.Application.Services;
@@ -25,13 +26,13 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, UserDtoIncludes
         {
             var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
             if (user == null)
-                throw new UnauthorizedException("Invalid email or password");
+                throw new UnauthorizedException(LocalizationKeys.Exceptions.InvalidCredentials);
 
             if (!user.Status)
-                throw new ForbiddenException("Account is disabled");
+                throw new ForbiddenException(LocalizationKeys.Exceptions.AccountDisabled);
 
             if (string.IsNullOrEmpty(user.PasswordHash) || !_userService.VerifyPassword(request.Password, user.PasswordHash))
-                throw new UnauthorizedException("Invalid email or password");
+                throw new UnauthorizedException(LocalizationKeys.Exceptions.InvalidCredentials);
 
             user.LastLogin = DateTime.UtcNow;
             await _userRepository.UpdateAsync(user, cancellationToken);
@@ -43,9 +44,9 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, UserDtoIncludes
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Login failed: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

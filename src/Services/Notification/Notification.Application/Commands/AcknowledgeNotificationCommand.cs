@@ -1,4 +1,6 @@
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using MediatR;
 
 namespace Notification.Application.Commands;
@@ -12,11 +14,11 @@ public record AcknowledgeNotificationCommand(
     DateTime? ReceivedAt = null
 ) : IRequest<bool>;
 
-public class AcknowledgeNotificationCommandValidator : AbstractValidator<AcknowledgeNotificationCommand>
+public class AcknowledgeNotificationCommandValidator : LocalizedValidator<AcknowledgeNotificationCommand>
 {
-    public AcknowledgeNotificationCommandValidator()
+    public AcknowledgeNotificationCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.QueueItemId)
-            .GreaterThan(0).WithMessage("QueueItemId must be greater than 0");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "QueueItemId", "0"));
     }
 }

@@ -21,6 +21,7 @@
 - 🆕 **Create New Service?** → [NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md](NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md)
 - 📁 **File Storage?** → [FILE_MANAGER_QUICK_REFERENCE.md](FILE_MANAGER_QUICK_REFERENCE.md) or [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md)
 - 🔑 **Project Isolation?** → [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md)
+- 🌍 **Localization?** → [COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md](COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md) or [LOCALIZATION_QUICK_REFERENCE.md](LOCALIZATION_QUICK_REFERENCE.md)
 - 🔔 **Notifications?** → [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
 - 🔥 **Firebase Push?** → [FIREBASE_QUICK_REFERENCE.md](FIREBASE_QUICK_REFERENCE.md)
 - 📱 **Device Tokens?** → [DEVICE_TOKEN_QUICK_REFERENCE.md](DEVICE_TOKEN_QUICK_REFERENCE.md)
@@ -83,6 +84,10 @@ Doc/
 ├─ Development Guides
 │  ├─ AUTOMAPPER_REMOVAL_SUMMARY.md         ← ✅ AutoMapper removal complete
 │  ├─ DATETIME_STANDARDIZATION_SUMMARY.md   ← ✅ DateTime ISO 8601 UTC format
+│  ├─ COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md  ← ✅ NEW: Complete i18n migration (95 keys, en+ar)
+│  ├─ LOCALIZATION_VALIDATION_MIGRATION_COMPLETE.md  ← ✅ Validator localization (47 validators)
+│  ├─ LOCALIZATION_GUIDE.md                 ← Multi-language support guide
+│  ├─ LOCALIZATION_QUICK_REFERENCE.md       ← Localization quick reference
 │  ├─ CACHING_STRATEGY_COMPARISON.md        ← MemoryCache vs Redis
 │  ├─ REDIS_CACHE_MIGRATION_PLAN.md         ← 🔴 NEW: Complete Redis migration guide
 │  ├─ REDIS_CACHE_MIGRATION_SUMMARY.md      ← 🔴 NEW: Implementation summary

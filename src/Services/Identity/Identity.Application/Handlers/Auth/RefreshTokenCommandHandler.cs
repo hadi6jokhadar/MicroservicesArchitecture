@@ -1,5 +1,6 @@
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
 using Identity.Application.Services;
@@ -24,7 +25,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, U
             var authResult = await _userService.RefreshTokenAsync(request.RefreshToken);
             
             if (authResult == null)
-                throw new UnauthorizedException("Invalid or expired refresh token");
+                throw new UnauthorizedException(LocalizationKeys.Exceptions.InvalidToken);
 
             return authResult;
         }
@@ -32,9 +33,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, U
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Token refresh failed: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

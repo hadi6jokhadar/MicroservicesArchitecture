@@ -1,5 +1,7 @@
 using FluentValidation;
 using Identity.Application.DTOs;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
@@ -12,9 +14,10 @@ public record LoginWithCodeByEmailCommand(
     string VerificationCode
 ) : IRequest<UserDtoIncludesToken>;
 
-public class LoginWithCodeByEmailCommandValidator : AbstractValidator<LoginWithCodeByEmailCommand>
+public class LoginWithCodeByEmailCommandValidator : LocalizedValidator<LoginWithCodeByEmailCommand>
 {
-    public LoginWithCodeByEmailCommandValidator(IConfiguration configuration, ITenantContext tenantContext)
+    public LoginWithCodeByEmailCommandValidator(ILocalizationService localizationService, IConfiguration configuration, ITenantContext tenantContext)
+        : base(localizationService)
     {
         // Get OTP settings from tenant configuration if multi-tenancy is enabled, otherwise from appsettings
         var otpSettings = GetOtpSettings(configuration, tenantContext);
@@ -22,16 +25,16 @@ public class LoginWithCodeByEmailCommandValidator : AbstractValidator<LoginWithC
         var useAlphanumeric = otpSettings.UseAlphanumeric;
 
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Email is required")
-            .EmailAddress().WithMessage("Valid email address is required");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Email"))
+            .EmailAddress().WithMessage(L(LocalizationKeys.Validation.EmailInvalid));
 
         RuleFor(x => x.VerificationCode)
-            .NotEmpty().WithMessage("Verification code is required")
-            .Length(codeLength).WithMessage($"Verification code must be {codeLength} characters")
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Verification code"))
+            .Length(codeLength).WithMessage(L(LocalizationKeys.Validation.InvalidFormat, $"Verification code (must be {codeLength} characters)"))
             .Must(code => useAlphanumeric ? code.All(char.IsLetterOrDigit) : code.All(char.IsDigit))
             .WithMessage(useAlphanumeric 
-                ? $"Verification code must contain only letters and digits" 
-                : $"Verification code must contain only digits");
+                ? L(LocalizationKeys.Validation.InvalidFormat, "Verification code (must contain only letters and digits)")
+                : L(LocalizationKeys.Validation.InvalidFormat, "Verification code (must contain only digits)"));
     }
 
     private static OtpSettings GetOtpSettings(IConfiguration configuration, ITenantContext tenantContext)

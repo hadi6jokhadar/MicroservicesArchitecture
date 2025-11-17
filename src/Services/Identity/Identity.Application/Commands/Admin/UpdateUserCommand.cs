@@ -1,5 +1,7 @@
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
 using IhsanDev.Shared.Kernel.Enums.Identity;
 using MediatR;
@@ -18,26 +20,26 @@ public record UpdateUserCommand(
     string? Data = null
 ) : IRequest<UserDto>;
 
-public class UpdateUserCommandValidator : AbstractValidator<UpdateUserCommand>
+public class UpdateUserCommandValidator : LocalizedValidator<UpdateUserCommand>
 {
-    public UpdateUserCommandValidator()
+    public UpdateUserCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("User ID is required");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "User ID", "0"));
 
         RuleFor(x => x.FirstName)
-            .NotEmpty().WithMessage("First name is required")
-            .MaximumLength(50).WithMessage("First name cannot exceed 50 characters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "First name"))
+            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "First name", "50"));
 
         RuleFor(x => x.LastName)
-            .NotEmpty().WithMessage("Last name is required")
-            .MaximumLength(50).WithMessage("Last name cannot exceed 50 characters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Last name"))
+            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Last name", "50"));
 
         RuleFor(x => x.Role)
-            .IsInEnum().WithMessage("Invalid role specified");
+            .IsInEnum().WithMessage(L(LocalizationKeys.Validation.InvalidRole));
 
         RuleFor(x => x.PhoneNumber)
-            .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage("Invalid phone number format")
+            .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage(L(LocalizationKeys.Validation.PhoneNumberInvalid))
             .When(x => !string.IsNullOrEmpty(x.PhoneNumber));
     }
 }

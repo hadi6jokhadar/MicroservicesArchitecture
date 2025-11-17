@@ -5,6 +5,7 @@ using Identity.Application.Commands;
 using Identity.Infrastructure.Extensions;
 using Identity.Infrastructure.Persistence;
 using IhsanDev.Shared.Application.Common.Behaviors;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Filters;
 using IhsanDev.Shared.Infrastructure.Middleware;
@@ -33,6 +34,11 @@ builder.Services.AddMediatR(cfg =>
 });
 builder.Services.AddValidatorsFromAssembly(applicationAssembly);
 builder.Services.AddGlobalExceptionHandler();
+
+// ============================================
+// Localization
+// ============================================
+builder.Services.AddLocalizationService();
 
 // ============================================
 // Custom Logging
@@ -246,6 +252,9 @@ if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("Mu
 // TODO: Restrict to Development only in production
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// Localization middleware (must be before exception handler)
+app.UseLocalization();
 
 app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance

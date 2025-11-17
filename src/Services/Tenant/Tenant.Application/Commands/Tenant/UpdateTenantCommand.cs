@@ -1,4 +1,6 @@
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using MediatR;
 using Tenant.Application.DTOs;
@@ -17,26 +19,26 @@ public record UpdateTenantCommand(
     bool IsActive
 ) : IRequest<TenantDto>;
 
-public class UpdateTenantCommandValidator : AbstractValidator<UpdateTenantCommand>
+public class UpdateTenantCommandValidator : LocalizedValidator<UpdateTenantCommand>
 {
-    public UpdateTenantCommandValidator()
+    public UpdateTenantCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.TenantId)
-            .NotEmpty().WithMessage("Tenant ID is required")
-            .MaximumLength(50).WithMessage("Tenant ID must not exceed 50 characters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Tenant ID"))
+            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Tenant ID", "50"));
 
         RuleFor(x => x.TenantName)
-            .NotEmpty().WithMessage("Tenant name is required")
-            .MaximumLength(200).WithMessage("Tenant name must not exceed 200 characters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Tenant name"))
+            .MaximumLength(200).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Tenant name", "200"));
 
         RuleFor(x => x.StartDate)
-            .NotEmpty().WithMessage("Start date is required");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Start date"));
 
         RuleFor(x => x.ExpireDate)
-            .NotEmpty().WithMessage("Expire date is required")
-            .GreaterThan(x => x.StartDate).WithMessage("Expire date must be after start date");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Expire date"))
+            .GreaterThan(x => x.StartDate).WithMessage(L(LocalizationKeys.Validation.MustBeAfter, "Expire date", "start date"));
 
         RuleFor(x => x.Data)
-            .NotNull().WithMessage("Configuration data is required");
+            .NotNull().WithMessage(L(LocalizationKeys.Validation.Required, "Configuration data"));
     }
 }

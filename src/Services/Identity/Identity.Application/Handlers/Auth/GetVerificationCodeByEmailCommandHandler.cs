@@ -1,6 +1,7 @@
 using Identity.Application.Commands.Auth;
 using Identity.Domain.Repositories;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Otp;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
@@ -39,12 +40,12 @@ public class GetVerificationCodeByEmailCommandHandler : IRequestHandler<GetVerif
             var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
             if (user == null)
             {
-                throw new NotFoundException($"No user found with email {request.Email}");
+                throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
             }
 
             if (!user.Status)
             {
-                throw new ForbiddenException("Account is disabled");
+                throw new ForbiddenException(LocalizationKeys.Exceptions.AccountDisabled);
             }
 
             // Check if user is locked out
@@ -89,9 +90,9 @@ public class GetVerificationCodeByEmailCommandHandler : IRequestHandler<GetVerif
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Failed to generate verification code: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 

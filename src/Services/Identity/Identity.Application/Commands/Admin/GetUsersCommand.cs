@@ -1,5 +1,7 @@
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
 using IhsanDev.Shared.Kernel.Enums.Identity;
 using MediatR;
@@ -14,15 +16,15 @@ public record GetUsersCommand(
     bool? Status = null
 ) : IRequest<PaginatedList<UserDto>>;
 
-public class GetUsersCommandValidator : AbstractValidator<GetUsersCommand>
+public class GetUsersCommandValidator : LocalizedValidator<GetUsersCommand>
 {
-    public GetUsersCommandValidator()
+    public GetUsersCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.PageNumber)
-            .GreaterThan(0).WithMessage("Page number must be greater than 0");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page number", "0"));
 
         RuleFor(x => x.PageSize)
-            .GreaterThan(0).WithMessage("Page size must be greater than 0")
-            .LessThanOrEqualTo(100).WithMessage("Page size cannot exceed 100");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page size", "0"))
+            .LessThanOrEqualTo(100).WithMessage(L(LocalizationKeys.Validation.PageSizeExceeded));
     }
 }

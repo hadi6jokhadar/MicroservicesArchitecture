@@ -1,5 +1,6 @@
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
@@ -22,7 +23,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
         {
             var user = await _userRepository.GetByIdAsync(request.Id, cancellationToken);
             if (user == null)
-                throw new NotFoundException("User not found");
+                throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
             user.FirstName = request.FirstName;
             user.LastName = request.LastName;
@@ -46,9 +47,9 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Failed to update user: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

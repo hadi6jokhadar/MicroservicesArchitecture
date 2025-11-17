@@ -1,4 +1,6 @@
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using MediatR;
 using Notification.Application.DTOs;
 
@@ -14,18 +16,18 @@ public record GetUserNotificationsCommand(
     int Take = 20
 ) : IRequest<List<NotificationResponse>>;
 
-public class GetUserNotificationsCommandValidator : AbstractValidator<GetUserNotificationsCommand>
+public class GetUserNotificationsCommandValidator : LocalizedValidator<GetUserNotificationsCommand>
 {
-    public GetUserNotificationsCommandValidator()
+    public GetUserNotificationsCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.UserId)
-            .GreaterThan(0).WithMessage("UserId must be greater than 0");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "UserId", "0"));
 
         RuleFor(x => x.Skip)
-            .GreaterThanOrEqualTo(0).WithMessage("Skip must be greater than or equal to 0");
+            .GreaterThanOrEqualTo(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThanOrEqual, "Skip", "0"));
 
         RuleFor(x => x.Take)
-            .GreaterThan(0).WithMessage("Take must be greater than 0")
-            .LessThanOrEqualTo(100).WithMessage("Take cannot exceed 100");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Take", "0"))
+            .LessThanOrEqualTo(100).WithMessage(L(LocalizationKeys.Validation.PageSizeExceeded));
     }
 }

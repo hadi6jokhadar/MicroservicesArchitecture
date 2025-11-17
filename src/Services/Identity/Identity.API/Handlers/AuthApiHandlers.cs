@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Identity.Application.Commands;
 using Identity.Application.Commands.Auth;
+using IhsanDev.Shared.Application.Localization;
 using MediatR;
 
 namespace Identity.API.Handlers;
@@ -37,10 +38,11 @@ public static class AuthApiHandlers
     public static async Task<IResult> GetVerificationCodeByPhoneHandler(
         GetVerificationCodeByPhoneCommand command,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         var result = await mediator.Send(command, ct);
-        return Results.Ok(new { success = result, message = "Verification code sent successfully to your phone" });
+        return Results.Ok(new { success = result, message = localizationService.GetString(LocalizationKeys.Success.VerificationCodeSentPhone) });
     }
 
     /// <summary>
@@ -49,10 +51,11 @@ public static class AuthApiHandlers
     public static async Task<IResult> GetVerificationCodeByEmailHandler(
         GetVerificationCodeByEmailCommand command,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         var result = await mediator.Send(command, ct);
-        return Results.Ok(new { success = result, message = "Verification code sent successfully to your email" });
+        return Results.Ok(new { success = result, message = localizationService.GetString(LocalizationKeys.Success.VerificationCodeSentEmail) });
     }
 
     /// <summary>
@@ -85,10 +88,11 @@ public static class AuthApiHandlers
     public static async Task<IResult> RegisterWithCodeByPhoneHandler(
         RegisterWithCodeByPhoneCommand command,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         var result = await mediator.Send(command, ct);
-        return Results.Ok(new { success = result, message = "Registration successful. Please login with the verification code sent to your phone." });
+        return Results.Ok(new { success = result, message = localizationService.GetString(LocalizationKeys.Success.RegistrationSuccessfulLoginPhone) });
     }
 
     /// <summary>
@@ -97,10 +101,11 @@ public static class AuthApiHandlers
     public static async Task<IResult> RegisterWithCodeByEmailHandler(
         RegisterWithCodeByEmailCommand command,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         var result = await mediator.Send(command, ct);
-        return Results.Ok(new { success = result, message = "Registration successful. Please login with the verification code sent to your email." });
+        return Results.Ok(new { success = result, message = localizationService.GetString(LocalizationKeys.Success.RegistrationSuccessfulLoginEmail) });
     }
 
     /// <summary>
@@ -118,7 +123,7 @@ public static class AuthApiHandlers
     /// <summary>
     /// Handle user logout
     /// </summary>
-    public static IResult LogoutHandler(HttpContext context)
+    public static IResult LogoutHandler(HttpContext context, ILocalizationService localizationService)
     {
         var userId = GetCurrentUserId(context);
         if (userId == 0)
@@ -128,7 +133,7 @@ public static class AuthApiHandlers
 
         // In a real application, you might want to blacklist the token
         // For now, we'll just return success as the token will expire naturally
-        return Results.Ok(new { message = "Logged out successfully" });
+        return Results.Ok(new { message = localizationService.GetString(LocalizationKeys.Success.LogoutSuccessful) });
     }
 
     /// <summary>

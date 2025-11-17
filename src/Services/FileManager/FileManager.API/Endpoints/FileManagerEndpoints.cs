@@ -1,6 +1,7 @@
 using FileManager.Application.Commands;
 using FileManager.Application.DTOs;
 using FileManager.Application.Queries;
+using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -121,6 +122,7 @@ public static class FileManagerEndpoints
             int id,
             IMediator mediator,
             Microsoft.Extensions.Configuration.IConfiguration configuration,
+            ILocalizationService localizationService,
             CancellationToken cancellationToken) =>
         {
             var query = new GetFileByIdQuery(id);
@@ -134,7 +136,7 @@ public static class FileManagerEndpoints
             var physicalPath = Path.Combine(storageRoot, fileMetadata.Path.Replace("/", "\\"));
             
             if (!File.Exists(physicalPath))
-                return Results.NotFound(new { error = "File not found on disk", path = physicalPath });
+                return Results.NotFound(new { error = localizationService.GetString(LocalizationKeys.Exceptions.FileNotFoundOnDisk), path = physicalPath });
 
             var fileStream = new FileStream(physicalPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             var contentType = GetContentType(fileMetadata.Extension);

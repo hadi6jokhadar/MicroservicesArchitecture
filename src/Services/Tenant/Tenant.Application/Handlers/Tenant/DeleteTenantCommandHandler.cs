@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using MediatR;
 using Tenant.Application.Commands.Tenant;
@@ -27,7 +28,7 @@ public class DeleteTenantCommandHandler : IRequestHandler<DeleteTenantCommand, b
             var tenant = await _tenantRepository.GetByTenantIdAsync(request.TenantId, cancellationToken);
             if (tenant == null)
             {
-                throw new NotFoundException($"Tenant with ID '{request.TenantId}' not found");
+                throw new NotFoundException(LocalizationKeys.Exceptions.TenantNotFound);
             }
 
             await _tenantRepository.DeleteAsync(tenant.Id, cancellationToken);
@@ -47,7 +48,7 @@ public class DeleteTenantCommandHandler : IRequestHandler<DeleteTenantCommand, b
         }
         catch (Exception ex)
         {
-            throw new GeneralException("Failed to delete tenant: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

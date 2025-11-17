@@ -1,5 +1,7 @@
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
 using MediatR;
 
@@ -9,11 +11,11 @@ public record GetUserByIdCommand(
     int UserId
 ) : IRequest<UserDto>;
 
-public class GetUserByIdCommandValidator : AbstractValidator<GetUserByIdCommand>
+public class GetUserByIdCommandValidator : LocalizedValidator<GetUserByIdCommand>
 {
-    public GetUserByIdCommandValidator()
+    public GetUserByIdCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.UserId)
-            .GreaterThan(0).WithMessage("User ID is required");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "User ID", "0"));
     }
 }

@@ -9,6 +9,7 @@ using FileManager.Infrastructure.Services;
 using FileManager.Infrastructure.Storage;
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Behaviors;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
@@ -36,6 +37,11 @@ builder.Services.AddMediatR(cfg =>
 });
 builder.Services.AddValidatorsFromAssembly(applicationAssembly);
 builder.Services.AddGlobalExceptionHandler();
+
+// ============================================
+// Localization
+// ============================================
+builder.Services.AddLocalizationService();
 
 // ============================================
 // Custom Logging
@@ -302,6 +308,9 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseCors();
+
+// Localization middleware (must be before exception handler)
+app.UseLocalization();
 
 // Global exception handling
 app.UseGlobalExceptionHandler();

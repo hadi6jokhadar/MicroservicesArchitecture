@@ -1,10 +1,11 @@
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
 using Identity.Application.Services;
 using Identity.Domain.Repositories;
 using MediatR;
-using IhsanDev.Shared.Application.Exceptions;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -33,11 +34,11 @@ public class ForgetPasswordCommandHandler : IRequestHandler<ForgetPasswordComman
                 // In a real application, you would implement email service here
             }
 
-            return "If the email exists, a password reset link has been sent.";
+            return LocalizationKeys.Success.PasswordResetEmailSent;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Failed to reset password: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

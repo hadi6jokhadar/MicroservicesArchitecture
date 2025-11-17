@@ -1,3 +1,4 @@
+using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Notification.Application.Commands;
 using Notification.Application.DTOs;
@@ -15,6 +16,7 @@ public static class NotificationApiHandlers
         SendNotificationCommand command,
         IMediator mediator,
         IConfiguration configuration,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         // Ensure user-specific notifications include tenant context
@@ -23,8 +25,8 @@ public static class NotificationApiHandlers
         {
             return Results.BadRequest(new 
             { 
-                error = "TenantId is required when UserId is provided and multi-tenancy is enabled",
-                message = "User-specific notifications require a tenant context. Please provide a TenantId in the request body."
+                error = localizationService.GetString(LocalizationKeys.Exceptions.TenantContextRequired),
+                message = localizationService.GetString(LocalizationKeys.Exceptions.TenantContextRequired)
             });
         }
 
@@ -40,6 +42,7 @@ public static class NotificationApiHandlers
     public static async Task<IResult> GetQueueStatusHandler(
         int id,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         var command = new GetQueueItemStatusCommand(QueueItemId: id);
@@ -47,7 +50,7 @@ public static class NotificationApiHandlers
 
         if (result == null)
         {
-            return Results.NotFound(new { message = "Queue item not found" });
+            return Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.QueueItemNotFound) });
         }
 
         return Results.Ok(result);
@@ -73,6 +76,7 @@ public static class NotificationApiHandlers
     public static async Task<IResult> MarkAsReadHandler(
         int id,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         // Using placeholder userId=0 - should be extracted from authenticated user context
@@ -81,10 +85,10 @@ public static class NotificationApiHandlers
 
         if (!result)
         {
-            return Results.NotFound(new { message = "Notification not found" });
+            return Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.NotificationNotFound) });
         }
 
-        return Results.Ok(new { success = true, message = "Notification marked as read" });
+        return Results.Ok(new { success = true, message = localizationService.GetString(LocalizationKeys.Success.NotificationMarkedAsRead) });
     }
 
     /// <summary>

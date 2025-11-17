@@ -1,5 +1,6 @@
 using System.Text;
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -34,6 +35,11 @@ builder.Services.AddMediatR(cfg =>
 });
 builder.Services.AddValidatorsFromAssembly(applicationAssembly);
 builder.Services.AddGlobalExceptionHandler();
+
+// ============================================
+// Localization
+// ============================================
+builder.Services.AddLocalizationService();
 
 // ============================================
 // Custom Logging
@@ -370,11 +376,12 @@ builder.Services.AddRateLimiter(options =>
         logger.LogWarning("Rate limit exceeded - Endpoint: {Endpoint}, IP: {IP}, TenantId: {TenantId}", 
             endpoint, ip, tenantId);
 
+        var localizationService = context.HttpContext.RequestServices.GetRequiredService<ILocalizationService>();
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
-            error = "Too many requests",
-            message = "Rate limit exceeded. Please try again later.",
+            error = localizationService.GetString(LocalizationKeys.Error.RateLimitExceeded),
+            message = localizationService.GetString(LocalizationKeys.Error.RateLimitExceeded),
             retryAfter = context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter)
                 ? retryAfter.TotalSeconds
                 : 60
@@ -550,6 +557,9 @@ if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("Mu
 // TODO: Restrict to Development only in production
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// Localization middleware (must be before exception handler)
+app.UseLocalization();
 
 app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance

@@ -1,25 +1,27 @@
 using FileManager.Application.Queries;
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 
 namespace FileManager.Application.Handlers.GetFiles;
 
-public class GetFilesQueryValidator : AbstractValidator<GetFilesQuery>
+public class GetFilesQueryValidator : LocalizedValidator<GetFilesQuery>
 {
-    public GetFilesQueryValidator()
+    public GetFilesQueryValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Request.PageNumber)
             .GreaterThan(0)
-            .WithMessage("Page number must be greater than 0.");
+            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page number", "0"));
 
         RuleFor(x => x.Request.PageSize)
             .GreaterThan(0)
             .LessThanOrEqualTo(100)
-            .WithMessage("Page size must be between 1 and 100.");
+            .WithMessage(L(LocalizationKeys.Validation.PageSizeExceeded));
 
         RuleFor(x => x.Request.SortBy)
             .Must(BeValidSortColumn!)
             .When(x => x.Request.SortBy != null)
-            .WithMessage("Invalid sort column.");
+            .WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Sort column"));
     }
 
     private bool BeValidSortColumn(string? sortBy)

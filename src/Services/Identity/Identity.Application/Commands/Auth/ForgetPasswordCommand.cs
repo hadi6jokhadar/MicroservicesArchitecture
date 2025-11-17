@@ -1,5 +1,7 @@
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
 using MediatR;
 
@@ -9,12 +11,12 @@ public record ForgetPasswordCommand(
     string Email
 ) : IRequest<string>;
 
-public class ForgetPasswordCommandValidator : AbstractValidator<ForgetPasswordCommand>
+public class ForgetPasswordCommandValidator : LocalizedValidator<ForgetPasswordCommand>
 {
-    public ForgetPasswordCommandValidator()
+    public ForgetPasswordCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Email is required")
-            .EmailAddress().WithMessage("Valid email address is required");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Email"))
+            .EmailAddress().WithMessage(L(LocalizationKeys.Validation.EmailInvalid));
     }
 }

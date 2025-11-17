@@ -1,6 +1,7 @@
 using IhsanDev.Shared.Application.Common.Mappings;
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -37,7 +38,7 @@ public class GetTenantConfigQueryHandler : IRequestHandler<GetTenantConfigQuery,
         }
         catch (Exception ex)
         {
-            throw new GeneralException("Failed to get tenant configuration: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }
@@ -68,7 +69,7 @@ public class GetTenantByIdQueryHandler : IRequestHandler<GetTenantByIdQuery, Ten
         }
         catch (Exception ex)
         {
-            throw new GeneralException("Failed to get tenant: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }
@@ -99,7 +100,7 @@ public class GetTenantByUserQueryHandler : IRequestHandler<GetTenantByUserQuery,
         }
         catch (Exception ex)
         {
-            throw new GeneralException("Failed to get tenant by user: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }
@@ -150,7 +151,7 @@ public class GetAllActiveTenantsQueryHandler : IRequestHandler<GetAllActiveTenan
         }
         catch (Exception ex)
         {
-            throw new GeneralException("Failed to get active tenants: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }
@@ -245,7 +246,7 @@ public class GetAllActiveTenantsWithConfigQueryHandler : IRequestHandler<GetAllA
         }
         catch (Exception ex)
         {
-            throw new GeneralException("Failed to get active tenants with config: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

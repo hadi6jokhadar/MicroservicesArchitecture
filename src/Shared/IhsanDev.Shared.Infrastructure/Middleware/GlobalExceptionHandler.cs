@@ -4,16 +4,19 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 
 namespace IhsanDev.Shared.Infrastructure.Middleware;
 
 public class GlobalExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<GlobalExceptionHandler> _logger;
+    private readonly ILocalizationService _localizationService;
 
-    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, ILocalizationService localizationService)
     {
         _logger = logger;
+        _localizationService = localizationService;
     }
 
     public async ValueTask<bool> TryHandleAsync(
@@ -41,7 +44,7 @@ public class GlobalExceptionHandler : IExceptionHandler
                 httpContext.Request.Method);
         }
 
-        var problemDetails = CreateProblemDetails(exception, httpContext);
+        var problemDetails = CreateProblemDetails(exception, httpContext, _localizationService);
 
         httpContext.Response.StatusCode = problemDetails.Status ?? StatusCodes.Status500InternalServerError;
         httpContext.Response.ContentType = "application/problem+json";
@@ -51,15 +54,15 @@ public class GlobalExceptionHandler : IExceptionHandler
         return true;
     }
 
-    private static ProblemDetails CreateProblemDetails(Exception exception, HttpContext httpContext)
+    private static ProblemDetails CreateProblemDetails(Exception exception, HttpContext httpContext, ILocalizationService localizationService)
     {
         return exception switch
         {
             AppException appException => new ProblemDetails
             {
                 Status = appException.StatusCode,
-                Title = appException.Title,
-                Detail = appException.Message,
+                Title = localizationService.GetString(appException.Title),
+                Detail = localizationService.GetString(appException.Message),
                 Instance = httpContext.Request.Path,
                 Extensions = new Dictionary<string, object?>
                 {

@@ -1,4 +1,5 @@
 using Identity.Application.Commands.DeviceToken;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Kernel.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -32,13 +33,14 @@ public static class DeviceTokenApiHandlers
     public static async Task<IResult> GetDeviceTokenById(
         int id,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken cancellationToken = default)
     {
         var query = new GetDeviceTokenByIdQuery(id);
         var result = await mediator.Send(query, cancellationToken);
 
         return result == null
-            ? Results.NotFound($"Device token with ID {id} not found")
+            ? Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.NotFound) })
             : Results.Ok(result);
     }
 

@@ -1,4 +1,6 @@
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using MediatR;
 
 namespace Identity.Application.Commands.Auth;
@@ -10,22 +12,22 @@ public record RegisterWithCodeByPhoneCommand(
     string? Data = null
 ) : IRequest<bool>;
 
-public class RegisterWithCodeByPhoneCommandValidator : AbstractValidator<RegisterWithCodeByPhoneCommand>
+public class RegisterWithCodeByPhoneCommandValidator : LocalizedValidator<RegisterWithCodeByPhoneCommand>
 {
-    public RegisterWithCodeByPhoneCommandValidator()
+    public RegisterWithCodeByPhoneCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.PhoneNumber)
-            .NotEmpty().WithMessage("Phone number is required")
-            .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage("Invalid phone number format");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Phone number"))
+            .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage(L(LocalizationKeys.Validation.PhoneNumberInvalid));
 
         RuleFor(x => x.FirstName)
-            .NotEmpty().WithMessage("First name is required")
-            .MaximumLength(100).WithMessage("First name must not exceed 100 characters")
-            .Matches(@"^[a-zA-Z\s]+$").WithMessage("First name can only contain letters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "First name"))
+            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "First name", "100"))
+            .Matches(@"^[a-zA-Z\s]+$").WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "First name (letters only)"));
 
         RuleFor(x => x.LastName)
-            .NotEmpty().WithMessage("Last name is required")
-            .MaximumLength(100).WithMessage("Last name must not exceed 100 characters")
-            .Matches(@"^[a-zA-Z\s]+$").WithMessage("Last name can only contain letters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Last name"))
+            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Last name", "100"))
+            .Matches(@"^[a-zA-Z\s]+$").WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Last name (letters only)"));
     }
 }

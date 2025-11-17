@@ -1,3 +1,4 @@
+using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Tenant.Application.Commands.Tenant;
 
@@ -11,12 +12,13 @@ public static class TenantApiHandlers
     public static async Task<IResult> GetTenantConfigHandler(
         string tenantId,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         var query = new GetTenantConfigQuery(tenantId);
         var result = await mediator.Send(query, ct);
         
-        return result != null ? Results.Ok(result) : Results.NotFound(new { message = $"Tenant '{tenantId}' not found" });
+        return result != null ? Results.Ok(result) : Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound, tenantId) });
     }
 
     /// <summary>
@@ -25,12 +27,13 @@ public static class TenantApiHandlers
     public static async Task<IResult> GetTenantByIdHandler(
         string tenantId,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         var query = new GetTenantByIdQuery(tenantId);
         var result = await mediator.Send(query, ct);
         
-        return result != null ? Results.Ok(result) : Results.NotFound(new { message = $"Tenant '{tenantId}' not found" });
+        return result != null ? Results.Ok(result) : Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound, tenantId) });
     }
 
     /// <summary>
@@ -39,12 +42,13 @@ public static class TenantApiHandlers
     public static async Task<IResult> GetTenantByUserHandler(
         int userId,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         var query = new GetTenantByUserQuery(userId);
         var result = await mediator.Send(query, ct);
         
-        return result != null ? Results.Ok(result) : Results.NotFound(new { message = $"Tenant for user '{userId}' not found" });
+        return result != null ? Results.Ok(result) : Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFoundForUser, userId.ToString()) });
     }
 
     /// <summary>
@@ -81,12 +85,13 @@ public static class TenantApiHandlers
         string tenantId,
         UpdateTenantCommand command,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         // Ensure tenantId from route matches command
         if (tenantId != command.TenantId)
         {
-            return Results.BadRequest(new { message = "Tenant ID in URL does not match request body" });
+            return Results.BadRequest(new { message = localizationService.GetString(LocalizationKeys.Exceptions.TenantIdMismatch) });
         }
 
         var result = await mediator.Send(command, ct);
@@ -99,12 +104,13 @@ public static class TenantApiHandlers
     public static async Task<IResult> DeleteTenantHandler(
         string tenantId,
         IMediator mediator,
+        ILocalizationService localizationService,
         CancellationToken ct = default)
     {
         var command = new DeleteTenantCommand(tenantId);
         var result = await mediator.Send(command, ct);
         
-        return Results.Ok(new { message = "Tenant deleted successfully" });
+        return Results.Ok(new { message = localizationService.GetString(LocalizationKeys.Success.TenantDeleted) });
     }
 
     /// <summary>

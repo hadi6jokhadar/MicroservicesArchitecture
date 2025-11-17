@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using MediatR;
@@ -89,7 +90,7 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
         }
         catch (Exception ex)
         {
-            throw new GeneralException("Failed to create tenant: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

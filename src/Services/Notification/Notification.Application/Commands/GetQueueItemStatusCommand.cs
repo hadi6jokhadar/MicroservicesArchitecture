@@ -1,4 +1,6 @@
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using MediatR;
 using Notification.Application.DTOs;
 
@@ -11,11 +13,11 @@ public record GetQueueItemStatusCommand(
     int QueueItemId
 ) : IRequest<QueueItemStatusResponse?>;
 
-public class GetQueueItemStatusCommandValidator : AbstractValidator<GetQueueItemStatusCommand>
+public class GetQueueItemStatusCommandValidator : LocalizedValidator<GetQueueItemStatusCommand>
 {
-    public GetQueueItemStatusCommandValidator()
+    public GetQueueItemStatusCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.QueueItemId)
-            .GreaterThan(0).WithMessage("QueueItemId must be greater than 0");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "QueueItemId", "0"));
     }
 }

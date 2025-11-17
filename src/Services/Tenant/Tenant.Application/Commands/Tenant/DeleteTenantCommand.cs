@@ -1,4 +1,6 @@
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using MediatR;
 
 namespace Tenant.Application.Commands.Tenant;
@@ -8,11 +10,11 @@ namespace Tenant.Application.Commands.Tenant;
 /// </summary>
 public record DeleteTenantCommand(string TenantId) : IRequest<bool>;
 
-public class DeleteTenantCommandValidator : AbstractValidator<DeleteTenantCommand>
+public class DeleteTenantCommandValidator : LocalizedValidator<DeleteTenantCommand>
 {
-    public DeleteTenantCommandValidator()
+    public DeleteTenantCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.TenantId)
-            .NotEmpty().WithMessage("Tenant ID is required");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Tenant ID"));
     }
 }

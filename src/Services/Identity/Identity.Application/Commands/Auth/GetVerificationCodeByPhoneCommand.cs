@@ -1,4 +1,6 @@
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using MediatR;
 
 namespace Identity.Application.Commands.Auth;
@@ -7,12 +9,12 @@ public record GetVerificationCodeByPhoneCommand(
     string PhoneNumber
 ) : IRequest<bool>;
 
-public class GetVerificationCodeByPhoneCommandValidator : AbstractValidator<GetVerificationCodeByPhoneCommand>
+public class GetVerificationCodeByPhoneCommandValidator : LocalizedValidator<GetVerificationCodeByPhoneCommand>
 {
-    public GetVerificationCodeByPhoneCommandValidator()
+    public GetVerificationCodeByPhoneCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.PhoneNumber)
-            .NotEmpty().WithMessage("Phone number is required")
-            .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage("Invalid phone number format");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Phone number"))
+            .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage(L(LocalizationKeys.Validation.PhoneNumberInvalid));
     }
 }

@@ -3,6 +3,7 @@ using Identity.Application.DTOs;
 using Identity.Application.Services;
 using Identity.Domain.Repositories;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
@@ -40,12 +41,12 @@ public class LoginWithCodeByEmailCommandHandler : IRequestHandler<LoginWithCodeB
             var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
             if (user == null)
             {
-                throw new UnauthorizedException("Email or verification code is incorrect");
+                throw new UnauthorizedException(LocalizationKeys.Exceptions.InvalidCredentials);
             }
 
             if (!user.Status)
             {
-                throw new ForbiddenException("Account is disabled");
+                throw new ForbiddenException(LocalizationKeys.Exceptions.AccountDisabled);
             }
 
             // Check if user is locked out
@@ -58,7 +59,7 @@ public class LoginWithCodeByEmailCommandHandler : IRequestHandler<LoginWithCodeB
             // Check if code has expired
             if (!user.VerificationCodeExpiry.HasValue || user.VerificationCodeExpiry.Value < DateTime.UtcNow)
             {
-                throw new UnauthorizedException("Verification code has expired. Please request a new code.");
+                throw new UnauthorizedException(LocalizationKeys.Otp.CodeExpired);
             }
 
             // Verify code matches database
@@ -100,9 +101,9 @@ public class LoginWithCodeByEmailCommandHandler : IRequestHandler<LoginWithCodeB
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Login with email code failed: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 

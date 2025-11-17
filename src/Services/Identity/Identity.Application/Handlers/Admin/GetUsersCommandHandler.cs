@@ -1,10 +1,11 @@
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Common.Mappings;
+using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
 using MediatR;
 using Identity.Application.Commands;
-using IhsanDev.Shared.Application.Exceptions;
 
 public class GetUsersCommandHandler : IRequestHandler<GetUsersCommand, PaginatedList<UserDto>>
 {
@@ -67,9 +68,9 @@ public class GetUsersCommandHandler : IRequestHandler<GetUsersCommand, Paginated
 
             return paginatedList;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Failed to get users: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

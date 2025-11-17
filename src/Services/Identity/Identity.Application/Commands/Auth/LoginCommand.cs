@@ -1,6 +1,8 @@
 using FluentValidation;
 using Identity.Application.DTOs;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using MediatR;
 
 namespace Identity.Application.Commands;
@@ -10,16 +12,16 @@ public record LoginCommand(
     string Password
 ) : IRequest<UserDtoIncludesToken>;
 
-public class LoginCommandValidator : AbstractValidator<LoginCommand>
+public class LoginCommandValidator : LocalizedValidator<LoginCommand>
 {
-    public LoginCommandValidator()
+    public LoginCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Email is required")
-            .EmailAddress().WithMessage("Valid email address is required");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Email"))
+            .EmailAddress().WithMessage(L(LocalizationKeys.Validation.EmailInvalid));
 
         RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("Password is required")
-            .MinimumLength(6).WithMessage("Password must be at least 6 characters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Password"))
+            .MinimumLength(6).WithMessage(L(LocalizationKeys.Validation.MinLength, "Password", "6"));
     }
 }

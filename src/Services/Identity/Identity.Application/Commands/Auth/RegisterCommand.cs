@@ -1,5 +1,7 @@
 using MediatR;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
 using FluentValidation;
 
@@ -15,35 +17,35 @@ public record RegisterCommand(
 ) : IRequest<UserDtoIncludesToken>;
 
 
-public class RegisterCommandValidator : AbstractValidator<RegisterCommand>
+public class RegisterCommandValidator : LocalizedValidator<RegisterCommand>
 {
-    public RegisterCommandValidator()
+    public RegisterCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Email is required")
-            .EmailAddress().WithMessage("Invalid email format")
-            .MaximumLength(256).WithMessage("Email must not exceed 256 characters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Email"))
+            .EmailAddress().WithMessage(L(LocalizationKeys.Validation.EmailInvalid))
+            .MaximumLength(256).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Email", "256"));
 
         RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("Password is required")
-            .MinimumLength(8).WithMessage("Password must be at least 8 characters")
-            .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter")
-            .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter")
-            .Matches(@"[0-9]").WithMessage("Password must contain at least one number")
-            .Matches(@"[\W_]").WithMessage("Password must contain at least one special character");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Password"))
+            .MinimumLength(8).WithMessage(L(LocalizationKeys.Validation.PasswordTooShort, "8"))
+            .Matches(@"[A-Z]").WithMessage(L(LocalizationKeys.Validation.PasswordRequiresUppercase))
+            .Matches(@"[a-z]").WithMessage(L(LocalizationKeys.Validation.PasswordRequiresLowercase))
+            .Matches(@"[0-9]").WithMessage(L(LocalizationKeys.Validation.PasswordRequiresDigit))
+            .Matches(@"[\W_]").WithMessage(L(LocalizationKeys.Validation.PasswordRequiresNonAlphanumeric));
 
         RuleFor(x => x.FirstName)
-            .NotEmpty().WithMessage("First name is required")
-            .MaximumLength(100).WithMessage("First name must not exceed 100 characters")
-            .Matches(@"^[a-zA-Z\s]+$").WithMessage("First name can only contain letters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "First name"))
+            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "First name", "100"))
+            .Matches(@"^[a-zA-Z\s]+$").WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "First name (letters only)"));
 
         RuleFor(x => x.LastName)
-            .NotEmpty().WithMessage("Last name is required")
-            .MaximumLength(100).WithMessage("Last name must not exceed 100 characters")
-            .Matches(@"^[a-zA-Z\s]+$").WithMessage("Last name can only contain letters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Last name"))
+            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Last name", "100"))
+            .Matches(@"^[a-zA-Z\s]+$").WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Last name (letters only)"));
 
         RuleFor(x => x.PhoneNumber)
-            .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage("Invalid phone number format")
+            .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage(L(LocalizationKeys.Validation.PhoneNumberInvalid))
             .When(x => !string.IsNullOrEmpty(x.PhoneNumber));
     }
 }

@@ -1,18 +1,20 @@
 using FileManager.Application.Commands;
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 
 namespace FileManager.Application.Handlers.SaveFile;
 
-public class SaveFileCommandValidator : AbstractValidator<SaveFileCommand>
+public class SaveFileCommandValidator : LocalizedValidator<SaveFileCommand>
 {
-    public SaveFileCommandValidator()
+    public SaveFileCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.File)
             .NotNull()
-            .WithMessage("File is required.");
+            .WithMessage(L(LocalizationKeys.Validation.Required, "File"));
 
         RuleFor(x => x.Group)
             .IsInEnum()
-            .WithMessage("Invalid file group.");
+            .WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Group"));
     }
 }

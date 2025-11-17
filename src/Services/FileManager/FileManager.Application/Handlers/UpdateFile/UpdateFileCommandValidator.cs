@@ -1,24 +1,26 @@
 using FileManager.Application.Commands;
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 
 namespace FileManager.Application.Handlers.UpdateFile;
 
-public class UpdateFileCommandValidator : AbstractValidator<UpdateFileCommand>
+public class UpdateFileCommandValidator : LocalizedValidator<UpdateFileCommand>
 {
-    public UpdateFileCommandValidator()
+    public UpdateFileCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Id)
             .GreaterThan(0)
-            .WithMessage("File ID must be greater than 0.");
+            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "File ID", "0"));
 
         RuleFor(x => x.Group)
             .IsInEnum()
             .When(x => x.Group.HasValue)
-            .WithMessage("Invalid file group.");
+            .WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Group"));
 
         RuleFor(x => x.Name)
             .MaximumLength(255)
             .When(x => !string.IsNullOrEmpty(x.Name))
-            .WithMessage("File name cannot exceed 255 characters.");
+            .WithMessage(L(LocalizationKeys.Validation.MaxLength, "File name", "255"));
     }
 }

@@ -1,5 +1,7 @@
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
 using MediatR;
 using IhsanDev.Shared.Kernel.Enums.Identity;
@@ -17,33 +19,34 @@ public record CreateUserCommand(
     string? Data = null
 ) : IRequest<UserDto>;
 
-public class CreateUserCommandValidator : AbstractValidator<CreateUserCommand>
+public class CreateUserCommandValidator : LocalizedValidator<CreateUserCommand>
 {
-    public CreateUserCommandValidator()
+    public CreateUserCommandValidator(ILocalizationService localizationService) 
+        : base(localizationService)
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Email is required")
-            .EmailAddress().WithMessage("Valid email address is required");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Email"))
+            .EmailAddress().WithMessage(L(LocalizationKeys.Validation.EmailInvalid));
 
         RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("Password is required")
-            .MinimumLength(8).WithMessage("Password must be at least 8 characters")
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Password"))
+            .MinimumLength(8).WithMessage(L(LocalizationKeys.Validation.PasswordTooShort, 8))
             .Matches(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]")
-            .WithMessage("Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character");
+            .WithMessage(L(LocalizationKeys.Validation.PasswordRequiresUppercase));
 
         RuleFor(x => x.FirstName)
-            .NotEmpty().WithMessage("First name is required")
-            .MaximumLength(50).WithMessage("First name cannot exceed 50 characters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "FirstName"))
+            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "FirstName", 50));
 
         RuleFor(x => x.LastName)
-            .NotEmpty().WithMessage("Last name is required")
-            .MaximumLength(50).WithMessage("Last name cannot exceed 50 characters");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "LastName"))
+            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "LastName", 50));
 
         RuleFor(x => x.Role)
-            .IsInEnum().WithMessage("Invalid role specified");
+            .IsInEnum().WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Role"));
 
         RuleFor(x => x.PhoneNumber)
-            .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage("Invalid phone number format")
+            .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage(L(LocalizationKeys.Validation.PhoneNumberInvalid))
             .When(x => !string.IsNullOrEmpty(x.PhoneNumber));
     }
 }

@@ -2,6 +2,7 @@ using Identity.Application.Commands.Auth;
 using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Otp;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Enums.Identity;
@@ -41,7 +42,7 @@ public class RegisterWithCodeByPhoneCommandHandler : IRequestHandler<RegisterWit
             var existingUser = await _userRepository.GetByPhoneNumberAsync(request.PhoneNumber, cancellationToken);
             if (existingUser != null)
             {
-                throw new ConflictException("Phone number is already registered");
+                throw new ConflictException(LocalizationKeys.Exceptions.PhoneAlreadyRegistered);
             }
 
             // Generate verification code with settings
@@ -80,9 +81,9 @@ public class RegisterWithCodeByPhoneCommandHandler : IRequestHandler<RegisterWit
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Registration with phone code failed: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 

@@ -2,6 +2,7 @@ using Identity.Application.Commands.Auth;
 using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Otp;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Enums.Identity;
@@ -41,7 +42,7 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
             bool emailExists = await _userRepository.EmailExistsAsync(request.Email, cancellationToken);
             if (emailExists)
             {
-                throw new ConflictException("Email is already registered");
+                throw new ConflictException(LocalizationKeys.Exceptions.EmailAlreadyExists);
             }
 
             // Generate verification code with settings
@@ -80,9 +81,9 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Registration with email code failed: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 

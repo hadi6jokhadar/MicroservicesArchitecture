@@ -1,5 +1,6 @@
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
@@ -23,7 +24,7 @@ public class ToggleUserStatusCommandHandler : IRequestHandler<ToggleUserStatusCo
         {
             var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
             if (user == null)
-                throw new NotFoundException("User not found");
+                throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
             user.Status = !user.Status;
             user.LastModified = DateTime.UtcNow;
@@ -37,9 +38,9 @@ public class ToggleUserStatusCommandHandler : IRequestHandler<ToggleUserStatusCo
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Failed to toggle user status: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

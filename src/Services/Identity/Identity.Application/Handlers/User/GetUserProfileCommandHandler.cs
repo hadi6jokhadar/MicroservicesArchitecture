@@ -1,5 +1,6 @@
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
 using MediatR;
@@ -22,7 +23,7 @@ public class GetUserProfileCommandHandler : IRequestHandler<GetUserProfileComman
         {
             var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
             if (user == null)
-                throw new NotFoundException("User not found");
+                throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
             var userProfile = UserDto.MapFrom(user);
             return userProfile;
@@ -31,9 +32,9 @@ public class GetUserProfileCommandHandler : IRequestHandler<GetUserProfileComman
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new GeneralException("Failed to get user profile: " + ex.Message);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
 }

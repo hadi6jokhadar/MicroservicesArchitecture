@@ -1,4 +1,6 @@
 using FluentValidation;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using MediatR;
 
 namespace Notification.Application.Commands;
@@ -11,14 +13,14 @@ public record MarkNotificationAsReadCommand(
     int UserId
 ) : IRequest<bool>;
 
-public class MarkNotificationAsReadCommandValidator : AbstractValidator<MarkNotificationAsReadCommand>
+public class MarkNotificationAsReadCommandValidator : LocalizedValidator<MarkNotificationAsReadCommand>
 {
-    public MarkNotificationAsReadCommandValidator()
+    public MarkNotificationAsReadCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.NotificationId)
-            .GreaterThan(0).WithMessage("NotificationId must be greater than 0");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "NotificationId", "0"));
 
         RuleFor(x => x.UserId)
-            .GreaterThan(0).WithMessage("UserId must be greater than 0");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "UserId", "0"));
     }
 }

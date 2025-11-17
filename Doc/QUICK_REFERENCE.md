@@ -311,23 +311,25 @@ await _mediator.Send(command);
 
 ## 📚 Quick Navigation
 
-| Need                | Document                                 |
-| ------------------- | ---------------------------------------- |
-| **Getting Started** | `00_START_HERE.md`                       |
-| **Architecture**    | `DATABASE_PER_TENANT_ARCHITECTURE.md`    |
-| **Authentication**  | `SHARED_IDENTITY_SERVICE_GUIDE.md`       |
-| **New Service**     | `NEW_SERVICE_INTEGRATION_GUIDE.md`       |
-| **Multi-Tenancy**   | `MULTI_TENANCY_GUIDE.md`                 |
-| **Quick Setup**     | `MULTI_TENANCY_QUICK_START.md`           |
-| **File Storage**    | `FILE_MANAGER_SERVICE_GUIDE.md`          |
-| **File API Ref**    | `FILE_MANAGER_QUICK_REFERENCE.md`        |
-| **Notifications**   | `NOTIFICATION_SERVICE_README.md`         |
-| **Firebase Push**   | `FIREBASE_PUSH_NOTIFICATION_FLOW.md`     |
-| **Device Tokens**   | `DEVICE_TOKEN_MANAGEMENT_GUIDE.md`       |
-| **Caching**         | `CACHING_STRATEGY_COMPARISON.md`         |
-| **Testing**         | `SHARED_TESTING_FILES.md`                |
-| **DateTime Format** | `DATETIME_STANDARDIZATION_SUMMARY.md`    |
-| **AutoMapper**      | `AUTOMAPPER_REMOVAL_SUMMARY.md` (legacy) |
+| Need                 | Document                                 |
+| -------------------- | ---------------------------------------- |
+| **Getting Started**  | `00_START_HERE.md`                       |
+| **Architecture**     | `DATABASE_PER_TENANT_ARCHITECTURE.md`    |
+| **Authentication**   | `SHARED_IDENTITY_SERVICE_GUIDE.md`       |
+| **New Service**      | `NEW_SERVICE_INTEGRATION_GUIDE.md`       |
+| **Multi-Tenancy**    | `MULTI_TENANCY_GUIDE.md`                 |
+| **Quick Setup**      | `MULTI_TENANCY_QUICK_START.md`           |
+| **Localization**     | `LOCALIZATION_GUIDE.md`                  |
+| **Localization Ref** | `LOCALIZATION_QUICK_REFERENCE.md`        |
+| **File Storage**     | `FILE_MANAGER_SERVICE_GUIDE.md`          |
+| **File API Ref**     | `FILE_MANAGER_QUICK_REFERENCE.md`        |
+| **Notifications**    | `NOTIFICATION_SERVICE_README.md`         |
+| **Firebase Push**    | `FIREBASE_PUSH_NOTIFICATION_FLOW.md`     |
+| **Device Tokens**    | `DEVICE_TOKEN_MANAGEMENT_GUIDE.md`       |
+| **Caching**          | `CACHING_STRATEGY_COMPARISON.md`         |
+| **Testing**          | `SHARED_TESTING_FILES.md`                |
+| **DateTime Format**  | `DATETIME_STANDARDIZATION_SUMMARY.md`    |
+| **AutoMapper**       | `AUTOMAPPER_REMOVAL_SUMMARY.md` (legacy) |
 
 ---
 

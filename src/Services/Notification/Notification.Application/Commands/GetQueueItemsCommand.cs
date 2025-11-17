@@ -1,5 +1,7 @@
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using Notification.Application.DTOs;
 using Notification.Domain.Enums;
 using MediatR;
@@ -22,20 +24,20 @@ public record GetQueueItemsCommand(
     string? SearchTerm = null
 ) : IRequest<PaginatedList<QueueItemDto>>;
 
-public class GetQueueItemsCommandValidator : AbstractValidator<GetQueueItemsCommand>
+public class GetQueueItemsCommandValidator : LocalizedValidator<GetQueueItemsCommand>
 {
-    public GetQueueItemsCommandValidator()
+    public GetQueueItemsCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.PageNumber)
-            .GreaterThan(0).WithMessage("Page number must be greater than 0");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page number", "0"));
 
         RuleFor(x => x.PageSize)
-            .GreaterThan(0).WithMessage("Page size must be greater than 0")
-            .LessThanOrEqualTo(100).WithMessage("Page size cannot exceed 100");
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page size", "0"))
+            .LessThanOrEqualTo(100).WithMessage(L(LocalizationKeys.Validation.PageSizeExceeded));
 
         RuleFor(x => x.FromDate)
             .LessThanOrEqualTo(x => x.ToDate ?? DateTime.MaxValue)
             .When(x => x.FromDate.HasValue && x.ToDate.HasValue)
-            .WithMessage("FromDate must be less than or equal to ToDate");
+            .WithMessage(L(LocalizationKeys.Validation.DateRangeInvalid));
     }
 }

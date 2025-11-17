@@ -1,5 +1,7 @@
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
 using MediatR;
 
@@ -9,11 +11,11 @@ public record RefreshTokenCommand(
     string RefreshToken
 ) : IRequest<UserDtoIncludesToken>;
 
-public class RefreshTokenCommandValidator : AbstractValidator<RefreshTokenCommand>
+public class RefreshTokenCommandValidator : LocalizedValidator<RefreshTokenCommand>
 {
-    public RefreshTokenCommandValidator()
+    public RefreshTokenCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.RefreshToken)
-            .NotEmpty().WithMessage("Refresh token is required");
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Refresh token"));
     }
 }
