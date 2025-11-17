@@ -1301,9 +1301,9 @@ The default implementation uses the `x-tenant-id` header. To use subdomain:
 
 - 📖 [Multi-Tenancy Guide](MULTI_TENANCY_GUIDE.md) - Comprehensive multi-tenancy documentation
 - 🚀 [Multi-Tenancy Quick Start](MULTI_TENANCY_QUICK_START.md) - Get started quickly
-- 📋 [Identity Service README](src/Services/Identity/README.md) - Identity service details
-- 📋 [Tenant Service README](src/Services/Tenant/README.md) - Tenant service details
-- 🧪 [TenantTestHelper Guide](src/Shared/IhsanDev.Shared.Testing/Helpers/README_TENANT_HELPER.md) - Testing helper documentation
+- 📋 [Identity Service README](../src/Services/Identity/README.md) - Identity service details
+- 📋 [Multi-Tenancy Guide](MULTI_TENANCY_GUIDE.md) - Tenant service patterns and configuration
+- 🧪 [TenantTestHelper Guide](../src/Shared/IhsanDev.Shared.Testing/Helpers/README_TENANT_HELPER.md) - Testing helper documentation
 
 ### Example Projects
 

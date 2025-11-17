@@ -568,9 +568,8 @@ dotnet ef database update --project Identity.Infrastructure --startup-project Id
 
 ## 📚 Related Documentation
 
-- [Phone Verification Login Guide](./PHONE_VERIFICATION_LOGIN_GUIDE.md)
-- [Phone Verification Implementation Summary](./PHONE_VERIFICATION_IMPLEMENTATION_SUMMARY.md)
-- [Phone Verification Quick Reference](./PHONE_VERIFICATION_QUICK_REFERENCE.md)
+- [Phone Verification Login Guide](PHONE_VERIFICATION_LOGIN_GUIDE.md)
+- [Phone Verification Quick Reference](PHONE_VERIFICATION_QUICK_REFERENCE.md)
 - [Multi-Tenancy Guide](./MULTI_TENANCY_GUIDE.md)
 - [Quick Reference](./QUICK_REFERENCE.md)
 

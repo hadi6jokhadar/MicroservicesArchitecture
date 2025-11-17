@@ -69,9 +69,7 @@ Doc/
 │  ├─ NOTIFICATION_SERVICE_README.md        ← Complete notification service guide
   ├─ FIREBASE_QUICK_REFERENCE.md           ← 🔴 NEW: Firebase FCM quick start
   ├─ FIREBASE_PUSH_NOTIFICATIONS_GUIDE.md  ← Complete Firebase FCM integration guide
-  ├─ FIREBASE_IMPLEMENTATION_SUMMARY.md    ← Implementation summary & checklist
   ├─ FIREBASE_PUSH_NOTIFICATION_FLOW.md    ← End-to-end Firebase flow diagram
-  ├─ FIREBASE_BOTTLENECK_FIXES_SUMMARY.md  ← 🔴 NEW: Performance optimization (95% faster)
   ├─ FIREBASE_NOTIFICATION_SCENARIOS.md    ← 🔴 NEW: Global/Tenant/User notification flows
   ├─ NOTIFICATION_SYSTEM_FLOW.md           ← Complete notification system
 │  ├─ NOTIFICATION_HUB_GUIDE.md             ← SignalR hub comprehensive guide
@@ -88,13 +86,9 @@ Doc/
 │  ├─ LOCALIZATION_VALIDATION_MIGRATION_COMPLETE.md  ← ✅ Validator localization (47 validators)
 │  ├─ LOCALIZATION_GUIDE.md                 ← Multi-language support guide
 │  ├─ LOCALIZATION_QUICK_REFERENCE.md       ← Localization quick reference
-│  ├─ CACHING_STRATEGY_COMPARISON.md        ← MemoryCache vs Redis
-│  ├─ REDIS_CACHE_MIGRATION_PLAN.md         ← 🔴 NEW: Complete Redis migration guide
-│  ├─ REDIS_CACHE_MIGRATION_SUMMARY.md      ← 🔴 NEW: Implementation summary
 │  ├─ REDIS_CACHE_QUICK_REFERENCE.md        ← 🔴 NEW: Developer quick reference
 │  ├─ REDIS_ENABLED_VS_DISABLED_GUIDE.md    ← 🔴 NEW: Redis vs MemoryCache behavior
 │  ├─ DATABASE_REPLICATION_SETUP_GUIDE.md   ← 🔴 NEW: PostgreSQL replication guide
-│  ├─ PERFORMANCE_OPTIMIZATION_GUIDE.md     ← Performance optimization patterns
 │  ├─ BOTTLENECKS_COMPLETION_SUMMARY.md     ← 🔴 NEW: All optimizations completed
 │  ├─ CUSTOM_LOGGER_USAGE.md                ← Logging best practices
 │  └─ MINIMAL_API_MIGRATION.md              ← Migrating to Minimal APIs

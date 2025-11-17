@@ -732,4 +732,4 @@ This multi-tenancy implementation provides:
 - ✅ **Maintainability**: Clean architecture with shared abstractions
 - ✅ **Backward Compatibility**: No breaking changes when disabled
 
-For questions or issues, refer to the main [README.md](../../README.md) or open an issue.
+For questions or issues, refer to the documentation [README.md](README.md) or open an issue.

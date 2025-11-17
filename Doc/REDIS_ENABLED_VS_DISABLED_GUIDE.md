@@ -518,9 +518,9 @@ redis-cli INFO clients | grep connected_clients
 
 **See Also:**
 
-- [REDIS_CACHE_MIGRATION_PLAN.md](REDIS_CACHE_MIGRATION_PLAN.md) - Complete migration guide
-- [REDIS_CACHE_QUICK_REFERENCE.md](REDIS_CACHE_QUICK_REFERENCE.md) - Developer quick reference
-- [CACHING_STRATEGY_COMPARISON.md](CACHING_STRATEGY_COMPARISON.md) - MemoryCache vs Redis comparison
+- [REDIS_CACHE_QUICK_REFERENCE.md](REDIS_CACHE_QUICK_REFERENCE.md) - Environment setup and command snippets
+- [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md) - How Redis powers SignalR and queue throughput
+- [DATABASE_PER_TENANT_ARCHITECTURE.md](DATABASE_PER_TENANT_ARCHITECTURE.md) - Broader context for tenant-aware caching
 
 **Last Updated:** November 10, 2025  
 **Status:** ✅ Production Ready

@@ -245,8 +245,8 @@ External:
 | **[NOTIFICATION_HUB_QUICK_REFERENCE.md](NOTIFICATION_HUB_QUICK_REFERENCE.md)**   | Quick reference for common scenarios     | Developers             |
 | **[FIREBASE_PUSH_NOTIFICATION_FLOW.md](FIREBASE_PUSH_NOTIFICATION_FLOW.md)**     | Complete Firebase push notification flow | Developers             |
 | **[FIREBASE_PUSH_NOTIFICATIONS_GUIDE.md](FIREBASE_PUSH_NOTIFICATIONS_GUIDE.md)** | Firebase FCM integration guide           | Developers             |
-| **[FIREBASE_IMPLEMENTATION_SUMMARY.md](FIREBASE_IMPLEMENTATION_SUMMARY.md)**     | Firebase implementation checklist        | Developers, DevOps     |
-| **[SUPERADMIN_QUEUE_ENDPOINT.md](SUPERADMIN_QUEUE_ENDPOINT.md)**                 | SuperAdmin queue management API          | Administrators         |
+| **[FIREBASE_NOTIFICATION_SCENARIOS.md](FIREBASE_NOTIFICATION_SCENARIOS.md)**     | Firebase implementation checklist & flow | Developers, DevOps     |
+| **[NOTIFICATION_MANUAL_TESTING_GUIDE.md](NOTIFICATION_MANUAL_TESTING_GUIDE.md)** | SuperAdmin queue management & testing    | Administrators         |
 | **[DATABASE_REPLICATION_SETUP_GUIDE.md](DATABASE_REPLICATION_SETUP_GUIDE.md)**   | PostgreSQL replication setup             | DevOps, Administrators |
 | **[BOTTLENECKS_COMPLETION_SUMMARY.md](BOTTLENECKS_COMPLETION_SUMMARY.md)**       | Performance achievements summary         | Architects, Managers   |
 
@@ -777,7 +777,7 @@ curl "https://localhost:5104/api/notifications/admin/queue?pageSize=20&status=0&
 }
 ```
 
-**See:** [SUPERADMIN_QUEUE_ENDPOINT.md](SUPERADMIN_QUEUE_ENDPOINT.md) for complete documentation
+**See:** [NOTIFICATION_MANUAL_TESTING_GUIDE.md](NOTIFICATION_MANUAL_TESTING_GUIDE.md) for complete documentation
 
 ---
 

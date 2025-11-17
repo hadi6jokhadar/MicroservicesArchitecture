@@ -142,9 +142,9 @@ MicroservicesArchitecture/
 ├── 📄 MULTI_TENANCY_GUIDE.md              # 🏢 Multi-tenancy comprehensive guide (NEW!)
 ├── 📄 MULTI_TENANCY_QUICK_START.md        # 🚀 Quick start guide (NEW!)
 ├── 📄 MULTI_TENANT_DEPLOYMENT_GUIDE.md    # 🐳 Deployment guide (NEW!)
-├── 📄 SINGLE_BUILD_MULTIPLE_DEPLOYMENTS.md # 📦 Single build guide (NEW!)
-├── 📄 ARCHITECTURE_DIAGRAMS.md            # 🎨 Visual architecture (NEW!)
-└── 📄 MULTI_TENANCY_SUMMARY.md            # 📊 Implementation summary (NEW!)
+├── 📄 MULTI_TENANT_DEPLOYMENT_GUIDE.md    # 📦 Single build & deployment strategy
+├── 📄 DATABASE_PER_TENANT_ARCHITECTURE.md # 🎨 Architecture overview & diagrams
+└── 📄 MULTI_TENANCY_STRICT_MODE.md        # 📊 Implementation summary & rules
 ```
 
 ### Layer Responsibilities
@@ -338,8 +338,8 @@ The Identity service provides comprehensive user authentication, authorization, 
 
 ### Quick Access
 
-- 📖 **Detailed Documentation**: [`src/Services/Identity/README.md`](src/Services/Identity/README.md)
-- 🔧 **API Specifications**: [`src/Services/Identity/IDENTITY_API_DOCUMENTATION.md`](src/Services/Identity/IDENTITY_API_DOCUMENTATION.md)
+- 📖 **Detailed Documentation**: [`../src/Services/Identity/README.md`](../src/Services/Identity/README.md)
+- 🔧 **API Specifications**: [`../src/Services/Identity/IDENTITY_API_DOCUMENTATION.md`](../src/Services/Identity/IDENTITY_API_DOCUMENTATION.md)
 - 🔐 **Service Authentication**: [`SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md`](SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md)
 - 🌐 **Swagger UI**: `https://localhost:5001/swagger` (when running)
 
@@ -515,9 +515,9 @@ The Tenant service enables optional multi-tenancy support, allowing different pr
 - 📖 **Comprehensive Guide**: [`MULTI_TENANCY_GUIDE.md`](MULTI_TENANCY_GUIDE.md) - Full documentation
 - 🚀 **Quick Start Guide**: [`MULTI_TENANCY_QUICK_START.md`](MULTI_TENANCY_QUICK_START.md) - Get started in minutes
 - 🐳 **Deployment Guide**: [`MULTI_TENANT_DEPLOYMENT_GUIDE.md`](MULTI_TENANT_DEPLOYMENT_GUIDE.md) - Docker, K8s, environments
-- 📦 **Single Build Guide**: [`SINGLE_BUILD_MULTIPLE_DEPLOYMENTS.md`](SINGLE_BUILD_MULTIPLE_DEPLOYMENTS.md) - One binary, multiple modes
-- 🎨 **Architecture Diagrams**: [`ARCHITECTURE_DIAGRAMS.md`](ARCHITECTURE_DIAGRAMS.md) - Visual architecture
-- 📊 **Implementation Summary**: [`MULTI_TENANCY_SUMMARY.md`](MULTI_TENANCY_SUMMARY.md) - What was built
+- 📦 **Deployment Guide**: [`MULTI_TENANT_DEPLOYMENT_GUIDE.md`](MULTI_TENANT_DEPLOYMENT_GUIDE.md) - One binary, multiple modes
+- 🎨 **Architecture Overview**: [`DATABASE_PER_TENANT_ARCHITECTURE.md`](DATABASE_PER_TENANT_ARCHITECTURE.md) - Visual architecture
+- 📊 **Strict Mode Reference**: [`MULTI_TENANCY_STRICT_MODE.md`](MULTI_TENANCY_STRICT_MODE.md) - What was built
 
 ### How It Works
 
@@ -983,7 +983,7 @@ chore: maintenance tasks
 
 ## 📄 License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License** - see the [LICENSE](../LICENSE) file for details.
 
 ## 👥 Authors & Contributors
 
@@ -1003,7 +1003,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - 📧 **Email**: support@ihsandev.com
 - 💬 **Issues**: [GitHub Issues](https://github.com/hadi6jokhadar/MicroservicesArchitecture/issues)
 - 📖 **Documentation**: Service-specific README files in each service directory
-- � **Identity Service**: [`src/Services/Identity/README.md`](src/Services/Identity/README.md)
+- � **Identity Service**: [`../src/Services/Identity/README.md`](../src/Services/Identity/README.md)
 
 ---
 

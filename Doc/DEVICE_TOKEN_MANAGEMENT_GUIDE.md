@@ -395,9 +395,9 @@ WHERE FirebaseToken IS NOT NULL AND FirebaseToken != '';
 
 ## Related Documentation
 
-- [Notification Service README](../../../Doc/NOTIFICATION_SERVICE_README.md)
-- [Service-to-Service Authentication Guide](../../../Doc/SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md)
-- [Clean Architecture Overview](../../../Doc/DATABASE_PER_TENANT_ARCHITECTURE.md)
+- [Notification Service README](NOTIFICATION_SERVICE_README.md)
+- [Service-to-Service Authentication Guide](SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md)
+- [Database-Per-Tenant Architecture](DATABASE_PER_TENANT_ARCHITECTURE.md)
 
 ---
 
