@@ -63,7 +63,7 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, T
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }

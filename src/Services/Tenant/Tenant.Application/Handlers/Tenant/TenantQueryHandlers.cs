@@ -36,7 +36,7 @@ public class GetTenantConfigQueryHandler : IRequestHandler<GetTenantConfigQuery,
 
             return TenantConfigDto.MapFrom(tenant);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
@@ -67,7 +67,7 @@ public class GetTenantByIdQueryHandler : IRequestHandler<GetTenantByIdQuery, Ten
 
             return TenantDto.MapFrom(tenant);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
@@ -98,7 +98,7 @@ public class GetTenantByUserQueryHandler : IRequestHandler<GetTenantByUserQuery,
 
             return TenantDto.MapFrom(tenant);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
@@ -149,7 +149,7 @@ public class GetAllActiveTenantsQueryHandler : IRequestHandler<GetAllActiveTenan
 
             return paginatedList;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
@@ -244,7 +244,7 @@ public class GetAllActiveTenantsWithConfigQueryHandler : IRequestHandler<GetAllA
 
             return paginatedList;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }

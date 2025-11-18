@@ -46,7 +46,7 @@ public class DeleteTenantCommandHandler : IRequestHandler<DeleteTenantCommand, b
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }

@@ -88,7 +88,7 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
