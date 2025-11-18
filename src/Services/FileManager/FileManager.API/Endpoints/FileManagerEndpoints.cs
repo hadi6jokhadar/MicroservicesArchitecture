@@ -2,6 +2,7 @@ using FileManager.Application.Commands;
 using FileManager.Application.DTOs;
 using FileManager.Application.Queries;
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Attributes;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,8 +16,12 @@ public static class FileManagerEndpoints
         var group = app.MapGroup("/api/filemanager")
             .WithTags("FileManager");
 
-        // Save file (Upload)
-        group.MapPost("/files", [Authorize] async (
+        // ============================================
+        // TENANT USER ENDPOINTS (require x-tenant-id)
+        // ============================================
+        
+        // Save file (Upload) - Tenant Users
+        group.MapPost("/files", async (
             [FromForm] IFormFile file,
             [FromForm] int? group,
             [FromForm] int? userId,
@@ -30,14 +35,70 @@ public static class FileManagerEndpoints
             var result = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/filemanager/files/{result.Id}", result);
         })
+        .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("SaveFile")
         .Accepts<IFormFile>("multipart/form-data")
         .Produces<FileManagerResponse>(StatusCodes.Status201Created)
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
         .DisableAntiforgery();
 
-        // Get file by ID
-        group.MapGet("/files/{id:int}", [Authorize] async (
+        // ============================================
+        // GLOBAL ADMIN ENDPOINTS (no x-tenant-id required)
+        // ============================================
+
+        var adminGroup = app.MapGroup("/api/filemanager/admin")
+            .WithTags("FileManager - Admin");
+
+        // Save file (Upload) - Global Users (SuperAdmin/Service)
+        // Optional tenantId query parameter: if provided, saves to that tenant's database; otherwise saves to global database
+        adminGroup.MapPost("/files", async (
+            [FromForm] IFormFile file,
+            [FromForm] int? group,
+            [FromForm] int? userId,
+            [FromQuery] string? tenantId,
+            IMediator mediator,
+            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantContext tenantContext,
+            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantConfigurationProvider tenantConfigProvider,
+            ILocalizationService localizationService,
+            CancellationToken cancellationToken) =>
+        {
+            // If tenantId is provided, fetch and set tenant context
+            // If not provided, use global database (fallback)
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
+                if (tenantInfo == null)
+                {
+                    return Results.NotFound(new 
+                    { 
+                        error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                        message = $"Tenant '{tenantId}' not found"
+                    });
+                }
+
+                // Set tenant context for this request
+                tenantContext.SetTenant(tenantInfo);
+            }
+            // else: No tenant context set, will use global database
+
+            if (group == null){
+                group = 1;
+            }
+            var command = new SaveFileCommand(file, (Domain.Enums.FileGroup)group, userId);
+            var result = await mediator.Send(command, cancellationToken);
+            return Results.Created($"/api/filemanager/admin/files/{result.Id}", result);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
+        .WithName("SaveFileAdmin")
+        .WithMetadata(new BypassTenantAttribute())
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<FileManagerResponse>(StatusCodes.Status201Created)
+        .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
+        .ProducesValidationProblem(StatusCodes.Status404NotFound)
+        .DisableAntiforgery();
+
+        // Get file by ID - Tenant Users
+        group.MapGet("/files/{id:int}", async (
             int id,
             IMediator mediator,
             CancellationToken cancellationToken) =>
@@ -46,12 +107,51 @@ public static class FileManagerEndpoints
             var result = await mediator.Send(query, cancellationToken);
             return result != null ? Results.Ok(result) : Results.NotFound();
         })
+        .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("GetFileById")
         .Produces<FileManagerResponse>()
         .Produces(StatusCodes.Status404NotFound);
 
-        // Get files list (with filters and pagination)
-        group.MapGet("/files", [Authorize] async (
+        // Get file by ID - Global Users
+        // Optional tenantId query parameter: if provided, reads from that tenant's database; otherwise reads from global database
+        adminGroup.MapGet("/files/{id:int}", async (
+            int id,
+            [FromQuery] string? tenantId,
+            IMediator mediator,
+            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantContext tenantContext,
+            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantConfigurationProvider tenantConfigProvider,
+            ILocalizationService localizationService,
+            CancellationToken cancellationToken) =>
+        {
+            // If tenantId is provided, fetch and set tenant context
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
+                if (tenantInfo == null)
+                {
+                    return Results.NotFound(new 
+                    { 
+                        error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                        message = $"Tenant '{tenantId}' not found" 
+                    });
+                }
+
+                tenantContext.SetTenant(tenantInfo);
+            }
+
+            var query = new GetFileByIdQuery(id);
+            var result = await mediator.Send(query, cancellationToken);
+            return result != null ? Results.Ok(result) : Results.NotFound();
+        })
+        .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
+        .WithName("GetFileByIdAdmin")
+        .WithMetadata(new BypassTenantAttribute())
+        .Produces<FileManagerResponse>()
+        .Produces(StatusCodes.Status404NotFound)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+
+        // Get files list (with filters and pagination) - Tenant Users
+        group.MapGet("/files", async (
             [AsParameters] FileManagerListRequest request,
             IMediator mediator,
             CancellationToken cancellationToken) =>
@@ -60,11 +160,49 @@ public static class FileManagerEndpoints
             var result = await mediator.Send(query, cancellationToken);
             return Results.Ok(result);
         })
+        .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("GetFiles")
         .Produces<PaginatedList<FileManagerResponse>>();
 
-        // Update file metadata
-        group.MapPut("/files/{id:int}", [Authorize] async (
+        // Get files list - Global Users
+        // Optional tenantId query parameter: if provided, reads from that tenant's database; otherwise reads from global database
+        adminGroup.MapGet("/files", async (
+            [AsParameters] FileManagerListRequest request,
+            [FromQuery] string? tenantId,
+            IMediator mediator,
+            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantContext tenantContext,
+            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantConfigurationProvider tenantConfigProvider,
+            ILocalizationService localizationService,
+            CancellationToken cancellationToken) =>
+        {
+            // If tenantId is provided, fetch and set tenant context
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
+                if (tenantInfo == null)
+                {
+                    return Results.NotFound(new 
+                    { 
+                        error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                        message = $"Tenant '{tenantId}' not found" 
+                    });
+                }
+
+                tenantContext.SetTenant(tenantInfo);
+            }
+
+            var query = new GetFilesQuery(request);
+            var result = await mediator.Send(query, cancellationToken);
+            return Results.Ok(result);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
+        .WithName("GetFilesAdmin")
+        .WithMetadata(new BypassTenantAttribute())
+        .Produces<PaginatedList<FileManagerResponse>>()
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+
+        // Update file metadata - Tenant Users
+        group.MapPut("/files/{id:int}", async (
             int id,
             [FromBody] UpdateFileRequest request,
             IMediator mediator,
@@ -74,12 +212,52 @@ public static class FileManagerEndpoints
             var result = await mediator.Send(command, cancellationToken);
             return Results.Ok(result);
         })
+        .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("UpdateFile")
         .Produces<FileManagerResponse>()
         .Produces(StatusCodes.Status404NotFound);
 
-        // Delete file
-        group.MapDelete("/files/{id:int}", [Authorize] async (
+        // Update file metadata - Global Users
+        // Optional tenantId query parameter: if provided, updates in that tenant's database; otherwise updates in global database
+        adminGroup.MapPut("/files/{id:int}", async (
+            int id,
+            [FromBody] UpdateFileRequest request,
+            [FromQuery] string? tenantId,
+            IMediator mediator,
+            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantContext tenantContext,
+            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantConfigurationProvider tenantConfigProvider,
+            ILocalizationService localizationService,
+            CancellationToken cancellationToken) =>
+        {
+            // If tenantId is provided, fetch and set tenant context
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
+                if (tenantInfo == null)
+                {
+                    return Results.NotFound(new 
+                    { 
+                        error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                        message = $"Tenant '{tenantId}' not found" 
+                    });
+                }
+
+                tenantContext.SetTenant(tenantInfo);
+            }
+
+            var command = new UpdateFileCommand(id, request.Name, request.Group, request.Status, request.IsArchived, request.Temp);
+            var result = await mediator.Send(command, cancellationToken);
+            return Results.Ok(result);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
+        .WithName("UpdateFileAdmin")
+        .WithMetadata(new BypassTenantAttribute())
+        .Produces<FileManagerResponse>()
+        .Produces(StatusCodes.Status404NotFound)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+
+        // Delete file - Tenant Users
+        group.MapDelete("/files/{id:int}", async (
             int id,
             IMediator mediator,
             CancellationToken cancellationToken) =>
@@ -88,12 +266,51 @@ public static class FileManagerEndpoints
             var result = await mediator.Send(command, cancellationToken);
             return result ? Results.NoContent() : Results.NotFound();
         })
+        .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("DeleteFile")
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status404NotFound);
 
-        // Delete all temp files
-        group.MapDelete("/files/temp/all", [Authorize(Roles = "Admin,SuperAdmin")] async (
+        // Delete file - Global Users
+        // Optional tenantId query parameter: if provided, deletes from that tenant's database; otherwise deletes from global database
+        adminGroup.MapDelete("/files/{id:int}", async (
+            int id,
+            [FromQuery] string? tenantId,
+            IMediator mediator,
+            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantContext tenantContext,
+            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantConfigurationProvider tenantConfigProvider,
+            ILocalizationService localizationService,
+            CancellationToken cancellationToken) =>
+        {
+            // If tenantId is provided, fetch and set tenant context
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
+                if (tenantInfo == null)
+                {
+                    return Results.NotFound(new 
+                    { 
+                        error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                        message = $"Tenant '{tenantId}' not found" 
+                    });
+                }
+
+                tenantContext.SetTenant(tenantInfo);
+            }
+
+            var command = new DeleteFileCommand(id);
+            var result = await mediator.Send(command, cancellationToken);
+            return result ? Results.NoContent() : Results.NotFound();
+        })
+        .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
+        .WithName("DeleteFileAdmin")
+        .WithMetadata(new BypassTenantAttribute())
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status404NotFound)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+
+        // Delete all temp files - Admin only (cross-tenant)
+        adminGroup.MapDelete("/files/temp/all", async (
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
@@ -101,11 +318,13 @@ public static class FileManagerEndpoints
             var result = await mediator.Send(command, cancellationToken);
             return Results.Ok(new { DeletedCount = result });
         })
+        .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
         .WithName("DeleteAllTempFiles")
+        .WithMetadata(new BypassTenantAttribute())
         .Produces<object>();
 
-        // Delete old temp files
-        group.MapDelete("/files/temp/old", [Authorize(Roles = "Admin,SuperAdmin")] async (
+        // Delete old temp files - Admin only (cross-tenant)
+        adminGroup.MapDelete("/files/temp/old", async (
             IMediator mediator,
             CancellationToken cancellationToken,
             [FromQuery] int olderThanDays = 7) =>
@@ -114,7 +333,9 @@ public static class FileManagerEndpoints
             var result = await mediator.Send(command, cancellationToken);
             return Results.Ok(new { DeletedCount = result, OlderThanDays = olderThanDays });
         })
+        .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
         .WithName("DeleteOldTempFiles")
+        .WithMetadata(new BypassTenantAttribute())
         .Produces<object>();
 
         // Download file by ID

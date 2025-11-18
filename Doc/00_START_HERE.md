@@ -13,12 +13,14 @@
 2. 🏗️ [DATABASE_PER_TENANT_ARCHITECTURE.md](DATABASE_PER_TENANT_ARCHITECTURE.md) - **CRITICAL:** Understand your multi-database architecture
 3. 🔐 [SHARED_IDENTITY_SERVICE_GUIDE.md](SHARED_IDENTITY_SERVICE_GUIDE.md) - Authentication & Authorization
 4. 🚀 [NEW_SERVICE_INTEGRATION_GUIDE.md](NEW_SERVICE_INTEGRATION_GUIDE.md) - Creating new microservices
-5. 🔔 [BOTTLENECKS_COMPLETION_SUMMARY.md](BOTTLENECKS_COMPLETION_SUMMARY.md) - **NEW:** Performance optimization achievements
+5. ⚠️ [BYPASS_TENANT_ENDPOINTS_GUIDE.md](BYPASS_TENANT_ENDPOINTS_GUIDE.md) - **CRITICAL:** Admin/global endpoints patterns
+6. 🔔 [BOTTLENECKS_COMPLETION_SUMMARY.md](BOTTLENECKS_COMPLETION_SUMMARY.md) - **NEW:** Performance optimization achievements
 
 ### **Need Something Specific?**
 
 - 🏢 **Multi-Tenancy?** → [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md)
 - 🆕 **Create New Service?** → [NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md](NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md)
+- ⚠️ **Admin/Global Endpoints?** → [BYPASS_TENANT_ENDPOINTS_GUIDE.md](BYPASS_TENANT_ENDPOINTS_GUIDE.md) or [BYPASS_TENANT_QUICK_REFERENCE.md](BYPASS_TENANT_QUICK_REFERENCE.md)
 - 📁 **File Storage?** → [FILE_MANAGER_QUICK_REFERENCE.md](FILE_MANAGER_QUICK_REFERENCE.md) or [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md)
 - 🔑 **Project Isolation?** → [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md)
 - 🌍 **Localization?** → [COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md](COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md) or [LOCALIZATION_QUICK_REFERENCE.md](LOCALIZATION_QUICK_REFERENCE.md)
@@ -26,7 +28,7 @@
 - 🔥 **Firebase Push?** → [FIREBASE_QUICK_REFERENCE.md](FIREBASE_QUICK_REFERENCE.md)
 - 📱 **Device Tokens?** → [DEVICE_TOKEN_QUICK_REFERENCE.md](DEVICE_TOKEN_QUICK_REFERENCE.md)
 - 🧪 **Testing?** → [SHARED_TESTING_FILES.md](SHARED_TESTING_FILES.md)
-- ⚡ **Performance?** → [BOTTLENECKS_COMPLETION_SUMMARY.md](BOTTLENECKS_COMPLETION_SUMMARY.md)
+- ⚡ **Performance?** → [BOTTLENECKS_COMPLETION_SUMMARY.md](BOTTLENECKS_COMPLETION_SUMMARY.md) or [PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md](PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md)
 - 🚀 **Redis Caching?** → [REDIS_CACHE_QUICK_REFERENCE.md](REDIS_CACHE_QUICK_REFERENCE.md)
 - 🔄 **Redis vs Memory Cache?** → [REDIS_ENABLED_VS_DISABLED_GUIDE.md](REDIS_ENABLED_VS_DISABLED_GUIDE.md)
 - 💾 **Database Replication?** → [DATABASE_REPLICATION_SETUP_GUIDE.md](DATABASE_REPLICATION_SETUP_GUIDE.md)
@@ -44,6 +46,7 @@ Doc/
 │  ├─ AUTOMATIC_DATABASE_MIGRATION.md       ← 🔴 NEW: Auto database creation for tenants
 │  ├─ SHARED_IDENTITY_SERVICE_GUIDE.md      ← Authentication for all services
 │  ├─ NEW_SERVICE_INTEGRATION_GUIDE.md      ← Step-by-step new service creation
+│  ├─ BYPASS_TENANT_ENDPOINTS_GUIDE.md      ← 🔴 NEW: Admin/global endpoints (Nov 2025)
 │  │
 │  ├─ 🆕 New Service Design Patterns (Complete 3-Stage Guide)
 │  │  ├─ NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md  ← 🔴 NEW: Stage 1 - Architecture & Structure
@@ -55,6 +58,10 @@ Doc/
 │  ├─ MULTI_TENANCY_STRICT_MODE.md          ← 🔴 NEW: Strict mode behavior & migration
 │  ├─ MULTI_TENANCY_QUICK_START.md          ← Quick setup
 │  ├─ MULTI_TENANT_DEPLOYMENT_GUIDE.md      ← Deployment strategies
+│  ├─ JWT_TENANT_VERIFICATION_IMPLEMENTATION.md  ← 🔴 NEW: Prevent tenant impersonation
+│  ├─ JWT_TENANT_VERIFICATION_GUIDE.md      ← JWT tenant-specific settings verification
+│  ├─ JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md  ← JWT flow example walkthrough
+│  ├─ JWT_SECRET_AND_VALIDATION_FLOW.md     ← JWT validation explained
 │  ├─ FILE_MANAGER_SERVICE_GUIDE.md         ← File storage architecture
 │  ├─ FILE_MANAGER_QUICK_REFERENCE.md       ← 🔴 NEW: File Manager API quick reference
 │  ├─ PROJECT_ISOLATION_STRATEGY_GUIDE.md   ← User isolation patterns
@@ -89,7 +96,9 @@ Doc/
 │  ├─ REDIS_CACHE_QUICK_REFERENCE.md        ← 🔴 NEW: Developer quick reference
 │  ├─ REDIS_ENABLED_VS_DISABLED_GUIDE.md    ← 🔴 NEW: Redis vs MemoryCache behavior
 │  ├─ DATABASE_REPLICATION_SETUP_GUIDE.md   ← 🔴 NEW: PostgreSQL replication guide
-│  ├─ BOTTLENECKS_COMPLETION_SUMMARY.md     ← 🔴 NEW: All optimizations completed
+│  ├─ BOTTLENECKS_COMPLETION_SUMMARY.md     ← 🔴 NEW: All 11 optimizations completed
+│  ├─ PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md ← 🔴 NEW: Multi-tenant parallel processing
+│  ├─ PERFORMANCE_OPTIMIZATION_GUIDE.md     ← 🔴 NEW: Performance tuning guide
 │  ├─ CUSTOM_LOGGER_USAGE.md                ← Logging best practices
 │  └─ MINIMAL_API_MIGRATION.md              ← Migrating to Minimal APIs
 │
@@ -281,26 +290,27 @@ Request → Middleware extracts TenantId → Fetches DB connection
 
 ## 📊 Document Maturity & Status
 
-| Document                                | Status          | Last Updated | Notes                                |
-| --------------------------------------- | --------------- | ------------ | ------------------------------------ |
-| **DATABASE_PER_TENANT_ARCHITECTURE.md** | ✅ Production   | Jan 2025     | CRITICAL - Core architecture         |
-| **AUTOMATIC_DATABASE_MIGRATION.md**     | ✅ Production   | Oct 2025     | NEW - Auto tenant DB setup           |
-| **SHARED_IDENTITY_SERVICE_GUIDE.md**    | ✅ Production   | Jan 2025     | Complete with Tenant Service         |
-| **NEW_SERVICE_INTEGRATION_GUIDE.md**    | ✅ Production   | Oct 2024     | Comprehensive guide                  |
-| **MULTI_TENANCY_GUIDE.md**              | ✅ Production   | Oct 2024     | Complete implementation              |
-| **FILE_MANAGER_SERVICE_GUIDE.md**       | ✅ Production   | Nov 2025     | Complete with caching & static files |
-| **FILE_MANAGER_QUICK_REFERENCE.md**     | ✅ Production   | Nov 2025     | API reference & examples             |
-| **NOTIFICATION_SERVICE_README.md**      | ✅ Production   | Nov 2025     | Complete notification guide          |
-| **DATABASE_REPLICATION_SETUP_GUIDE.md** | ✅ Production   | Nov 2025     | NEW - PostgreSQL HA replication      |
-| **BOTTLENECKS_COMPLETION_SUMMARY.md**   | ✅ Production   | Nov 2025     | NEW - Performance achievements       |
-| **PERFORMANCE_OPTIMIZATION_GUIDE.md**   | ✅ Production   | Nov 2025     | All 10 bottlenecks resolved          |
-| **DEVICE_TOKEN_REFACTORING_SUMMARY.md** | ✅ Production   | Nov 2025     | NEW - Device token refactoring       |
-| **DEVICE_TOKEN_MANAGEMENT_GUIDE.md**    | ✅ Production   | Nov 2025     | NEW - Device token dev guide         |
-| **DEVICE_TOKEN_QUICK_REFERENCE.md**     | ✅ Production   | Nov 2025     | NEW - Device token API ref           |
-| **PROJECT_ISOLATION_STRATEGY_GUIDE.md** | ⚠️ Needs Update | Oct 2024     | Update for multi-DB pattern          |
-| **CACHING_STRATEGY_COMPARISON.md**      | ✅ Production   | Oct 2024     | Performance guide                    |
-| **TENANT_MIDDLEWARE_EXPLAINED.md**      | ✅ Production   | Oct 2024     | Implementation details               |
-| **Testing Docs**                        | ✅ Production   | Oct 2024     | Complete testing suite               |
+| Document                                        | Status          | Last Updated | Notes                                |
+| ----------------------------------------------- | --------------- | ------------ | ------------------------------------ |
+| **DATABASE_PER_TENANT_ARCHITECTURE.md**         | ✅ Production   | Jan 2025     | CRITICAL - Core architecture         |
+| **AUTOMATIC_DATABASE_MIGRATION.md**             | ✅ Production   | Oct 2025     | NEW - Auto tenant DB setup           |
+| **SHARED_IDENTITY_SERVICE_GUIDE.md**            | ✅ Production   | Jan 2025     | Complete with Tenant Service         |
+| **NEW_SERVICE_INTEGRATION_GUIDE.md**            | ✅ Production   | Oct 2024     | Comprehensive guide                  |
+| **MULTI_TENANCY_GUIDE.md**                      | ✅ Production   | Oct 2024     | Complete implementation              |
+| **FILE_MANAGER_SERVICE_GUIDE.md**               | ✅ Production   | Nov 2025     | Complete with caching & static files |
+| **FILE_MANAGER_QUICK_REFERENCE.md**             | ✅ Production   | Nov 2025     | API reference & examples             |
+| **NOTIFICATION_SERVICE_README.md**              | ✅ Production   | Nov 2025     | Complete notification guide          |
+| **DATABASE_REPLICATION_SETUP_GUIDE.md**         | ✅ Production   | Nov 2025     | NEW - PostgreSQL HA replication      |
+| **BOTTLENECKS_COMPLETION_SUMMARY.md**           | ✅ Production   | Nov 2025     | NEW - 11 performance bottlenecks     |
+| **PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md** | ✅ Production   | Nov 2025     | NEW - 2-50x speedup multi-tenant ops |
+| **PERFORMANCE_OPTIMIZATION_GUIDE.md**           | ✅ Production   | Nov 2025     | Complete optimization guide          |
+| **DEVICE_TOKEN_REFACTORING_SUMMARY.md**         | ✅ Production   | Nov 2025     | NEW - Device token refactoring       |
+| **DEVICE_TOKEN_MANAGEMENT_GUIDE.md**            | ✅ Production   | Nov 2025     | NEW - Device token dev guide         |
+| **DEVICE_TOKEN_QUICK_REFERENCE.md**             | ✅ Production   | Nov 2025     | NEW - Device token API ref           |
+| **PROJECT_ISOLATION_STRATEGY_GUIDE.md**         | ⚠️ Needs Update | Oct 2024     | Update for multi-DB pattern          |
+| **CACHING_STRATEGY_COMPARISON.md**              | ✅ Production   | Oct 2024     | Performance guide                    |
+| **TENANT_MIDDLEWARE_EXPLAINED.md**              | ✅ Production   | Oct 2024     | Implementation details               |
+| **Testing Docs**                                | ✅ Production   | Oct 2024     | Complete testing suite               |
 
 ---
 

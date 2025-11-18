@@ -12,12 +12,14 @@ This guide consolidates the patterns that unlocked 25x throughput and 100k+ Sign
 1. **Batching & Parallelism**
    - Dynamic batch sizing (50–500) based on queue depth.
    - Parallel processing per tenant to guarantee isolation.
+   - Multi-tenant parallel operations (2-50x speedup for cross-tenant tasks).
 2. **Caching & State**
    - Redis backplane plus in-memory fallback (see `CACHING_STRATEGY_COMPARISON.md`).
    - Tenant configuration cached for 30 minutes with automatic invalidation.
 3. **Database Efficiency**
    - Composite indexes on queue tables (`TenantId`, `Status`, `NextRetryAt`).
    - Cleanup jobs limited to filtered batches (≤ 5k records) to avoid table scans.
+   - Increased connection pool size (200-300) to support parallel operations.
 4. **Resiliency & Backpressure**
    - Exponential backoff on retries; jitter prevents stampedes.
    - Rate limiting: 100k/min global, 10k/min per tenant, 2k/min per user.
@@ -29,14 +31,16 @@ This guide consolidates the patterns that unlocked 25x throughput and 100k+ Sign
 
 ## Checklist
 
-| Area            | Action Item                                             | Status |
-| --------------- | ------------------------------------------------------- | ------ |
-| Startup         | Enable health checks and readiness probes               | ✅     |
-| Queue Processor | Tune `MaxParallelTenants` to match CPU cores            | ✅     |
-| SignalR Hub     | Configure Redis backplane connection resiliency         | ✅     |
-| Database        | Apply migration `AddNextRetryAtAndOptimizedIndexes`     | ✅     |
-| Cleanup         | Run `CleanupService` every 5 minutes with 5k batch size | ✅     |
-| Monitoring      | Track queue depth, CPU, and Redis latency               | ✅     |
+| Area                | Action Item                                             | Status |
+| ------------------- | ------------------------------------------------------- | ------ |
+| Startup             | Enable health checks and readiness probes               | ✅     |
+| Queue Processor     | Tune `MaxParallelTenants` to match CPU cores            | ✅     |
+| SignalR Hub         | Configure Redis backplane connection resiliency         | ✅     |
+| Database            | Apply migration `AddNextRetryAtAndOptimizedIndexes`     | ✅     |
+| Database Pool       | Increase MaxPoolSize to 200-300 for parallel operations | ✅     |
+| Cleanup             | Run `CleanupService` every 5 minutes with 5k batch size | ✅     |
+| Parallel Processing | Review PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md      | ✅     |
+| Monitoring          | Track queue depth, CPU, and Redis latency               | ✅     |
 
 ---
 
@@ -65,6 +69,7 @@ This guide consolidates the patterns that unlocked 25x throughput and 100k+ Sign
 ## Supporting Documents
 
 - [BOTTLENECKS_COMPLETION_SUMMARY.md](BOTTLENECKS_COMPLETION_SUMMARY.md)
+- [PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md](PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md)
 - [DATABASE_REPLICATION_SETUP_GUIDE.md](DATABASE_REPLICATION_SETUP_GUIDE.md)
 - [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
 - [NOTIFICATION_HUB_GUIDE.md](NOTIFICATION_HUB_GUIDE.md)

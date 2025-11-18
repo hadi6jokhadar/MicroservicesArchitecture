@@ -609,6 +609,10 @@ if (!app.Environment.IsDevelopment())
 // Only runs if MultiTenancy:Enabled is true
 app.UseTenantResolution(builder.Configuration);
 
+// JWT tenant verification (AFTER tenant resolution, BEFORE authentication)
+// Prevents users from accessing other tenants by changing x-tenant-id header
+app.UseJwtTenantVerification(builder.Configuration);
+
 // Tenant-aware CORS (validates origins based on tenant config or appsettings)
 // Must be after tenant resolution to access tenant context
 // This middleware handles both preflight (OPTIONS) and actual requests

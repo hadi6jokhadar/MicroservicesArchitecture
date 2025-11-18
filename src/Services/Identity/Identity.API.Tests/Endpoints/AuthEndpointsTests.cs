@@ -116,7 +116,11 @@ public class AuthEndpointsTests : IntegrationTestBase
             async () => await SendAsync(registerRequest)
         );
         
-        exception.Message.Should().Contain("Email is already registered");
+        // Check for localization key or English message
+        exception.Message.Should().Match(msg => 
+            msg.Contains("exception_email_already_exists") || 
+            msg.Contains("Email is already registered") ||
+            msg.Contains("already registered"));
     }
 
     [Fact]
@@ -199,7 +203,10 @@ public class AuthEndpointsTests : IntegrationTestBase
             async () => await SendAsync(loginRequest)
         );
         
-        exception.Message.Should().Contain("Invalid");
+        // Check for localization key or English message
+        exception.Message.Should().Match(msg => 
+            msg.Contains("exception_invalid_credentials") || 
+            msg.Contains("Invalid"));
     }
 
     [Fact]
@@ -277,7 +284,10 @@ public class AuthEndpointsTests : IntegrationTestBase
 
         // Assert
         result.Should().NotBeNullOrEmpty();
-        result.Should().Contain("password reset");
+        // Check for localization key or English message
+        result.Should().Match(msg => 
+            msg.Contains("success_password_reset_email_sent") || 
+            msg.Contains("password reset"));
     }
 
     [Fact]
@@ -291,7 +301,10 @@ public class AuthEndpointsTests : IntegrationTestBase
 
         // Assert - Should still return success message to prevent email enumeration
         result.Should().NotBeNullOrEmpty();
-        result.Should().Contain("password reset");
+        // Check for localization key or English message
+        result.Should().Match(msg => 
+            msg.Contains("success_password_reset_email_sent") || 
+            msg.Contains("password reset"));
     }
 
     #endregion

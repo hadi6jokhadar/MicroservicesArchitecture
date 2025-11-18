@@ -57,7 +57,10 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
             async () => await SendAsync(request)
         );
 
-        exception.Message.Should().Contain("No user found");
+        // Check for localization key or English message
+        exception.Message.Should().Match(msg => 
+            msg.Contains("exception_user_not_found") || 
+            msg.Contains("No user found"));
     }
 
     [Fact]
@@ -167,7 +170,10 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
             async () => await SendAsync(request)
         );
 
-        exception.Message.Should().Contain("No user found");
+        // Check for localization key or English message
+        exception.Message.Should().Match(msg => 
+            msg.Contains("exception_user_not_found") || 
+            msg.Contains("No user found"));
     }
 
     [Fact]
@@ -507,7 +513,10 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
             async () => await SendAsync(request)
         );
 
-        exception.Message.Should().Contain("already registered");
+        // Check for localization key or English message
+        exception.Message.Should().Match(msg => 
+            msg.Contains("exception_phone_already_registered") || 
+            msg.Contains("already registered"));
     }
 
     [Fact]
@@ -629,7 +638,10 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
             async () => await SendAsync(request)
         );
 
-        exception.Message.Should().Contain("already registered");
+        // Check for localization key or English message
+        exception.Message.Should().Match(msg => 
+            msg.Contains("exception_email_already_exists") || 
+            msg.Contains("already registered"));
     }
 
     [Fact]

@@ -105,6 +105,27 @@ public static class MultiTenancyExtensions
     }
 
     /// <summary>
+    /// Add JWT tenant verification middleware to the request pipeline
+    /// Verifies that the tenant_id claim in JWT matches the x-tenant-id header
+    /// Must be called AFTER UseTenantResolution() and BEFORE UseAuthentication()
+    /// Only adds middleware if multi-tenancy is enabled
+    /// </summary>
+    public static IApplicationBuilder UseJwtTenantVerification(
+        this IApplicationBuilder app,
+        IConfiguration configuration)
+    {
+        var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+        
+        if (!multiTenancyEnabled)
+        {
+            // Skip JWT tenant verification if multi-tenancy is disabled
+            return app;
+        }
+        
+        return app.UseMiddleware<JwtTenantVerificationMiddleware>();
+    }
+
+    /// <summary>
     /// Add database migration middleware for automatic tenant database creation
     /// When multi-tenancy is enabled, x-tenant-id header is REQUIRED
     /// This middleware only handles tenant-specific databases

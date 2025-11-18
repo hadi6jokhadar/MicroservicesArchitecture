@@ -41,6 +41,14 @@ This is a .NET 8 microservices architecture implementing Clean Architecture, DDD
 - **JwtMode="Shared"**: Superadmin can access all tenants with one JWT secret
 - **JwtMode="PerTenant"**: Each tenant validates JWT with their own secret
 
+### JWT Tenant Verification (Security)
+
+- **NEW (Nov 2025)**: Prevents tenant impersonation by verifying JWT's `tenant_id` claim matches `x-tenant-id` header
+- Tenant users CANNOT access other tenants by changing header (returns 403 Forbidden)
+- Global users (SuperAdmin, Services) with no `tenant_id` claim can access any tenant
+- Middleware: `UseJwtTenantVerification()` - MUST be after `UseTenantResolution()`, before `UseAuthentication()`
+- See: `Doc/JWT_TENANT_VERIFICATION_IMPLEMENTATION.md`, `Doc/JWT_TENANT_VERIFICATION_QUICK_SUMMARY.md`
+
 ## Project Structure & Layer Responsibilities
 
 ### Service Structure (Identity, Tenant, Notification)
@@ -259,7 +267,9 @@ dotnet ef database update
 
 ### Performance & Scaling
 
-- `Doc/BOTTLENECKS_COMPLETION_SUMMARY.md` - All 10 performance optimizations (100k+ concurrent users)
+- `Doc/BOTTLENECKS_COMPLETION_SUMMARY.md` - All 11 performance optimizations (100k+ concurrent users)
+- `Doc/PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md` - Multi-tenant parallel processing (2-50x speedup)
+- `Doc/PERFORMANCE_OPTIMIZATION_GUIDE.md` - Performance tuning guide
 - `Doc/DATABASE_REPLICATION_SETUP_GUIDE.md` - PostgreSQL HA with automatic failover
 
 ### Notification System
@@ -331,6 +341,72 @@ See: `.github/instructions/terminal.instructions.md`
 - New endpoints: Use endpoint handlers in `{ServiceName}.API/Endpoints/`
 - See: `Doc/MINIMAL_API_MIGRATION.md`
 
+### ⚠️ CRITICAL: Admin Endpoints with BypassTenant
+
+**NEW (Nov 2025)** - Special handling required for endpoints that bypass tenant context:
+
+#### JWT Mode Consistency
+
+- **ALWAYS** match `MultiTenancy:JwtMode` across ALL services
+- If Identity Service uses `"PerTenant"`, your service MUST use `"PerTenant"`
+- Mismatch causes 401 Unauthorized for tenant users
+
+#### JWT Validation Pattern
+
+```csharp
+// ❌ WRONG - ITenantContext not populated during OnMessageReceived
+var tenantContext = context.HttpContext.RequestServices.GetService<ITenantContext>();
+
+// ✅ CORRECT - Use ITenantConfigurationProvider directly
+var provider = context.HttpContext.RequestServices.GetService<ITenantConfigurationProvider>();
+var tenant = await provider.GetTenantConfigurationAsync(tenantId, ct);
+```
+
+#### DbContext Fallback
+
+```csharp
+// ✅ MUST fall back to global database when no tenant context
+if (_tenantContext?.HasTenant != true ||
+    _tenantContext.CurrentTenant?.Configuration?.DatabaseSettings == null)
+{
+    // Use global database from appsettings.json
+    connectionString = _configuration["DatabaseSettings:ConnectionString"];
+}
+```
+
+#### Dual Database Migration
+
+```csharp
+// ✅ ALWAYS run both migrations if you have BypassTenant endpoints
+app.UseDefaultDatabaseMigration<YourDbContext>(); // Global DB
+
+if (multiTenancyEnabled)
+{
+    app.UseTenantDatabaseMigration<YourDbContext>(config); // Tenant DBs
+}
+```
+
+#### Optional Tenant Context in Endpoints
+
+```csharp
+// ✅ Make tenantId optional, manually set context only if provided
+adminGroup.MapPost("/files", async (
+    [FromQuery] string? tenantId, // Optional
+    ITenantContext tenantContext,
+    ITenantConfigurationProvider tenantConfigProvider) =>
+{
+    if (!string.IsNullOrWhiteSpace(tenantId))
+    {
+        var tenant = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, ct);
+        tenantContext.SetTenant(tenant);
+    }
+    // else: No tenant context, uses global database
+})
+.WithMetadata(new BypassTenantAttribute());
+```
+
+**See**: `Doc/BYPASS_TENANT_ENDPOINTS_GUIDE.md` - Complete implementation guide with examples
+
 ## Documentation Rules
 
 - **ALWAYS read** `Doc/*.md` files before making architectural changes
@@ -343,6 +419,7 @@ See: `.github/instructions/terminal.instructions.md`
 **Need to...**
 
 - Create new service? → `Doc/NEW_SERVICE_INTEGRATION_GUIDE.md`
+- **Create admin/global endpoints?** → `Doc/BYPASS_TENANT_ENDPOINTS_GUIDE.md`
 - Understand architecture? → `Doc/DATABASE_PER_TENANT_ARCHITECTURE.md`
 - Add authentication? → `Doc/SHARED_IDENTITY_SERVICE_GUIDE.md`
 - Enable multi-tenancy? → `Doc/MULTI_TENANCY_QUICK_START.md`

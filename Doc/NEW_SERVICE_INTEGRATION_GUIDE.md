@@ -12,11 +12,12 @@ This comprehensive guide explains how to integrate **Authentication** (via Ident
 2. [Prerequisites](#prerequisites)
 3. [Part 1: Authentication Integration](#part-1-authentication-integration)
 4. [Part 2: Tenant Data Integration](#part-2-tenant-data-integration)
-5. [Part 3: Testing Integration](#part-3-testing-integration)
-6. [Complete Example: Order Service](#complete-example-order-service)
-7. [Common Scenarios](#common-scenarios)
-8. [Best Practices](#best-practices)
-9. [Troubleshooting](#troubleshooting)
+5. [Part 3: Admin Endpoints with Optional Tenant Context](#part-3-admin-endpoints-with-optional-tenant-context)
+6. [Part 4: Testing Integration](#part-4-testing-integration)
+7. [Complete Example: Order Service](#complete-example-order-service)
+8. [Common Scenarios](#common-scenarios)
+9. [Best Practices](#best-practices)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -529,7 +530,86 @@ curl -X GET "https://localhost:5002/api/orders?tenantId=customer-abc-12345" \
 
 ---
 
-## Part 3: Testing Integration
+## Part 3: Admin Endpoints with Optional Tenant Context
+
+### ⚠️ CRITICAL: When to Use This Pattern
+
+**Use BypassTenant endpoints when:**
+
+- ✅ Service/SuperAdmin needs to manage resources across tenants
+- ✅ Background jobs require cross-tenant operations
+- ✅ Admin needs to view/modify data in any tenant OR global database
+
+**Do NOT use for:**
+
+- ❌ Regular tenant user operations (use standard tenant endpoints)
+- ❌ Public endpoints (use `.AllowAnonymous()` instead)
+
+### Step 1: Understand the Requirements
+
+For admin endpoints that bypass tenant context, you MUST implement:
+
+1. **JWT Mode Consistency**: Match `MultiTenancy:JwtMode` across ALL services
+2. **JWT Validation Pattern**: Use `ITenantConfigurationProvider` in `OnMessageReceived` event
+3. **DbContext Fallback**: Fall back to global database when no tenant context
+4. **Dual Database Migration**: Migrate both global and tenant databases
+5. **Optional Tenant Parameter**: Make `tenantId` query parameter optional
+
+### Step 2: Implementation Checklist
+
+Before implementing admin endpoints, complete this checklist:
+
+#### Configuration
+
+- [ ] `MultiTenancy:JwtMode` matches Identity Service configuration
+- [ ] Global database connection string configured in `appsettings.json`
+- [ ] `Jwt` section configured with global secret
+
+#### Authentication (Program.cs)
+
+- [ ] JWT `OnMessageReceived` event uses `ITenantConfigurationProvider`
+- [ ] Dynamic `TokenValidationParameters` created per-request
+- [ ] Global JWT parameters explicitly set when no `x-tenant-id` header
+
+#### Database (DbContext)
+
+- [ ] `OnConfiguring` method falls back to global database when no tenant context
+- [ ] Both `UseDefaultDatabaseMigration` AND `UseTenantDatabaseMigration` registered
+
+#### Endpoints
+
+- [ ] Admin group created with `.RequireRole("Service", "SuperAdmin")`
+- [ ] `BypassTenantAttribute` added to admin endpoints
+- [ ] `tenantId` parameter is optional (`string?`)
+- [ ] Tenant context manually set only if `tenantId` provided
+
+### Step 3: Complete Implementation Example
+
+See the **complete implementation guide** with code examples:
+
+📖 **[BYPASS_TENANT_ENDPOINTS_GUIDE.md](BYPASS_TENANT_ENDPOINTS_GUIDE.md)**
+
+This guide includes:
+
+- ✅ Complete JWT validation pattern
+- ✅ DbContext fallback implementation
+- ✅ Dual migration strategy
+- ✅ Optional tenant context endpoints
+- ✅ Common pitfalls and solutions
+- ✅ Testing strategies
+
+### Key Warning
+
+**⚠️ If you skip ANY of these steps, you will encounter:**
+
+- 401 Unauthorized for tenant users (JWT mode mismatch)
+- 400 Bad Request - Tenant context required (missing DbContext fallback)
+- 42P01: relation does not exist (missing global DB migration)
+- Endpoint requires tenantId when it should be optional
+
+---
+
+## Part 4: Testing Integration
 
 ### Step 1: Add Testing Packages
 
@@ -1259,6 +1339,8 @@ The default implementation uses the `x-tenant-id` header. To use subdomain:
 
 - ✅ Check JWT token is included in `Authorization: Bearer <token>` header
 - ✅ Verify JWT secret matches Identity Service configuration
+- ✅ **CRITICAL**: Check `MultiTenancy:JwtMode` matches across ALL services
+  - If Identity uses `"PerTenant"`, your service MUST use `"PerTenant"`
 - ✅ Ensure `UseAuthentication()` is before `UseAuthorization()` in middleware pipeline
 - ✅ Check token hasn't expired
 
@@ -1282,6 +1364,7 @@ The default implementation uses the `x-tenant-id` header. To use subdomain:
 - ✅ Ensure JWT secret is **exactly the same** in all services
 - ✅ Check secret is at least 32 characters long
 - ✅ Verify `Issuer` and `Audience` match Identity Service configuration
+- ✅ **CRITICAL**: If using `JwtMode: "PerTenant"`, ensure JWT validation uses `ITenantConfigurationProvider` in `OnMessageReceived` event
 
 ### Issue 4: User ID Not Found in Token
 
@@ -1293,6 +1376,29 @@ The default implementation uses the `x-tenant-id` header. To use subdomain:
 - ✅ Check claim type matches (might be "sub" or "nameid")
 - ✅ Use `httpContext.User.Claims` to see all available claims
 
+### Issue 5: Admin Endpoints Return 400 Bad Request - Tenant Context Required
+
+**Symptom**: Admin endpoints with `BypassTenantAttribute` fail with "Tenant context is required"
+
+**Solutions**:
+
+- ✅ **DbContext Fallback**: Ensure your DbContext falls back to global database when no tenant context
+- ✅ **Dual Migration**: Run both `UseDefaultDatabaseMigration` and `UseTenantDatabaseMigration`
+- ✅ **Optional TenantId**: Make `tenantId` parameter optional (`string?`)
+- ✅ **Manual Context**: Only call `tenantContext.SetTenant()` if tenantId is provided
+- ✅ See [BYPASS_TENANT_ENDPOINTS_GUIDE.md](BYPASS_TENANT_ENDPOINTS_GUIDE.md) for complete solution
+
+### Issue 6: JWT Validation Fails for Tenant Users in PerTenant Mode
+
+**Symptom**: Tenant users get 401 Unauthorized when `JwtMode: "PerTenant"` is enabled
+
+**Solutions**:
+
+- ✅ **JWT OnMessageReceived Event**: Use `ITenantConfigurationProvider.GetTenantConfigurationAsync()` to fetch tenant JWT secret
+- ✅ **Dynamic TokenValidationParameters**: Create fresh parameters per-request with tenant-specific secret
+- ✅ **Global Fallback**: Always explicitly set global JWT params when no tenant header
+- ✅ See [BYPASS_TENANT_ENDPOINTS_GUIDE.md](BYPASS_TENANT_ENDPOINTS_GUIDE.md) section "JWT Validation Pattern"
+
 ---
 
 ## Additional Resources
@@ -1301,6 +1407,7 @@ The default implementation uses the `x-tenant-id` header. To use subdomain:
 
 - 📖 [Multi-Tenancy Guide](MULTI_TENANCY_GUIDE.md) - Comprehensive multi-tenancy documentation
 - 🚀 [Multi-Tenancy Quick Start](MULTI_TENANCY_QUICK_START.md) - Get started quickly
+- ⚠️ [Bypass Tenant Endpoints Guide](BYPASS_TENANT_ENDPOINTS_GUIDE.md) - **CRITICAL**: Admin/global endpoints patterns
 - 📋 [Identity Service README](../src/Services/Identity/README.md) - Identity service details
 - 📋 [Multi-Tenancy Guide](MULTI_TENANCY_GUIDE.md) - Tenant service patterns and configuration
 - 🧪 [TenantTestHelper Guide](../src/Shared/IhsanDev.Shared.Testing/Helpers/README_TENANT_HELPER.md) - Testing helper documentation

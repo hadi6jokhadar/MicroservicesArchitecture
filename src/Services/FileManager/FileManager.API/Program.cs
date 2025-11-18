@@ -104,19 +104,86 @@ builder.Services.AddAuthentication(options =>
         {
             OnMessageReceived = context =>
             {
-                // Resolve tenant-specific JWT settings if available
-                var tenantContext = context.HttpContext.RequestServices.GetService<ITenantContext>();
-                if (tenantContext?.HasTenant == true && tenantContext.CurrentTenant?.Configuration?.Jwt != null)
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                var tenantId = context.HttpContext.Request.Headers["x-tenant-id"].FirstOrDefault();
+                
+                // Always create a fresh TokenValidationParameters to avoid cross-request contamination
+                // Only attempt tenant-specific JWT validation if x-tenant-id header is present
+                if (!string.IsNullOrEmpty(tenantId))
                 {
-                    var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
-                    if (!string.IsNullOrEmpty(tenantJwt.Secret))
+                    try
                     {
-                        context.Options.TokenValidationParameters.IssuerSigningKey = 
-                            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret));
-                        context.Options.TokenValidationParameters.ValidIssuer = tenantJwt.Issuer;
-                        context.Options.TokenValidationParameters.ValidAudience = tenantJwt.Audience;
+                        var tenantConfigProvider = context.HttpContext.RequestServices.GetService<ITenantConfigurationProvider>();
+                        if (tenantConfigProvider != null)
+                        {
+                            var tenant = tenantConfigProvider.GetTenantConfigurationAsync(tenantId, context.HttpContext.RequestAborted)
+                                .GetAwaiter().GetResult();
+                            
+                            if (tenant?.Configuration?.Jwt != null)
+                            {
+                                var tenantJwt = tenant.Configuration.Jwt;
+                                if (!string.IsNullOrEmpty(tenantJwt.Secret))
+                                {
+                                    // Override with tenant-specific JWT validation parameters
+                                    context.Options.TokenValidationParameters = new TokenValidationParameters
+                                    {
+                                        ValidateIssuer = true,
+                                        ValidateAudience = true,
+                                        ValidateLifetime = true,
+                                        ValidateIssuerSigningKey = true,
+                                        ValidIssuer = tenantJwt.Issuer,
+                                        ValidAudience = tenantJwt.Audience,
+                                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret)),
+                                        ClockSkew = TimeSpan.Zero
+                                    };
+                                    
+                                    logger.LogInformation("🔐 Using tenant-specific JWT validation for tenant: {TenantId} (Issuer: {Issuer})", 
+                                        tenantId, tenantJwt.Issuer);
+                                    return Task.CompletedTask;
+                                }
+                            }
+                            
+                            logger.LogWarning("Tenant {TenantId} has no JWT configuration, falling back to global JWT", tenantId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to fetch tenant configuration for tenant: {TenantId}, falling back to global JWT", tenantId);
                     }
                 }
+                
+                // Use global JWT validation (no tenant header OR tenant config fetch failed)
+                logger.LogInformation("Using global JWT validation - Secret: {SecretLength} chars, Issuer: {Issuer}", 
+                    secretKey.Length, jwtSettings["Issuer"]);
+                
+                // Explicitly set global JWT parameters
+                context.Options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+                    ValidateIssuer = true,
+                    ValidIssuer = jwtSettings["Issuer"],
+                    ValidateAudience = true,
+                    ValidAudience = jwtSettings["Audience"],
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                };
+                
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                var userId = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var path = context.HttpContext.Request.Path;
+                logger.LogInformation("JWT Token Validated - User ID: {UserId}, Path: {Path}", userId ?? "Unknown", path);
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                var path = context.HttpContext.Request.Path;
+                logger.LogError("JWT Authentication Failed - Path: {Path}, Error: {Error}", path, context.Exception.Message);
                 return Task.CompletedTask;
             }
         };
@@ -318,21 +385,22 @@ app.UseGlobalExceptionHandler();
 // Multi-tenancy middleware
 app.UseTenantResolution(builder.Configuration);
 
+// JWT tenant verification (AFTER tenant resolution, BEFORE authentication)
+app.UseJwtTenantVerification(builder.Configuration);
+
 // Tenant-aware CORS
 app.UseTenantAwareCors();
 
 // Multi-tenancy configuration
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled");
 
+// Always migrate global database first (ensures it exists for admin endpoints without tenantId)
+app.UseDefaultDatabaseMigration<FileManagerDbContext>();
+
 if (multiTenancyEnabled)
 {
-    // Tenant-aware database migration
+    // Also enable tenant-aware database migration for tenant-specific requests
     app.UseTenantDatabaseMigration<FileManagerDbContext>(builder.Configuration);
-}
-else
-{
-    // Default database migration (single-tenant mode)
-    app.UseDefaultDatabaseMigration<FileManagerDbContext>();
 }
 
 // Service authentication middleware (must be BEFORE UseAuthentication)

@@ -66,6 +66,7 @@
 | **Scaling**         | Horizontally scalable (stateless API + cloud storage)         |
 | **Caching**         | Redis distributed cache (7-day TTL) with MemoryCache fallback |
 | **Static Files**    | Direct file serving via PhysicalFileProvider                  |
+| **Background Jobs** | Daily temp file cleanup (parallel processing, 5-10x faster)   |
 | **Status**          | ✅ Production Ready (v2.0.0)                                  |
 
 ---

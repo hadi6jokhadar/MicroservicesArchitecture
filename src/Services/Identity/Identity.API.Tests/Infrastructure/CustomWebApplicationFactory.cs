@@ -45,6 +45,10 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
         // Disable multi-tenancy for testing
         config["MultiTenancy:Enabled"] = "false";
         
+        // Configure localization for tests (use English)
+        config["Localization:DefaultCulture"] = "en";
+        config["Localization:SupportedCultures"] = "en,ar";
+        
         return config;
     }
 
