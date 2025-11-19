@@ -209,6 +209,85 @@ builder.Services.AddCors(options =>
 });
 
 // ============================================
+// Rate Limiting (DoS Protection)
+// ============================================
+builder.Services.AddRateLimiter(options =>
+{
+    // Global rate limit across all requests
+    options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: "global",
+            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:Global:PermitLimit", 10000),
+                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:Global:WindowMinutes", 1)),
+                QueueLimit = 0
+            }));
+
+    // Per-IP rate limiting (prevent file upload/download abuse)
+    options.AddPolicy("PerIP", context =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PerIP:PermitLimit", 50),
+                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:PerIP:WindowMinutes", 1)),
+                QueueLimit = 10
+            }));
+
+    // Per-Tenant rate limiting
+    options.AddPolicy("PerTenant", context =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Request.Headers["x-tenant-id"].FirstOrDefault() ?? "default",
+            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PerTenant:PermitLimit", 2000),
+                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:PerTenant:WindowMinutes", 1)),
+                QueueLimit = 50
+            }));
+
+    // Per-User rate limiting (for authenticated requests)
+    options.AddPolicy("PerUser", context =>
+    {
+        var userId = context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
+        return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: userId,
+            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PerUser:PermitLimit", 500),
+                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:PerUser:WindowMinutes", 1)),
+                QueueLimit = 20
+            });
+    });
+
+    // Rejection status code
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // On rejected - log the rate limit violation
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+        var endpoint = context.HttpContext.GetEndpoint()?.DisplayName ?? "Unknown";
+        var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+        var tenantId = context.HttpContext.Request.Headers["x-tenant-id"].FirstOrDefault() ?? "None";
+        
+        logger.LogWarning("Rate limit exceeded - Endpoint: {Endpoint}, IP: {IP}, TenantId: {TenantId}", 
+            endpoint, ip, tenantId);
+
+        var localizationService = context.HttpContext.RequestServices.GetRequiredService<ILocalizationService>();
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            error = localizationService.GetString(LocalizationKeys.Error.RateLimitExceeded),
+            message = localizationService.GetString(LocalizationKeys.Error.RateLimitExceeded),
+            retryAfter = context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter)
+                ? retryAfter.TotalSeconds
+                : 60
+        }, cancellationToken);
+    };
+});
+
+// ============================================
 // Response Compression (Performance Optimization)
 // ============================================
 builder.Services.AddResponseCompression(options =>
@@ -349,6 +428,9 @@ app.UseHttpsRedirection();
 
 // Response Compression
 app.UseResponseCompression();
+
+// Rate limiting (before authentication)
+app.UseRateLimiter();
 
 // ============================================
 // Static Files Middleware - Serve uploaded files directly
