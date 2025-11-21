@@ -6,7 +6,7 @@ namespace Identity.Domain.Entities;
 public class User : BaseUser
 {    
     // Navigation properties for other microservices
-    public string? ProfilePictureUrl { get; set; }
+    public int? ProfilePictureId { get; set; }
 
     public string? Email { get; set; }
     

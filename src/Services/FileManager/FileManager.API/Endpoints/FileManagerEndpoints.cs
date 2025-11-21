@@ -3,6 +3,7 @@ using FileManager.Application.DTOs;
 using FileManager.Application.Queries;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Attributes;
+using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,34 @@ namespace FileManager.API.Endpoints;
 
 public static class FileManagerEndpoints
 {
+    /// <summary>
+    /// Helper method to set tenant context in a new scope before resolving dependencies
+    /// This prevents the "first request returns null" issue where DbContext is configured before tenant context is set
+    /// </summary>
+    private static async Task<(IServiceScope scope, ITenantContext? tenantContext)> CreateScopeWithTenantAsync(
+        IServiceProvider serviceProvider,
+        string? tenantId,
+        ITenantConfigurationProvider tenantConfigProvider,
+        CancellationToken cancellationToken)
+    {
+        // Create new scope for fresh DbContext
+        var scope = serviceProvider.CreateScope();
+        var scopedServices = scope.ServiceProvider;
+        var tenantContext = scopedServices.GetRequiredService<ITenantContext>();
+
+        // Set tenant context if tenantId provided
+        if (!string.IsNullOrWhiteSpace(tenantId))
+        {
+            var tenant = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
+            if (tenant != null)
+            {
+                tenantContext.SetTenant(tenant);
+            }
+        }
+
+        return (scope, tenantContext);
+    }
+
     public static IEndpointRouteBuilder MapFileManagerEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/filemanager")
@@ -56,31 +85,29 @@ public static class FileManagerEndpoints
             [FromForm] int? group,
             [FromForm] int? userId,
             [FromQuery] string? tenantId,
-            IMediator mediator,
-            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantContext tenantContext,
-            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantConfigurationProvider tenantConfigProvider,
+            ITenantConfigurationProvider tenantConfigProvider,
             ILocalizationService localizationService,
+            IServiceProvider serviceProvider,
             CancellationToken cancellationToken) =>
         {
-            // If tenantId is provided, fetch and set tenant context
-            // If not provided, use global database (fallback)
-            if (!string.IsNullOrWhiteSpace(tenantId))
+            // Create scope with tenant context set before resolving dependencies
+            var scopeResult = await CreateScopeWithTenantAsync(
+                serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
+            
+            using var scope = scopeResult.scope;
+            var tenantContext = scopeResult.tenantContext;
+
+            if (!string.IsNullOrWhiteSpace(tenantId) && tenantContext?.CurrentTenant == null)
             {
-                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
-                if (tenantInfo == null)
-                {
-                    return Results.NotFound(new 
-                    { 
-                        error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
-                        message = $"Tenant '{tenantId}' not found"
-                    });
-                }
-
-                // Set tenant context for this request
-                tenantContext.SetTenant(tenantInfo);
+                return Results.NotFound(new 
+                { 
+                    error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                    message = $"Tenant '{tenantId}' not found"
+                });
             }
-            // else: No tenant context set, will use global database
 
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+            
             if (group == null){
                 group = 1;
             }
@@ -117,28 +144,27 @@ public static class FileManagerEndpoints
         adminGroup.MapGet("/files/{id:int}", async (
             int id,
             [FromQuery] string? tenantId,
-            IMediator mediator,
-            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantContext tenantContext,
-            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantConfigurationProvider tenantConfigProvider,
+            ITenantConfigurationProvider tenantConfigProvider,
             ILocalizationService localizationService,
+            IServiceProvider serviceProvider,
             CancellationToken cancellationToken) =>
         {
-            // If tenantId is provided, fetch and set tenant context
-            if (!string.IsNullOrWhiteSpace(tenantId))
-            {
-                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
-                if (tenantInfo == null)
-                {
-                    return Results.NotFound(new 
-                    { 
-                        error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
-                        message = $"Tenant '{tenantId}' not found" 
-                    });
-                }
+            var scopeResult = await CreateScopeWithTenantAsync(
+                serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
+            
+            using var scope = scopeResult.scope;
+            var tenantContext = scopeResult.tenantContext;
 
-                tenantContext.SetTenant(tenantInfo);
+            if (!string.IsNullOrWhiteSpace(tenantId) && tenantContext?.CurrentTenant == null)
+            {
+                return Results.NotFound(new 
+                { 
+                    error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                    message = $"Tenant '{tenantId}' not found" 
+                });
             }
 
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
             var query = new GetFileByIdQuery(id);
             var result = await mediator.Send(query, cancellationToken);
             return result != null ? Results.Ok(result) : Results.NotFound();
@@ -169,28 +195,27 @@ public static class FileManagerEndpoints
         adminGroup.MapGet("/files", async (
             [AsParameters] FileManagerListRequest request,
             [FromQuery] string? tenantId,
-            IMediator mediator,
-            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantContext tenantContext,
-            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantConfigurationProvider tenantConfigProvider,
+            ITenantConfigurationProvider tenantConfigProvider,
             ILocalizationService localizationService,
+            IServiceProvider serviceProvider,
             CancellationToken cancellationToken) =>
         {
-            // If tenantId is provided, fetch and set tenant context
-            if (!string.IsNullOrWhiteSpace(tenantId))
-            {
-                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
-                if (tenantInfo == null)
-                {
-                    return Results.NotFound(new 
-                    { 
-                        error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
-                        message = $"Tenant '{tenantId}' not found" 
-                    });
-                }
+            var scopeResult = await CreateScopeWithTenantAsync(
+                serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
+            
+            using var scope = scopeResult.scope;
+            var tenantContext = scopeResult.tenantContext;
 
-                tenantContext.SetTenant(tenantInfo);
+            if (!string.IsNullOrWhiteSpace(tenantId) && tenantContext?.CurrentTenant == null)
+            {
+                return Results.NotFound(new 
+                { 
+                    error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                    message = $"Tenant '{tenantId}' not found" 
+                });
             }
 
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
             var query = new GetFilesQuery(request);
             var result = await mediator.Send(query, cancellationToken);
             return Results.Ok(result);
@@ -223,28 +248,27 @@ public static class FileManagerEndpoints
             int id,
             [FromBody] UpdateFileRequest request,
             [FromQuery] string? tenantId,
-            IMediator mediator,
-            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantContext tenantContext,
-            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantConfigurationProvider tenantConfigProvider,
+            ITenantConfigurationProvider tenantConfigProvider,
             ILocalizationService localizationService,
+            IServiceProvider serviceProvider,
             CancellationToken cancellationToken) =>
         {
-            // If tenantId is provided, fetch and set tenant context
-            if (!string.IsNullOrWhiteSpace(tenantId))
-            {
-                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
-                if (tenantInfo == null)
-                {
-                    return Results.NotFound(new 
-                    { 
-                        error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
-                        message = $"Tenant '{tenantId}' not found" 
-                    });
-                }
+            var scopeResult = await CreateScopeWithTenantAsync(
+                serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
+            
+            using var scope = scopeResult.scope;
+            var tenantContext = scopeResult.tenantContext;
 
-                tenantContext.SetTenant(tenantInfo);
+            if (!string.IsNullOrWhiteSpace(tenantId) && tenantContext?.CurrentTenant == null)
+            {
+                return Results.NotFound(new 
+                { 
+                    error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                    message = $"Tenant '{tenantId}' not found" 
+                });
             }
 
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
             var command = new UpdateFileCommand(id, request.Name, request.Group, request.Status, request.IsArchived, request.Temp);
             var result = await mediator.Send(command, cancellationToken);
             return Results.Ok(result);
@@ -276,28 +300,27 @@ public static class FileManagerEndpoints
         adminGroup.MapDelete("/files/{id:int}", async (
             int id,
             [FromQuery] string? tenantId,
-            IMediator mediator,
-            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantContext tenantContext,
-            IhsanDev.Shared.Kernel.Interfaces.Tenant.ITenantConfigurationProvider tenantConfigProvider,
+            ITenantConfigurationProvider tenantConfigProvider,
             ILocalizationService localizationService,
+            IServiceProvider serviceProvider,
             CancellationToken cancellationToken) =>
         {
-            // If tenantId is provided, fetch and set tenant context
-            if (!string.IsNullOrWhiteSpace(tenantId))
-            {
-                var tenantInfo = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
-                if (tenantInfo == null)
-                {
-                    return Results.NotFound(new 
-                    { 
-                        error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
-                        message = $"Tenant '{tenantId}' not found" 
-                    });
-                }
+            var scopeResult = await CreateScopeWithTenantAsync(
+                serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
+            
+            using var scope = scopeResult.scope;
+            var tenantContext = scopeResult.tenantContext;
 
-                tenantContext.SetTenant(tenantInfo);
+            if (!string.IsNullOrWhiteSpace(tenantId) && tenantContext?.CurrentTenant == null)
+            {
+                return Results.NotFound(new 
+                { 
+                    error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                    message = $"Tenant '{tenantId}' not found" 
+                });
             }
 
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
             var command = new DeleteFileCommand(id);
             var result = await mediator.Send(command, cancellationToken);
             return result ? Results.NoContent() : Results.NotFound();
@@ -337,6 +360,103 @@ public static class FileManagerEndpoints
         .WithName("DeleteOldTempFiles")
         .WithMetadata(new BypassTenantAttribute())
         .Produces<object>();
+
+        // ============================================
+        // INTERNAL SERVICE ENDPOINTS (service-to-service only, bypasses rate limiting)
+        // ============================================
+        
+        var internalGroup = app.MapGroup("/api/filemanager/internal")
+            .WithTags("FileManager - Internal")
+            .DisableRateLimiting() // Skip rate limiting for service-to-service communication
+            .WithMetadata(new BypassTenantAttribute()); // Skip tenant middleware
+
+        // Get file by ID - Internal service-to-service endpoint
+        // Ultra-fast: bypasses rate limiting, tenant middleware, and authorization
+        // Only validates X-Service-Secret header (done by ServiceAuthenticationMiddleware)
+        internalGroup.MapGet("/files/{id:int}", async (
+            int id,
+            [FromQuery] string? tenantId,
+            ITenantConfigurationProvider tenantConfigProvider,
+            HttpContext httpContext,
+            ILogger<Program> logger,
+            IServiceProvider serviceProvider,
+            CancellationToken cancellationToken) =>
+        {
+            // Validate this is a service-to-service call
+            var isService = httpContext.User.HasClaim("IsInternalService", "true");
+            if (!isService)
+            {
+                logger.LogWarning("Internal endpoint access denied - missing IsInternalService claim");
+                return Results.Json(null, statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            // Create scope with tenant context set before resolving dependencies
+            var scopeResult = await CreateScopeWithTenantAsync(
+                serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
+            
+            using var scope = scopeResult.scope;
+            
+            // Resolve MediatR from the new scope - DbContext will be fresh and see the tenant context
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+            
+            var query = new GetFileByIdQuery(id);
+            var result = await mediator.Send(query, cancellationToken);
+            
+            // Return null instead of 404 for graceful error handling
+            return Results.Ok(result);
+        })
+        .WithName("GetFileByIdInternal")
+        .AllowAnonymous() // No JWT required - ServiceAuthenticationMiddleware handles auth via X-Service-Secret
+        .Produces<FileManagerResponse?>()
+        .ExcludeFromDescription(); // Hide from Swagger/public documentation
+
+        // Get multiple files by IDs - Batch endpoint for efficient bulk retrieval
+        internalGroup.MapGet("/files/batch", async (
+            HttpContext httpContext,
+            [FromQuery] string? tenantId,
+            ITenantConfigurationProvider tenantConfigProvider,
+            ILogger<Program> logger,
+            IServiceProvider serviceProvider,
+            CancellationToken cancellationToken) =>
+        {
+            // Validate service-to-service call
+            var isService = httpContext.User.HasClaim("IsInternalService", "true");
+            if (!isService)
+            {
+                logger.LogWarning("Internal batch endpoint access denied - missing claim");
+                return Results.Json(new List<FileManagerResponse>(), statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            // Parse fileIds from query string (supports multiple ?fileIds=1&fileIds=2&fileIds=3)
+            var fileIdsStrings = httpContext.Request.Query["fileIds"].ToList();
+            var fileIds = fileIdsStrings
+                .Where(s => int.TryParse(s, out _))
+                .Select(int.Parse)
+                .ToList();
+
+            if (!fileIds.Any())
+            {
+                return Results.Ok(new List<FileManagerResponse>());
+            }
+
+            // Create scope with tenant context set BEFORE DbContext resolution
+            var scopeResult = await CreateScopeWithTenantAsync(
+                serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
+            
+            using var scope = scopeResult.scope;
+            
+            // Resolve MediatR from the new scope
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+            
+            var query = new GetFilesByIdsQuery(fileIds);
+            var result = await mediator.Send(query, cancellationToken);
+            
+            return Results.Ok(result);
+        })
+        .WithName("GetFilesByIdsInternal")
+        .AllowAnonymous()
+        .Produces<List<FileManagerResponse>>()
+        .ExcludeFromDescription();
 
         // Download file by ID
         group.MapGet("/files/{id:int}/download", async (

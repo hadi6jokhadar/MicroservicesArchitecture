@@ -1,5 +1,6 @@
 using Identity.Application.Commands.Auth;
 using Identity.Application.DTOs;
+using Identity.Application.Helpers;
 using Identity.Application.Services;
 using Identity.Domain.Repositories;
 using IhsanDev.Shared.Application.Exceptions;
@@ -17,17 +18,20 @@ public class LoginWithCodeByEmailCommandHandler : IRequestHandler<LoginWithCodeB
     private readonly IUserService _userService;
     private readonly IConfiguration _configuration;
     private readonly ITenantContext _tenantContext;
+    private readonly ProfilePictureHelper _profilePictureHelper;
 
     public LoginWithCodeByEmailCommandHandler(
         IUserRepository userRepository,
         IUserService userService,
         IConfiguration configuration,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        ProfilePictureHelper profilePictureHelper)
     {
         _userRepository = userRepository;
         _userService = userService;
         _configuration = configuration;
         _tenantContext = tenantContext;
+        _profilePictureHelper = profilePictureHelper;
     }
 
     public async Task<UserDtoIncludesToken> Handle(LoginWithCodeByEmailCommand request, CancellationToken cancellationToken)
@@ -95,6 +99,14 @@ public class LoginWithCodeByEmailCommandHandler : IRequestHandler<LoginWithCodeB
 
             // Generate and return tokens
             var authResult = await _userService.GenerateTokensAsync(user);
+            
+            // Enrich with profile picture
+            await _profilePictureHelper.EnrichWithProfilePictureAsync(
+                authResult,
+                user.ProfilePictureId,
+                user.Id,
+                cancellationToken);
+            
             return authResult;
         }
         catch (AppException)

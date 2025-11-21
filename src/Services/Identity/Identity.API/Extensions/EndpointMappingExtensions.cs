@@ -17,7 +17,7 @@ public static class EndpointMappingExtensions
     {
         var userGroup = app.MapGroup("/api/user")
             .WithTags("Profile Management")
-            .RequireAuthorization(policy => policy.RequireRole("User"))
+            .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
             .WithOpenApi()
             .WithMetadata(new OptionalTenantAttribute());
 

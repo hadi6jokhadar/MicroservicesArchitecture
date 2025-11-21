@@ -94,7 +94,7 @@ public class UserEndpointsTests : IntegrationTestBase
             FirstName: "New",
             LastName: "UpdatedName",
             PhoneNumber: "+1234567890",
-            ProfilePictureUrl: null,
+            ProfilePictureId: null,
             Id: user.Id
         );
 
@@ -130,7 +130,7 @@ public class UserEndpointsTests : IntegrationTestBase
             FirstName: "Test",
             LastName: "User",
             PhoneNumber: null,
-            ProfilePictureUrl: null,
+            ProfilePictureId: null,
             Id: user.Id,
             Data: updatedData
         );
@@ -171,7 +171,7 @@ public class UserEndpointsTests : IntegrationTestBase
             FirstName: "Test",
             LastName: "User",
             PhoneNumber: null,
-            ProfilePictureUrl: null,
+            ProfilePictureId: null,
             Id: user.Id,
             Data: null
         );
@@ -196,7 +196,7 @@ public class UserEndpointsTests : IntegrationTestBase
             FirstName: "", // Invalid: empty first name
             LastName: "Name",
             PhoneNumber: null,
-            ProfilePictureUrl: null,
+            ProfilePictureId: null,
             Id: user.Id
         );
 
@@ -214,7 +214,7 @@ public class UserEndpointsTests : IntegrationTestBase
             FirstName: "New",
             LastName: "Name",
             PhoneNumber: null,
-            ProfilePictureUrl: null,
+            ProfilePictureId: null,
             Id: 99999
         );
 

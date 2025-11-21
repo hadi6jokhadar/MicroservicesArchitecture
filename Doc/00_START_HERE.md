@@ -23,6 +23,8 @@
 - ⚠️ **Admin/Global Endpoints?** → [BYPASS_TENANT_ENDPOINTS_GUIDE.md](BYPASS_TENANT_ENDPOINTS_GUIDE.md) or [BYPASS_TENANT_QUICK_REFERENCE.md](BYPASS_TENANT_QUICK_REFERENCE.md)
 - 🔐 **Identity Service Optional Tenant?** → [IDENTITY_OPTIONAL_TENANT_IMPLEMENTATION_SUMMARY.md](IDENTITY_OPTIONAL_TENANT_IMPLEMENTATION_SUMMARY.md) or [IDENTITY_OPTIONAL_TENANT_QUICK_REFERENCE.md](IDENTITY_OPTIONAL_TENANT_QUICK_REFERENCE.md)
 - 📁 **File Storage?** → [FILE_MANAGER_QUICK_REFERENCE.md](FILE_MANAGER_QUICK_REFERENCE.md) or [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md)
+- 🖼️ **Profile Pictures?** → [PROFILE_PICTURE_COMPLETE_GUIDE.md](PROFILE_PICTURE_COMPLETE_GUIDE.md) or [PROFILE_PICTURE_QUICK_REFERENCE.md](PROFILE_PICTURE_QUICK_REFERENCE.md)
+- ⚡ **N+1 Query Problems?** → [PROFILE_PICTURE_BATCH_OPTIMIZATION.md](PROFILE_PICTURE_BATCH_OPTIMIZATION.md) - **20-50x performance boost**
 - 🔑 **Project Isolation?** → [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md)
 - 🌍 **Localization?** → [COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md](COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md) or [LOCALIZATION_QUICK_REFERENCE.md](LOCALIZATION_QUICK_REFERENCE.md)
 - 🔔 **Notifications?** → [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
@@ -68,6 +70,9 @@ Doc/
 │  ├─ IDENTITY_OPTIONAL_TENANT_QUICK_REFERENCE.md  ← 🔴 NEW: Identity optional tenant quick ref
 │  ├─ FILE_MANAGER_SERVICE_GUIDE.md         ← File storage architecture
 │  ├─ FILE_MANAGER_QUICK_REFERENCE.md       ← 🔴 NEW: File Manager API quick reference
+│  ├─ PROFILE_PICTURE_COMPLETE_GUIDE.md     ← 🔴 NEW: Profile picture integration (Nov 2025)
+│  ├─ PROFILE_PICTURE_BATCH_OPTIMIZATION.md ← 🔴 NEW: N+1 prevention & batch fetching (Nov 2025)
+│  ├─ PROFILE_PICTURE_QUICK_REFERENCE.md    ← Profile picture quick reference
 │  ├─ PROJECT_ISOLATION_STRATEGY_GUIDE.md   ← User isolation patterns
 │  ├─ TENANT_MIDDLEWARE_EXPLAINED.md        ← How tenant middleware works
 │  ├─ TENANT_AWARE_CORS_GUIDE.md            ← Tenant-specific CORS
@@ -447,14 +452,16 @@ Need to...?
 
 ## 📝 Version History
 
-| Version | Date     | Changes                                                                                                                                                                                                                                             |
-| ------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2.4     | Nov 2025 | ✅ Identity Service optional x-tenant-id<br>✅ All 27 endpoints support optional tenant context<br>✅ UserService JWT generation fallback fixed<br>✅ Global database fallback in IdentityDbContext<br>✅ Dual migration strategy (global + tenant) |
-| 2.3     | Nov 2025 | ✅ File Manager Service v2.0.0 complete<br>✅ Redis caching for tenant configs (7-day TTL)<br>✅ Static file serving with public URLs<br>✅ Path/URL separation in responses<br>✅ Improved error handling (404 for missing files)                  |
-| 2.2     | Nov 2025 | ✅ Documentation cleanup (removed 15 outdated files)<br>✅ Removed temporary implementation summaries<br>✅ Removed bug fix documentation<br>✅ Kept 53 production-ready documents<br>✅ All services verified and up-to-date                       |
-| 2.1     | Nov 2025 | ✅ Added DATABASE_REPLICATION_SETUP_GUIDE.md<br>✅ Added BOTTLENECKS_COMPLETION_SUMMARY.md<br>✅ Completed all 10 performance bottlenecks<br>✅ Updated NOTIFICATION_SERVICE_README.md<br>✅ Service now supports 100,000+ concurrent users         |
-| 2.0     | Jan 2025 | ✅ Added DATABASE_PER_TENANT_ARCHITECTURE.md<br>✅ Updated SHARED_IDENTITY_SERVICE_GUIDE.md<br>✅ Consolidated documentation<br>✅ Removed redundant files                                                                                          |
-| 1.0     | Oct 2024 | ✅ Initial documentation<br>✅ Multi-tenancy guides<br>✅ Testing infrastructure                                                                                                                                                                    |
+| Version | Date     | Changes                                                                                                                                                                                                                                                    |
+| ------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.6     | Nov 2025 | ✅ Batch File Fetching Optimization<br>✅ N+1 query prevention (20-50x performance boost)<br>✅ Single batch endpoint for multiple files<br>✅ Optimized ProfilePictureHelper<br>✅ WHERE IN database queries<br>✅ Comprehensive batch optimization guide |
+| 2.5     | Nov 2025 | ✅ Profile Picture Integration Complete<br>✅ Service-to-service FileManager client<br>✅ Internal endpoint with scope timing fix<br>✅ All 12 Identity handlers enriched<br>✅ 107 tests passing<br>✅ Complete documentation guide                       |
+| 2.4     | Nov 2025 | ✅ Identity Service optional x-tenant-id<br>✅ All 27 endpoints support optional tenant context<br>✅ UserService JWT generation fallback fixed<br>✅ Global database fallback in IdentityDbContext<br>✅ Dual migration strategy (global + tenant)        |
+| 2.3     | Nov 2025 | ✅ File Manager Service v2.0.0 complete<br>✅ Redis caching for tenant configs (7-day TTL)<br>✅ Static file serving with public URLs<br>✅ Path/URL separation in responses<br>✅ Improved error handling (404 for missing files)                         |
+| 2.2     | Nov 2025 | ✅ Documentation cleanup (removed 15 outdated files)<br>✅ Removed temporary implementation summaries<br>✅ Removed bug fix documentation<br>✅ Kept 53 production-ready documents<br>✅ All services verified and up-to-date                              |
+| 2.1     | Nov 2025 | ✅ Added DATABASE_REPLICATION_SETUP_GUIDE.md<br>✅ Added BOTTLENECKS_COMPLETION_SUMMARY.md<br>✅ Completed all 10 performance bottlenecks<br>✅ Updated NOTIFICATION_SERVICE_README.md<br>✅ Service now supports 100,000+ concurrent users                |
+| 2.0     | Jan 2025 | ✅ Added DATABASE_PER_TENANT_ARCHITECTURE.md<br>✅ Updated SHARED_IDENTITY_SERVICE_GUIDE.md<br>✅ Consolidated documentation<br>✅ Removed redundant files                                                                                                 |
+| 1.0     | Oct 2024 | ✅ Initial documentation<br>✅ Multi-tenancy guides<br>✅ Testing infrastructure                                                                                                                                                                           |
 
 ---
 

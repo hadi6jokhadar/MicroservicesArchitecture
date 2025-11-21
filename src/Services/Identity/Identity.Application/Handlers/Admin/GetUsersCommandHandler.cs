@@ -3,6 +3,7 @@ using IhsanDev.Shared.Application.Common.Mappings;
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using Identity.Application.DTOs;
+using Identity.Application.Helpers;
 using Identity.Domain.Repositories;
 using MediatR;
 using Identity.Application.Commands;
@@ -10,10 +11,14 @@ using Identity.Application.Commands;
 public class GetUsersCommandHandler : IRequestHandler<GetUsersCommand, PaginatedList<UserDto>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly ProfilePictureHelper _profilePictureHelper;
 
-    public GetUsersCommandHandler(IUserRepository userRepository)
+    public GetUsersCommandHandler(
+        IUserRepository userRepository,
+        ProfilePictureHelper profilePictureHelper)
     {
         _userRepository = userRepository;
+        _profilePictureHelper = profilePictureHelper;
     }
 
     public async Task<PaginatedList<UserDto>> Handle(GetUsersCommand request, CancellationToken cancellationToken)
@@ -58,13 +63,17 @@ public class GetUsersCommandHandler : IRequestHandler<GetUsersCommand, Paginated
                 LastModified = u.LastModified != null ? u.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null,
                 Role = u.Role,
                 RoleName = u.Role.ToString(),
-                ProfilePictureUrl = u.ProfilePictureUrl,
+                ProfilePictureId = u.ProfilePictureId,
+                ProfilePicture = null, // Not populated in list view for performance
                 VerificationCode = u.VerificationCode,
                 Data = u.Data
             });
 
             var paginatedList = await dtoQuery
                 .PaginatedListAsync(request.PageNumber, request.PageSize, cancellationToken);
+
+            // Enrich all users with profile pictures in parallel
+            await _profilePictureHelper.EnrichWithProfilePicturesAsync(paginatedList.Items, cancellationToken);
 
             return paginatedList;
         }

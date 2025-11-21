@@ -8,6 +8,7 @@ public interface IFileManagerService
 {
     Task<FileManagerResponse> SaveFileAsync(IFormFile file, FileGroup group, int? userId = null, CancellationToken cancellationToken = default);
     Task<FileManagerResponse?> GetFileByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<List<FileManagerResponse>> GetFilesByIdsAsync(List<int> ids, CancellationToken cancellationToken = default);
     Task<PaginatedList<FileManagerResponse>> GetFilesAsync(FileManagerListRequest request, CancellationToken cancellationToken = default);
     Task<FileManagerResponse> UpdateFileAsync(int id, string? name = null, FileGroup? group = null, bool? status = null, bool? isArchived = null, bool? temp = null, CancellationToken cancellationToken = default);
     Task<bool> DeleteFileAsync(int id, CancellationToken cancellationToken = default);

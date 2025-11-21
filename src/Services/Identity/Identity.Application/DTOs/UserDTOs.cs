@@ -1,5 +1,6 @@
 using System.Globalization;
 using Identity.Domain.Entities;
+using IhsanDev.Shared.Application.Common.Interfaces;
 using IhsanDev.Shared.Kernel.Dto.Identity;
 using IhsanDev.Shared.Kernel.Enums.Identity;
 
@@ -11,7 +12,8 @@ public class UserDto : BaseUserDto
     public string? RoleName { get; set; }
     
     // Navigation properties for other microservices
-    public string? ProfilePictureUrl { get; set; }
+    public int? ProfilePictureId { get; set; }
+    public FileManagerDto? ProfilePicture { get; set; }
     
     // OTP verification
     public string? VerificationCode { get; set; }
@@ -36,7 +38,8 @@ public class UserDto : BaseUserDto
             LastModified = user.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
             Role = user.Role,
             RoleName = user.Role.ToString(),
-            ProfilePictureUrl = user.ProfilePictureUrl,
+            ProfilePictureId = user.ProfilePictureId,
+            ProfilePicture = null, // Will be populated by handler when requested
             VerificationCode = user.VerificationCode,
             Data = user.Data
         };

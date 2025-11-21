@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Identity.Application.Commands;
 using MediatR;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Identity.API.Handlers;
 

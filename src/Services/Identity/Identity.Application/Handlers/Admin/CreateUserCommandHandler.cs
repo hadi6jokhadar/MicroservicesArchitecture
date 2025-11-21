@@ -3,6 +3,7 @@ using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
+using Identity.Application.Helpers;
 using Identity.Application.Services;
 using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
@@ -14,11 +15,16 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
 {
     private readonly IUserRepository _userRepository;
     private readonly IUserService _userService;
+    private readonly ProfilePictureHelper _profilePictureHelper;
 
-    public CreateUserCommandHandler(IUserRepository userRepository, IUserService userService)
+    public CreateUserCommandHandler(
+        IUserRepository userRepository,
+        IUserService userService,
+        ProfilePictureHelper profilePictureHelper)
     {
         _userRepository = userRepository;
         _userService = userService;
+        _profilePictureHelper = profilePictureHelper;
     }
 
     public async Task<UserDto> Handle(CreateUserCommand request, CancellationToken cancellationToken)
@@ -48,6 +54,14 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
             await _userRepository.AddAsync(user, cancellationToken);
 
             var userDto = UserDto.MapFrom(user);
+            
+            // Enrich with profile picture (will be null for new users unless profilePictureId was provided)
+            await _profilePictureHelper.EnrichWithProfilePictureAsync(
+                userDto,
+                user.ProfilePictureId,
+                user.Id,
+                cancellationToken);
+            
             return userDto;
         }
         catch (AppException)

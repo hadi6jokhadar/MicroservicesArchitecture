@@ -21,6 +21,18 @@ public class FileManagerRepository : IFileManagerRepository
             .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
     }
 
+    public async Task<List<FileManagerEntity>> GetByIdsAsync(List<int> ids, CancellationToken cancellationToken = default)
+    {
+        if (ids == null || !ids.Any())
+        {
+            return new List<FileManagerEntity>();
+        }
+
+        return await _context.FileManager
+            .Where(f => ids.Contains(f.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<(List<FileManagerEntity> Items, int TotalCount)> GetAllAsync(
         int? id = null,
         bool? status = null,

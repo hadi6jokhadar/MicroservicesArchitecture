@@ -344,6 +344,9 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 // Register validation filters
 builder.Services.AddScoped(typeof(ValidationFilter<>));
 
+// Register profile picture helper
+builder.Services.AddScoped<Identity.Application.Helpers.ProfilePictureHelper>();
+
 // ============================================
 // HTTP Clients for Service-to-Service Communication
 // ============================================
@@ -366,6 +369,12 @@ builder.Services.AddHttpClient("NotificationService", client =>
         client.DefaultRequestHeaders.Add("X-Service-Name", "IdentityService");
     }
 });
+
+// Register FileManager service client for service-to-service communication
+builder.Services.AddFileManagerServiceClient(
+    builder.Configuration,
+    "IdentityService",
+    builder.Environment.IsDevelopment());
 
 // ============================================
 // Build & Configure Pipeline

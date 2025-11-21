@@ -11,7 +11,7 @@ public record UpdateProfileCommand(
     string FirstName,
     string LastName,
     string? PhoneNumber,
-    string? ProfilePictureUrl,
+    int? ProfilePictureId,
     int? Id,
     string? Data = null
 ) : IRequest<UserDto>;

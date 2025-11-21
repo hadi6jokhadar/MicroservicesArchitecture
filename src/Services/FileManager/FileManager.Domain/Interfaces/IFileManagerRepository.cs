@@ -6,6 +6,7 @@ namespace FileManager.Domain.Interfaces;
 public interface IFileManagerRepository
 {
     Task<FileManagerEntity?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<List<FileManagerEntity>> GetByIdsAsync(List<int> ids, CancellationToken cancellationToken = default);
     Task<(List<FileManagerEntity> Items, int TotalCount)> GetAllAsync(
         int? id = null,
         bool? status = null,

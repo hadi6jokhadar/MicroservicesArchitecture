@@ -4,6 +4,7 @@ using MediatR;
 using IhsanDev.Shared.Application.Common.Models;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
+using Identity.Application.Helpers;
 using Identity.Domain.Entities;
 using IhsanDev.Shared.Kernel.Enums.Identity;
 using IhsanDev.Shared.Application.Exceptions;
@@ -15,13 +16,16 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
 {
     private readonly IUserRepository _userRepository;
     private readonly IUserService _userService;
+    private readonly ProfilePictureHelper _profilePictureHelper;
 
     public RegisterCommandHandler(
         IUserRepository userRepository,
-        IUserService userService)
+        IUserService userService,
+        ProfilePictureHelper profilePictureHelper)
     {
         _userRepository = userRepository;
         _userService = userService;
+        _profilePictureHelper = profilePictureHelper;
     }
 
     public async Task<UserDtoIncludesToken> Handle(
@@ -65,7 +69,14 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
 
             // Generate tokens
             var authResult = await _userService.GenerateTokensAsync(user);
-
+            
+            // Enrich with profile picture
+            await _profilePictureHelper.EnrichWithProfilePictureAsync(
+                authResult,
+                user.ProfilePictureId,
+                user.Id,
+                cancellationToken);
+            
             return authResult;
         }
         catch (AppException)

@@ -103,6 +103,17 @@ public class FileManagerService : IFileManagerService
         return entity != null ? FileManagerResponse.MapFrom(entity, _urlPrefix) : null;
     }
 
+    public async Task<List<FileManagerResponse>> GetFilesByIdsAsync(List<int> ids, CancellationToken cancellationToken = default)
+    {
+        if (ids == null || !ids.Any())
+        {
+            return new List<FileManagerResponse>();
+        }
+
+        var entities = await _repository.GetByIdsAsync(ids, cancellationToken);
+        return entities.Select(e => FileManagerResponse.MapFrom(e, _urlPrefix)).ToList();
+    }
+
     public async Task<PaginatedList<FileManagerResponse>> GetFilesAsync(
         FileManagerListRequest request,
         CancellationToken cancellationToken = default)
