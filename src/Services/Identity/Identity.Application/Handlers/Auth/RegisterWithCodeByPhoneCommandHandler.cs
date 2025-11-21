@@ -39,8 +39,8 @@ public class RegisterWithCodeByPhoneCommandHandler : IRequestHandler<RegisterWit
             var otpSettings = GetOtpSettings();
 
             // Check if phone number exists
-            var existingUser = await _userRepository.GetByPhoneNumberAsync(request.PhoneNumber, cancellationToken);
-            if (existingUser != null)
+            bool phoneExists = await _userRepository.PhoneNumberExistsAsync(request.PhoneNumber, cancellationToken);
+            if (phoneExists)
             {
                 throw new ConflictException(LocalizationKeys.Exceptions.PhoneAlreadyRegistered);
             }
