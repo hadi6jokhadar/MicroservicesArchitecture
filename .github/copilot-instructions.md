@@ -2,52 +2,36 @@
 
 ## Project Overview
 
-This is a .NET 8 microservices architecture implementing Clean Architecture, DDD, and CQRS patterns with optional multi-tenancy and database-per-tenant support.
+.NET 8 microservices with Clean Architecture, DDD, CQRS, optional multi-tenancy, and database-per-tenant support.
 
-## Critical Architecture Concepts
+## CRITICAL: Workflow for Every Task
 
-### Multi-Database Per-Tenant Pattern
+1. **Read** relevant `Doc/*.md` files first (start with `Doc/00_START_HERE.md`)
+2. **Implement** the requested changes
+3. **Update** affected documentation in `Doc/` folder
+4. **Update** `Doc/00_START_HERE.md` if you added/modified doc files
 
-- **ONE service binary**, **MULTIPLE tenant databases** - Each tenant gets their own isolated database
-- Request flow: `Client → TenantMiddleware → Tenant Service (config) → Dynamic DbContext → Tenant's DB`
-- `x-tenant-id` header REQUIRED when `MultiTenancy:Enabled=true`, triggers tenant resolution
-- When disabled: uses `appsettings.json` with single database
-- **Automatic DB creation**: First request auto-creates and migrates tenant database (no manual provisioning)
-- See: `Doc/DATABASE_PER_TENANT_ARCHITECTURE.md`, `Doc/AUTOMATIC_DATABASE_MIGRATION.md`
+## Architecture Quick Reference
 
-### TenantId vs ProjectId (Critical Distinction)
+### Multi-Tenancy Modes
 
-- **TenantId**: Database boundary - different DBs = complete isolation
-- **ProjectId**: Logical filter within same DB - soft isolation via WHERE clauses
-- Same email in different tenants = different users (different DBs)
-- Same email in different projects = same user (same DB, filtered by ProjectId)
-- See: `Doc/PROJECT_ISOLATION_STRATEGY_GUIDE.md`
+**Enabled=true** (x-tenant-id header required):
 
-### Multi-Tenancy Configuration
+- Each tenant = separate database (complete isolation)
+- Auto-creates tenant DB on first request
+- Fetches config from Tenant Service
+- JwtMode: "Shared" (superadmin access all) or "PerTenant" (isolated)
 
-```json
-{
-  "MultiTenancy": {
-    "Enabled": true, // Toggle for entire system
-    "JwtMode": "Shared", // "Shared" (superadmin) or "PerTenant" (isolated)
-    "TenantServiceUrl": "https://localhost:5002",
-    "CacheExpirationMinutes": 30
-  }
-}
-```
+**Enabled=false** (traditional mode):
 
-- **Enabled=false**: Traditional mode, uses appsettings.json (no tenant header)
-- **Enabled=true**: Tenant mode, requires `x-tenant-id` header, fetches config from Tenant Service
-- **JwtMode="Shared"**: Superadmin can access all tenants with one JWT secret
-- **JwtMode="PerTenant"**: Each tenant validates JWT with their own secret
+- Single database from appsettings.json
+- No tenant header needed
 
-### JWT Tenant Verification (Security)
+**Optional Tenant** (Identity, FileManager, Notification):
 
-- **NEW (Nov 2025)**: Prevents tenant impersonation by verifying JWT's `tenant_id` claim matches `x-tenant-id` header
-- Tenant users CANNOT access other tenants by changing header (returns 403 Forbidden)
-- Global users (SuperAdmin, Services) with no `tenant_id` claim can access any tenant
-- Middleware: `UseJwtTenantVerification()` - MUST be after `UseTenantResolution()`, before `UseAuthentication()`
-- See: `Doc/JWT_TENANT_VERIFICATION_IMPLEMENTATION.md`, `Doc/JWT_TENANT_VERIFICATION_QUICK_SUMMARY.md`
+- Works with OR without x-tenant-id header
+- Apply `OptionalTenantAttribute` at group level, not per endpoint
+- Requires dual database migration (global + tenant)
 
 ## Project Structure & Layer Responsibilities
 
@@ -76,42 +60,18 @@ Services/{ServiceName}/
 **ALL DateTime properties in DTOs are strings formatted as UTC:**
 
 ```csharp
-// DTO Definition
-public class MyDto
-{
-    public string Created { get; set; } = string.Empty;
-    public string? LastModified { get; set; }
-}
-
-// MapFrom Method (ALWAYS use ToUniversalTime)
 public static MyDto MapFrom(MyEntity entity)
 {
     return new MyDto
     {
-        Id = entity.Id,
         Created = entity.Created.ToUniversalTime()
-            .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
-        LastModified = entity.LastModified?.ToUniversalTime()
             .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
     };
 }
-
-// LINQ Select (EF Core queries)
-var dtoQuery = query.Select(e => new MyDto
-{
-    Id = e.Id,
-    Created = e.Created.ToUniversalTime()
-        .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
-});
 ```
-
-**Critical Rules:**
 
 - ✅ **ALWAYS** use `.ToUniversalTime()` before `.ToString()`
 - ✅ Format: `"yyyy-MM-ddTHH:mm:ssZ"` with `CultureInfo.InvariantCulture`
-- ✅ PostgreSQL configured with `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false)`
-- ✅ Test parsing: `DateTime.Parse(dto.Created, null, DateTimeStyles.RoundtripKind)`
-- ❌ **NEVER** use `DateTime.ToString()` without `.ToUniversalTime()` first
 - See: `Doc/DATETIME_STANDARDIZATION_SUMMARY.md`
 
 ### Manual Mapping Pattern (No AutoMapper)
@@ -121,188 +81,66 @@ var dtoQuery = query.Select(e => new MyDto
 ```csharp
 public class UserDto
 {
-    public int Id { get; set; }
-    public string Email { get; set; } = string.Empty;
-    public string Created { get; set; } = string.Empty;
-
     public static UserDto MapFrom(User user)
     {
-        return new UserDto
-        {
-            Id = user.Id,
-            Email = user.Email,
-            Created = user.Created.ToUniversalTime()
-                .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
-        };
+        return new UserDto { Id = user.Id, Email = user.Email };
     }
 }
 ```
 
-**Benefits:**
-
-- ✅ Explicit, type-safe mappings
-- ✅ No reflection overhead
-- ✅ IDE autocomplete support
-- ✅ Easier debugging and refactoring
-- See: `Doc/AUTOMAPPER_REMOVAL_SUMMARY.md`
+See: `Doc/AUTOMAPPER_REMOVAL_SUMMARY.md`
 
 ### CQRS with MediatR
 
 ```csharp
-// Commands/Queries in Application layer
+// Command
 public record LoginCommand(string Email, string Password) : IRequest<UserDtoIncludesToken>;
 
-// Handlers in Application/Handlers/{Feature}/
+// Handler in Application/Handlers/{Feature}/
 public class LoginCommandHandler : IRequestHandler<LoginCommand, UserDtoIncludesToken>
 {
-    // Constructor injection: IUserRepository, IJwtTokenGenerator, INotificationServiceClient
     public async Task<UserDtoIncludesToken> Handle(LoginCommand request, CancellationToken ct) { }
 }
 
-// Endpoint in API layer (Minimal APIs)
-app.MapPost("/api/auth/login", async (LoginCommand command, IMediator mediator)
-    => await mediator.Send(command));
+// Endpoint (Minimal APIs)
+app.MapPost("/api/auth/login", async (LoginCommand cmd, IMediator mediator)
+    => await mediator.Send(cmd));
 ```
 
-### Database Context Registration (Multi-Provider + Multi-Tenant)
+### Database Context Registration
 
 ```csharp
-// In Program.cs - supports PostgreSQL, SQL Server, MySQL, SQLite
+// Program.cs - supports PostgreSQL, SQL Server, MySQL, SQLite
 builder.Services.AddDatabaseContext<IdentityDbContext>(
     builder.Configuration,
     migrationAssembly: typeof(IdentityDbContext).Assembly.GetName().Name);
 
-// Automatic migration middleware (if-else based on MultiTenancy:Enabled)
+// Auto-migration
 if (multiTenancyEnabled)
-    app.UseTenantDatabaseMigration(); // Requires x-tenant-id header
+    app.UseTenantDatabaseMigration();
 else
-    app.UseDefaultDatabaseMigration(); // Uses appsettings.json
+    app.UseDefaultDatabaseMigration();
 ```
 
 ### Service-to-Service Communication
 
-- **Shared secret authentication**: Services call each other with `X-Service-Secret` header
-- **No JWT required**: Middleware creates service identity with "Service" role
-- **Client usage**: Inject `INotificationServiceClient` (from Shared.Infrastructure)
-
-```csharp
-await _notificationClient.SendNotificationAsync(
-    tenantId: "acme-corp",
-    userId: user.Id,
-    title: "Welcome!",
-    message: "You successfully logged in");
-```
-
+- Services call each other with `X-Service-Secret` header (no JWT)
+- Inject `INotificationServiceClient` from Shared.Infrastructure
 - See: `Doc/SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md`
 
-### Caching Strategy (Redis with Automatic Fallback)
+### Caching Strategy
 
-- **Production**: Set `Redis:Enabled=true` for distributed caching across instances
-- **Development**: Set `Redis:Enabled=false` for automatic in-memory fallback
-- **No code changes needed** - abstraction handles fallback transparently
-- Used for: Tenant configs (95% fewer API calls), SignalR backplane
+- `Redis:Enabled=true` (production) or `false` (dev - auto in-memory fallback)
+- Used for tenant configs, SignalR backplane
 - See: `Doc/REDIS_ENABLED_VS_DISABLED_GUIDE.md`
-
-## Development Workflows
-
-### Running Services
-
-```bash
-# Identity Service (port 5001)
-cd src/Services/Identity/Identity.API
-dotnet run
-
-# Tenant Service (port 5002)
-cd src/Services/Tenant/Tenant.API
-dotnet run
-
-# Notification Service (port 5004)
-cd src/Services/Notification/Notification.API
-dotnet run
-
-# Or use batch file for all services
-run-all-development-instances.bat
-```
-
-### Database Migrations
-
-```bash
-# Add migration (from Infrastructure project)
-cd src/Services/Identity/Identity.Infrastructure
-dotnet ef migrations add MigrationName --startup-project ../Identity.API
-
-# Manual migration (usually unnecessary - auto-migration handles it)
-cd src/Services/Identity/Identity.API
-dotnet ef database update
-```
-
-### Testing
-
-- Integration tests in `{Service}.API.Tests/` - Use `WebApplicationFactory`
-- Use `TenantTestHelper` from Shared.Testing for tenant data generation
-- Example: `src/Services/Identity/Identity.API.Tests/`
-
-### Package Management (Central Package Versioning)
-
-- **All versions in**: `Directory.Packages.props` (root)
-- **Projects reference without version**: `<PackageReference Include="MediatR" />`
-- **Update script**: `.\update-csproj.ps1` (PowerShell)
 
 ## Key Files to Reference
 
-### Starting Points
-
 - `Doc/00_START_HERE.md` - Complete documentation index
-- `Doc/README.md` - Project overview and roadmap
-- `Doc/QUICK_REFERENCE.md` - Common scenarios
-
-### Creating New Services
-
-- `Doc/NEW_SERVICE_INTEGRATION_GUIDE.md` - Step-by-step service creation (auth, multi-tenancy, testing)
-
-### Multi-Tenancy
-
-- `Doc/MULTI_TENANCY_GUIDE.md` - Comprehensive guide
-- `Doc/MULTI_TENANCY_QUICK_START.md` - Quick setup
-
-### Performance & Scaling
-
-- `Doc/BOTTLENECKS_COMPLETION_SUMMARY.md` - All 11 performance optimizations (100k+ concurrent users)
-- `Doc/PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md` - Multi-tenant parallel processing (2-50x speedup)
-- `Doc/PERFORMANCE_OPTIMIZATION_GUIDE.md` - Performance tuning guide
-- `Doc/DATABASE_REPLICATION_SETUP_GUIDE.md` - PostgreSQL HA with automatic failover
-
-### Notification System
-
-- `Doc/NOTIFICATION_SERVICE_README.md` - Complete notification guide
-- `Doc/NOTIFICATION_HUB_GUIDE.md` - SignalR hub implementation
-
-## Configuration Patterns
-
-### JWT Configuration (MUST be identical across all services)
-
-```json
-{
-  "Jwt": {
-    "Secret": "your-secret-minimum-32-chars",
-    "Issuer": "IdentityService",
-    "Audience": "MicroservicesApp",
-    "AccessTokenExpirationMinutes": 21600,
-    "RefreshTokenExpirationDays": 7
-  }
-}
-```
-
-### Database Configuration (Multi-Provider)
-
-```json
-{
-  "DatabaseSettings": {
-    "Provider": "PostgreSql", // or "SqlServer", "MySql", "Sqlite"
-    "ConnectionString": "Host=localhost;Database=IdentityDb;Username=user;Password=pass"
-  }
-}
-```
+- `Doc/NEW_SERVICE_INTEGRATION_GUIDE.md` - Creating new services
+- `Doc/MULTI_TENANCY_QUICK_START.md` - Multi-tenancy setup
+- `Doc/BYPASS_TENANT_ENDPOINTS_GUIDE.md` - Admin/global endpoints
+- `Doc/BOTTLENECKS_COMPLETION_SUMMARY.md` - Performance optimizations
 
 ## Common Pitfalls & Solutions
 
@@ -386,33 +224,7 @@ if (multiTenancyEnabled)
 }
 ```
 
-#### Optional Tenant Context in Endpoints
-
-```csharp
-// ✅ Make tenantId optional, manually set context only if provided
-adminGroup.MapPost("/files", async (
-    [FromQuery] string? tenantId, // Optional
-    ITenantContext tenantContext,
-    ITenantConfigurationProvider tenantConfigProvider) =>
-{
-    if (!string.IsNullOrWhiteSpace(tenantId))
-    {
-        var tenant = await tenantConfigProvider.GetTenantConfigurationAsync(tenantId, ct);
-        tenantContext.SetTenant(tenant);
-    }
-    // else: No tenant context, uses global database
-})
-.WithMetadata(new BypassTenantAttribute());
-```
-
 **See**: `Doc/BYPASS_TENANT_ENDPOINTS_GUIDE.md` - Complete implementation guide with examples
-
-## Documentation Rules
-
-- **ALWAYS read** `Doc/*.md` files before making architectural changes
-- **ALWAYS update** relevant documentation after completing features
-- Start with `Doc/00_START_HERE.md` for navigation
-- Most docs are production-ready (✅ in doc index)
 
 ## Quick Decision Tree
 
@@ -430,11 +242,11 @@ adminGroup.MapPost("/files", async (
 ## Technology Stack Reference
 
 - **.NET 8**, **C# 12**, **EF Core 9.0**
-- **MediatR 12.4** (CQRS), **FluentValidation 12.0**, **AutoMapper 12.0**
+- **MediatR 12.4** (CQRS), **FluentValidation 12.0**
 - **PostgreSQL** (primary), SQL Server, MySQL, SQLite supported
 - **Redis 2.7** (distributed cache), **SignalR 8.0** (real-time)
 - **xUnit 2.6**, **Moq 4.20**, **FluentAssertions 6.12**
 
 ---
 
-**Last Updated**: January 2025 | **Version**: 2.0
+**Last Updated**: November 2025 | **Version**: 2.1
