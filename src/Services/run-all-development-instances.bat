@@ -9,10 +9,6 @@ REM Tenant Service - Yellow (#FFFF00)
 wt.exe --tabColor "#FFFF00" --title "Tenant Service" cmd.exe /k "cd /d "%~dp0Tenant\Tenant.API" && run-development-instance.bat"
 timeout /t 4 /nobreak >nul
 
-REM Identity Service - run-tenant-instance.bat - Green (#00FF00)
-wt.exe --tabColor "#00FF00" --title "Identity - Tenant Instance" cmd.exe /k "cd /d "%~dp0Identity\Identity.API" && run-tenant-instance.bat"
-timeout /t 4 /nobreak >nul
-
 REM Identity Service - run-development-instance.bat - Green (#00FF00)
 wt.exe --tabColor "#00FF00" --title "Identity - Dev Instance" cmd.exe /k "cd /d "%~dp0Identity\Identity.API" && run-development-instance.bat"
 timeout /t 4 /nobreak >nul

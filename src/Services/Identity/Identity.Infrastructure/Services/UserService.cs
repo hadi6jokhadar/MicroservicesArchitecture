@@ -49,7 +49,7 @@ public class UserService : IUserService
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         
-        // Determine JWT settings based on MultiTenancy mode
+        // Determine JWT settings based on MultiTenancy mode and tenant context
         var multiTenancyEnabled = _configuration.GetValue<bool>("MultiTenancy:Enabled", false);
         string jwtSecret;
         string jwtIssuer;
@@ -57,19 +57,12 @@ public class UserService : IUserService
         int expiryMinutes;
         int refreshTokenExpiryDays;
         
-        if (multiTenancyEnabled)
+        if (multiTenancyEnabled && 
+            _tenantContext.HasTenant && 
+            _tenantContext.CurrentTenant?.Configuration?.Jwt != null &&
+            !string.IsNullOrWhiteSpace(_tenantContext.CurrentTenant.Configuration.Jwt.Secret))
         {
-            // When multi-tenancy is enabled, ONLY use tenant-specific JWT settings
-            if (!_tenantContext.HasTenant || 
-                _tenantContext.CurrentTenant?.Configuration?.Jwt == null ||
-                string.IsNullOrWhiteSpace(_tenantContext.CurrentTenant.Configuration.Jwt.Secret))
-            {
-                throw new InvalidOperationException(
-                    "Multi-tenancy is enabled but tenant JWT configuration is not available. " +
-                    "Ensure x-tenant-id header is provided and tenant exists with valid JWT settings.");
-            }
-
-            // Use tenant-specific JWT settings
+            // Use tenant-specific JWT settings when available
             var tenantJwt = _tenantContext.CurrentTenant.Configuration.Jwt;
             jwtSecret = tenantJwt.Secret!;
             jwtIssuer = tenantJwt.Issuer ?? "IdentityService";
@@ -80,16 +73,34 @@ public class UserService : IUserService
             refreshTokenExpiryDays = tenantJwt.RefreshTokenExpirationDays > 0 
                 ? tenantJwt.RefreshTokenExpirationDays 
                 : 7;
+            
+            _logger.LogInformation("🔐 Generating JWT token using TENANT-SPECIFIC settings for tenant '{TenantId}' (Issuer: {Issuer}, Expiry: {Expiry} min)", 
+                _tenantContext.CurrentTenant.TenantId, jwtIssuer, expiryMinutes);
         }
         else
         {
-            // When multi-tenancy is disabled, use appsettings.json
+            // Fall back to global JWT settings from appsettings.json
+            // This happens when:
+            // 1. Multi-tenancy is disabled, OR
+            // 2. No tenant context (x-tenant-id not provided), OR
+            // 3. Tenant has no JWT configuration
             jwtSecret = _configuration["Jwt:Secret"] 
                 ?? throw new InvalidOperationException("JWT Secret is not configured in appsettings.json");
             jwtIssuer = _configuration["Jwt:Issuer"] ?? "IdentityService";
             jwtAudience = _configuration["Jwt:Audience"] ?? "MicroservicesApp";
             expiryMinutes = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60);
             refreshTokenExpiryDays = _configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7);
+            
+            if (multiTenancyEnabled && _tenantContext.HasTenant)
+            {
+                _logger.LogInformation("🔐 Generating JWT token using DEFAULT settings for tenant '{TenantId}' (tenant has no custom JWT config) (Issuer: {Issuer}, Expiry: {Expiry} min)", 
+                    _tenantContext.CurrentTenant?.TenantId ?? "Unknown", jwtIssuer, expiryMinutes);
+            }
+            else
+            {
+                _logger.LogInformation("🔐 Generating JWT token using DEFAULT settings (no tenant context) (Issuer: {Issuer}, Expiry: {Expiry} min)", 
+                    jwtIssuer, expiryMinutes);
+            }
         }
         
         var key = Encoding.UTF8.GetBytes(jwtSecret);
@@ -126,6 +137,9 @@ public class UserService : IUserService
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(refreshTokenExpiryDays);
         
         await _userRepository.UpdateRefreshTokenAsync(user.Id, refreshToken, refreshTokenExpiry);
+
+        _logger.LogInformation("✅ JWT token generated successfully for user '{Email}' (UserId: {UserId}, Expires: {Expires})", 
+            user.Email, user.Id, tokenDescriptor.Expires);
 
         // Manual mapping
         var authenticationResult = UserDtoIncludesToken.MapFrom(user);

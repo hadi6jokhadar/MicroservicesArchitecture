@@ -4,6 +4,7 @@ using Identity.Application.Commands;
 using Identity.Application.Commands.Auth;
 using Identity.Application.Commands.DeviceToken;
 using Identity.Application.DTOs;
+using IhsanDev.Shared.Infrastructure.Attributes;
 
 namespace Identity.API.Extensions;
 
@@ -19,26 +20,29 @@ public static class EndpointMappingExtensions
             .RequireAuthorization(policy => policy.RequireRole("User"))
             .WithOpenApi();
 
-        // Profile endpoints
+        // Profile endpoints - OptionalTenant: user can access their profile with or without tenant context
         userGroup.MapGet("/profile", UserApiHandlers.GetProfileHandler)
             .WithName("GetProfile")
             .WithSummary("Get current user profile")
-            .WithDescription("Get the profile information of the authenticated user")
-            .Produces<object>(200);
+            .WithDescription("Get the profile information of the authenticated user. x-tenant-id header is optional.")
+            .Produces<object>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
         userGroup.MapPut("/profile", UserApiHandlers.UpdateProfileHandler)
             .WithName("UpdateProfile")
             .WithSummary("Update current user profile")
-            .WithDescription("Update the profile information of the authenticated user")
+            .WithDescription("Update the profile information of the authenticated user. x-tenant-id header is optional.")
             .Produces<object>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<UpdateProfileCommand>>();
+            .AddEndpointFilter<ValidationFilter<UpdateProfileCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         userGroup.MapDelete("/me", UserApiHandlers.DeleteUserHandler)
             .WithName("DeleteUser")
             .WithSummary("Delete current user account")
-            .WithDescription("Permanently delete the authenticated user's account")
-            .Produces<object>(200);
+            .WithDescription("Permanently delete the authenticated user's account. x-tenant-id header is optional.")
+            .Produces<object>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
         return app;
     }
@@ -55,90 +59,101 @@ public static class EndpointMappingExtensions
         authGroup.MapPost("/login", AuthApiHandlers.LoginHandler)
             .WithName("AuthLogin")
             .WithSummary("User login")
-            .WithDescription("Authenticate user with email and password")
+            .WithDescription("Authenticate user with email and password. x-tenant-id header is optional.")
             .Produces<UserDtoIncludesToken>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<LoginCommand>>();
+            .AddEndpointFilter<ValidationFilter<LoginCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/register", AuthApiHandlers.RegisterHandler)
             .WithName("AuthRegister")
             .WithSummary("Register a new user account")
-            .WithDescription("Create a new user account with email and password")
+            .WithDescription("Create a new user account with email and password. x-tenant-id header is optional.")
             .Produces<UserDtoIncludesToken>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<RegisterCommand>>();
+            .AddEndpointFilter<ValidationFilter<RegisterCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/forgot-password", AuthApiHandlers.ForgotPasswordHandler)
             .WithName("ForgotPassword")
             .WithSummary("Request password reset")
-            .WithDescription("Send password reset link to user's email")
+            .WithDescription("Send password reset link to user's email. x-tenant-id header is optional.")
             .Produces<object>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<ForgetPasswordCommand>>();
+            .AddEndpointFilter<ValidationFilter<ForgetPasswordCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/refresh", AuthApiHandlers.RefreshTokenHandler)
             .WithName("AuthRefresh")
             .WithSummary("Refresh access token")
-            .WithDescription("Get a new access token using refresh token")
+            .WithDescription("Get a new access token using refresh token. x-tenant-id header is optional.")
             .Produces<UserDtoIncludesToken>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<RefreshTokenCommand>>();
+            .AddEndpointFilter<ValidationFilter<RefreshTokenCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/logout", AuthApiHandlers.LogoutHandler)
             .RequireAuthorization()
             .WithName("AuthLogout")
             .WithSummary("Logout current user")
-            .WithDescription("Revoke refresh token and logout user")
-            .Produces<object>(200);
+            .WithDescription("Revoke refresh token and logout user. x-tenant-id header is optional.")
+            .Produces<object>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
         // Phone verification endpoints
         authGroup.MapPost("/get-verification-code-by-phone", AuthApiHandlers.GetVerificationCodeByPhoneHandler)
             .WithName("GetVerificationCodeByPhone")
             .WithSummary("Get verification code for phone number")
-            .WithDescription("Generate and send a 5-digit verification code to the user's phone number")
+            .WithDescription("Generate and send a 5-digit verification code to the user's phone number. x-tenant-id header is optional.")
             .Produces<object>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<GetVerificationCodeByPhoneCommand>>();
+            .AddEndpointFilter<ValidationFilter<GetVerificationCodeByPhoneCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/get-verification-code-by-email", AuthApiHandlers.GetVerificationCodeByEmailHandler)
             .WithName("GetVerificationCodeByEmail")
             .WithSummary("Get verification code for email")
-            .WithDescription("Generate and send a 5-digit verification code to the user's email")
+            .WithDescription("Generate and send a 5-digit verification code to the user's email. x-tenant-id header is optional.")
             .Produces<object>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<GetVerificationCodeByEmailCommand>>();
+            .AddEndpointFilter<ValidationFilter<GetVerificationCodeByEmailCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/login-with-code-by-phone", AuthApiHandlers.LoginWithCodeByPhoneHandler)
             .WithName("LoginWithCodeByPhone")
             .WithSummary("Login with phone number and verification code")
-            .WithDescription("Authenticate user using phone number and verification code")
+            .WithDescription("Authenticate user using phone number and verification code. x-tenant-id header is optional.")
             .Produces<UserDtoIncludesToken>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<LoginWithCodeByPhoneCommand>>();
+            .AddEndpointFilter<ValidationFilter<LoginWithCodeByPhoneCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/login-with-code-by-email", AuthApiHandlers.LoginWithCodeByEmailHandler)
             .WithName("LoginWithCodeByEmail")
             .WithSummary("Login with email and verification code")
-            .WithDescription("Authenticate user using email and verification code")
+            .WithDescription("Authenticate user using email and verification code. x-tenant-id header is optional.")
             .Produces<UserDtoIncludesToken>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<LoginWithCodeByEmailCommand>>();
+            .AddEndpointFilter<ValidationFilter<LoginWithCodeByEmailCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/register-with-code-by-phone", AuthApiHandlers.RegisterWithCodeByPhoneHandler)
             .WithName("RegisterWithCodeByPhone")
             .WithSummary("Register new user with phone verification")
-            .WithDescription("Create a new user account using phone number (no email or password required)")
+            .WithDescription("Create a new user account using phone number (no email or password required). x-tenant-id header is optional.")
             .Produces<object>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<RegisterWithCodeByPhoneCommand>>();
+            .AddEndpointFilter<ValidationFilter<RegisterWithCodeByPhoneCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/register-with-code-by-email", AuthApiHandlers.RegisterWithCodeByEmailHandler)
             .WithName("RegisterWithCodeByEmail")
             .WithSummary("Register new user with email verification")
-            .WithDescription("Create a new user account using email (no phone or password required)")
+            .WithDescription("Create a new user account using email (no phone or password required). x-tenant-id header is optional.")
             .Produces<object>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<RegisterWithCodeByEmailCommand>>();
+            .AddEndpointFilter<ValidationFilter<RegisterWithCodeByEmailCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         return app;
     }
@@ -153,46 +168,52 @@ public static class EndpointMappingExtensions
             .WithTags("Admin User Management")
             .WithOpenApi();
 
-        // User management endpoints (Admin only)
+        // User management endpoints (Admin only) - OptionalTenant: Admin can manage users across tenants or global database
         adminGroup.MapGet("/users", AdminApiHandlers.GetUsersHandler)
             .WithName("GetAllUsers")
             .WithSummary("Get all users")
-            .WithDescription("Retrieve paginated list of all users (Admin only)")
-            .Produces<object>(200);
+            .WithDescription("Retrieve paginated list of all users (Admin only). x-tenant-id header is optional - if provided, retrieves tenant users; otherwise retrieves global users.")
+            .Produces<object>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
         adminGroup.MapGet("/users/{id:int}", AdminApiHandlers.GetUserByIdHandler)
             .WithName("GetUserById")
             .WithSummary("Get user by ID")
-            .WithDescription("Retrieve user details by ID (Admin only)")
-            .Produces<object>(200);
+            .WithDescription("Retrieve user details by ID (Admin only). x-tenant-id header is optional.")
+            .Produces<object>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
         adminGroup.MapPost("/users", AdminApiHandlers.CreateUserHandler)
             .WithName("CreateUser")
             .WithSummary("Create new user")
-            .WithDescription("Create a new user account (Admin only)")
+            .WithDescription("Create a new user account (Admin only). x-tenant-id header is optional - if provided, creates user in tenant database; otherwise in global database.")
             .Produces<object>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<CreateUserCommand>>();
+            .AddEndpointFilter<ValidationFilter<CreateUserCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         adminGroup.MapPut("/users/{id:int}", AdminApiHandlers.UpdateUserHandler)
             .WithName("UpdateUser")
             .WithSummary("Update user")
-            .WithDescription("Update user information (Admin only)")
+            .WithDescription("Update user information (Admin only). x-tenant-id header is optional.")
             .Produces<object>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<UpdateUserCommand>>();
+            .AddEndpointFilter<ValidationFilter<UpdateUserCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
         adminGroup.MapPatch("/users/{id:int}/toggle-status", AdminApiHandlers.ToggleUserStatusHandler)
             .WithName("ToggleUserStatus")
             .WithSummary("Toggle user status")
-            .WithDescription("Enable or disable user account (Admin only)")
-            .Produces<object>(200);
+            .WithDescription("Enable or disable user account (Admin only). x-tenant-id header is optional.")
+            .Produces<object>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
         adminGroup.MapDelete("/users/{id:int}", AdminApiHandlers.DeleteUserHandler)
             .WithName("DeleteUserById")
             .WithSummary("Delete user")
-            .WithDescription("Permanently delete user account (Admin only)")
-            .Produces<object>(200);
+            .WithDescription("Permanently delete user account (Admin only). x-tenant-id header is optional.")
+            .Produces<object>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
         return app;
     }
@@ -207,80 +228,90 @@ public static class EndpointMappingExtensions
             .RequireAuthorization(policy => policy.RequireRole("Service", "User", "Admin", "SuperAdmin"))
             .WithOpenApi();
 
-        // Add device token
+        // Add device token - OptionalTenant: Can register device tokens with or without tenant context
         deviceTokenGroup.MapPost("/", DeviceTokenApiHandlers.AddDeviceToken)
             .WithName("AddDeviceToken")
             .WithSummary("Add a new device token")
-            .WithDescription("Register a new device token for push notifications")
+            .WithDescription("Register a new device token for push notifications. x-tenant-id header is optional.")
             .Produces<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>(201)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<AddDeviceTokenCommand>>();
+            .AddEndpointFilter<ValidationFilter<AddDeviceTokenCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
-        // Get device token by ID
+        // Get device token by ID - OptionalTenant
         deviceTokenGroup.MapGet("/{id:int}", DeviceTokenApiHandlers.GetDeviceTokenById)
             .WithName("GetDeviceTokenById")
             .WithSummary("Get device token by ID")
-            .WithDescription("Retrieve a specific device token by ID")
+            .WithDescription("Retrieve a specific device token by ID. x-tenant-id header is optional.")
             .Produces<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>(200)
-            .Produces(404);
+            .Produces(404)
+            .WithMetadata(new OptionalTenantAttribute());
 
-        // Get all device tokens for a user
+        // Get all device tokens for a user - OptionalTenant
         deviceTokenGroup.MapGet("/user/{userId:int}", DeviceTokenApiHandlers.GetUserDeviceTokens)
             .WithName("GetUserDeviceTokens")
             .WithSummary("Get all device tokens for a user")
-            .WithDescription("Retrieve all device tokens registered for a specific user")
-            .Produces<List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>(200);
+            .WithDescription("Retrieve all device tokens registered for a specific user. x-tenant-id header is optional.")
+            .Produces<List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
-        // Get device tokens by user and platform
+        // Get device tokens by user and platform - OptionalTenant
         deviceTokenGroup.MapGet("/user/{userId:int}/platform", DeviceTokenApiHandlers.GetUserDeviceTokensByPlatform)
             .WithName("GetUserDeviceTokensByPlatform")
             .WithSummary("Get device tokens by user and platform")
-            .WithDescription("Retrieve device tokens for a specific user filtered by platform")
-            .Produces<List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>(200);
+            .WithDescription("Retrieve device tokens for a specific user filtered by platform. x-tenant-id header is optional.")
+            .Produces<List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
-        // Update device token
+        // Update device token - OptionalTenant
         deviceTokenGroup.MapPut("/{id:int}", DeviceTokenApiHandlers.UpdateDeviceToken)
             .WithName("UpdateDeviceToken")
             .WithSummary("Update a device token")
-            .WithDescription("Update an existing device token's information")
+            .WithDescription("Update an existing device token's information. x-tenant-id header is optional.")
             .Produces<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>(200)
             .ProducesValidationProblem()
-            .AddEndpointFilter<ValidationFilter<UpdateDeviceTokenCommand>>();
+            .AddEndpointFilter<ValidationFilter<UpdateDeviceTokenCommand>>()
+            .WithMetadata(new OptionalTenantAttribute());
 
-        // Delete device token
+        // Delete device token - OptionalTenant
         deviceTokenGroup.MapDelete("/{id:int}", DeviceTokenApiHandlers.DeleteDeviceToken)
             .WithName("DeleteDeviceToken")
             .WithSummary("Delete a device token")
-            .WithDescription("Remove a specific device token")
+            .WithDescription("Remove a specific device token. x-tenant-id header is optional.")
             .Produces(204)
-            .Produces(404);
+            .Produces(404)
+            .WithMetadata(new OptionalTenantAttribute());
 
-        // Delete all user device tokens
+        // Delete all user device tokens - OptionalTenant
         deviceTokenGroup.MapDelete("/user/{userId:int}", DeviceTokenApiHandlers.DeleteAllUserDeviceTokens)
             .WithName("DeleteAllUserDeviceTokens")
             .WithSummary("Delete all device tokens for a user")
-            .WithDescription("Remove all device tokens registered for a specific user")
-            .Produces(204);
+            .WithDescription("Remove all device tokens registered for a specific user. x-tenant-id header is optional.")
+            .Produces(204)
+            .WithMetadata(new OptionalTenantAttribute());
 
-        // Batch operations (service-to-service)
+        // Batch operations (service-to-service) - OptionalTenant for cross-tenant operations
         deviceTokenGroup.MapPost("/batch", DeviceTokenApiHandlers.GetBatchDeviceTokens)
             .WithName("GetBatchDeviceTokens")
             .WithSummary("Get device tokens for multiple users (batch)")
-            .WithDescription("Retrieve device tokens for multiple users in a single request. For service-to-service communication.")
-            .Produces<Dictionary<int, List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>>(200);
+            .WithDescription("Retrieve device tokens for multiple users in a single request. For service-to-service communication. x-tenant-id header is optional.")
+            .Produces<Dictionary<int, List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
         deviceTokenGroup.MapDelete("/batch", DeviceTokenApiHandlers.DeleteBatchDeviceTokens)
             .WithName("DeleteBatchDeviceTokens")
             .WithSummary("Delete multiple device tokens (batch)")
-            .WithDescription("Delete multiple device tokens in a single request. For service-to-service communication.")
-            .Produces<object>(200);
+            .WithDescription("Delete multiple device tokens in a single request. For service-to-service communication. x-tenant-id header is optional.")
+            .Produces<object>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
-        // Get all device tokens for current tenant
+        // Get all device tokens for current tenant - OptionalTenant (works as global if no tenant context)
         deviceTokenGroup.MapGet("/tenant", DeviceTokenApiHandlers.GetTenantDeviceTokens)
             .WithName("GetTenantDeviceTokens")
-            .WithSummary("Get all device tokens for current tenant")
-            .WithDescription("Retrieve all device tokens for the current tenant. Requires x-tenant-id header.")
-            .Produces<List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>(200);
+            .WithSummary("Get all device tokens for current tenant or global")
+            .WithDescription("Retrieve all device tokens for the current tenant if x-tenant-id is provided, otherwise retrieves from global database.")
+            .Produces<List<IhsanDev.Shared.Kernel.Dto.DeviceTokenDto>>(200)
+            .WithMetadata(new OptionalTenantAttribute());
 
         return app;
     }

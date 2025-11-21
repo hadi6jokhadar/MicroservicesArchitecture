@@ -1,11 +1,11 @@
 @echo off
 echo ========================================
-echo Identity API - Development Instance
+echo Identity API - Tenant + User Instance
 echo ========================================
-echo Environment: Development
+echo Environment: Tenant + User
 echo Ports: 5001 (HTTP) / 5101 (HTTPS)
 echo Database: global
-echo MultiTenancy: Enabled (PerTenant Mode)
+echo MultiTenancy: Disabled (Shared Mode)
 echo ========================================
 echo.
 
