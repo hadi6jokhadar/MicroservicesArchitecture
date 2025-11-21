@@ -37,6 +37,16 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
                 throw new ConflictException(LocalizationKeys.Exceptions.EmailAlreadyExists);
             }
 
+            // Check if phone number exists (if provided)
+            if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
+            {
+                bool phoneExists = await _userRepository.PhoneNumberExistsAsync(request.PhoneNumber, cancellationToken);
+                if (phoneExists)
+                {
+                    throw new ConflictException(LocalizationKeys.Exceptions.PhoneAlreadyRegistered);
+                }
+            }
+
             // Create user
             var user = new User
             {

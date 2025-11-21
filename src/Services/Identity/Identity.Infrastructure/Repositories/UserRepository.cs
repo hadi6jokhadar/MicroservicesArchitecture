@@ -38,6 +38,14 @@ public class UserRepository : Repository<User>, IUserRepository
             .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber && !u.IsArchived, cancellationToken);
     }
 
+    public async Task<bool> PhoneNumberExistsAsync(string phoneNumber, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+            return false;
+            
+        return await _dbSet.AnyAsync(u => u.PhoneNumber == phoneNumber && !u.IsArchived, cancellationToken);
+    }
+
     public IQueryable<User> GetUsersByRole(UserRole role)
     {
         return _dbSet
