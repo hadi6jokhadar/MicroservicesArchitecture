@@ -60,31 +60,7 @@ builder.Services.AddDatabaseMigration();
 // ============================================
 // Tenant Service ALWAYS uses JWT settings from appsettings.json
 // It does NOT load JWT settings from tenant configurations
-var jwtSettings = builder.Configuration.GetSection("Jwt");
-
-var secretKey = jwtSettings["Secret"]
-    ?? throw new InvalidOperationException("JWT Secret is not configured in appsettings.json");
-
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-        ValidateIssuer = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidateAudience = true,
-        ValidAudience = jwtSettings["Audience"],
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
-    };
-});
-builder.Services.AddAuthorization();
+builder.Services.AddJwtAuthenticationSharedOnly(builder.Configuration);
 
 // ============================================
 // CORS Configuration
