@@ -25,6 +25,17 @@ public interface IFileManagerServiceClient
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Dictionary mapping file IDs to file metadata (missing files excluded)</returns>
     Task<Dictionary<int, FileManagerDto>> GetFilesByIdsAsync(IEnumerable<int> fileIds, string? tenantId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Change file temp status (mark as permanent or temporary)
+    /// Used when entity is created/updated/deleted with file references
+    /// </summary>
+    /// <param name="fileId">The ID of the file to update</param>
+    /// <param name="temp">True to mark as temporary, false to mark as permanent</param>
+    /// <param name="tenantId">Optional tenant ID for multi-tenant files</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if successful, false if file not found or on error</returns>
+    Task<bool> ChangeTempStatusAsync(int fileId, bool temp, string? tenantId = null, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

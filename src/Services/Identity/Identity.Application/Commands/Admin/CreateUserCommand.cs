@@ -16,6 +16,7 @@ public record CreateUserCommand(
     string LastName,
     UserRole Role,
     string? PhoneNumber = null,
+    int? ProfilePictureId = null,
     string? Data = null
 ) : IRequest<UserDto>;
 

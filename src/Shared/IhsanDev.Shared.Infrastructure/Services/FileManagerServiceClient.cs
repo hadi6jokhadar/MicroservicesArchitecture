@@ -180,4 +180,53 @@ public class FileManagerServiceClient : IFileManagerServiceClient
             return result;
         }
     }
+
+    public async Task<bool> ChangeTempStatusAsync(
+        int fileId, 
+        bool temp, 
+        string? tenantId = null, 
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var endpoint = $"/api/filemanager/internal/files/{fileId}/temp-status?temp={temp}";
+            
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                endpoint += $"&tenantId={Uri.EscapeDataString(tenantId)}";
+            }
+
+            var response = await _httpClient.PatchAsync(endpoint, null, cancellationToken);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Failed to change temp status for file {FileId} - Status: {StatusCode}",
+                    fileId,
+                    response.StatusCode);
+                return false;
+            }
+
+            return true;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(
+                ex,
+                "HTTP error occurred while changing temp status for file {FileId}. Message: {Message}",
+                fileId,
+                ex.Message);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Unexpected error occurred while changing temp status for file {FileId}. Type: {ExceptionType}, Message: {Message}",
+                fileId,
+                ex.GetType().Name,
+                ex.Message);
+            return false;
+        }
+    }
 }

@@ -8,6 +8,8 @@ using Identity.Application.Services;
 using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
 using MediatR;
+using IhsanDev.Shared.Application.Common.Interfaces;
+using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -16,15 +18,21 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
     private readonly IUserRepository _userRepository;
     private readonly IUserService _userService;
     private readonly ProfilePictureHelper _profilePictureHelper;
+    private readonly IFileManagerServiceClient _fileManagerClient;
+    private readonly ITenantContext _tenantContext;
 
     public CreateUserCommandHandler(
         IUserRepository userRepository,
         IUserService userService,
-        ProfilePictureHelper profilePictureHelper)
+        ProfilePictureHelper profilePictureHelper,
+        IFileManagerServiceClient fileManagerClient,
+        ITenantContext tenantContext)
     {
         _userRepository = userRepository;
         _userService = userService;
         _profilePictureHelper = profilePictureHelper;
+        _fileManagerClient = fileManagerClient;
+        _tenantContext = tenantContext;
     }
 
     public async Task<UserDto> Handle(CreateUserCommand request, CancellationToken cancellationToken)
@@ -45,6 +53,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
                 LastName = request.LastName,
                 Role = request.Role,
                 PhoneNumber = request.PhoneNumber,
+                ProfilePictureId = request.ProfilePictureId,
                 Data = request.Data,
                 Created = DateTime.UtcNow,
                 Status = true,
@@ -52,6 +61,21 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
             };
 
             await _userRepository.AddAsync(user, cancellationToken);
+
+            // Mark profile picture as permanent if provided
+            if (request.ProfilePictureId.HasValue)
+            {
+                try
+                {
+                    var tenantId = _tenantContext.TenantId;
+                    await _fileManagerClient.ChangeTempStatusAsync(request.ProfilePictureId.Value, false, tenantId, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    // Log warning but don't fail the operation
+                    Console.WriteLine($"Warning: Failed to mark profile picture {request.ProfilePictureId} as permanent: {ex.Message}");
+                }
+            }
 
             var userDto = UserDto.MapFrom(user);
             

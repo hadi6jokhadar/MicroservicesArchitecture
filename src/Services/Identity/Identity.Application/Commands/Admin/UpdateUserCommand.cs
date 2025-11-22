@@ -15,6 +15,7 @@ public record UpdateUserCommand(
     string LastName,
     UserRole Role,
     string? PhoneNumber = null,
+    int? ProfilePictureId = null,
     bool? EmailConfirmed = null,
     bool? Status = null,
     string? Data = null

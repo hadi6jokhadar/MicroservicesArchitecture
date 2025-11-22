@@ -6,6 +6,8 @@ using Identity.Application.DTOs;
 using Identity.Application.Helpers;
 using Identity.Domain.Repositories;
 using MediatR;
+using IhsanDev.Shared.Application.Common.Interfaces;
+using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -13,13 +15,19 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
 {
     private readonly IUserRepository _userRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
+    private readonly IFileManagerServiceClient _fileManagerClient;
+    private readonly ITenantContext _tenantContext;
 
     public UpdateProfileCommandHandler(
         IUserRepository userRepository,
-        ProfilePictureHelper profilePictureHelper)
+        ProfilePictureHelper profilePictureHelper,
+        IFileManagerServiceClient fileManagerClient,
+        ITenantContext tenantContext)
     {
         _userRepository = userRepository;
         _profilePictureHelper = profilePictureHelper;
+        _fileManagerClient = fileManagerClient;
+        _tenantContext = tenantContext;
     }
 
     public async Task<UserDto> Handle(UpdateProfileCommand request, CancellationToken cancellationToken)
@@ -33,6 +41,9 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
             if (user == null)
                 throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
+            // Capture old profile picture ID before update
+            var oldProfilePictureId = user.ProfilePictureId;
+
             user.FirstName = request.FirstName;
             user.LastName = request.LastName;
             user.PhoneNumber = request.PhoneNumber;
@@ -41,6 +52,37 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
             user.LastModified = DateTime.UtcNow;
 
             await _userRepository.UpdateAsync(user, cancellationToken);
+
+            // Update temp status for old and new profile pictures
+            var tenantId = _tenantContext.TenantId;
+
+            // Mark old file as temporary (eligible for cleanup) if it changed
+            if (oldProfilePictureId.HasValue && oldProfilePictureId != request.ProfilePictureId)
+            {
+                try
+                {
+                    await _fileManagerClient.ChangeTempStatusAsync(oldProfilePictureId.Value, true, tenantId, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    // Log warning but don't fail the operation
+                    Console.WriteLine($"Warning: Failed to mark old profile picture {oldProfilePictureId} as temporary: {ex.Message}");
+                }
+            }
+
+            // Mark new file as permanent if provided
+            if (request.ProfilePictureId.HasValue)
+            {
+                try
+                {
+                    await _fileManagerClient.ChangeTempStatusAsync(request.ProfilePictureId.Value, false, tenantId, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    // Log warning but don't fail the operation
+                    Console.WriteLine($"Warning: Failed to mark new profile picture {request.ProfilePictureId} as permanent: {ex.Message}");
+                }
+            }
 
             var userProfile = UserDto.MapFrom(user);
             

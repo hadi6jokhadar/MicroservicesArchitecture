@@ -458,6 +458,43 @@ public static class FileManagerEndpoints
         .Produces<List<FileManagerResponse>>()
         .ExcludeFromDescription();
 
+        // Change file temp status - Internal endpoint for marking files as permanent/temp
+        // Used when entity (e.g., user) is created/updated/deleted with file references
+        internalGroup.MapPatch("/files/{id:int}/temp-status", async (
+            int id,
+            [FromQuery] bool temp,
+            [FromQuery] string? tenantId,
+            ITenantConfigurationProvider tenantConfigProvider,
+            HttpContext httpContext,
+            ILogger<Program> logger,
+            IServiceProvider serviceProvider,
+            CancellationToken cancellationToken) =>
+        {
+            // Validate service-to-service call
+            var isService = httpContext.User.HasClaim("IsInternalService", "true");
+            if (!isService)
+            {
+                logger.LogWarning("Internal temp-status endpoint access denied - missing claim");
+                return Results.Json(null, statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            // Create scope with tenant context set BEFORE DbContext resolution
+            var scopeResult = await CreateScopeWithTenantAsync(
+                serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
+            
+            using var scope = scopeResult.scope;
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+            
+            var command = new UpdateFileCommand(id, Name: null, Group: null, Status: null, IsArchived: null, Temp: temp);
+            var result = await mediator.Send(command, cancellationToken);
+            
+            return Results.Ok(result);
+        })
+        .WithName("ChangeTempStatusInternal")
+        .AllowAnonymous()
+        .Produces<FileManagerResponse?>()
+        .ExcludeFromDescription();
+
         // Download file by ID
         group.MapGet("/files/{id:int}/download", async (
             int id,
