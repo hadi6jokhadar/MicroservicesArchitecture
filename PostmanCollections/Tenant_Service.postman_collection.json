@@ -1,0 +1,215 @@
+{
+  "info": {
+    "name": "Tenant Service API",
+    "description": "Postman collection for Tenant microservice endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5002",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "your-tenant-id",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "your-jwt-token",
+      "type": "string"
+    },
+    {
+      "key": "serviceSecret",
+      "value": "CHANGE_ME_SHARED_SECRET",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Public Endpoints",
+      "item": [
+        {
+          "name": "Get Tenant Config (Service-to-Service)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tenant/config/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenant", "config", "{{tenantId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get All Active Tenants with Config",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tenant/config?pageNumber=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenant", "config"],
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Tenant by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tenant/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenant", "{{tenantId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Endpoints",
+      "item": [
+        {
+          "name": "Get All Active Tenants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tenant?pageNumber=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tenant"],
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Tenant by User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tenant/user/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tenant", "user", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Tenant\",\n  \"domain\": \"newtenant.com\",\n  \"description\": \"A new tenant\",\n  \"isActive\": true,\n  \"settings\": {\n    \"database\": {\n      \"connectionString\": \"Host=localhost;Database=newtenant;Username=postgres;Password=password\"\n    },\n    \"jwt\": {\n      \"secret\": \"tenant-specific-jwt-secret\"\n    },\n    \"cors\": {\n      \"allowedOrigins\": [\"https://newtenant.com\"]\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tenant",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tenant"]
+            }
+          }
+        },
+        {
+          "name": "Update Tenant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Tenant\",\n  \"domain\": \"updatedtenant.com\",\n  \"description\": \"An updated tenant\",\n  \"isActive\": true,\n  \"settings\": {\n    \"database\": {\n      \"connectionString\": \"Host=localhost;Database=updatedtenant;Username=postgres;Password=password\"\n    },\n    \"jwt\": {\n      \"secret\": \"updated-tenant-jwt-secret\"\n    },\n    \"cors\": {\n      \"allowedOrigins\": [\"https://updatedtenant.com\"]\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tenant/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tenant", "{{tenantId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Tenant",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tenant/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tenant", "{{tenantId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

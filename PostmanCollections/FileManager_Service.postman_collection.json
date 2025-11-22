@@ -1,0 +1,517 @@
+{
+  "info": {
+    "name": "FileManager Service API",
+    "description": "Postman collection for FileManager microservice endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5005",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "your-tenant-id",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "your-jwt-token",
+      "type": "string"
+    },
+    {
+      "key": "serviceSecret",
+      "value": "CHANGE_ME_SHARED_SECRET",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Get Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenant User Endpoints",
+      "item": [
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "group",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "userId",
+                  "value": "1",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/files",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "files"]
+            }
+          }
+        },
+        {
+          "name": "Get File by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/files/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "files", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Files List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/files?pageNumber=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "files"],
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update File Metadata",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated File Name\",\n  \"group\": \"Image\",\n  \"status\": true,\n  \"isArchived\": false,\n  \"temp\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/files/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "files", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete File",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/files/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "files", "1"]
+            }
+          }
+        },
+        {
+          "name": "Download File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/files/1/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "files", "1", "download"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Endpoints",
+      "item": [
+        {
+          "name": "Upload File (Global)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "group",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "userId",
+                  "value": "1",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/admin/files?tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "admin", "files"],
+              "query": [
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get File by ID (Global)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/admin/files/1?tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "admin", "files", "1"],
+              "query": [
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Files List (Global)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/admin/files?pageNumber=1&pageSize=10&tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "admin", "files"],
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update File Metadata (Global)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated File Name\",\n  \"group\": \"Image\",\n  \"status\": true,\n  \"isArchived\": false,\n  \"temp\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/admin/files/1?tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "admin", "files", "1"],
+              "query": [
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete File (Global)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/admin/files/1?tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "admin", "files", "1"],
+              "query": [
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete All Temp Files",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/admin/files/temp/all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "admin", "files", "temp", "all"]
+            }
+          }
+        },
+        {
+          "name": "Delete Old Temp Files",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/admin/files/temp/old?olderThanDays=7",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "admin", "files", "temp", "old"],
+              "query": [
+                {
+                  "key": "olderThanDays",
+                  "value": "7"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal Service Endpoints",
+      "item": [
+        {
+          "name": "Get File by ID (Internal)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Service-Secret",
+                "value": "{{serviceSecret}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/internal/files/1?tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "internal", "files", "1"],
+              "query": [
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Files by IDs (Batch)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Service-Secret",
+                "value": "{{serviceSecret}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/internal/files/batch?fileIds=1&fileIds=2&tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "filemanager", "internal", "files", "batch"],
+              "query": [
+                {
+                  "key": "fileIds",
+                  "value": "1"
+                },
+                {
+                  "key": "fileIds",
+                  "value": "2"
+                },
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change Temp Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Service-Secret",
+                "value": "{{serviceSecret}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/filemanager/internal/files/1/temp-status?temp=false&tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "filemanager",
+                "internal",
+                "files",
+                "1",
+                "temp-status"
+              ],
+              "query": [
+                {
+                  "key": "temp",
+                  "value": "false"
+                },
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
