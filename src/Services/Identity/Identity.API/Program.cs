@@ -350,25 +350,11 @@ builder.Services.AddScoped<Identity.Application.Helpers.ProfilePictureHelper>();
 // ============================================
 // HTTP Clients for Service-to-Service Communication
 // ============================================
-// HTTP Client for Notification Service
-builder.Services.AddHttpClient("NotificationService", client =>
-{
-    var baseUrl = builder.Configuration["Services:NotificationService:BaseUrl"] 
-        ?? "https://localhost:5104";
-    client.BaseAddress = new Uri(baseUrl);
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-    
-    var timeout = builder.Configuration.GetValue<int>("Services:NotificationService:Timeout", 30);
-    client.Timeout = TimeSpan.FromSeconds(timeout);
-    
-    // Add service authentication headers
-    var serviceSecret = builder.Configuration["ServiceCommunication:SharedSecret"];
-    if (!string.IsNullOrEmpty(serviceSecret))
-    {
-        client.DefaultRequestHeaders.Add("X-Service-Secret", serviceSecret);
-        client.DefaultRequestHeaders.Add("X-Service-Name", "IdentityService");
-    }
-});
+// Register Notification service client for service-to-service communication
+builder.Services.AddNotificationServiceClient(
+    builder.Configuration,
+    "IdentityService",
+    builder.Environment.IsDevelopment());
 
 // Register FileManager service client for service-to-service communication
 builder.Services.AddFileManagerServiceClient(

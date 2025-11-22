@@ -353,60 +353,17 @@ builder.Services.AddScoped<IFileManagerService, FileManagerService>();
 // ============================================
 // Service-to-Service HTTP Clients
 // ============================================
-var isDevEnvironment = builder.Environment.IsDevelopment();
-builder.Services.AddHttpClient("NotificationService", client =>
-{
-    var baseUrl = builder.Configuration["Services:NotificationService:BaseUrl"]
-        ?? "https://localhost:5104";
-    client.BaseAddress = new Uri(baseUrl);
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
+// Register Notification service client for service-to-service communication
+builder.Services.AddNotificationServiceClient(
+    builder.Configuration,
+    "FileManagerService",
+    builder.Environment.IsDevelopment());
 
-    var serviceSecret = builder.Configuration["ServiceCommunication:SharedSecret"];
-    if (!string.IsNullOrEmpty(serviceSecret))
-    {
-        client.DefaultRequestHeaders.Add("X-Service-Secret", serviceSecret);
-        client.DefaultRequestHeaders.Add("X-Service-Name", "FileManagerService");
-    }
-})
-.ConfigurePrimaryHttpMessageHandler(() =>
-{
-    var handler = new HttpClientHandler();
-    if (isDevEnvironment)
-    {
-        handler.ServerCertificateCustomValidationCallback = 
-            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-    }
-    return handler;
-});
-
-// Typed HttpClient for Tenant Service (used by background jobs)
-var isDevelopment = builder.Environment.IsDevelopment();
-builder.Services.AddHttpClient<FileManager.Application.Interfaces.ITenantServiceClient, FileManager.Infrastructure.Services.TenantServiceClient>(client =>
-{
-    var baseUrl = builder.Configuration["Services:TenantService:BaseUrl"]
-        ?? builder.Configuration["MultiTenancy:TenantServiceUrl"]
-        ?? "https://localhost:5002";
-    
-    client.BaseAddress = new Uri(baseUrl);
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-
-    var serviceSecret = builder.Configuration["ServiceCommunication:SharedSecret"];
-    if (!string.IsNullOrEmpty(serviceSecret))
-    {
-        client.DefaultRequestHeaders.Add("X-Service-Secret", serviceSecret);
-        client.DefaultRequestHeaders.Add("X-Service-Name", "FileManagerService");
-    }
-})
-.ConfigurePrimaryHttpMessageHandler(() =>
-{
-    var handler = new HttpClientHandler();
-    if (isDevelopment)
-    {
-        handler.ServerCertificateCustomValidationCallback = 
-            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-    }
-    return handler;
-});
+// Register Tenant service client for service-to-service communication (used by background jobs)
+builder.Services.AddTenantServiceClient<FileManager.Application.Interfaces.ITenantServiceClient, FileManager.Infrastructure.Services.TenantServiceClient>(
+    builder.Configuration,
+    "FileManagerService",
+    builder.Environment.IsDevelopment());
 
 // ============================================
 // Background Jobs
