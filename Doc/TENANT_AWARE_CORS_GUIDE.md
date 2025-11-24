@@ -154,8 +154,13 @@ app.UseTenantResolution(builder.Configuration);
 
 // Tenant-aware CORS (validates origins based on tenant config or appsettings)
 // Must be after tenant resolution to access tenant context
+// MUST be BEFORE JwtTenantVerification to handle OPTIONS preflight requests first
 // This middleware handles ALL CORS including preflight requests
 app.UseTenantAwareCors();
+
+// JWT tenant verification (AFTER tenant resolution and CORS, BEFORE authentication)
+// Prevents users from accessing other tenants by changing x-tenant-id header
+app.UseJwtTenantVerification(builder.Configuration);
 
 // Note: Standard UseCors() is NOT needed - TenantAwareCors handles everything
 
@@ -169,9 +174,9 @@ app.UseAuthorization();
 ```
 1. Exception Handler
 2. HTTPS Redirection
-3. Tenant Resolution ← Populates ITenantContext
-4. Tenant-Aware CORS ← Validates origins
-5. Standard CORS ← Applies headers
+3. Tenant Resolution ← Populates ITenantContext (skips OPTIONS requests)
+4. Tenant-Aware CORS ← Validates origins and handles preflight
+5. JWT Tenant Verification ← Validates JWT tenant claims
 6. Database Migration
 7. Authentication
 8. Authorization
@@ -233,6 +238,17 @@ public async Task InvokeAsync(
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
                 return;
             }
+
+            // For actual requests, ensure CORS headers are set even on error responses
+            context.Response.OnStarting(() =>
+            {
+                if (!context.Response.Headers.ContainsKey("Access-Control-Allow-Origin"))
+                {
+                    context.Response.Headers["Access-Control-Allow-Origin"] = origin;
+                    context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+                }
+                return Task.CompletedTask;
+            });
         }
         else
         {
@@ -728,7 +744,13 @@ app.UseCors();
 
 ---
 
-**Last Updated**: October 28, 2025  
+**Last Updated**: November 24, 2025  
 **Status**: ✅ Production Ready & Tested
+
+**Critical Fixes Applied:**
+
+- ✅ **TenantMiddleware** now skips OPTIONS preflight requests before tenant validation
+- ✅ **TenantAwareCorsMiddleware** uses `Response.OnStarting` callback to ensure CORS headers are set even on error responses (401, 403, 500, etc.)
+- ✅ **Middleware order corrected** - UseTenantAwareCors() must be BEFORE UseJwtTenantVerification() to handle preflight requests first
 
 **Built with ❤️ for Secure Multi-Tenant Architecture**

@@ -74,15 +74,15 @@ All services now have JWT tenant verification:
 ```csharp
 // Program.cs for all services
 app.UseGlobalExceptionHandler();
-app.UseTenantResolution(builder.Configuration);          // 1. Resolve tenant
-app.UseJwtTenantVerification(builder.Configuration);     // 2. Verify JWT tenant_id ← NEW
-app.UseTenantAwareCors();                                // 3. CORS
+app.UseTenantResolution(builder.Configuration);          // 1. Resolve tenant (skips OPTIONS)
+app.UseTenantAwareCors();                                // 2. CORS (handles preflight OPTIONS)
+app.UseJwtTenantVerification(builder.Configuration);     // 3. Verify JWT tenant_id ← NEW
 app.UseServiceAuthentication();                          // 4. Service auth
 app.UseAuthentication();                                 // 5. JWT validation
 app.UseAuthorization();                                  // 6. Role checks
 ```
 
-**Order matters!** JWT verification must be **AFTER** tenant resolution and **BEFORE** authentication.
+**Order matters!** CORS must be **BEFORE** JWT verification to handle OPTIONS preflight requests.
 
 ---
 

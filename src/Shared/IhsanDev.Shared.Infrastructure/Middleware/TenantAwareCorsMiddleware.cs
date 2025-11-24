@@ -65,6 +65,18 @@ public class TenantAwareCorsMiddleware
                     context.Response.StatusCode = StatusCodes.Status204NoContent;
                     return;
                 }
+
+                // For actual requests, add an event handler to ensure CORS headers are set even on error responses
+                context.Response.OnStarting(() =>
+                {
+                    // Re-apply CORS headers before sending response (in case they were cleared)
+                    if (!context.Response.Headers.ContainsKey("Access-Control-Allow-Origin"))
+                    {
+                        context.Response.Headers["Access-Control-Allow-Origin"] = origin;
+                        context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+                    }
+                    return Task.CompletedTask;
+                });
             }
             else
             {

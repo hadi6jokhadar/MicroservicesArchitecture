@@ -30,6 +30,14 @@ public class TenantMiddleware
         // Set culture early from Accept-Language header for error messages
         SetCultureFromRequest(context, localizationService);
 
+        // Skip OPTIONS preflight requests (CORS) - they don't need tenant resolution
+        if (context.Request.Method == "OPTIONS")
+        {
+            _logger.LogDebug("Skipping tenant resolution for OPTIONS preflight request");
+            await _next(context);
+            return;
+        }
+
         // Check if multi-tenancy is enabled
         if (!tenantContext.IsMultiTenantMode)
         {

@@ -433,12 +433,12 @@ adminGroup.MapPost("/files", async (
 ```csharp
 // Program.cs
 app.UseGlobalExceptionHandler();
-app.UseTenantResolution(builder.Configuration);       // 1. Tenant resolution
-app.UseJwtTenantVerification(builder.Configuration);  // 2. Verify tenant_id claim
-app.UseTenantAwareCors();
-app.UseServiceAuthentication();                       // 3. Service auth
-app.UseAuthentication();                              // 4. JWT validation
-app.UseAuthorization();                               // 5. Role checks
+app.UseTenantResolution(builder.Configuration);       // 1. Tenant resolution (skips OPTIONS)
+app.UseTenantAwareCors();                             // 2. CORS (handles preflight OPTIONS)
+app.UseJwtTenantVerification(builder.Configuration);  // 3. Verify tenant_id claim
+app.UseServiceAuthentication();                       // 4. Service auth
+app.UseAuthentication();                              // 5. JWT validation
+app.UseAuthorization();                               // 6. Role checks
 ```
 
 **Why This Order?**

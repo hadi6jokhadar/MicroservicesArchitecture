@@ -143,16 +143,16 @@ app.UseTenantAwareCors();
 
 // AFTER
 app.UseTenantResolution(builder.Configuration);
+app.UseTenantAwareCors();                             // ← BEFORE JWT verification
 app.UseJwtTenantVerification(builder.Configuration);  // ← NEW
-app.UseTenantAwareCors();
 ```
 
 **Critical Order:**
 
 ```
-1. UseTenantResolution()         ← Resolve tenant configuration
-2. UseJwtTenantVerification()    ← Verify JWT tenant_id claim (NEW)
-3. UseTenantAwareCors()          ← CORS handling
+1. UseTenantResolution()         ← Resolve tenant configuration (skips OPTIONS)
+2. UseTenantAwareCors()          ← CORS handling (handles preflight OPTIONS)
+3. UseJwtTenantVerification()    ← Verify JWT tenant_id claim (NEW)
 4. UseServiceAuthentication()    ← Service-to-service auth
 5. UseAuthentication()           ← JWT validation
 6. UseAuthorization()            ← Role/policy checks

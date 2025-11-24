@@ -296,14 +296,17 @@ app.UseLocalization();
 // Global exception handling
 app.UseGlobalExceptionHandler();
 
-// Multi-tenancy middleware
+// Multi-tenancy middleware (must be before CORS and authentication)
 app.UseTenantResolution(builder.Configuration);
 
-// JWT tenant verification (AFTER tenant resolution, BEFORE authentication)
-app.UseJwtTenantVerification(builder.Configuration);
-
-// Tenant-aware CORS
+// Tenant-aware CORS (validates origins based on tenant config or appsettings)
+// Must be after tenant resolution to access tenant context
+// MUST be BEFORE JwtTenantVerification to handle OPTIONS preflight requests first
 app.UseTenantAwareCors();
+
+// JWT tenant verification (AFTER tenant resolution and CORS, BEFORE authentication)
+// Prevents users from accessing other tenants by changing x-tenant-id header
+app.UseJwtTenantVerification(builder.Configuration);
 
 // Multi-tenancy configuration
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled");
