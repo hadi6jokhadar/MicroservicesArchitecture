@@ -305,7 +305,7 @@ public class TenantEndpointsTests : IntegrationTestBase
             async () => await SendAsync(updateCommand)
         );
 
-        exception.Message.Should().Contain("not found");
+        exception.Message.Should().Contain("exception_tenant_not_found");
     }
 
     [Fact]
@@ -359,7 +359,7 @@ public class TenantEndpointsTests : IntegrationTestBase
             async () => await SendAsync(deleteCommand)
         );
 
-        exception.Message.Should().Contain("not found");
+        exception.Message.Should().Contain("exception_tenant_not_found");
     }
 
     #endregion
