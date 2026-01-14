@@ -30,6 +30,10 @@ public class IdentityDbContext : BaseDbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Claim> Claims => Set<Claim>();
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<RoleClaim> RoleClaims => Set<RoleClaim>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -142,7 +146,12 @@ public class IdentityDbContext : BaseDbContext
             entity.Property(e => e.Email).HasMaxLength(256);
             entity.Property(e => e.FirstName).HasMaxLength(100);
             entity.Property(e => e.LastName).HasMaxLength(100);
-            entity.Property(e => e.Role).HasConversion<string>();
+            
+            // Many-to-many relationship with Roles
+            entity.HasMany(u => u.UserRoles)
+                .WithOne(ur => ur.User)
+                .HasForeignKey(ur => ur.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<DeviceToken>(entity =>
@@ -153,6 +162,53 @@ public class IdentityDbContext : BaseDbContext
             entity.Property(e => e.Token).HasMaxLength(500).IsRequired();
             entity.Property(e => e.DeviceIdentifier).HasMaxLength(100);
             entity.Property(e => e.Platform).HasConversion<string>();
+        });
+
+        // Role configuration
+        modelBuilder.Entity<Role>(entity =>
+        {
+            entity.HasIndex(e => e.NormalizedName).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.NormalizedName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(500);
+            
+            entity.HasMany(r => r.UserRoles)
+                .WithOne(ur => ur.Role)
+                .HasForeignKey(ur => ur.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasMany(r => r.RoleClaims)
+                .WithOne(rc => rc.Role)
+                .HasForeignKey(rc => rc.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Claim configuration
+        modelBuilder.Entity<Claim>(entity =>
+        {
+            entity.HasIndex(e => e.ClaimValue).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.NormalizedName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.ClaimType).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.ClaimValue).HasMaxLength(200).IsRequired();
+            
+            entity.HasMany(c => c.RoleClaims)
+                .WithOne(rc => rc.Claim)
+                .HasForeignKey(rc => rc.ClaimId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // UserRole junction table configuration
+        modelBuilder.Entity<UserRole>(entity =>
+        {
+            entity.HasIndex(e => new { e.UserId, e.RoleId }).IsUnique();
+        });
+
+        // RoleClaim junction table configuration
+        modelBuilder.Entity<RoleClaim>(entity =>
+        {
+            entity.HasIndex(e => new { e.RoleId, e.ClaimId }).IsUnique();
         });
     }
 }

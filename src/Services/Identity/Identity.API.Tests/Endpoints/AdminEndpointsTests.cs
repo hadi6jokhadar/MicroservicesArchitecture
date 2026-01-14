@@ -1,7 +1,6 @@
 using Identity.API.Tests.Infrastructure;
 using Identity.Application.Commands;
 using IhsanDev.Shared.Application.Exceptions;
-using IhsanDev.Shared.Kernel.Enums.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Identity.API.Tests.Endpoints;
@@ -133,7 +132,7 @@ public class AdminEndpointsTests : IntegrationTestBase
             Password: "NewAdmin123!",
             FirstName: "New",
             LastName: "Admin",
-            Role: UserRole.User,
+            RoleIds: new List<int> { 3 },
             PhoneNumber: "+1234567890"
         );
 
@@ -145,7 +144,7 @@ public class AdminEndpointsTests : IntegrationTestBase
         result.Email.Should().Be("newadmin@example.com");
         result.FirstName.Should().Be("New");
         result.LastName.Should().Be("Admin");
-        result.Role.Should().Be(UserRole.User);
+        // Role check removed - use database-driven roles
     }
 
     [Fact]
@@ -158,7 +157,7 @@ public class AdminEndpointsTests : IntegrationTestBase
             Password: "NewAdmin123!",
             FirstName: "Admin",
             LastName: "WithData",
-            Role: UserRole.User,
+            RoleIds: new List<int> { 3 },
             PhoneNumber: "+1234567890",
             Data: testData
         );
@@ -193,7 +192,7 @@ public class AdminEndpointsTests : IntegrationTestBase
             Password: "Password123!",
             FirstName: "Test",
             LastName: "User",
-            Role: UserRole.User,
+            RoleIds: new List<int> { 3 },
             PhoneNumber: null
         );
 
@@ -212,7 +211,7 @@ public class AdminEndpointsTests : IntegrationTestBase
             Password: "Password123!",
             FirstName: "Test",
             LastName: "User",
-            Role: UserRole.User,
+            RoleIds: new List<int> { 3 },
             PhoneNumber: null
         );
 
@@ -231,7 +230,7 @@ public class AdminEndpointsTests : IntegrationTestBase
             Password: "weak",
             FirstName: "Test",
             LastName: "User",
-            Role: UserRole.User,
+            RoleIds: new List<int> { 3 },
             PhoneNumber: null
         );
 
@@ -255,7 +254,7 @@ public class AdminEndpointsTests : IntegrationTestBase
             Id: user.Id,
             FirstName: "Updated",
             LastName: "Name",
-            Role: UserRole.User,
+            RoleIds: new List<int> { 3 },
             PhoneNumber: "+9876543210",
             EmailConfirmed: true,
             Status: true
@@ -290,7 +289,7 @@ public class AdminEndpointsTests : IntegrationTestBase
             Id: user.Id,
             FirstName: "Updated",
             LastName: "Name",
-            Role: UserRole.User,
+            RoleIds: new List<int> { 3 },
             PhoneNumber: null,
             EmailConfirmed: null,
             Status: null,
@@ -331,7 +330,7 @@ public class AdminEndpointsTests : IntegrationTestBase
             Id: user.Id,
             FirstName: "Updated",
             LastName: "Name",
-            Role: UserRole.User,
+            RoleIds: new List<int> { 3 },
             PhoneNumber: null,
             EmailConfirmed: null,
             Status: null,
@@ -354,7 +353,7 @@ public class AdminEndpointsTests : IntegrationTestBase
             Id: 99999,
             FirstName: "Test",
             LastName: "User",
-            Role: UserRole.User,
+            RoleIds: new List<int> { 3 },
             PhoneNumber: null,
             EmailConfirmed: null,
             Status: null
@@ -376,7 +375,7 @@ public class AdminEndpointsTests : IntegrationTestBase
             Id: user.Id,
             FirstName: "", // Invalid: empty
             LastName: "Name",
-            Role: UserRole.User,
+            RoleIds: new List<int> { 3 },
             PhoneNumber: null,
             EmailConfirmed: null,
             Status: null
@@ -478,3 +477,5 @@ public class AdminEndpointsTests : IntegrationTestBase
 
     #endregion
 }
+
+

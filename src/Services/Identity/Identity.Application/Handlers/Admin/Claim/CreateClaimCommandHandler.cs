@@ -1,0 +1,61 @@
+using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Services.Cache;
+using Identity.Application.Commands.Admin.Claim;
+using Identity.Application.DTOs;
+using Identity.Domain.Repositories;
+using MediatR;
+
+namespace Identity.Application.Handlers.Admin.Claim;
+
+public class CreateClaimCommandHandler : IRequestHandler<CreateClaimCommand, ClaimDto>
+{
+    private readonly IClaimRepository _claimRepository;
+    private readonly ICacheService _cacheService;
+
+    public CreateClaimCommandHandler(
+        IClaimRepository claimRepository,
+        ICacheService cacheService)
+    {
+        _claimRepository = claimRepository;
+        _cacheService = cacheService;
+    }
+
+    public async Task<ClaimDto> Handle(CreateClaimCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Check if claim already exists
+            var existingClaim = await _claimRepository.GetByClaimValueAsync(request.ClaimValue, cancellationToken);
+            if (existingClaim != null)
+                throw new ConflictException(LocalizationKeys.Exceptions.ClaimAlreadyExists);
+
+            var claim = new Domain.Entities.Claim
+            {
+                Name = request.Name,
+                NormalizedName = request.Name.ToUpperInvariant(),
+                ClaimType = request.ClaimType,
+                ClaimValue = request.ClaimValue,
+                IsSuperAdminOnly = request.IsSuperAdminOnly,
+                Description = request.Description,
+                Status = true
+            };
+
+            await _claimRepository.CreateAsync(claim, cancellationToken);
+
+            // Invalidate claims cache
+            await _cacheService.RemoveAsync($"claims_all", cancellationToken);
+            await _cacheService.RemoveAsync($"claim_{claim.Id}", cancellationToken);
+
+            return ClaimDto.MapFrom(claim);
+        }
+        catch (AppException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+        }
+    }
+}

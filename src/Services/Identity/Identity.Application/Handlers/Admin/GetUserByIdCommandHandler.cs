@@ -30,7 +30,8 @@ public class GetUserByIdCommandHandler : IRequestHandler<GetUserByIdCommand, Use
             if (user == null)
                 throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
-            var userDto = UserDto.MapFrom(user);
+            // Admin endpoint: Always include roles
+            var userDto = UserDto.MapFrom(user, includeRoles: true);
             
             // Always enrich with profile picture if available
             await _profilePictureHelper.EnrichWithProfilePictureAsync(

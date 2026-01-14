@@ -1,0 +1,63 @@
+using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Services.Cache;
+using IhsanDev.Shared.Infrastructure.Services.Identity;
+using Identity.Application.Commands.Admin.Role;
+using Identity.Domain.Repositories;
+using MediatR;
+
+namespace Identity.Application.Handlers.Admin.Role;
+
+public class AssignClaimsToRoleCommandHandler : IRequestHandler<AssignClaimsToRoleCommand, bool>
+{
+    private readonly IRoleRepository _roleRepository;
+    private readonly IRoleClaimRepository _roleClaimRepository;
+    private readonly ICacheService _cacheService;
+    private readonly ICurrentUserService _currentUserService;
+
+    public AssignClaimsToRoleCommandHandler(
+        IRoleRepository roleRepository,
+        IRoleClaimRepository roleClaimRepository,
+        ICacheService cacheService,
+        ICurrentUserService currentUserService)
+    {
+        _roleRepository = roleRepository;
+        _roleClaimRepository = roleClaimRepository;
+        _cacheService = cacheService;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<bool> Handle(AssignClaimsToRoleCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var role = await _roleRepository.GetByIdAsync(request.RoleId, cancellationToken);
+            if (role == null)
+                throw new NotFoundException(LocalizationKeys.Exceptions.RoleNotFound);
+
+            // Only SuperAdmin can assign claims to SuperAdmin role
+            if (role.Name.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase) && !_currentUserService.IsSuperAdmin)
+                throw new ForbiddenException(LocalizationKeys.Exceptions.SuperAdminRoleProtected);
+
+            // Revoke existing claims and assign new ones
+            await _roleClaimRepository.RevokeAllClaimsFromRoleAsync(request.RoleId, cancellationToken);
+            await _roleClaimRepository.AssignClaimsToRoleAsync(request.RoleId, request.ClaimIds, cancellationToken);
+
+            // Invalidate caches
+            await _cacheService.RemoveAsync($"roles_all", cancellationToken);
+            await _cacheService.RemoveAsync($"role_{request.RoleId}", cancellationToken);
+            await _cacheService.RemoveAsync($"role_name_{role.NormalizedName}", cancellationToken);
+            await _cacheService.RemoveAsync($"role_{request.RoleId}_claims", cancellationToken);
+
+            return true;
+        }
+        catch (AppException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+        }
+    }
+}

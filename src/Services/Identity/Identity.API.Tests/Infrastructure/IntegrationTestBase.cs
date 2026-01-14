@@ -2,7 +2,6 @@ using System.Net.Http.Headers;
 using Identity.Application.Commands;
 using Identity.Domain.Entities;
 using Identity.Infrastructure.Persistence;
-using IhsanDev.Shared.Kernel.Enums.Identity;
 using IhsanDev.Shared.Testing.Infrastructure;
 
 namespace Identity.API.Tests.Infrastructure;
@@ -41,13 +40,14 @@ public abstract class IntegrationTestBase :
 
     /// <summary>
     /// Create a test user with unique email
+    /// Uses User system role (ID=3) by default
     /// </summary>
     protected async Task<User> CreateTestUserAsync(
         string? email = null,
         string password = "Test123!",
         string firstName = "Test",
         string lastName = "User",
-        UserRole role = UserRole.User)
+        List<int>? roleIds = null)
     {
         return await ExecuteDbContextAsync(async context =>
         {
@@ -57,7 +57,6 @@ public abstract class IntegrationTestBase :
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
                 FirstName = firstName,
                 LastName = lastName,
-                Role = role,
                 Created = DateTime.UtcNow,
                 IsArchived = false,
                 Status = true
@@ -65,6 +64,21 @@ public abstract class IntegrationTestBase :
 
             context.Users.Add(user);
             await context.SaveChangesAsync();
+            
+            // Assign roles (default to User role ID=3)
+            if (roleIds != null && roleIds.Any())
+            {
+                foreach (var roleId in roleIds)
+                {
+                    context.UserRoles.Add(new Identity.Domain.Entities.UserRole
+                    {
+                        UserId = user.Id,
+                        RoleId = roleId
+                    });
+                }
+                await context.SaveChangesAsync();
+            }
+            
             return user;
         });
     }

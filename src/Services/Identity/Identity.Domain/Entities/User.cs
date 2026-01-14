@@ -1,5 +1,4 @@
 using IhsanDev.Shared.Kernel.Entities.Identity;
-using IhsanDev.Shared.Kernel.Enums.Identity;
 
 namespace Identity.Domain.Entities;
 
@@ -25,4 +24,7 @@ public class User : BaseUser
     
     // Additional user data
     public string? Data { get; set; }
+    
+    // Navigation properties for dynamic roles
+    public ICollection<UserRole> UserRoles { get; set; } = [];
 }

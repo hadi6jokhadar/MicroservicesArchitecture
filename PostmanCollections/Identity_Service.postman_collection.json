@@ -483,7 +483,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\",\n  \"firstName\": \"Admin\",\n  \"lastName\": \"User\",\n  \"role\": \"Admin\"\n}"
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\",\n  \"firstName\": \"Admin\",\n  \"lastName\": \"User\",\n  \"roleIds\": [2]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/admin/users",
@@ -514,7 +514,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Updated Admin\",\n  \"lastName\": \"Updated User\",\n  \"email\": \"updatedadmin@example.com\",\n  \"role\": \"Admin\"\n}"
+              "raw": "{\n  \"id\": 1,\n  \"firstName\": \"Updated Admin\",\n  \"lastName\": \"Updated User\",\n  \"email\": \"updatedadmin@example.com\",\n  \"roleIds\": [2]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/admin/users/1",
@@ -566,6 +566,340 @@
               "raw": "{{baseUrl}}/api/admin/users/1",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "users", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Role Management",
+      "item": [
+        {
+          "name": "Get All Roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "roles"]
+            }
+          }
+        },
+        {
+          "name": "Get Role by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/roles/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "roles", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Manager\",\n  \"description\": \"Manager role with elevated permissions\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "roles"]
+            }
+          }
+        },
+        {
+          "name": "Update Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Manager\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/roles/4",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "roles", "4"]
+            }
+          }
+        },
+        {
+          "name": "Delete Role",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/roles/4",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "roles", "4"]
+            }
+          }
+        },
+        {
+          "name": "Assign Claims to Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"claimIds\": [1, 2, 3]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/roles/4/claims",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "roles", "4", "claims"]
+            }
+          }
+        },
+        {
+          "name": "Assign Roles to User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleIds\": [1, 2]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/roles/user/5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "roles", "user", "5"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Claim Management",
+      "item": [
+        {
+          "name": "Get All Claims",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/claims",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "claims"]
+            }
+          }
+        },
+        {
+          "name": "Get Claim by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/claims/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "claims", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Claim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CanViewReports\",\n  \"claimType\": \"permission\",\n  \"claimValue\": \"reports.view\",\n  \"description\": \"Allows viewing reports\",\n  \"isSuperAdminOnly\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/claims",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "claims"]
+            }
+          }
+        },
+        {
+          "name": "Update Claim",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CanEditReports\",\n  \"claimType\": \"permission\",\n  \"claimValue\": \"reports.edit\",\n  \"description\": \"Allows editing reports\",\n  \"isSuperAdminOnly\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/claims/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "claims", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Claim",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/claims/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "claims", "1"]
             }
           }
         }

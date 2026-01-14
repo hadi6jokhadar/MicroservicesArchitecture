@@ -1,8 +1,6 @@
 using Identity.API.Tests.Infrastructure;
 using Identity.Application.Commands;
 using IhsanDev.Shared.Application.Exceptions;
-using IhsanDev.Shared.Kernel.Enums.Identity;
-
 namespace Identity.API.Tests.Endpoints;
 
 /// <summary>
@@ -286,3 +284,4 @@ public class UserEndpointsTests : IntegrationTestBase
 
     #endregion
 }
+

@@ -14,17 +14,20 @@ namespace Identity.Application.Handlers.Commands;
 public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserDto>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IUserRoleRepository _userRoleRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
     private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ITenantContext _tenantContext;
 
     public UpdateUserCommandHandler(
         IUserRepository userRepository,
+        IUserRoleRepository userRoleRepository,
         ProfilePictureHelper profilePictureHelper,
         IFileManagerServiceClient fileManagerClient,
         ITenantContext tenantContext)
     {
         _userRepository = userRepository;
+        _userRoleRepository = userRoleRepository;
         _profilePictureHelper = profilePictureHelper;
         _fileManagerClient = fileManagerClient;
         _tenantContext = tenantContext;
@@ -43,7 +46,6 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
 
             user.FirstName = request.FirstName;
             user.LastName = request.LastName;
-            user.Role = request.Role;
             user.PhoneNumber = request.PhoneNumber;
             user.ProfilePictureId = request.ProfilePictureId;
             user.Data = request.Data;
@@ -56,6 +58,15 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 user.Status = request.Status.Value;
 
             await _userRepository.UpdateAsync(user, cancellationToken);
+
+            // Update user roles
+            await _userRoleRepository.RevokeAllRolesFromUserAsync(user.Id, cancellationToken);
+            await _userRoleRepository.AssignRolesToUserAsync(user.Id, request.RoleIds, cancellationToken);
+
+            // Reload user with roles to populate navigation properties
+            var userWithRoles = await _userRepository.GetByIdAsync(user.Id, cancellationToken);
+            if (userWithRoles == null)
+                throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
             // Update temp status for old and new profile pictures
             var tenantId = _tenantContext.TenantId;
@@ -88,7 +99,8 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 }
             }
 
-            var userDto = UserDto.MapFrom(user);
+            // Admin endpoint: Always include roles
+            var userDto = UserDto.MapFrom(userWithRoles, includeRoles: true);
             
             // Enrich with profile picture
             await _profilePictureHelper.EnrichWithProfilePictureAsync(

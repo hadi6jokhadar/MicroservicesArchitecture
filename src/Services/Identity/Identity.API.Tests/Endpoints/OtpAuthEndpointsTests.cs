@@ -2,7 +2,6 @@ using Identity.API.Tests.Infrastructure;
 using Identity.Application.Commands.Auth;
 using Identity.Domain.Entities;
 using IhsanDev.Shared.Application.Exceptions;
-using IhsanDev.Shared.Kernel.Enums.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Identity.API.Tests.Endpoints;
@@ -802,7 +801,6 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
                 PhoneNumber = phoneNumber,
                 FirstName = "Test",
                 LastName = "User",
-                Role = UserRole.User,
                 Created = DateTime.UtcNow,
                 IsArchived = false,
                 Status = isActive,
@@ -840,7 +838,6 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
                 PasswordHash = string.IsNullOrEmpty(password) ? null : BCrypt.Net.BCrypt.HashPassword(password),
                 FirstName = "Test",
                 LastName = "User",
-                Role = UserRole.User,
                 Created = DateTime.UtcNow,
                 IsArchived = false,
                 Status = isActive,
@@ -883,3 +880,5 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
 
     #endregion
 }
+
+

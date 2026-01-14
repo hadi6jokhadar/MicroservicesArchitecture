@@ -10,6 +10,8 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using JwtClaim = System.Security.Claims.Claim;
+using DomainClaim = Identity.Domain.Entities.Claim;
 
 namespace Identity.Infrastructure.Services;
 
@@ -17,19 +19,25 @@ public class UserService : IUserService
 {
     private readonly IConfiguration _configuration;
     private readonly IUserRepository _userRepository;
+    private readonly IRoleRepository _roleRepository;
+    private readonly IClaimRepository _claimRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<UserService> _logger;
 
     public UserService(
         IConfiguration configuration, 
-        IUserRepository userRepository, 
+        IUserRepository userRepository,
+        IRoleRepository roleRepository,
+        IClaimRepository claimRepository,
         IPasswordHasher passwordHasher,
         ITenantContext tenantContext,
         ILogger<UserService> logger)
     {
         _configuration = configuration;
         _userRepository = userRepository;
+        _roleRepository = roleRepository;
+        _claimRepository = claimRepository;
         _passwordHasher = passwordHasher;
         _tenantContext = tenantContext;
         _logger = logger;
@@ -105,19 +113,34 @@ public class UserService : IUserService
         
         var key = Encoding.UTF8.GetBytes(jwtSecret);
         
-        var claims = new List<Claim>
+        // Load user roles and claims from database
+        var userRoles = await _roleRepository.GetUserRolesAsync(user.Id);
+        var userClaims = await _claimRepository.GetUserClaimsAsync(user.Id);
+        
+        var claims = new List<JwtClaim>
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Email, user.Email ?? string.Empty),
             new(ClaimTypes.GivenName, user.FirstName),
-            new(ClaimTypes.Surname, user.LastName),
-            new(ClaimTypes.Role, user.Role.ToString())
+            new(ClaimTypes.Surname, user.LastName)
         };
+        
+        // Add roles as claims (multiple roles supported)
+        foreach (var role in userRoles)
+        {
+            claims.Add(new JwtClaim(ClaimTypes.Role, role.Name));
+        }
+        
+        // Add custom claims (permissions)
+        foreach (var claim in userClaims)
+        {
+            claims.Add(new JwtClaim(claim.ClaimType, claim.ClaimValue));
+        }
         
         // Add tenant ID claim if available
         if (_tenantContext.HasTenant && _tenantContext.CurrentTenant != null)
         {
-            claims.Add(new Claim("tenant_id", _tenantContext.CurrentTenant.TenantId));
+            claims.Add(new JwtClaim("tenant_id", _tenantContext.CurrentTenant.TenantId));
             _logger.LogDebug("Added tenant_id claim: {TenantId}", _tenantContext.CurrentTenant.TenantId);
         }
 
@@ -141,8 +164,9 @@ public class UserService : IUserService
         _logger.LogInformation("✅ JWT token generated successfully for user '{Email}' (UserId: {UserId}, Expires: {Expires})", 
             user.Email, user.Id, tokenDescriptor.Expires);
 
-        // Manual mapping
-        var authenticationResult = UserDtoIncludesToken.MapFrom(user);
+        // Manual mapping - Do NOT include roles in response body (they're in the JWT)
+        // Roles are only included in response if caller is SuperAdmin/Admin (handled in handlers)
+        var authenticationResult = UserDtoIncludesToken.MapFrom(user, includeRoles: false);
     
         authenticationResult.AccessToken = accessToken;
         authenticationResult.RefreshToken = refreshToken;

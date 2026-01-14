@@ -73,7 +73,26 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
 
     protected override void SeedTestData<TDbContext>(TDbContext context)
     {
-        // Identity-specific seed data if needed
+        // Seed system roles if they don't exist
+        if (context is IdentityDbContext identityContext)
+        {
+            // Check if roles already exist
+            if (!identityContext.Roles.Any())
+            {
+                // Insert roles with explicit IDs and update sequence
+                identityContext.Database.ExecuteSqlRaw(@"
+                    INSERT INTO ""Roles"" (""Id"", ""Name"", ""NormalizedName"", ""Description"", ""IsSystemRole"", ""IsArchived"", ""Status"", ""Created"")
+                    VALUES 
+                        (1, 'SuperAdmin', 'SUPERADMIN', 'Super Administrator with full system access', true, false, true, NOW()),
+                        (2, 'Admin', 'ADMIN', 'Administrator with elevated privileges', true, false, true, NOW()),
+                        (3, 'User', 'USER', 'Standard user with basic access', true, false, true, NOW());
+                    
+                    -- Update the sequence to start from 4
+                    SELECT setval(pg_get_serial_sequence('""Roles""', 'Id'), 3, true);
+                ");
+            }
+        }
+        
         context.SaveChanges();
     }
 }

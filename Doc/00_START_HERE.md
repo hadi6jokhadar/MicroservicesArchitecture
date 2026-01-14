@@ -1,7 +1,7 @@
 # 📚 Microservices Architecture - Documentation Index
 
-**Last Updated:** November 2025  
-**Version:** 2.2
+**Last Updated:** January 12, 2026  
+**Version:** 2.4
 
 ---
 
@@ -22,6 +22,7 @@
 - 🆕 **Create New Service?** → [NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md](NEW_SERVICE_DESIGN_PATTERN_STAGE_1.md)
 - ⚠️ **Admin/Global Endpoints?** → [BYPASS_TENANT_ENDPOINTS_GUIDE.md](BYPASS_TENANT_ENDPOINTS_GUIDE.md) or [BYPASS_TENANT_QUICK_REFERENCE.md](BYPASS_TENANT_QUICK_REFERENCE.md)
 - 🔐 **Identity Service Optional Tenant?** → [IDENTITY_OPTIONAL_TENANT_IMPLEMENTATION_SUMMARY.md](IDENTITY_OPTIONAL_TENANT_IMPLEMENTATION_SUMMARY.md) or [IDENTITY_OPTIONAL_TENANT_QUICK_REFERENCE.md](IDENTITY_OPTIONAL_TENANT_QUICK_REFERENCE.md)
+- ⭐ **Identity Service Latest Updates?** → [IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md](IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md) - **NEW (Jan 12, 2026)**
 - 📁 **File Storage?** → [FILE_MANAGER_QUICK_REFERENCE.md](FILE_MANAGER_QUICK_REFERENCE.md) or [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md)
 - 🔌 **Service-to-Service HTTP Clients?** → [SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md](SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md) - **NEW (Nov 2025)**
 - 🖼️ **Profile Pictures?** → [PROFILE_PICTURE_COMPLETE_GUIDE.md](PROFILE_PICTURE_COMPLETE_GUIDE.md) or [PROFILE_PICTURE_QUICK_REFERENCE.md](PROFILE_PICTURE_QUICK_REFERENCE.md)
@@ -63,6 +64,10 @@ Doc/
 │  ├─ MULTI_TENANCY_STRICT_MODE.md          ← 🔴 NEW: Strict mode behavior & migration
 │  ├─ MULTI_TENANCY_QUICK_START.md          ← Quick setup
 │  ├─ MULTI_TENANT_DEPLOYMENT_GUIDE.md      ← Deployment strategies
+│  ├─ DYNAMIC_ROLES_AND_CLAIMS_MIGRATION_SUMMARY.md  ← Database-driven roles & claims (Dec 2024)
+│  ├─ ROLE_CLAIM_ENDPOINTS_WITH_REDIS_SUMMARY.md    ← 🔴 NEW: Role/Claim management API + Redis caching (Jan 2026)
+│  ├─ IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md ← 🔴 NEW: SuperAdmin auto-creation, seeding, test fixes (Jan 12, 2026)
+│  ├─ OLD_TESTS_MIGRATION_GUIDE.md          ← 🔴 NEW: Guide to migrate old UserRole enum tests (Jan 2026)
 │  ├─ JWT_TENANT_VERIFICATION_IMPLEMENTATION.md  ← 🔴 NEW: Prevent tenant impersonation
 │  ├─ JWT_TENANT_VERIFICATION_GUIDE.md      ← JWT tenant-specific settings verification
 │  ├─ JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md  ← JWT flow example walkthrough

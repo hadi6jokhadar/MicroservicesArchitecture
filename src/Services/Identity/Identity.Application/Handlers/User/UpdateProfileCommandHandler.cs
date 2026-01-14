@@ -1,6 +1,7 @@
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Services.Identity;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
 using Identity.Application.Helpers;
@@ -17,17 +18,20 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
     private readonly ProfilePictureHelper _profilePictureHelper;
     private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ITenantContext _tenantContext;
+    private readonly ICurrentUserService _currentUserService;
 
     public UpdateProfileCommandHandler(
         IUserRepository userRepository,
         ProfilePictureHelper profilePictureHelper,
         IFileManagerServiceClient fileManagerClient,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        ICurrentUserService currentUserService)
     {
         _userRepository = userRepository;
         _profilePictureHelper = profilePictureHelper;
         _fileManagerClient = fileManagerClient;
         _tenantContext = tenantContext;
+        _currentUserService = currentUserService;
     }
 
     public async Task<UserDto> Handle(UpdateProfileCommand request, CancellationToken cancellationToken)
@@ -84,7 +88,9 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
                 }
             }
 
-            var userProfile = UserDto.MapFrom(user);
+            // Only include roles if requester is SuperAdmin or Admin
+            bool includeRoles = _currentUserService.IsSuperAdmin || _currentUserService.HasRole("Admin");
+            var userProfile = UserDto.MapFrom(user, includeRoles);
             
             // Enrich with profile picture
             await _profilePictureHelper.EnrichWithProfilePictureAsync(

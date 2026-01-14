@@ -6,7 +6,6 @@ using Identity.Application.Commands;
 using Identity.Application.DTOs;
 using Identity.Application.Helpers;
 using Identity.Domain.Entities;
-using IhsanDev.Shared.Kernel.Enums.Identity;
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 
@@ -16,15 +15,21 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
 {
     private readonly IUserRepository _userRepository;
     private readonly IUserService _userService;
+    private readonly IRoleRepository _roleRepository;
+    private readonly IUserRoleRepository _userRoleRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
 
     public RegisterCommandHandler(
         IUserRepository userRepository,
         IUserService userService,
+        IRoleRepository roleRepository,
+        IUserRoleRepository userRoleRepository,
         ProfilePictureHelper profilePictureHelper)
     {
         _userRepository = userRepository;
         _userService = userService;
+        _roleRepository = roleRepository;
+        _userRoleRepository = userRoleRepository;
         _profilePictureHelper = profilePictureHelper;
     }
 
@@ -60,12 +65,18 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
                 LastName = request.LastName,
                 PhoneNumber = request.PhoneNumber,
                 Data = request.Data,
-                Role = UserRole.User,
                 Created = DateTime.UtcNow,
                 Status = true
             };
 
             await _userRepository.AddAsync(user, cancellationToken);
+
+            // Assign default "User" role
+            var userRole = await _roleRepository.GetByNameAsync("User", cancellationToken);
+            if (userRole != null)
+            {
+                await _userRoleRepository.AssignRolesToUserAsync(user.Id, [userRole.Id], cancellationToken);
+            }
 
             // Generate tokens
             var authResult = await _userService.GenerateTokensAsync(user);

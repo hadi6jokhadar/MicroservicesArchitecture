@@ -3,7 +3,6 @@ using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
-using IhsanDev.Shared.Kernel.Enums.Identity;
 using MediatR;
 
 namespace Identity.Application.Commands;
@@ -12,7 +11,7 @@ public record GetUsersCommand(
     int PageNumber = 1,
     int PageSize = 10,
     string? SearchTerm = null,
-    UserRole? Role = null,
+    string? RoleName = null,
     bool? Status = null
 ) : IRequest<PaginatedList<UserDto>>;
 

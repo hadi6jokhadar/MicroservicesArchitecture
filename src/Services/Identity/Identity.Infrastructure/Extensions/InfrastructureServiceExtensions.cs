@@ -15,11 +15,16 @@ public static class InfrastructureServiceExtensions
         // Register repositories
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+        services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IClaimRepository, ClaimRepository>();
+        services.AddScoped<IUserRoleRepository, UserRoleRepository>();
+        services.AddScoped<IRoleClaimRepository, RoleClaimRepository>();
         
         // Register services
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<DatabaseSeeder>();
         
         // Register OTP service (from Shared)
         services.AddScoped<IOtpService, OtpService>();

@@ -33,9 +33,14 @@ public static class DatabaseExtensions
 
         if (multiTenancyEnabled)
         {
-            // When multi-tenancy is enabled, register DbContext with minimal configuration
-            // The actual database connection will be resolved in OnConfiguring based on tenant context
-            services.AddDbContext<TContext>(ServiceLifetime.Scoped);
+            // When multi-tenancy is enabled, still register DbContext but allow OnConfiguring to resolve connection
+            // The actual database connection will be resolved in OnConfiguring based on tenant context or fallback to global
+            services.AddDbContext<TContext>((serviceProvider, options) =>
+            {
+                // Don't configure the provider here - let OnConfiguring handle it
+                // This ensures optionsBuilder.IsConfigured returns false in OnConfiguring
+                // which allows the DbContext to dynamically choose the connection based on tenant context
+            }, ServiceLifetime.Scoped);
         }
         else
         {

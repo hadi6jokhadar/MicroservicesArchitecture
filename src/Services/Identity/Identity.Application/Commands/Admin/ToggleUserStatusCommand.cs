@@ -3,7 +3,6 @@ using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
-using IhsanDev.Shared.Kernel.Enums.Identity;
 using MediatR;
 
 namespace Identity.Application.Commands;

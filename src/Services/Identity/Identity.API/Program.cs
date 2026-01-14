@@ -308,6 +308,10 @@ if (multiTenancyEnabled)
     app.UseTenantDatabaseMigration<IdentityDbContext>(builder.Configuration);
 }
 
+// Seed default roles and claims after database migration (runs per tenant on first request)
+// This middleware automatically seeds roles/claims for each tenant's database
+app.UseDatabaseSeeding();
+
 // Service authentication middleware (must be BEFORE UseAuthentication)
 // Allows service-to-service communication with shared secret
 app.UseServiceAuthentication();
@@ -324,6 +328,12 @@ app.MapUserEndpoints();
 
 // Map admin-related endpoints (user management)
 app.MapAdminEndpoints();
+
+// Map role management endpoints
+app.MapRoleEndpoints();
+
+// Map claim management endpoints
+app.MapClaimEndpoints();
 
 // Map auth-related endpoints (authentication)
 app.MapAuthEndpoints();

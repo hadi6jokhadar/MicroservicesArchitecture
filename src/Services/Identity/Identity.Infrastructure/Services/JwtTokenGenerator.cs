@@ -8,6 +8,7 @@ using Identity.Infrastructure.Helpers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using JwtClaim = System.Security.Claims.Claim;
 
 namespace Identity.Infrastructure.Services;
 
@@ -27,18 +28,17 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         // ✨ Single line to get JWT settings - handles tenant/default automatically!
         var jwtSettings = ConfigurationHelper.GetJwtSettings(_configuration, _tenantContext);
 
-        var claims = new[]
+        var claims = new List<JwtClaim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-            new Claim(ClaimTypes.Role, user.Role.ToString()),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new JwtClaim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new JwtClaim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+            new JwtClaim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
         // Add tenant ID to claims if in multi-tenant mode
         if (_tenantContext.HasTenant && _tenantContext.TenantId != null)
         {
-            claims = claims.Append(new Claim("tenant_id", _tenantContext.TenantId)).ToArray();
+            claims.Add(new JwtClaim("tenant_id", _tenantContext.TenantId));
         }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret));

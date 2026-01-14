@@ -38,6 +38,14 @@ public static class LocalizationKeys
         public const string FileEmpty = "exception_file_empty";
         public const string InvalidUserId = "exception_invalid_user_id";
         public const string TenantContextRequired = "exception_tenant_context_required";
+        public const string RoleNotFound = "exception_role_not_found";
+        public const string RoleAlreadyExists = "exception_role_already_exists";
+        public const string ClaimNotFound = "exception_claim_not_found";
+        public const string ClaimAlreadyExists = "exception_claim_already_exists";
+        public const string SystemRoleCannotBeRenamed = "exception_system_role_cannot_be_renamed";
+        public const string SystemRoleCannotBeDeleted = "exception_system_role_cannot_be_deleted";
+        public const string SuperAdminRoleProtected = "exception_superadmin_role_protected";
+        public const string SuperAdminClaimProtected = "exception_superadmin_claim_protected";
     }
 
     /// <summary>

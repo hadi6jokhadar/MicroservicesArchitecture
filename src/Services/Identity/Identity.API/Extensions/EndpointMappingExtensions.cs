@@ -3,6 +3,8 @@ using Identity.API.Handlers;
 using Identity.Application.Commands;
 using Identity.Application.Commands.Auth;
 using Identity.Application.Commands.DeviceToken;
+using Identity.Application.Commands.Admin.Role;
+using Identity.Application.Commands.Admin.Claim;
 using Identity.Application.DTOs;
 using IhsanDev.Shared.Infrastructure.Attributes;
 
@@ -196,6 +198,127 @@ public static class EndpointMappingExtensions
             .WithName("DeleteUserById")
             .WithSummary("Delete user")
             .WithDescription("Permanently delete user account (Admin only). x-tenant-id header is optional.")
+            .Produces<object>(200);
+
+        return app;
+    }
+
+    /// <summary>
+    /// Map role management endpoints
+    /// </summary>
+    public static WebApplication MapRoleEndpoints(this WebApplication app)
+    {
+        var roleGroup = app.MapGroup("/api/admin/roles")
+            .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"))
+            .WithTags("Role Management")
+            .WithOpenApi()
+            .WithMetadata(new OptionalTenantAttribute());
+
+        // Get all roles
+        roleGroup.MapGet("/", RoleApiHandlers.GetRolesHandler)
+            .WithName("GetAllRoles")
+            .WithSummary("Get all roles")
+            .WithDescription("Retrieve all roles in the system. x-tenant-id header is optional.")
+            .Produces<List<RoleDto>>(200);
+
+        // Get role by ID
+        roleGroup.MapGet("/{id:int}", RoleApiHandlers.GetRoleByIdHandler)
+            .WithName("GetRoleById")
+            .WithSummary("Get role by ID")
+            .WithDescription("Retrieve a specific role by ID. x-tenant-id header is optional.")
+            .Produces<RoleDto>(200);
+
+        // Create new role
+        roleGroup.MapPost("/", RoleApiHandlers.CreateRoleHandler)
+            .WithName("CreateRole")
+            .WithSummary("Create new role")
+            .WithDescription("Create a new role (Admin/SuperAdmin only). x-tenant-id header is optional.")
+            .Produces<RoleDto>(201)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<CreateRoleCommand>>();
+
+        // Update role
+        roleGroup.MapPut("/{id:int}", RoleApiHandlers.UpdateRoleHandler)
+            .WithName("UpdateRole")
+            .WithSummary("Update role")
+            .WithDescription("Update an existing role (Admin/SuperAdmin only). System roles cannot be renamed. x-tenant-id header is optional.")
+            .Produces<RoleDto>(200)
+            .ProducesValidationProblem();
+
+        // Delete role
+        roleGroup.MapDelete("/{id:int}", RoleApiHandlers.DeleteRoleHandler)
+            .WithName("DeleteRole")
+            .WithSummary("Delete role")
+            .WithDescription("Delete a role (Admin/SuperAdmin only). System roles cannot be deleted. x-tenant-id header is optional.")
+            .Produces<object>(200);
+
+        // Assign claims to role
+        roleGroup.MapPost("/{id:int}/claims", RoleApiHandlers.AssignClaimsToRoleHandler)
+            .WithName("AssignClaimsToRole")
+            .WithSummary("Assign claims to role")
+            .WithDescription("Assign permissions (claims) to a role (Admin/SuperAdmin only). x-tenant-id header is optional.")
+            .Produces<object>(200)
+            .ProducesValidationProblem();
+
+        // Assign roles to user (replaces existing roles)
+        roleGroup.MapPost("/user/{id:int}", RoleApiHandlers.AssignRolesToUserHandler)
+            .WithName("AssignRolesToUser")
+            .WithSummary("Assign roles to user")
+            .WithDescription("Assign roles to a user, replacing all existing roles (Admin/SuperAdmin only). x-tenant-id header is optional.")
+            .Produces<object>(200)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<AssignRolesToUserCommand>>();
+
+        return app;
+    }
+
+    /// <summary>
+    /// Map claim management endpoints
+    /// </summary>
+    public static WebApplication MapClaimEndpoints(this WebApplication app)
+    {
+        var claimGroup = app.MapGroup("/api/admin/claims")
+            .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"))
+            .WithTags("Claim Management")
+            .WithOpenApi()
+            .WithMetadata(new OptionalTenantAttribute());
+
+        // Get all claims
+        claimGroup.MapGet("/", ClaimApiHandlers.GetClaimsHandler)
+            .WithName("GetAllClaims")
+            .WithSummary("Get all claims")
+            .WithDescription("Retrieve all available claims (permissions) in the system. x-tenant-id header is optional.")
+            .Produces<List<ClaimDto>>(200);
+
+        // Get claim by ID
+        claimGroup.MapGet("/{id:int}", ClaimApiHandlers.GetClaimByIdHandler)
+            .WithName("GetClaimById")
+            .WithSummary("Get claim by ID")
+            .WithDescription("Retrieve a specific claim by ID. x-tenant-id header is optional.")
+            .Produces<ClaimDto>(200);
+
+        // Create new claim
+        claimGroup.MapPost("/", ClaimApiHandlers.CreateClaimHandler)
+            .WithName("CreateClaim")
+            .WithSummary("Create new claim")
+            .WithDescription("Create a new claim/permission (Admin/SuperAdmin only). x-tenant-id header is optional.")
+            .Produces<ClaimDto>(201)
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<CreateClaimCommand>>();
+
+        // Update claim
+        claimGroup.MapPut("/{id:int}", ClaimApiHandlers.UpdateClaimHandler)
+            .WithName("UpdateClaim")
+            .WithSummary("Update claim")
+            .WithDescription("Update an existing claim/permission (Admin/SuperAdmin only). x-tenant-id header is optional.")
+            .Produces<ClaimDto>(200)
+            .ProducesValidationProblem();
+
+        // Delete claim
+        claimGroup.MapDelete("/{id:int}", ClaimApiHandlers.DeleteClaimHandler)
+            .WithName("DeleteClaim")
+            .WithSummary("Delete claim")
+            .WithDescription("Delete a claim/permission (Admin/SuperAdmin only). x-tenant-id header is optional.")
             .Produces<object>(200);
 
         return app;

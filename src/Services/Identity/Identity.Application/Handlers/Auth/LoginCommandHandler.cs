@@ -7,6 +7,7 @@ using Identity.Application.Helpers;
 using Identity.Application.Services;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -15,15 +16,18 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, UserDtoIncludes
     private readonly IUserRepository _userRepository;
     private readonly IUserService _userService;
     private readonly ProfilePictureHelper _profilePictureHelper;
+    private readonly ILogger<LoginCommandHandler> _logger;
 
     public LoginCommandHandler(
         IUserRepository userRepository,
         IUserService userService,
-        ProfilePictureHelper profilePictureHelper)
+        ProfilePictureHelper profilePictureHelper,
+        ILogger<LoginCommandHandler> logger)
     {
         _userRepository = userRepository;
         _userService = userService;
         _profilePictureHelper = profilePictureHelper;
+        _logger = logger;
     }
 
     public async Task<UserDtoIncludesToken> Handle(LoginCommand request, CancellationToken cancellationToken)
@@ -58,8 +62,9 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, UserDtoIncludes
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error during login for email: {Email}", request.Email);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

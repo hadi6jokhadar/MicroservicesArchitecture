@@ -4,7 +4,6 @@ using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Validation;
 using Identity.Application.DTOs;
 using MediatR;
-using IhsanDev.Shared.Kernel.Enums.Identity;
 
 namespace Identity.Application.Commands;
 
@@ -14,7 +13,7 @@ public record CreateUserCommand(
     string Password,
     string FirstName,
     string LastName,
-    UserRole Role,
+    List<int> RoleIds,
     string? PhoneNumber = null,
     int? ProfilePictureId = null,
     string? Data = null
@@ -43,8 +42,9 @@ public class CreateUserCommandValidator : LocalizedValidator<CreateUserCommand>
             .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "LastName"))
             .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "LastName", 50));
 
-        RuleFor(x => x.Role)
-            .IsInEnum().WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Role"));
+        RuleFor(x => x.RoleIds)
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Roles"))
+            .Must(roleIds => roleIds != null && roleIds.Any()).WithMessage(L(LocalizationKeys.Validation.Required, "Roles"));
 
         RuleFor(x => x.PhoneNumber)
             .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage(L(LocalizationKeys.Validation.PhoneNumberInvalid))

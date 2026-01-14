@@ -17,6 +17,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
 {
     private readonly IUserRepository _userRepository;
     private readonly IUserService _userService;
+    private readonly IUserRoleRepository _userRoleRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
     private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ITenantContext _tenantContext;
@@ -24,12 +25,14 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
     public CreateUserCommandHandler(
         IUserRepository userRepository,
         IUserService userService,
+        IUserRoleRepository userRoleRepository,
         ProfilePictureHelper profilePictureHelper,
         IFileManagerServiceClient fileManagerClient,
         ITenantContext tenantContext)
     {
         _userRepository = userRepository;
         _userService = userService;
+        _userRoleRepository = userRoleRepository;
         _profilePictureHelper = profilePictureHelper;
         _fileManagerClient = fileManagerClient;
         _tenantContext = tenantContext;
@@ -51,7 +54,6 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
                 PasswordHash = hashedPassword,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
-                Role = request.Role,
                 PhoneNumber = request.PhoneNumber,
                 ProfilePictureId = request.ProfilePictureId,
                 Data = request.Data,
@@ -61,6 +63,17 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
             };
 
             await _userRepository.AddAsync(user, cancellationToken);
+
+            // Assign roles to user
+            if (request.RoleIds != null && request.RoleIds.Any())
+            {
+                await _userRoleRepository.AssignRolesToUserAsync(user.Id, request.RoleIds, cancellationToken);
+            }
+
+            // Reload user with roles to populate navigation properties
+            var userWithRoles = await _userRepository.GetByIdAsync(user.Id, cancellationToken);
+            if (userWithRoles == null)
+                throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
             // Mark profile picture as permanent if provided
             if (request.ProfilePictureId.HasValue)
@@ -77,7 +90,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
                 }
             }
 
-            var userDto = UserDto.MapFrom(user);
+            // Admin endpoint: Always include roles
+            var userDto = UserDto.MapFrom(userWithRoles, includeRoles: true);
             
             // Enrich with profile picture (will be null for new users unless profilePictureId was provided)
             await _profilePictureHelper.EnrichWithProfilePictureAsync(

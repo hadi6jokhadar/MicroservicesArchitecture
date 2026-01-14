@@ -3,7 +3,6 @@ using Identity.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using Identity.Infrastructure.Persistence;
-using IhsanDev.Shared.Kernel.Enums.Identity;
 
 namespace Identity.Infrastructure.Repositories;
 
@@ -13,16 +12,37 @@ public class UserRepository : Repository<User>, IUserRepository
     {
     }
 
-    public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    public override async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .AsNoTracking()
+            .AsSplitQuery()
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RoleClaims)
+                        .ThenInclude(rc => rc.Claim)
+            .FirstOrDefaultAsync(u => u.Id == id && !u.IsArchived, cancellationToken);
+    }
+
+    public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .AsSplitQuery()
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RoleClaims)
+                        .ThenInclude(rc => rc.Claim)
             .FirstOrDefaultAsync(u => u.Email == email && !u.IsArchived, cancellationToken);
     }
 
     public async Task<User?> GetByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .AsSplitQuery()
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RoleClaims)
+                        .ThenInclude(rc => rc.Claim)
             .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken && !u.IsArchived, cancellationToken);
     }
 
@@ -34,7 +54,11 @@ public class UserRepository : Repository<User>, IUserRepository
     public async Task<User?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RoleClaims)
+                        .ThenInclude(rc => rc.Claim)
             .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber && !u.IsArchived, cancellationToken);
     }
 
@@ -46,11 +70,16 @@ public class UserRepository : Repository<User>, IUserRepository
         return await _dbSet.AnyAsync(u => u.PhoneNumber == phoneNumber && !u.IsArchived, cancellationToken);
     }
 
-    public IQueryable<User> GetUsersByRole(UserRole role)
+    public async Task<List<User>> GetUsersByRoleNameAsync(string roleName, CancellationToken cancellationToken = default)
     {
-        return _dbSet
+        var normalizedRoleName = roleName.ToUpperInvariant();
+        return await _dbSet
             .AsNoTracking()
-            .Where(u => u.Role == role && !u.IsArchived);
+            .Where(u => !u.IsArchived)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .Where(u => u.UserRoles.Any(ur => ur.Role.NormalizedName == normalizedRoleName))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<bool> UpdateRefreshTokenAsync(int userId, string refreshToken, DateTime expiryTime, CancellationToken cancellationToken = default)

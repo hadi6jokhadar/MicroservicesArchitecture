@@ -821,8 +821,14 @@ DatabaseMigrationMiddleware<IdentityDbContext>.ClearMigrationCache("tenant-123")
 
 ---
 
-**Last Updated:** October 27, 2025  
-**Version:** 1.0.0  
+**Last Updated:** January 12, 2026  
+**Version:** 1.1.0  
 **Status:** ✅ Implemented and Production Ready
+
+**Recent Updates (Jan 12, 2026):**
+
+- Fixed DbContext registration for multi-tenant mode to allow OnConfiguring to run
+- Database migration now works correctly for global database (no x-tenant-id header)
+- See [IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md](IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md) for details
 
 **Built with ❤️ for seamless tenant onboarding**

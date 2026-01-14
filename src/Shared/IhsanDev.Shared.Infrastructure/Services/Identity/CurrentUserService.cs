@@ -19,4 +19,11 @@ public class CurrentUserService : ICurrentUserService
 
     public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated 
         ?? false;
+
+    public bool IsSuperAdmin => _httpContextAccessor.HttpContext?.User?.IsSuperAdmin() ?? false;
+
+    public IEnumerable<string> Roles => _httpContextAccessor.HttpContext?.User?.GetRoles() 
+        ?? Enumerable.Empty<string>();
+
+    public bool HasRole(string role) => _httpContextAccessor.HttpContext?.User?.HasRole(role) ?? false;
 }

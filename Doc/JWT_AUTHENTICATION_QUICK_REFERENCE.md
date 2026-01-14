@@ -300,6 +300,79 @@ public static IServiceCollection AddJwtAuthenticationSharedOnly(
 
 ---
 
+## JWT Token Contents
+
+### Standard Claims
+
+All JWT tokens include these standard claims:
+
+```json
+{
+  "sub": "123", // User ID (NameIdentifier)
+  "email": "user@example.com", // User email
+  "given_name": "John", // First name
+  "family_name": "Doe", // Last name
+  "role": ["User", "Admin"], // User roles (array)
+  "permission:read": "true", // Custom claims (permissions)
+  "permission:write": "true",
+  "tenant_id": "tenant-001", // Tenant ID (if multi-tenant)
+  "exp": 1737123456, // Expiration timestamp
+  "iss": "IdentityService", // Issuer
+  "aud": "MicroservicesApp" // Audience
+}
+```
+
+### Role Claims
+
+**Automatically Included (January 2026):**
+
+- All user roles are added as `ClaimTypes.Role` claims
+- All custom permissions are added as custom claims
+- Roles and claims are loaded with navigation properties
+- No manual intervention required
+
+**Authorization Usage:**
+
+```csharp
+// Check single role
+[Authorize(Roles = "Admin")]
+
+// Check multiple roles
+[Authorize(Roles = "Admin,SuperAdmin")]
+
+// Check custom claim
+[Authorize(Policy = "RequireReadPermission")]
+
+// Get current user's roles in code
+var roles = _currentUserService.Roles; // IEnumerable<string>
+bool isAdmin = _currentUserService.HasRole("Admin");
+bool isSuperAdmin = _currentUserService.IsSuperAdmin;
+```
+
+### Response Body Behavior
+
+**Important:** Roles and claims are **always in JWT tokens**, but their visibility in response bodies is conditional:
+
+| Endpoint                 | Roles in Response            | Reason                                         |
+| ------------------------ | ---------------------------- | ---------------------------------------------- |
+| POST /auth/login         | ❌ No                        | Reduces response size, roles are in JWT        |
+| POST /auth/register      | ❌ No                        | Reduces response size, roles are in JWT        |
+| POST /auth/refresh-token | ❌ No                        | Reduces response size, roles are in JWT        |
+| GET /users/profile       | ✅ Only for Admin/SuperAdmin | Privacy - regular users don't see role configs |
+| PUT /users/profile       | ✅ Only for Admin/SuperAdmin | Privacy - regular users don't see role configs |
+| GET /admin/users/:id     | ✅ Always                    | Admin endpoints show full details              |
+| GET /admin/users         | ✅ Always                    | Admin endpoints show full details              |
+| POST /admin/users        | ✅ Always                    | Admin endpoints show full details              |
+
+**Why this design?**
+
+- **Security**: Non-admin users can't inspect role/claim configurations
+- **Performance**: Smaller response payloads for authentication
+- **Consistency**: JWT is single source of truth for authorization
+- **Privacy**: Role details only visible to administrators
+
+---
+
 ## Examples by Service
 
 ### FileManager
@@ -346,7 +419,8 @@ builder.Services.AddJwtAuthentication(
 - [JWT_AUTHENTICATION_CONSOLIDATION.md](JWT_AUTHENTICATION_CONSOLIDATION.md) - Full implementation details
 - [JWT_TENANT_VERIFICATION_GUIDE.md](JWT_TENANT_VERIFICATION_GUIDE.md) - Multi-tenant setup
 - [JWT_SECRET_AND_VALIDATION_FLOW.md](JWT_SECRET_AND_VALIDATION_FLOW.md) - Security guide
+- [IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md](IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md) - Role claims implementation
 
 ---
 
-_Last Updated: November 22, 2025_
+_Last Updated: January 13, 2026_

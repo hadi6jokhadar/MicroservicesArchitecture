@@ -36,7 +36,8 @@ public class ToggleUserStatusCommandHandler : IRequestHandler<ToggleUserStatusCo
 
             await _userRepository.UpdateAsync(user, cancellationToken);
 
-            var userDto = UserDto.MapFrom(user);
+            // Admin endpoint: Always include roles
+            var userDto = UserDto.MapFrom(user, includeRoles: true);
             
             // Enrich with profile picture
             await _profilePictureHelper.EnrichWithProfilePictureAsync(
