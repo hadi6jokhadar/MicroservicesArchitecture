@@ -2,9 +2,9 @@
 
 **Date:** January 13, 2026  
 **Status:** ✅ Complete - All Tests Passing (142/142)  
-**Impact:** Critical - Database Seeding, SuperAdmin Auto-Creation, Test Stability, JWT Role Claims
+**Impact:** Critical - Database Seeding, SuperAdmin Auto-Creation, Test Stability, JWT Role Claims, Grouped Cache Namespacing
 
-**Last Updated:** January 13, 2026 - Added JWT role claims and conditional role visibility
+**Last Updated:** January 15, 2026 - Added grouped cache namespace strategy
 
 ---
 
@@ -1034,17 +1034,58 @@ All 142 integration tests pass with the new implementation.
 
 ---
 
+## 8. Grouped Cache Namespace Strategy
+
+**Status:** ✅ Complete (Jan 15, 2026)
+
+Implemented hierarchical cache key namespacing for claims and roles to keep Redis clean and organized.
+
+**Improvements:**
+
+- ✅ Claims grouped under `admin:claims:*` namespace
+- ✅ Roles grouped under `admin:roles:*` namespace
+- ✅ Individual items keyed as `{group}:{id}`
+- ✅ Automated cache invalidation for related keys
+- ✅ Lower Redis cardinality with better organization
+
+**Cache Structure:**
+
+```
+admin:claims                        → List<ClaimDto>
+admin:claims:{id}                   → ClaimDto
+admin:claims:name_{normalized}      → ClaimDto (by name lookup)
+
+admin:roles                         → List<RoleDto>
+admin:roles:{id}                    → RoleDto
+admin:roles:name_{normalized}       → RoleDto (by name lookup)
+admin:roles:{id}:claims             → List<ClaimDto> (for specific role)
+```
+
+**Affected Handlers:**
+
+- Query handlers automatically cache under group keys
+- Create/Update/Delete commands invalidate all related group keys
+- AssignClaimsToRole invalidates role and its claims cache
+
+**Documentation:**
+
+- See [GROUPED_CACHE_NAMESPACE_STRATEGY.md](GROUPED_CACHE_NAMESPACE_STRATEGY.md) for detailed implementation
+
+---
+
 ## 👥 Contributors
 
 - **Implementation:** GitHub Copilot + Development Team
 - **Testing:** Automated test suite (142 integration tests)
-- **Documentation:** January 12-13, 2026
+- **Documentation:** January 12-15, 2026
 
 ---
 
 **For questions or issues, refer to:**
 
 - [00_START_HERE.md](00_START_HERE.md) - Documentation index
+- [GROUPED_CACHE_NAMESPACE_STRATEGY.md](GROUPED_CACHE_NAMESPACE_STRATEGY.md) - Hierarchical cache key organization
 - [JWT_AUTHENTICATION_QUICK_REFERENCE.md](JWT_AUTHENTICATION_QUICK_REFERENCE.md) - JWT configuration
+- [CACHING_STRATEGY_COMPARISON.md](CACHING_STRATEGY_COMPARISON.md) - Redis vs MemoryCache
 - Integration test files for usage examples
 - Postman collection for API reference

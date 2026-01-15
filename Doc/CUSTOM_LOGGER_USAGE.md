@@ -16,9 +16,10 @@ The custom logger system consists of:
 - ✅ **Colored Console Output**: Different colors for different log levels
 - ✅ **File Logging**: Automatic daily log file rotation
 - ✅ **Service Context**: Optional service name for multi-service logging
+- ✅ **TraceId Support**: Automatic request correlation tracking
 - ✅ **Thread-Safe**: Safe for concurrent operations
 - ✅ **Exception Support**: Enhanced exception logging with stack traces
-- ✅ **MediatR Integration**: Automatic request/response logging
+- ✅ **MediatR Integration**: Automatic request/response logging with traceId
 
 ## Configuration
 
@@ -163,11 +164,13 @@ public class CustomMiddleware
 ### File Output (Logs/Identity/project-2024-10-14.log)
 
 ```
-2024-10-14 15:30:15.123 [Information] [Identity] Handling LoginCommand
+2024-10-14 15:30:15.123 [Information] | TraceId: 0HNIJVSH6HAU1:00000001 [Identity] Handling LoginCommand
 2024-10-14 15:30:15.456 [Information] [UserService] Getting user with ID: 123
 2024-10-14 15:30:16.789 [Information] [UserService] Successfully retrieved user: user@example.com
-2024-10-14 15:30:16.890 [Information] [Identity] Handled LoginCommand in 1250ms
+2024-10-14 15:30:16.890 [Information] | TraceId: 0HNIJVSH6HAU1:00000001 [Identity] Handled LoginCommand in 1250ms
 ```
+
+**Note**: TraceId is automatically included in logs when available from the HTTP request context. This allows you to correlate log entries with HTTP responses and track requests across services.
 
 ## Log Levels and Colors
 
@@ -215,13 +218,55 @@ catch (Exception ex)
 
 ### MediatR Integration
 
-The custom LoggingBehavior automatically logs all MediatR requests:
+The custom LoggingBehavior automatically logs all MediatR requests with traceId for request correlation and localizes exception messages:
 
 ```csharp
-// Automatically logged:
-// [Information] [MediatR] Handling LoginCommand
-// [Information] [MediatR] Handled LoginCommand in 1250ms
+// Automatically logged with traceId and localized messages:
+// [Information] | TraceId: 0HNIK0HVNM5E4:00000003 [MediatR] Handling LoginCommand
+// [Warning] | TraceId: 0HNIK0HVNM5E4:00000003 [MediatR] Business exception in LoginCommand after 36ms: البريد الإلكتروني أو كلمة المرور غير صحيحة
 var result = await _mediator.Send(new LoginCommand { Email = "test@example.com" });
+```
+
+**Key Features**:
+- ✅ Automatic traceId inclusion for request correlation
+- ✅ Localized error messages (matches HTTP responses)
+- ✅ No code changes needed in handlers
+- ✅ Performance metrics (execution time)
+
+### Validation Logging
+
+Validation failures are automatically logged at the ValidationFilter level with traceId:
+
+```csharp
+// When validation fails, automatically logged as:
+// [Warning] | TraceId: 0HNIK0HVNM5E4:00000001 [ValidationFilter] Validation failed for RegisterCommand: Password: يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل; Password: يجب أن تحتوي كلمة المرور على حرف خاص واحد على الأقل
+
+// User receives 400 BadRequest with matching traceId
+// No need to manually log validation errors
+```
+
+**Benefits**:
+- ✅ All validation failures appear in logs
+- ✅ TraceId matches HTTP response for easy correlation
+- ✅ Localized error messages
+- ✅ Works across all microservices using SharedValidationFilter
+
+### Manual TraceId Logging
+
+You can also manually pass traceId when logging from contexts with HttpContext access:
+
+```csharp
+public class UserEndpoint
+{
+    private readonly ILoggerManager _logger;
+
+    public async Task<IResult> HandleRequest(HttpContext context)
+    {
+        var traceId = context.TraceIdentifier;
+        _logger.LogInfo("Processing user request", "UserService", traceId);
+        // This will include the traceId in the log file
+    }
+}
 ```
 
 ## Migration from Standard ILogger

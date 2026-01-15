@@ -16,7 +16,7 @@ public class ForgetPasswordCommandValidator : LocalizedValidator<ForgetPasswordC
     public ForgetPasswordCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Email"))
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Email)))
             .EmailAddress().WithMessage(L(LocalizationKeys.Validation.EmailInvalid));
     }
 }

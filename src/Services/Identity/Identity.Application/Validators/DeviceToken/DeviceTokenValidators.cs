@@ -11,13 +11,13 @@ public class AddDeviceTokenCommandValidator : LocalizedValidator<AddDeviceTokenC
     {
         RuleFor(x => x.UserId)
             .GreaterThan(0)
-            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "UserId", "0"));
+            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.UserId), "0"));
 
         RuleFor(x => x.Token)
             .NotEmpty()
-            .WithMessage(L(LocalizationKeys.Validation.Required, "Token"))
+            .WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Token)))
             .MaximumLength(500)
-            .WithMessage(L(LocalizationKeys.Validation.MaxLength, "Token", "500"));
+            .WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.Token), "500"));
 
         RuleFor(x => x.Platform)
             .IsInEnum()
@@ -25,7 +25,7 @@ public class AddDeviceTokenCommandValidator : LocalizedValidator<AddDeviceTokenC
 
         RuleFor(x => x.DeviceIdentifier)
             .MaximumLength(100)
-            .WithMessage(L(LocalizationKeys.Validation.MaxLength, "DeviceIdentifier", "100"))
+            .WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.DeviceIdentifier), "100"))
             .When(x => !string.IsNullOrWhiteSpace(x.DeviceIdentifier));
     }
 }
@@ -36,16 +36,16 @@ public class UpdateDeviceTokenCommandValidator : LocalizedValidator<UpdateDevice
     {
         RuleFor(x => x.Id)
             .GreaterThan(0)
-            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Id", "0"));
+            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.Id), "0"));
 
         RuleFor(x => x.Token)
             .MaximumLength(500)
-            .WithMessage(L(LocalizationKeys.Validation.MaxLength, "Token", "500"))
+            .WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.Token), "500"))
             .When(x => !string.IsNullOrWhiteSpace(x.Token));
 
         RuleFor(x => x.DeviceIdentifier)
             .MaximumLength(100)
-            .WithMessage(L(LocalizationKeys.Validation.MaxLength, "DeviceIdentifier", "100"))
+            .WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.DeviceIdentifier), "100"))
             .When(x => !string.IsNullOrWhiteSpace(x.DeviceIdentifier));
     }
 }
@@ -56,7 +56,7 @@ public class DeleteDeviceTokenCommandValidator : LocalizedValidator<DeleteDevice
     {
         RuleFor(x => x.Id)
             .GreaterThan(0)
-            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Id", "0"));
+            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.Id), "0"));
     }
 }
 
@@ -66,6 +66,6 @@ public class DeleteAllUserDeviceTokensCommandValidator : LocalizedValidator<Dele
     {
         RuleFor(x => x.UserId)
             .GreaterThan(0)
-            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "UserId", "0"));
+            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.UserId), "0"));
     }
 }

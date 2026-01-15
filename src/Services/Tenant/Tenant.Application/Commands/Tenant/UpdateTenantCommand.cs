@@ -24,21 +24,21 @@ public class UpdateTenantCommandValidator : LocalizedValidator<UpdateTenantComma
     public UpdateTenantCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.TenantId)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Tenant ID"))
-            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Tenant ID", "50"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.TenantId)))
+            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.TenantId), "50"));
 
         RuleFor(x => x.TenantName)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Tenant name"))
-            .MaximumLength(200).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Tenant name", "200"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.TenantName)))
+            .MaximumLength(200).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.TenantName), "200"));
 
         RuleFor(x => x.StartDate)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Start date"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.StartDate)));
 
         RuleFor(x => x.ExpireDate)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Expire date"))
-            .GreaterThan(x => x.StartDate).WithMessage(L(LocalizationKeys.Validation.MustBeAfter, "Expire date", "start date"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.ExpireDate)))
+            .GreaterThan(x => x.StartDate).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.ExpireDate), L(LocalizationKeys.Fields.StartDate)));
 
         RuleFor(x => x.Data)
-            .NotNull().WithMessage(L(LocalizationKeys.Validation.Required, "Configuration data"));
+            .NotNull().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.ConfigurationData)));
     }
 }

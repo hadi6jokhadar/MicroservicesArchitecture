@@ -1,6 +1,6 @@
 # Caching Strategy Comparison
 
-**Last Updated:** November 18, 2025 \
+**Last Updated:** January 15, 2026  
 **Status:** ✅ Production Ready
 
 This guide compares the two supported caching modes—**Redis distributed cache** and the **in-memory fallback**—so you can pick the right configuration per environment.
@@ -77,9 +77,10 @@ This guide compares the two supported caching modes—**Redis distributed cache*
 1. **Health Monitoring**
    - When Redis is enabled, monitor connection multiplexer events and latency.
    - Use `redis-cli monitor` or Azure metrics to detect slow commands.
-2. **Cache Keys**
+2. **Cache Keys & Namespacing**
    - Tenant configs follow `tenant_config_{tenantId}`.
    - Device tokens and notification payloads use `tenant:{id}:device:{hash}` for sharding.
+   - **NEW:** Claims and roles use grouped namespaces: `admin:claims:*` and `admin:roles:*` (see [GROUPED_CACHE_NAMESPACE_STRATEGY.md](GROUPED_CACHE_NAMESPACE_STRATEGY.md))
 3. **Warmup Strategy**
    - Preload critical tenants via `TenantConfigurationProvider` during deployment to avoid cold-start latency.
 4. **Fallback Behavior**
@@ -90,6 +91,7 @@ This guide compares the two supported caching modes—**Redis distributed cache*
 
 ## Related Documentation
 
+- [GROUPED_CACHE_NAMESPACE_STRATEGY.md](GROUPED_CACHE_NAMESPACE_STRATEGY.md) - **NEW:** Hierarchical cache key organization
 - [REDIS_ENABLED_VS_DISABLED_GUIDE.md](REDIS_ENABLED_VS_DISABLED_GUIDE.md)
 - [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
 - [DATABASE_PER_TENANT_ARCHITECTURE.md](DATABASE_PER_TENANT_ARCHITECTURE.md)

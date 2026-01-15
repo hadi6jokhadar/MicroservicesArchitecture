@@ -17,18 +17,18 @@ public class RegisterWithCodeByEmailCommandValidator : LocalizedValidator<Regist
     public RegisterWithCodeByEmailCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Email"))
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Email)))
             .EmailAddress().WithMessage(L(LocalizationKeys.Validation.EmailInvalid))
-            .MaximumLength(256).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Email", "256"));
+            .MaximumLength(256).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.Email), "256"));
 
         RuleFor(x => x.FirstName)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "First name"))
-            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "First name", "100"))
-            .Matches(@"^[a-zA-Z\s]+$").WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "First name (letters only)"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.FirstName)))
+            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.FirstName), "100"))
+            .Matches(@"^[a-zA-Z\s]+$").WithMessage(L(LocalizationKeys.Validation.FirstNameLettersOnly));
 
         RuleFor(x => x.LastName)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Last name"))
-            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Last name", "100"))
-            .Matches(@"^[a-zA-Z\s]+$").WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Last name (letters only)"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.LastName)))
+            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.LastName), "100"))
+            .Matches(@"^[a-zA-Z\s]+$").WithMessage(L(LocalizationKeys.Validation.LastNameLettersOnly));
     }
 }

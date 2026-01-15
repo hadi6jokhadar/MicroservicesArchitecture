@@ -1,4 +1,6 @@
 using Notification.API.Handlers;
+using Notification.API.Filters;
+using Notification.Application.Commands;
 using Notification.Application.DTOs;
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Infrastructure.Attributes;
@@ -36,6 +38,7 @@ public static class EndpointMappingExtensions
             .RequireRateLimiting("PerTenant")
             .Produces<SendNotificationResponse>(200)
             .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<SendNotificationCommand>>()
             .Produces(429); // Too Many Requests
 
         // Get queue item status
@@ -54,7 +57,8 @@ public static class EndpointMappingExtensions
             .WithDescription("Retrieve paginated list of all notification queue items with filtering support. Requires Service or SuperAdmin role with global JWT authentication.")
             .WithMetadata(new BypassTenantAttribute())
             .Produces<PaginatedList<QueueItemDto>>(200)
-            .ProducesValidationProblem();
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<GetQueueItemsCommand>>();
 
         // =============================================================================
         // GROUP 2: User Endpoints (Tenant-Specific Access)

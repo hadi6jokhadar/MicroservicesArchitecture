@@ -24,20 +24,20 @@ public class SendNotificationCommandValidator : LocalizedValidator<SendNotificat
     public SendNotificationCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Title)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Title"))
-            .MaximumLength(200).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Title", "200"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Title)))
+            .MaximumLength(200).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.Title), "200"));
 
         RuleFor(x => x.Message)
-            .MaximumLength(1000).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Message", "1000"))
+            .MaximumLength(1000).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.Message), "1000"))
             .When(x => !string.IsNullOrEmpty(x.Message));
 
         RuleFor(x => x.DeliveryType)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "DeliveryType"))
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.DeliveryType)))
             .Must(x => x == "SignalR" || x == "Firebase" || x == "Both")
             .WithMessage(L(LocalizationKeys.Validation.InvalidDeliveryType));
 
         RuleFor(x => x.Priority)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Priority"))
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Priority)))
             .Must(x => x == "Immediate" || x == "Waitable")
             .WithMessage(L(LocalizationKeys.Validation.InvalidPriority));
     }

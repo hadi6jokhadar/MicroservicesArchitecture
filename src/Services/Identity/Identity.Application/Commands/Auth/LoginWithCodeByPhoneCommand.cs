@@ -25,16 +25,16 @@ public class LoginWithCodeByPhoneCommandValidator : LocalizedValidator<LoginWith
         var useAlphanumeric = otpSettings.UseAlphanumeric;
 
         RuleFor(x => x.PhoneNumber)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Phone number"))
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.PhoneNumber)))
             .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage(L(LocalizationKeys.Validation.PhoneNumberInvalid));
 
         RuleFor(x => x.VerificationCode)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Verification code"))
-            .Length(codeLength).WithMessage(L(LocalizationKeys.Validation.InvalidFormat, $"Verification code (must be {codeLength} characters)"))
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.VerificationCode)))
+            .Length(codeLength).WithMessage(L(LocalizationKeys.Validation.VerificationCodeLength, codeLength))
             .Must(code => useAlphanumeric ? code.All(char.IsLetterOrDigit) : code.All(char.IsDigit))
             .WithMessage(useAlphanumeric 
-                ? L(LocalizationKeys.Validation.InvalidFormat, "Verification code (must contain only letters and digits)")
-                : L(LocalizationKeys.Validation.InvalidFormat, "Verification code (must contain only digits)"));
+                ? L(LocalizationKeys.Validation.VerificationCodeAlphanumeric)
+                : L(LocalizationKeys.Validation.VerificationCodeDigitsOnly));
     }
 
     private static OtpSettings GetOtpSettings(IConfiguration configuration, ITenantContext tenantContext)

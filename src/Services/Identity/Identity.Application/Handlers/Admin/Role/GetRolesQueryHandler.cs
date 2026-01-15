@@ -25,8 +25,9 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, List<RoleDto>
     {
         try
         {
-            // Try cache first
-            var cachedRoles = await _cacheService.GetAsync<List<RoleDto>>("roles_all", cancellationToken);
+            // Try group cache first
+            const string groupKey = "admin:roles";
+            var cachedRoles = await _cacheService.GetAsync<List<RoleDto>>(groupKey, cancellationToken);
             if (cachedRoles != null)
                 return cachedRoles;
 
@@ -34,8 +35,8 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, List<RoleDto>
             var roles = await _roleRepository.GetAllAsync(false, cancellationToken);
             var roleDtos = roles.Select(RoleDto.MapFrom).ToList();
 
-            // Cache for 30 minutes
-            await _cacheService.SetAsync("roles_all", roleDtos, TimeSpan.FromMinutes(30), cancellationToken);
+            // Cache under group for 30 minutes
+            await _cacheService.SetAsync(groupKey, roleDtos, TimeSpan.FromMinutes(30), cancellationToken);
 
             return roleDtos;
         }
@@ -63,8 +64,9 @@ public class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, RoleDto
     {
         try
         {
-            // Try cache first
-            var cacheKey = $"role_{request.Id}";
+            // Try group cache first
+            const string groupKey = "admin:roles";
+            var cacheKey = $"{groupKey}:{request.Id}";
             var cachedRole = await _cacheService.GetAsync<RoleDto>(cacheKey, cancellationToken);
             if (cachedRole != null)
                 return cachedRole;
@@ -76,7 +78,7 @@ public class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, RoleDto
 
             var roleDto = RoleDto.MapFrom(role);
 
-            // Cache for 30 minutes
+            // Cache under group for 30 minutes
             await _cacheService.SetAsync(cacheKey, roleDto, TimeSpan.FromMinutes(30), cancellationToken);
 
             return roleDto;

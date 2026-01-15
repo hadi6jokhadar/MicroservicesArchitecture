@@ -1,7 +1,7 @@
 # 📚 Microservices Architecture - Documentation Index
 
-**Last Updated:** January 12, 2026  
-**Version:** 2.4
+**Last Updated:** January 15, 2026  
+**Version:** 2.5
 
 ---
 
@@ -28,7 +28,7 @@
 - 🖼️ **Profile Pictures?** → [PROFILE_PICTURE_COMPLETE_GUIDE.md](PROFILE_PICTURE_COMPLETE_GUIDE.md) or [PROFILE_PICTURE_QUICK_REFERENCE.md](PROFILE_PICTURE_QUICK_REFERENCE.md)
 - ⚡ **N+1 Query Problems?** → [PROFILE_PICTURE_BATCH_OPTIMIZATION.md](PROFILE_PICTURE_BATCH_OPTIMIZATION.md) - **20-50x performance boost**
 - 🔑 **Project Isolation?** → [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md)
-- 🌍 **Localization?** → [COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md](COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md) or [LOCALIZATION_QUICK_REFERENCE.md](LOCALIZATION_QUICK_REFERENCE.md)
+- 🌍 **Localization?** → [FIELD_NAME_VALIDATION_LOCALIZATION_SUMMARY.md](FIELD_NAME_VALIDATION_LOCALIZATION_SUMMARY.md) (Jan 15, 2026) or [COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md](COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md) or [LOCALIZATION_QUICK_REFERENCE.md](LOCALIZATION_QUICK_REFERENCE.md)
 - 🔔 **Notifications?** → [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
 - 🔥 **Firebase Push?** → [FIREBASE_QUICK_REFERENCE.md](FIREBASE_QUICK_REFERENCE.md)
 - 📱 **Device Tokens?** → [DEVICE_TOKEN_QUICK_REFERENCE.md](DEVICE_TOKEN_QUICK_REFERENCE.md)
@@ -37,7 +37,8 @@
 - 🛡️ **Rate Limiting?** → [RATE_LIMITING_IMPLEMENTATION_SUMMARY.md](RATE_LIMITING_IMPLEMENTATION_SUMMARY.md)
 - 🚀 **Redis Caching?** → [REDIS_CACHE_QUICK_REFERENCE.md](REDIS_CACHE_QUICK_REFERENCE.md)
 - 🔄 **Redis vs Memory Cache?** → [REDIS_ENABLED_VS_DISABLED_GUIDE.md](REDIS_ENABLED_VS_DISABLED_GUIDE.md)
-- 💾 **Database Replication?** → [DATABASE_REPLICATION_SETUP_GUIDE.md](DATABASE_REPLICATION_SETUP_GUIDE.md)
+- � **Grouped Cache Namespaces?** → [GROUPED_CACHE_NAMESPACE_STRATEGY.md](GROUPED_CACHE_NAMESPACE_STRATEGY.md) - **NEW (Jan 15, 2026)**
+- �💾 **Database Replication?** → [DATABASE_REPLICATION_SETUP_GUIDE.md](DATABASE_REPLICATION_SETUP_GUIDE.md)
 
 ---
 
@@ -106,12 +107,15 @@ Doc/
 ├─ Development Guides
 │  ├─ AUTOMAPPER_REMOVAL_SUMMARY.md         ← ✅ AutoMapper removal complete
 │  ├─ DATETIME_STANDARDIZATION_SUMMARY.md   ← ✅ DateTime ISO 8601 UTC format
-│  ├─ COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md  ← ✅ NEW: Complete i18n migration (95 keys, en+ar)
+│  ├─ COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md  ← ✅ Complete i18n migration (109 keys, en+ar) - UPDATED Jan 15, 2026
+│  ├─ FIELD_NAME_VALIDATION_LOCALIZATION_SUMMARY.md ← 🔴 NEW: Field & validation message localization (Jan 15, 2026)
+│  ├─ CENTRALIZED_VALIDATION_ERROR_HANDLING.md ← ✅ Centralized validation filter - UPDATED Jan 15, 2026
 │  ├─ LOCALIZATION_VALIDATION_MIGRATION_COMPLETE.md  ← ✅ Validator localization (47 validators)
 │  ├─ LOCALIZATION_GUIDE.md                 ← Multi-language support guide
 │  ├─ LOCALIZATION_QUICK_REFERENCE.md       ← Localization quick reference
 │  ├─ REDIS_CACHE_QUICK_REFERENCE.md        ← 🔴 NEW: Developer quick reference
 │  ├─ REDIS_ENABLED_VS_DISABLED_GUIDE.md    ← 🔴 NEW: Redis vs MemoryCache behavior
+│  ├─ GROUPED_CACHE_NAMESPACE_STRATEGY.md   ← 🔴 NEW: Hierarchical cache key namespacing (Jan 15, 2026)
 │  ├─ DATABASE_REPLICATION_SETUP_GUIDE.md   ← 🔴 NEW: PostgreSQL replication guide
 │  ├─ BOTTLENECKS_COMPLETION_SUMMARY.md     ← 🔴 NEW: All 11 optimizations completed
 │  ├─ PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md ← 🔴 NEW: Multi-tenant parallel processing
@@ -125,6 +129,9 @@ Doc/
 │  ├─ SHARED_TESTING_FILES.md               ← Test helpers & patterns
 │  ├─ SHARED_TESTING_MIGRATION.md           ← Test migration guide
 │  └─ INTEGRATION_TESTING_PROMPT.md         ← Integration testing guide
+│
+├─ Update Summaries
+│  └─ DOCUMENTATION_UPDATE_SUMMARY_JAN_15_2026.md  ← 🔴 NEW: Grouped cache namespacing
 │
 └─ README.md                                 ← Project overview
 ```

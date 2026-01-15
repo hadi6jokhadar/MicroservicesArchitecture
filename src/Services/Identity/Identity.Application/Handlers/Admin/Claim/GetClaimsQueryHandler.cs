@@ -25,8 +25,9 @@ public class GetClaimsQueryHandler : IRequestHandler<GetClaimsQuery, List<ClaimD
     {
         try
         {
-            // Try cache first
-            var cachedClaims = await _cacheService.GetAsync<List<ClaimDto>>("claims_all", cancellationToken);
+            // Try group cache first
+            const string groupKey = "admin:claims";
+            var cachedClaims = await _cacheService.GetAsync<List<ClaimDto>>(groupKey, cancellationToken);
             if (cachedClaims != null)
                 return cachedClaims;
 
@@ -34,8 +35,8 @@ public class GetClaimsQueryHandler : IRequestHandler<GetClaimsQuery, List<ClaimD
             var claims = await _claimRepository.GetAllAsync(false, cancellationToken);
             var claimDtos = claims.Select(ClaimDto.MapFrom).ToList();
 
-            // Cache for 30 minutes
-            await _cacheService.SetAsync("claims_all", claimDtos, TimeSpan.FromMinutes(30), cancellationToken);
+            // Cache under group for 30 minutes
+            await _cacheService.SetAsync(groupKey, claimDtos, TimeSpan.FromMinutes(30), cancellationToken);
 
             return claimDtos;
         }
@@ -63,8 +64,9 @@ public class GetClaimByIdQueryHandler : IRequestHandler<GetClaimByIdQuery, Claim
     {
         try
         {
-            // Try cache first
-            var cacheKey = $"claim_{request.Id}";
+            // Try group cache first
+            const string groupKey = "admin:claims";
+            var cacheKey = $"{groupKey}:{request.Id}";
             var cachedClaim = await _cacheService.GetAsync<ClaimDto>(cacheKey, cancellationToken);
             if (cachedClaim != null)
                 return cachedClaim;
@@ -76,7 +78,7 @@ public class GetClaimByIdQueryHandler : IRequestHandler<GetClaimByIdQuery, Claim
 
             var claimDto = ClaimDto.MapFrom(claim);
 
-            // Cache for 30 minutes
+            // Cache under group for 30 minutes
             await _cacheService.SetAsync(cacheKey, claimDto, TimeSpan.FromMinutes(30), cancellationToken);
 
             return claimDto;

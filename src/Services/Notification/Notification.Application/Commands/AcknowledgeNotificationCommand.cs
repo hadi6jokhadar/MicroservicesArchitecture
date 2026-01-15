@@ -19,6 +19,6 @@ public class AcknowledgeNotificationCommandValidator : LocalizedValidator<Acknow
     public AcknowledgeNotificationCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.QueueItemId)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "QueueItemId", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.QueueItemId), "0"));
     }
 }

@@ -15,10 +15,10 @@ public class AssignClaimsToRoleCommandValidator : LocalizedValidator<AssignClaim
     public AssignClaimsToRoleCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.RoleId)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Role ID", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.RoleId), "0"));
 
         RuleFor(x => x.ClaimIds)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Claims"))
-            .Must(claims => claims != null && claims.Any()).WithMessage(L(LocalizationKeys.Validation.Required, "Claims"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Claims)))
+            .Must(claims => claims != null && claims.Any()).WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Claims)));
     }
 }

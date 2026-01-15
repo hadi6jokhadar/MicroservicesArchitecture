@@ -1,34 +1,15 @@
 using FluentValidation;
+using IhsanDev.Shared.Infrastructure.Filters;
 
 namespace Identity.API.Filters;
 
 /// <summary>
-/// Generic validation filter for minimal API endpoints
+/// Identity service uses the shared ValidationFilter from infrastructure
+/// This ensures consistent error responses across all microservices
 /// </summary>
-public class ValidationFilter<T> : IEndpointFilter where T : class
+public class ValidationFilter<T> : SharedValidationFilter<T> where T : class
 {
-    private readonly IValidator<T> _validator;
-
-    public ValidationFilter(IValidator<T> validator)
+    public ValidationFilter(IValidator<T> validator) : base(validator)
     {
-        _validator = validator;
-    }
-
-    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
-    {
-        // Find the parameter of type T in the endpoint arguments
-        var argumentToValidate = context.Arguments.OfType<T>().FirstOrDefault();
-        
-        if (argumentToValidate is not null)
-        {
-            var validationResult = await _validator.ValidateAsync(argumentToValidate);
-            
-            if (!validationResult.IsValid)
-            {
-                return Results.ValidationProblem(validationResult.ToDictionary());
-            }
-        }
-
-        return await next(context);
     }
 }

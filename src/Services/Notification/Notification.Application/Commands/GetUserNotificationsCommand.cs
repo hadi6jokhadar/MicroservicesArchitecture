@@ -21,13 +21,13 @@ public class GetUserNotificationsCommandValidator : LocalizedValidator<GetUserNo
     public GetUserNotificationsCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.UserId)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "UserId", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.UserId), "0"));
 
         RuleFor(x => x.Skip)
-            .GreaterThanOrEqualTo(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThanOrEqual, "Skip", "0"));
+            .GreaterThanOrEqualTo(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThanOrEqual, L(LocalizationKeys.Fields.Skip), "0"));
 
         RuleFor(x => x.Take)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Take", "0"))
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.Take), "0"))
             .LessThanOrEqualTo(100).WithMessage(L(LocalizationKeys.Validation.PageSizeExceeded));
     }
 }

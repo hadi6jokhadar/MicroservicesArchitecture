@@ -17,6 +17,6 @@ public class DeleteUserCommandValidator : LocalizedValidator<DeleteUserCommand>
         : base(localizationService)
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "UserId", 0));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.UserId), 0));
     }
 }

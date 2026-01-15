@@ -1,4 +1,5 @@
 using Tenant.API.Handlers;
+using Tenant.API.Filters;
 using Tenant.Application.Commands.Tenant;
 
 namespace Tenant.API.Extensions;
@@ -70,14 +71,16 @@ public static class EndpointMappingExtensions
             .WithSummary("Create new tenant")
             .WithDescription("Create a new tenant configuration (Admin only)")
             .Produces<object>(201)
-            .ProducesValidationProblem();
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<CreateTenantCommand>>();
 
         adminGroup.MapPut("/{tenantId}", TenantApiHandlers.UpdateTenantHandler)
             .WithName("UpdateTenant")
             .WithSummary("Update tenant settings")
             .WithDescription("Update tenant configuration and settings (Admin only)")
             .Produces<object>(200)
-            .ProducesValidationProblem();
+            .ProducesValidationProblem()
+            .AddEndpointFilter<ValidationFilter<UpdateTenantCommand>>();
 
         adminGroup.MapDelete("/{tenantId}", TenantApiHandlers.DeleteTenantHandler)
             .WithName("DeleteTenant")

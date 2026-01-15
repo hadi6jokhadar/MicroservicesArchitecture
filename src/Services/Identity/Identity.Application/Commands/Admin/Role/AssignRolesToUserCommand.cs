@@ -15,9 +15,9 @@ public class AssignRolesToUserCommandValidator : LocalizedValidator<AssignRolesT
     public AssignRolesToUserCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.UserId)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "User ID", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.UserId), "0"));
 
         RuleFor(x => x.RoleIds)
-            .NotNull().WithMessage(L(LocalizationKeys.Validation.Required, "Roles"));
+            .NotNull().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Roles)));
     }
 }

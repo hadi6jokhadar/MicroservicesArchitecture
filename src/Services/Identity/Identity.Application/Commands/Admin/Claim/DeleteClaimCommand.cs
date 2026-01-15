@@ -12,6 +12,6 @@ public class DeleteClaimCommandValidator : LocalizedValidator<DeleteClaimCommand
     public DeleteClaimCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Claim ID", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.ClaimId), "0"));
     }
 }

@@ -11,6 +11,6 @@ public class DeleteOldTempFilesCommandValidator : LocalizedValidator<DeleteOldTe
     {
         RuleFor(x => x.OlderThanDays)
             .GreaterThan(0)
-            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "OlderThanDays", "0"));
+            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.OlderThanDays), "0"));
     }
 }

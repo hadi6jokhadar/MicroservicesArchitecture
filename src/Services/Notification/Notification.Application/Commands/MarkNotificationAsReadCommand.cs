@@ -18,9 +18,9 @@ public class MarkNotificationAsReadCommandValidator : LocalizedValidator<MarkNot
     public MarkNotificationAsReadCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.NotificationId)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "NotificationId", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.NotificationId), "0"));
 
         RuleFor(x => x.UserId)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "UserId", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.UserId), "0"));
     }
 }

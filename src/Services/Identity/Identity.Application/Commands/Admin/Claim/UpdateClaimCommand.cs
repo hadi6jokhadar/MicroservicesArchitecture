@@ -21,22 +21,22 @@ public class UpdateClaimCommandValidator : LocalizedValidator<UpdateClaimCommand
     public UpdateClaimCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Claim ID", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.ClaimId), "0"));
 
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Claim name"))
-            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Claim name", "100"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.ClaimName)))
+            .MaximumLength(256).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.ClaimName), "256"));
 
         RuleFor(x => x.ClaimType)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Claim type"))
-            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Claim type", "100"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.ClaimType)))
+            .MaximumLength(256).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.ClaimType), "256"));
 
         RuleFor(x => x.ClaimValue)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Claim value"))
-            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Claim value", "100"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.ClaimValue)))
+            .MaximumLength(256).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.ClaimValue), "256"));
 
         RuleFor(x => x.Description)
-            .MaximumLength(500).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Description", "500"))
+            .MaximumLength(500).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.Description), "500"))
             .When(x => !string.IsNullOrEmpty(x.Description));
     }
 }

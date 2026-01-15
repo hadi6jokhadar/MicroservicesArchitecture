@@ -15,6 +15,6 @@ public class ToggleUserStatusCommandValidator : LocalizedValidator<ToggleUserSta
     public ToggleUserStatusCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.UserId)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "User ID", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.UserId), "0"));
     }
 }

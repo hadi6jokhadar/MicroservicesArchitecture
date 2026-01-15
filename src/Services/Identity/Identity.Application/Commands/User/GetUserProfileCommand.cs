@@ -16,6 +16,6 @@ public class GetUserProfileQueryValidator : LocalizedValidator<GetUserProfileCom
     public GetUserProfileQueryValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.UserId)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "User ID", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.UserId), "0"));
     }
 }

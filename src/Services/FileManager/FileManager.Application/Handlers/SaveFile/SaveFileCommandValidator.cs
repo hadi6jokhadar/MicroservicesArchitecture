@@ -11,10 +11,10 @@ public class SaveFileCommandValidator : LocalizedValidator<SaveFileCommand>
     {
         RuleFor(x => x.File)
             .NotNull()
-            .WithMessage(L(LocalizationKeys.Validation.Required, "File"));
+            .WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.File)));
 
         RuleFor(x => x.Group)
             .IsInEnum()
-            .WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Group"));
+            .WithMessage(L(LocalizationKeys.Validation.GroupInvalid));
     }
 }

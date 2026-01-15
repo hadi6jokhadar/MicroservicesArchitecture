@@ -14,7 +14,7 @@ public class GetVerificationCodeByPhoneCommandValidator : LocalizedValidator<Get
     public GetVerificationCodeByPhoneCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.PhoneNumber)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Phone number"))
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.PhoneNumber)))
             .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage(L(LocalizationKeys.Validation.PhoneNumberInvalid));
     }
 }

@@ -431,7 +431,7 @@ public static class FileManagerEndpoints
             var fileIdsStrings = httpContext.Request.Query["fileIds"].ToList();
             var fileIds = fileIdsStrings
                 .Where(s => int.TryParse(s, out _))
-                .Select(int.Parse)
+                .Select(s => int.Parse(s!))
                 .ToList();
 
             if (!fileIds.Any())

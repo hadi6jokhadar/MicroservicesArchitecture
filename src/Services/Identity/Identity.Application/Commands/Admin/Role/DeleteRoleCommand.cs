@@ -12,6 +12,6 @@ public class DeleteRoleCommandValidator : LocalizedValidator<DeleteRoleCommand>
     public DeleteRoleCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Role ID", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.RoleId), "0"));
     }
 }

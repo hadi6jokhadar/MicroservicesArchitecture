@@ -25,32 +25,32 @@ public class LoggerManager : ILoggerManager
         }
     }
 
-    public void LogInfo(string message, string? serviceName = null)
+    public void LogInfo(string message, string? serviceName = null, string? traceId = null)
     {
-        Log(LogLevel.Information, message, serviceName);
+        Log(LogLevel.Information, message, serviceName, null, traceId);
     }
 
-    public void LogError(string message, string? serviceName = null)
+    public void LogError(string message, string? serviceName = null, string? traceId = null)
     {
-        Log(LogLevel.Error, message, serviceName);
+        Log(LogLevel.Error, message, serviceName, null, traceId);
     }
 
-    public void LogError(Exception exception, string message, string? serviceName = null)
+    public void LogError(Exception exception, string message, string? serviceName = null, string? traceId = null)
     {
-        Log(LogLevel.Error, $"{message} | Exception: {exception.Message}", serviceName, exception);
+        Log(LogLevel.Error, $"{message} | Exception: {exception.Message}", serviceName, exception, traceId);
     }
 
-    public void LogDebug(string message, string? serviceName = null)
+    public void LogDebug(string message, string? serviceName = null, string? traceId = null)
     {
-        Log(LogLevel.Debug, message, serviceName);
+        Log(LogLevel.Debug, message, serviceName, null, traceId);
     }
 
-    public void LogWarn(string message, string? serviceName = null)
+    public void LogWarn(string message, string? serviceName = null, string? traceId = null)
     {
-        Log(LogLevel.Warning, message, serviceName);
+        Log(LogLevel.Warning, message, serviceName, null, traceId);
     }
 
-    private void Log(LogLevel logLevel, string message, string? serviceName = null, Exception? exception = null)
+    private void Log(LogLevel logLevel, string message, string? serviceName = null, Exception? exception = null, string? traceId = null)
     {
         var contextualMessage = serviceName != null ? $"[{serviceName}] {message}" : message;
         
@@ -76,17 +76,17 @@ public class LoggerManager : ILoggerManager
         // Log to file if path is configured
         if (!string.IsNullOrWhiteSpace(_projectLogFilePath))
         {
-            WriteLogToFile(logLevel, contextualMessage, exception);
+            WriteLogToFile(logLevel, contextualMessage, exception, traceId);
         }
     }
 
-    private void WriteLogToFile(LogLevel logLevel, string message, Exception? exception = null)
+    private void WriteLogToFile(LogLevel logLevel, string message, Exception? exception = null, string? traceId = null)
     {
         try
         {
             var date = DateTime.UtcNow.ToString("yyyy-MM-dd");
             var filePath = Path.Combine(_projectLogFilePath, $"project-{date}.log");
-            var logMessage = FormatLogMessage(logLevel, message, exception);
+            var logMessage = FormatLogMessage(logLevel, message, exception, traceId);
 
             lock (_lockObject) // Synchronize file access
             {
@@ -102,9 +102,10 @@ public class LoggerManager : ILoggerManager
         }
     }
 
-    private static string FormatLogMessage(LogLevel logLevel, string message, Exception? exception = null)
+    private static string FormatLogMessage(LogLevel logLevel, string message, Exception? exception = null, string? traceId = null)
     {
-        var logEntry = $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff} [{logLevel}] {message}";
+        var traceIdPart = !string.IsNullOrWhiteSpace(traceId) ? $" | TraceId: {traceId}" : string.Empty;
+        var logEntry = $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff} [{logLevel}]{traceIdPart} {message}";
         
         if (exception != null)
         {

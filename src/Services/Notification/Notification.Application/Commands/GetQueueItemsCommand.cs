@@ -29,10 +29,10 @@ public class GetQueueItemsCommandValidator : LocalizedValidator<GetQueueItemsCom
     public GetQueueItemsCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.PageNumber)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page number", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Validation.PageNumber), "0"));
 
         RuleFor(x => x.PageSize)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page size", "0"))
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Validation.PageSize), "0"))
             .LessThanOrEqualTo(100).WithMessage(L(LocalizationKeys.Validation.PageSizeExceeded));
 
         RuleFor(x => x.FromDate)

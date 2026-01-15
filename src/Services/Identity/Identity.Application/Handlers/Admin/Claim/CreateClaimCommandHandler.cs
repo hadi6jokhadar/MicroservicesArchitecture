@@ -43,9 +43,9 @@ public class CreateClaimCommandHandler : IRequestHandler<CreateClaimCommand, Cla
 
             await _claimRepository.CreateAsync(claim, cancellationToken);
 
-            // Invalidate claims cache
-            await _cacheService.RemoveAsync($"claims_all", cancellationToken);
-            await _cacheService.RemoveAsync($"claim_{claim.Id}", cancellationToken);
+            // Invalidate claims group cache
+            await _cacheService.RemoveAsync($"admin:claims", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:claims:{claim.Id}", cancellationToken);
 
             return ClaimDto.MapFrom(claim);
         }

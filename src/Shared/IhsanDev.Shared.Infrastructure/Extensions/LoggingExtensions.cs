@@ -1,5 +1,6 @@
 using IhsanDev.Shared.Application.Common.Interfaces;
 using IhsanDev.Shared.Infrastructure.Services.Logging;
+using IhsanDev.Shared.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,9 @@ public static class LoggingExtensions
         IConfiguration configuration,
         string? serviceName = null)
     {
+        // Register HttpContextAccessor (required by TraceIdProvider)
+        services.AddHttpContextAccessor();
+        
         // Get log file path from configuration or use default
         var logsPath = configuration["Logging:FilePath"] ?? "Logs";
         var serviceLogsPath = !string.IsNullOrWhiteSpace(serviceName) 
@@ -35,6 +39,9 @@ public static class LoggingExtensions
             var logger = serviceProvider.GetRequiredService<ILogger<LoggerManager>>();
             return new LoggerManager(logger, serviceLogsPath);
         });
+
+        // Register TraceId provider as scoped (per request)
+        services.AddScoped<ITraceIdProvider, TraceIdProvider>();
 
         return services;
     }
@@ -54,6 +61,9 @@ public static class LoggingExtensions
             var logger = serviceProvider.GetRequiredService<ILogger<LoggerManager>>();
             return new LoggerManager(logger, logFilePath);
         });
+
+        // Register TraceId provider as scoped (per request)
+        services.AddScoped<ITraceIdProvider, TraceIdProvider>();
 
         return services;
     }

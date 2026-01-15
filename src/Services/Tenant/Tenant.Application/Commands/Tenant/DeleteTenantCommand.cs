@@ -15,6 +15,6 @@ public class DeleteTenantCommandValidator : LocalizedValidator<DeleteTenantComma
     public DeleteTenantCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.TenantId)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Tenant ID"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.TenantId)));
     }
 }

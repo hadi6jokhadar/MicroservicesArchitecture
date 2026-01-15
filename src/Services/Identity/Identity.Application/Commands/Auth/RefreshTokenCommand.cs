@@ -16,6 +16,6 @@ public class RefreshTokenCommandValidator : LocalizedValidator<RefreshTokenComma
     public RefreshTokenCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.RefreshToken)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Refresh token"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.RefreshToken)));
     }
 }

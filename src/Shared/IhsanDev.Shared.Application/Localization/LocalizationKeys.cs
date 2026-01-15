@@ -46,6 +46,8 @@ public static class LocalizationKeys
         public const string SystemRoleCannotBeDeleted = "exception_system_role_cannot_be_deleted";
         public const string SuperAdminRoleProtected = "exception_superadmin_role_protected";
         public const string SuperAdminClaimProtected = "exception_superadmin_claim_protected";
+        public const string ValidationError = "exception_validation_error";
+        public const string UnexpectedError = "exception_unexpected_error";
     }
 
     /// <summary>
@@ -76,6 +78,78 @@ public static class LocalizationKeys
         public const string PageSizeExceeded = "validation_page_size_exceeded";
         public const string TenantIdFormat = "validation_tenant_id_format";
         public const string MustBeAfter = "validation_must_be_after";
+        public const string PageNumber = "validation_page_number";
+        public const string PageSize = "validation_page_size";
+        
+        // Format validation messages
+        public const string FirstNameLettersOnly = "validation_first_name_letters_only";
+        public const string LastNameLettersOnly = "validation_last_name_letters_only";
+        public const string VerificationCodeLength = "validation_verification_code_length";
+        public const string VerificationCodeAlphanumeric = "validation_verification_code_alphanumeric";
+        public const string VerificationCodeDigitsOnly = "validation_verification_code_digits_only";
+        public const string GroupInvalid = "validation_group_invalid";
+        public const string SortColumnInvalid = "validation_sort_column_invalid";
+    }
+
+    /// <summary>
+    /// Field name keys (for use in validation messages)
+    /// </summary>
+    public static class Fields
+    {
+        // Common fields
+        public const string Email = "field_email";
+        public const string Password = "field_password";
+        public const string FirstName = "field_first_name";
+        public const string LastName = "field_last_name";
+        public const string PhoneNumber = "field_phone_number";
+        public const string UserId = "field_user_id";
+        public const string RoleId = "field_role_id";
+        public const string ClaimId = "field_claim_id";
+        public const string RoleName = "field_role_name";
+        public const string ClaimName = "field_claim_name";
+        public const string ClaimType = "field_claim_type";
+        public const string ClaimValue = "field_claim_value";
+        public const string Description = "field_description";
+        public const string Roles = "field_roles";
+        public const string Claims = "field_claims";
+        public const string File = "field_file";
+        public const string Group = "field_group";
+        public const string SortColumn = "field_sort_column";
+        
+        // Tenant fields
+        public const string TenantId = "field_tenant_id";
+        public const string TenantName = "field_tenant_name";
+        public const string StartDate = "field_start_date";
+        public const string ExpireDate = "field_expire_date";
+        public const string ConfigurationData = "field_configuration_data";
+        
+        // Notification fields
+        public const string Title = "field_title";
+        public const string Message = "field_message";
+        public const string DeliveryType = "field_delivery_type";
+        public const string Priority = "field_priority";
+        public const string NotificationId = "field_notification_id";
+        public const string QueueItemId = "field_queue_item_id";
+        public const string Skip = "field_skip";
+        public const string Take = "field_take";
+        
+        // Auth fields
+        public const string RefreshToken = "field_refresh_token";
+        public const string VerificationCode = "field_verification_code";
+        
+        // Device token fields
+        public const string DeviceIdentifier = "field_device_identifier";
+        public const string Token = "field_token";
+        public const string Id = "field_id";
+        
+        // Pagination fields
+        public const string PageNumber = "field_page_number";
+        public const string PageSize = "field_page_size";
+        
+        // FileManager fields
+        public const string FileId = "field_file_id";
+        public const string FileName = "field_file_name";
+        public const string OlderThanDays = "field_older_than_days";
     }
 
     /// <summary>

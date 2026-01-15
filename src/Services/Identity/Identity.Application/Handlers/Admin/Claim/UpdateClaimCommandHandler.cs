@@ -47,10 +47,10 @@ public class UpdateClaimCommandHandler : IRequestHandler<UpdateClaimCommand, Cla
 
             await _claimRepository.UpdateAsync(claim, cancellationToken);
 
-            // Invalidate caches
-            await _cacheService.RemoveAsync($"claims_all", cancellationToken);
-            await _cacheService.RemoveAsync($"claim_{claim.Id}", cancellationToken);
-            await _cacheService.RemoveAsync($"claim_name_{claim.Name.ToUpperInvariant()}", cancellationToken);
+            // Invalidate group caches
+            await _cacheService.RemoveAsync($"admin:claims", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:claims:{claim.Id}", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:claims:name_{claim.Name.ToUpperInvariant()}", cancellationToken);
 
             return ClaimDto.MapFrom(claim);
         }

@@ -38,10 +38,10 @@ public class DeleteClaimCommandHandler : IRequestHandler<DeleteClaimCommand, boo
 
             await _claimRepository.DeleteAsync(claim.Id, cancellationToken);
 
-            // Invalidate caches
-            await _cacheService.RemoveAsync($"claims_all", cancellationToken);
-            await _cacheService.RemoveAsync($"claim_{claim.Id}", cancellationToken);
-            await _cacheService.RemoveAsync($"claim_name_{claim.Name.ToUpperInvariant()}", cancellationToken);
+            // Invalidate group caches
+            await _cacheService.RemoveAsync($"admin:claims", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:claims:{claim.Id}", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:claims:name_{claim.Name.ToUpperInvariant()}", cancellationToken);
 
             return true;
         }

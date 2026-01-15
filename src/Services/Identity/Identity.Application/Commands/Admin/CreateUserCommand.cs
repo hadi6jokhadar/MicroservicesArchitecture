@@ -25,26 +25,26 @@ public class CreateUserCommandValidator : LocalizedValidator<CreateUserCommand>
         : base(localizationService)
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Email"))
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Email)))
             .EmailAddress().WithMessage(L(LocalizationKeys.Validation.EmailInvalid));
 
         RuleFor(x => x.Password)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Password"))
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Password)))
             .MinimumLength(8).WithMessage(L(LocalizationKeys.Validation.PasswordTooShort, 8))
             .Matches(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]")
             .WithMessage(L(LocalizationKeys.Validation.PasswordRequiresUppercase));
 
         RuleFor(x => x.FirstName)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "FirstName"))
-            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "FirstName", 50));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.FirstName)))
+            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.FirstName), 50));
 
         RuleFor(x => x.LastName)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "LastName"))
-            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "LastName", 50));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.LastName)))
+            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.LastName), 50));
 
         RuleFor(x => x.RoleIds)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Roles"))
-            .Must(roleIds => roleIds != null && roleIds.Any()).WithMessage(L(LocalizationKeys.Validation.Required, "Roles"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Roles)))
+            .Must(roleIds => roleIds != null && roleIds.Any()).WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Roles)));
 
         RuleFor(x => x.PhoneNumber)
             .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage(L(LocalizationKeys.Validation.PhoneNumberInvalid))

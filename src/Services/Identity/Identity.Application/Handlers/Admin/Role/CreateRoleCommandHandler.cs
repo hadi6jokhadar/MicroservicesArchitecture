@@ -41,9 +41,9 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, RoleD
 
             await _roleRepository.CreateAsync(role, cancellationToken);
 
-            // Invalidate roles cache
-            await _cacheService.RemoveAsync($"roles_all", cancellationToken);
-            await _cacheService.RemoveAsync($"role_{role.Id}", cancellationToken);
+            // Invalidate roles group cache
+            await _cacheService.RemoveAsync($"admin:roles", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:roles:{role.Id}", cancellationToken);
 
             return RoleDto.MapFrom(role);
         }

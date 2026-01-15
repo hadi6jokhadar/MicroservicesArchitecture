@@ -21,12 +21,12 @@ public class UpdateProfileCommandValidator : LocalizedValidator<UpdateProfileCom
     public UpdateProfileCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.FirstName)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "First name"))
-            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "First name", "50"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.FirstName)))
+            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.FirstName), "100"));
 
         RuleFor(x => x.LastName)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Last name"))
-            .MaximumLength(50).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Last name", "50"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.LastName)))
+            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.LastName), "100"));
 
         RuleFor(x => x.PhoneNumber)
             .Matches(@"^\+?[1-9]\d{1,14}$").WithMessage(L(LocalizationKeys.Validation.PhoneNumberInvalid))

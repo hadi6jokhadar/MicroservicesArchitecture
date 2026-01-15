@@ -11,16 +11,16 @@ public class UpdateFileCommandValidator : LocalizedValidator<UpdateFileCommand>
     {
         RuleFor(x => x.Id)
             .GreaterThan(0)
-            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "File ID", "0"));
+            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.FileId), "0"));
 
         RuleFor(x => x.Group)
             .IsInEnum()
             .When(x => x.Group.HasValue)
-            .WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Group"));
+            .WithMessage(L(LocalizationKeys.Validation.GroupInvalid));
 
         RuleFor(x => x.Name)
             .MaximumLength(255)
             .When(x => !string.IsNullOrEmpty(x.Name))
-            .WithMessage(L(LocalizationKeys.Validation.MaxLength, "File name", "255"));
+            .WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.FileName), "255"));
     }
 }

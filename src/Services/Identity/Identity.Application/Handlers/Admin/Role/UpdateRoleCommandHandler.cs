@@ -48,10 +48,10 @@ public class UpdateRoleCommandHandler : IRequestHandler<UpdateRoleCommand, RoleD
 
             await _roleRepository.UpdateAsync(role, cancellationToken);
 
-            // Invalidate caches
-            await _cacheService.RemoveAsync($"roles_all", cancellationToken);
-            await _cacheService.RemoveAsync($"role_{role.Id}", cancellationToken);
-            await _cacheService.RemoveAsync($"role_name_{role.NormalizedName}", cancellationToken);
+            // Invalidate group caches
+            await _cacheService.RemoveAsync($"admin:roles", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:roles:{role.Id}", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:roles:name_{role.NormalizedName}", cancellationToken);
 
             return RoleDto.MapFrom(role);
         }

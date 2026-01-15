@@ -17,7 +17,7 @@ public class GetTenantConfigQueryValidator : LocalizedValidator<GetTenantConfigQ
     public GetTenantConfigQueryValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.TenantId)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Tenant ID"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.TenantId)));
     }
 }
 
@@ -31,7 +31,7 @@ public class GetTenantByIdQueryValidator : LocalizedValidator<GetTenantByIdQuery
     public GetTenantByIdQueryValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.TenantId)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Tenant ID"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.TenantId)));
     }
 }
 
@@ -45,7 +45,7 @@ public class GetTenantByUserQueryValidator : LocalizedValidator<GetTenantByUserQ
     public GetTenantByUserQueryValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.UserId)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "User ID", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.UserId), "0"));
     }
 }
 
@@ -59,10 +59,10 @@ public class GetAllActiveTenantsQueryValidator : LocalizedValidator<GetAllActive
     public GetAllActiveTenantsQueryValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.PageNumber)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page number", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Validation.PageNumber), "0"));
 
         RuleFor(x => x.PageSize)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page size", "0"))
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Validation.PageSize), "0"))
             .LessThanOrEqualTo(100).WithMessage(L(LocalizationKeys.Validation.PageSizeExceeded));
     }
 }
@@ -77,10 +77,10 @@ public class GetAllActiveTenantsWithConfigQueryValidator : LocalizedValidator<Ge
     public GetAllActiveTenantsWithConfigQueryValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.PageNumber)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page number", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Validation.PageNumber), "0"));
 
         RuleFor(x => x.PageSize)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page size", "0"))
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Validation.PageSize), "0"))
             .LessThanOrEqualTo(1000).WithMessage(L(LocalizationKeys.Validation.PageSizeExceeded));
     }
 }

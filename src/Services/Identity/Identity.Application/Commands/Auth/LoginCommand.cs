@@ -17,11 +17,11 @@ public class LoginCommandValidator : LocalizedValidator<LoginCommand>
     public LoginCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Email"))
-            .EmailAddress().WithMessage(L(LocalizationKeys.Validation.EmailInvalid));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Email)))
+            .EmailAddress().WithMessage(L(LocalizationKeys.Validation.InvalidFormat, L(LocalizationKeys.Fields.Email)));
 
         RuleFor(x => x.Password)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Password"))
-            .MinimumLength(6).WithMessage(L(LocalizationKeys.Validation.MinLength, "Password", "6"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.Password)))
+            .MinimumLength(6).WithMessage(L(LocalizationKeys.Validation.MinLength, L(LocalizationKeys.Fields.Password), "6"));
     }
 }

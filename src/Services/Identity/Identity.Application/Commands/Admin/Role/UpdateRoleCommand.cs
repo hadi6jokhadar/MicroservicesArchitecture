@@ -18,14 +18,14 @@ public class UpdateRoleCommandValidator : LocalizedValidator<UpdateRoleCommand>
     public UpdateRoleCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Role ID", "0"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.RoleId), "0"));
 
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Role name"))
-            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Role name", "100"));
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.RoleName)))
+            .MaximumLength(256).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.RoleName), "256"));
 
         RuleFor(x => x.Description)
-            .MaximumLength(500).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Description", "500"))
+            .MaximumLength(500).WithMessage(L(LocalizationKeys.Validation.MaxLength, L(LocalizationKeys.Fields.Description), "500"))
             .When(x => !string.IsNullOrEmpty(x.Description));
     }
 }

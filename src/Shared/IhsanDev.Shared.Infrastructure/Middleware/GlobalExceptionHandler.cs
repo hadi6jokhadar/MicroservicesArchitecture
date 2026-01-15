@@ -74,8 +74,8 @@ public class GlobalExceptionHandler : IExceptionHandler
             ValidationException validationException => new ProblemDetails
             {
                 Status = StatusCodes.Status400BadRequest,
-                Title = "Validation Error",
-                Detail = "One or more validation errors occurred",
+                Title = localizationService.GetString(LocalizationKeys.Exceptions.BadRequest),
+                Detail = localizationService.GetString(LocalizationKeys.Exceptions.ValidationError),
                 Instance = httpContext.Request.Path,
                 Extensions = new Dictionary<string, object?>
                 {
@@ -92,7 +92,7 @@ public class GlobalExceptionHandler : IExceptionHandler
             UnauthorizedAccessException => new ProblemDetails
             {
                 Status = StatusCodes.Status401Unauthorized,
-                Title = "Unauthorized",
+                Title = localizationService.GetString(LocalizationKeys.Exceptions.Unauthorized),
                 Detail = exception.Message,
                 Instance = httpContext.Request.Path,
                 Extensions = new Dictionary<string, object?>
@@ -104,7 +104,7 @@ public class GlobalExceptionHandler : IExceptionHandler
             KeyNotFoundException => new ProblemDetails
             {
                 Status = StatusCodes.Status404NotFound,
-                Title = "Resource Not Found",
+                Title = localizationService.GetString(LocalizationKeys.Exceptions.NotFound),
                 Detail = exception.Message,
                 Instance = httpContext.Request.Path,
                 Extensions = new Dictionary<string, object?>
@@ -116,7 +116,7 @@ public class GlobalExceptionHandler : IExceptionHandler
             InvalidOperationException => new ProblemDetails
             {
                 Status = StatusCodes.Status400BadRequest,
-                Title = "Bad Request",
+                Title = localizationService.GetString(LocalizationKeys.Exceptions.BadRequest),
                 Detail = exception.Message,
                 Instance = httpContext.Request.Path,
                 Extensions = new Dictionary<string, object?>
@@ -128,8 +128,8 @@ public class GlobalExceptionHandler : IExceptionHandler
             _ => new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
-                Title = "Internal Server Error",
-                Detail = "An unexpected error occurred. Please try again later.",
+                Title = localizationService.GetString(LocalizationKeys.Exceptions.InternalServerError),
+                Detail = localizationService.GetString(LocalizationKeys.Exceptions.UnexpectedError),
                 Instance = httpContext.Request.Path,
                 Extensions = new Dictionary<string, object?>
                 {

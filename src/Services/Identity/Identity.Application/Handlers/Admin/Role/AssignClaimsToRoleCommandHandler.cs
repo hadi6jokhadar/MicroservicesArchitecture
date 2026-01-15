@@ -43,11 +43,11 @@ public class AssignClaimsToRoleCommandHandler : IRequestHandler<AssignClaimsToRo
             await _roleClaimRepository.RevokeAllClaimsFromRoleAsync(request.RoleId, cancellationToken);
             await _roleClaimRepository.AssignClaimsToRoleAsync(request.RoleId, request.ClaimIds, cancellationToken);
 
-            // Invalidate caches
-            await _cacheService.RemoveAsync($"roles_all", cancellationToken);
-            await _cacheService.RemoveAsync($"role_{request.RoleId}", cancellationToken);
-            await _cacheService.RemoveAsync($"role_name_{role.NormalizedName}", cancellationToken);
-            await _cacheService.RemoveAsync($"role_{request.RoleId}_claims", cancellationToken);
+            // Invalidate group caches
+            await _cacheService.RemoveAsync($"admin:roles", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:roles:{request.RoleId}", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:roles:name_{role.NormalizedName}", cancellationToken);
+            await _cacheService.RemoveAsync($"admin:roles:{request.RoleId}:claims", cancellationToken);
 
             return true;
         }

@@ -11,7 +11,7 @@ public class GetFilesQueryValidator : LocalizedValidator<GetFilesQuery>
     {
         RuleFor(x => x.Request.PageNumber)
             .GreaterThan(0)
-            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "Page number", "0"));
+            .WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Validation.PageNumber), "0"));
 
         RuleFor(x => x.Request.PageSize)
             .GreaterThan(0)
@@ -21,7 +21,7 @@ public class GetFilesQueryValidator : LocalizedValidator<GetFilesQuery>
         RuleFor(x => x.Request.SortBy)
             .Must(BeValidSortColumn!)
             .When(x => x.Request.SortBy != null)
-            .WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "Sort column"));
+            .WithMessage(L(LocalizationKeys.Validation.SortColumnInvalid));
     }
 
     private bool BeValidSortColumn(string? sortBy)
