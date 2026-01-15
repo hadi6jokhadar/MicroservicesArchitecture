@@ -16,7 +16,7 @@ This document describes the **grouped cache namespace strategy** implemented acr
 ✅ **Better management** - Easy to identify and invalidate related cache groups  
 ✅ **Scalability** - Clear hierarchical structure for future expansions  
 ✅ **Consistency** - Uniform cache key naming convention across all handlers  
-✅ **Reduced fragmentation** - Fewer orphaned keys in Redis  
+✅ **Reduced fragmentation** - Fewer orphaned keys in Redis
 
 ---
 
@@ -26,13 +26,14 @@ This document describes the **grouped cache namespace strategy** implemented acr
 
 All claims-related cache keys follow the pattern `admin:claims:*`
 
-| Cache Key                        | Purpose                              | TTL         |
-| -------------------------------- | ------------------------------------ | ----------- |
-| `admin:claims`                   | All claims (list)                    | 30 minutes  |
-| `admin:claims:{id}`              | Single claim by ID                   | 30 minutes  |
-| `admin:claims:name_{normalized}` | Lookup by normalized claim name      | 30 minutes  |
+| Cache Key                        | Purpose                         | TTL        |
+| -------------------------------- | ------------------------------- | ---------- |
+| `admin:claims`                   | All claims (list)               | 30 minutes |
+| `admin:claims:{id}`              | Single claim by ID              | 30 minutes |
+| `admin:claims:name_{normalized}` | Lookup by normalized claim name | 30 minutes |
 
 **Example:**
+
 ```redis
 admin:claims                          → List<ClaimDto>
 admin:claims:1                        → ClaimDto { Id: 1, Name: "read", ... }
@@ -43,14 +44,15 @@ admin:claims:name_READ                → ClaimDto { ... }
 
 All roles-related cache keys follow the pattern `admin:roles:*`
 
-| Cache Key                       | Purpose                              | TTL         |
-| ------------------------------- | ------------------------------------ | ----------- |
-| `admin:roles`                   | All roles (list)                     | 30 minutes  |
-| `admin:roles:{id}`              | Single role by ID                    | 30 minutes  |
-| `admin:roles:name_{normalized}` | Lookup by normalized role name       | 30 minutes  |
-| `admin:roles:{id}:claims`       | Claims assigned to specific role     | 30 minutes  |
+| Cache Key                       | Purpose                          | TTL        |
+| ------------------------------- | -------------------------------- | ---------- |
+| `admin:roles`                   | All roles (list)                 | 30 minutes |
+| `admin:roles:{id}`              | Single role by ID                | 30 minutes |
+| `admin:roles:name_{normalized}` | Lookup by normalized role name   | 30 minutes |
+| `admin:roles:{id}:claims`       | Claims assigned to specific role | 30 minutes |
 
 **Example:**
+
 ```redis
 admin:roles                           → List<RoleDto>
 admin:roles:1                         → RoleDto { Id: 1, Name: "SuperAdmin", ... }
@@ -65,11 +67,13 @@ admin:roles:1:claims                  → List<ClaimDto>
 ### Query Handlers
 
 **GetClaimsQueryHandler & GetClaimByIdQueryHandler**
+
 - List all claims: Uses `admin:claims` group key
 - Get single claim: Uses `admin:claims:{id}` namespaced key
 - Automatically invalidated when claims are modified
 
 **GetRolesQueryHandler & GetRoleByIdQueryHandler**
+
 - List all roles: Uses `admin:roles` group key
 - Get single role: Uses `admin:roles:{id}` namespaced key
 - Automatically invalidated when roles are modified
@@ -79,19 +83,19 @@ admin:roles:1:claims                  → List<ClaimDto>
 When any claims or roles are modified, all related cache keys in that group are invalidated:
 
 **Claims Operations:**
-| Operation          | Invalidated Keys                                                  |
+| Operation | Invalidated Keys |
 | ------------------ | ----------------------------------------------------------------- |
-| Create Claim       | `admin:claims`, `admin:claims:{id}`                               |
-| Update Claim       | `admin:claims`, `admin:claims:{id}`, `admin:claims:name_{name}`   |
-| Delete Claim       | `admin:claims`, `admin:claims:{id}`, `admin:claims:name_{name}`   |
+| Create Claim | `admin:claims`, `admin:claims:{id}` |
+| Update Claim | `admin:claims`, `admin:claims:{id}`, `admin:claims:name_{name}` |
+| Delete Claim | `admin:claims`, `admin:claims:{id}`, `admin:claims:name_{name}` |
 
 **Roles Operations:**
-| Operation            | Invalidated Keys                                                         |
+| Operation | Invalidated Keys |
 | -------------------- | ------------------------------------------------------------------------ |
-| Create Role          | `admin:roles`, `admin:roles:{id}`                                        |
-| Update Role          | `admin:roles`, `admin:roles:{id}`, `admin:roles:name_{name}`             |
-| Delete Role          | `admin:roles`, `admin:roles:{id}`, `admin:roles:name_{name}`             |
-| Assign Claims to Role| `admin:roles`, `admin:roles:{id}`, `admin:roles:{id}:claims`             |
+| Create Role | `admin:roles`, `admin:roles:{id}` |
+| Update Role | `admin:roles`, `admin:roles:{id}`, `admin:roles:name_{name}` |
+| Delete Role | `admin:roles`, `admin:roles:{id}`, `admin:roles:name_{name}` |
+| Assign Claims to Role| `admin:roles`, `admin:roles:{id}`, `admin:roles:{id}:claims` |
 
 ---
 
@@ -132,10 +136,12 @@ await _cacheService.RemoveAsync($"{groupKey}:{claim.Id}", cancellationToken);
 ## Affected Files
 
 ### Identity Service - Query Handlers
+
 - `Identity.Application/Handlers/Admin/Claim/GetClaimsQueryHandler.cs`
 - `Identity.Application/Handlers/Admin/Role/GetRolesQueryHandler.cs`
 
 ### Identity Service - Command Handlers
+
 - `Identity.Application/Handlers/Admin/Claim/CreateClaimCommandHandler.cs`
 - `Identity.Application/Handlers/Admin/Claim/UpdateClaimCommandHandler.cs`
 - `Identity.Application/Handlers/Admin/Claim/DeleteClaimCommandHandler.cs`
@@ -149,11 +155,13 @@ await _cacheService.RemoveAsync($"{groupKey}:{claim.Id}", cancellationToken);
 ## Redis Memory Impact
 
 ### Before Grouped Caching
+
 - Multiple scattered keys per entity
 - Higher cardinality in Redis (more unique keys)
 - Harder to correlate related data
 
 ### After Grouped Caching
+
 - Organized under hierarchical namespaces
 - Lower cardinality with better organization
 - Easier bulk invalidation within groups
@@ -185,6 +193,7 @@ redis-cli DEL $(redis-cli KEYS "admin:claims*" | tr '\n' ' ')
 ### Logging
 
 Cache operations are logged through the standard `ICacheService` interface:
+
 ```csharp
 // Set operation
 await _cacheService.SetAsync("admin:claims", claimDtos, TimeSpan.FromMinutes(30), cancellationToken);

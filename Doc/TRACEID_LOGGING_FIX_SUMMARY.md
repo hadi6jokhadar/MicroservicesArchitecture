@@ -1,7 +1,8 @@
 # TraceId Logging & Validation Error Logging - Summary
 
 **Date**: January 15, 2026  
-**Issues**: 
+**Issues**:
+
 - TraceId was being sent in HTTP responses but not recorded in log files
 - Validation failures were not logged (requests never reached MediatR)
 - MediatR logs showed localization keys instead of localized messages
@@ -119,7 +120,7 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
     private readonly ILocalizationService _localizationService;
 
     public LoggingBehavior(
-        ILoggerManager loggerManager, 
+        ILoggerManager loggerManager,
         ITraceIdProvider traceIdProvider,
         ILocalizationService localizationService)
     {
@@ -134,7 +135,7 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         var traceId = _traceIdProvider.GetTraceId();
 
         _loggerManager.LogInfo($"Handling {requestName}", "MediatR", traceId);
-        
+
         try
         {
             var response = await next();
@@ -156,6 +157,7 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
 ```
 
 **Critical Changes**:
+
 - Uses **exact same** traceId as HTTP responses (`HttpContext.TraceIdentifier`), not `Activity.Current.Id`
 - **Localizes exception messages** in logs to match HTTP responses (no more raw keys like `exception_invalid_credentials`)
 
@@ -193,12 +195,12 @@ public class SharedValidationFilter<T> : IEndpointFilter where T : class
     public async ValueTask<object?> InvokeAsync(...)
     {
         var validationResult = await _validator.ValidateAsync(argumentToValidate);
-        
+
         if (!validationResult.IsValid)
         {
             var loggerManager = context.HttpContext.RequestServices.GetRequiredService<ILoggerManager>();
             var traceId = context.HttpContext.TraceIdentifier;
-            
+
             // Log validation failure with traceId for tracking
             var requestType = typeof(T).Name;
             var errors = string.Join("; ", validationResult.Errors.Select(e => $"{e.PropertyName}: {e.ErrorMessage}"));
@@ -206,7 +208,7 @@ public class SharedValidationFilter<T> : IEndpointFilter where T : class
                 $"Validation failed for {requestType}: {errors}",
                 "ValidationFilter",
                 traceId);
-            
+
             return Results.BadRequest(problemDetails);
         }
     }
@@ -222,7 +224,7 @@ public static IServiceCollection AddCustomLogging(...)
 {
     // Register HttpContextAccessor (required by TraceIdProvider)
     services.AddHttpContextAccessor();
-    
+
     // ... register LoggerManager and TraceIdProvider ...
 }
 ```
@@ -327,6 +329,7 @@ After deploying this fix:
 ### Scenario: Register endpoint with validation failure
 
 **Request**:
+
 ```bash
 POST /api/auth/register
 {
@@ -338,6 +341,7 @@ POST /api/auth/register
 ```
 
 **HTTP Response** (400 Bad Request):
+
 ```json
 {
   "status": 400,
@@ -355,6 +359,7 @@ POST /api/auth/register
 ```
 
 **Log File** (`Logs/Identity/project-2026-01-15.log`):
+
 ```log
 2026-01-15 07:09:00.554 [Warning] | TraceId: 0HNIK0HVNM5E4:00000001 [ValidationFilter] Validation failed for RegisterCommand: Password: يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل; Password: يجب أن تحتوي كلمة المرور على حرف خاص واحد على الأقل
 ```
@@ -364,6 +369,7 @@ POST /api/auth/register
 ### Scenario: Login with invalid credentials
 
 **Request**:
+
 ```bash
 POST /api/auth/login
 {
@@ -373,6 +379,7 @@ POST /api/auth/login
 ```
 
 **HTTP Response** (401 Unauthorized):
+
 ```json
 {
   "title": "وصول غير مصرح به",
@@ -384,6 +391,7 @@ POST /api/auth/login
 ```
 
 **Log File**:
+
 ```log
 2026-01-15 07:06:03.588 [Information] | TraceId: 0HNIK0HVNM5E4:00000003 [MediatR] Handling LoginCommand
 2026-01-15 07:06:03.625 [Warning] | TraceId: 0HNIK0HVNM5E4:00000003 [MediatR] Business exception in LoginCommand after 36ms: البريد الإلكتروني أو كلمة المرور غير صحيحة

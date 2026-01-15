@@ -228,6 +228,7 @@ var result = await _mediator.Send(new LoginCommand { Email = "test@example.com" 
 ```
 
 **Key Features**:
+
 - ✅ Automatic traceId inclusion for request correlation
 - ✅ Localized error messages (matches HTTP responses)
 - ✅ No code changes needed in handlers
@@ -246,6 +247,7 @@ Validation failures are automatically logged at the ValidationFilter level with 
 ```
 
 **Benefits**:
+
 - ✅ All validation failures appear in logs
 - ✅ TraceId matches HTTP response for easy correlation
 - ✅ Localized error messages
