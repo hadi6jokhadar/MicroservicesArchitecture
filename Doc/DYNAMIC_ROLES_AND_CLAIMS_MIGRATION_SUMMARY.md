@@ -180,7 +180,7 @@ Identity.Application/Handlers/Admin/
 ✅ RegisterWithCodeByPhoneCommandHandler.cs - Dynamic role assignment
 ✅ CreateUserCommandHandler.cs - Inject IUserRoleRepository, assign roles
 ✅ UpdateUserCommandHandler.cs - Revoke old roles, assign new roles
-✅ GetUsersCommandHandler.cs - Filter by role name, map roles in projection
+✅ GetUsersCommandHandler.cs - Filter by role name, map roles in projection (Optimized Jan 24, 2026 - see USER_QUERY_OPTIMIZATION_IQUERYABLE.md)
 ```
 
 ### JWT Token Generation

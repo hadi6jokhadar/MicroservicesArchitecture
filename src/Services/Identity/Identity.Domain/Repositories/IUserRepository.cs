@@ -12,5 +12,5 @@ public interface IUserRepository : IRepository<User>
     Task<User?> GetByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<bool> UpdateRefreshTokenAsync(int userId, string refreshToken, DateTime expiryTime, CancellationToken cancellationToken = default);
     Task<bool> RevokeRefreshTokenAsync(int userId, CancellationToken cancellationToken = default);
-    Task<List<User>> GetUsersByRoleNameAsync(string roleName, CancellationToken cancellationToken = default);
+    IQueryable<User> GetUsersByRoleName(string roleName);
 }

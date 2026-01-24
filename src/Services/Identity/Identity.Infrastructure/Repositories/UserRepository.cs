@@ -70,16 +70,13 @@ public class UserRepository : Repository<User>, IUserRepository
         return await _dbSet.AnyAsync(u => u.PhoneNumber == phoneNumber && !u.IsArchived, cancellationToken);
     }
 
-    public async Task<List<User>> GetUsersByRoleNameAsync(string roleName, CancellationToken cancellationToken = default)
+    public IQueryable<User> GetUsersByRoleName(string roleName)
     {
         var normalizedRoleName = roleName.ToUpperInvariant();
-        return await _dbSet
+        return _dbSet
             .AsNoTracking()
             .Where(u => !u.IsArchived)
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .Where(u => u.UserRoles.Any(ur => ur.Role.NormalizedName == normalizedRoleName))
-            .ToListAsync(cancellationToken);
+            .Where(u => u.UserRoles.Any(ur => ur.Role.NormalizedName == normalizedRoleName || ur.Role.Name == roleName));
     }
 
     public async Task<bool> UpdateRefreshTokenAsync(int userId, string refreshToken, DateTime expiryTime, CancellationToken cancellationToken = default)

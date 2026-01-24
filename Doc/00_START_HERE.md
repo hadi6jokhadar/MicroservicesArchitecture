@@ -1,7 +1,7 @@
 # 📚 Microservices Architecture - Documentation Index
 
-**Last Updated:** January 15, 2026  
-**Version:** 2.5
+**Last Updated:** January 24, 2026  
+**Version:** 2.6
 
 ---
 
@@ -27,7 +27,8 @@
 - 🔌 **Service-to-Service HTTP Clients?** → [SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md](SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md) - **NEW (Nov 2025)**
 - 🖼️ **Profile Pictures?** → [PROFILE_PICTURE_COMPLETE_GUIDE.md](PROFILE_PICTURE_COMPLETE_GUIDE.md) or [PROFILE_PICTURE_QUICK_REFERENCE.md](PROFILE_PICTURE_QUICK_REFERENCE.md)
 - ⚡ **N+1 Query Problems?** → [PROFILE_PICTURE_BATCH_OPTIMIZATION.md](PROFILE_PICTURE_BATCH_OPTIMIZATION.md) - **20-50x performance boost**
-- 🔑 **Project Isolation?** → [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md)
+- � **Query Optimization?** → [USER_QUERY_OPTIMIZATION_IQUERYABLE.md](USER_QUERY_OPTIMIZATION_IQUERYABLE.md) - **NEW (Jan 24, 2026)** - IQueryable pattern for database-side pagination
+- �🔑 **Project Isolation?** → [PROJECT_ISOLATION_STRATEGY_GUIDE.md](PROJECT_ISOLATION_STRATEGY_GUIDE.md)
 - 🌍 **Localization?** → [FIELD_NAME_VALIDATION_LOCALIZATION_SUMMARY.md](FIELD_NAME_VALIDATION_LOCALIZATION_SUMMARY.md) (Jan 15, 2026) or [COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md](COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md) or [LOCALIZATION_QUICK_REFERENCE.md](LOCALIZATION_QUICK_REFERENCE.md)
 - 🔔 **Notifications?** → [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
 - 🔥 **Firebase Push?** → [FIREBASE_QUICK_REFERENCE.md](FIREBASE_QUICK_REFERENCE.md)
@@ -107,6 +108,7 @@ Doc/
 ├─ Development Guides
 │  ├─ AUTOMAPPER_REMOVAL_SUMMARY.md         ← ✅ AutoMapper removal complete
 │  ├─ DATETIME_STANDARDIZATION_SUMMARY.md   ← ✅ DateTime ISO 8601 UTC format
+│  ├─ USER_QUERY_OPTIMIZATION_IQUERYABLE.md ← 🔴 NEW: IQueryable pattern for database-side pagination (Jan 24, 2026)
 │  ├─ COMPLETE_LOCALIZATION_MIGRATION_SUMMARY.md  ← ✅ Complete i18n migration (109 keys, en+ar) - UPDATED Jan 15, 2026
 │  ├─ FIELD_NAME_VALIDATION_LOCALIZATION_SUMMARY.md ← 🔴 NEW: Field & validation message localization (Jan 15, 2026)
 │  ├─ CENTRALIZED_VALIDATION_ERROR_HANDLING.md ← ✅ Centralized validation filter - UPDATED Jan 15, 2026

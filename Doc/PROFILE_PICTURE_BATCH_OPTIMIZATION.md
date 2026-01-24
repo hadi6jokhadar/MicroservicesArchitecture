@@ -333,6 +333,8 @@ var filesDict = await _fileManagerClient.GetFilesByIdsAsync(allFileIds);
 
 ### Example 1: GetUsers Endpoint
 
+**Note:** This handler was further optimized on Jan 24, 2026 to use IQueryable pattern. See [USER_QUERY_OPTIMIZATION_IQUERYABLE.md](USER_QUERY_OPTIMIZATION_IQUERYABLE.md) for the latest implementation.
+
 ```csharp
 public class GetUsersCommandHandler : IRequestHandler<GetUsersCommand, PaginatedList<UserDto>>
 {
