@@ -1,4 +1,5 @@
 using FluentValidation;
+using Identity.Application.DTOs;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Validation;
 using MediatR;
@@ -10,7 +11,7 @@ public record RegisterWithCodeByEmailCommand(
     string FirstName,
     string LastName,
     string? Data = null
-) : IRequest<bool>;
+) : IRequest<VerificationCodeResponseDto>;
 
 public class RegisterWithCodeByEmailCommandValidator : LocalizedValidator<RegisterWithCodeByEmailCommand>
 {

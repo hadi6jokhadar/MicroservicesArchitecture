@@ -1,4 +1,5 @@
 using Identity.Application.Commands.Auth;
+using Identity.Application.DTOs;
 using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
 using IhsanDev.Shared.Application.Exceptions;
@@ -8,10 +9,11 @@ using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace Identity.Application.Handlers.Auth;
 
-public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWithCodeByEmailCommand, bool>
+public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWithCodeByEmailCommand, VerificationCodeResponseDto>
 {
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
@@ -19,6 +21,7 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
     private readonly IOtpService _otpService;
     private readonly IConfiguration _configuration;
     private readonly ITenantContext _tenantContext;
+    private readonly IHostEnvironment _hostEnvironment;
 
     public RegisterWithCodeByEmailCommandHandler(
         IUserRepository userRepository,
@@ -26,7 +29,8 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
         IUserRoleRepository userRoleRepository,
         IOtpService otpService,
         IConfiguration configuration,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        IHostEnvironment hostEnvironment)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
@@ -34,9 +38,10 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
         _otpService = otpService;
         _configuration = configuration;
         _tenantContext = tenantContext;
+        _hostEnvironment = hostEnvironment;
     }
 
-    public async Task<bool> Handle(RegisterWithCodeByEmailCommand request, CancellationToken cancellationToken)
+    public async Task<VerificationCodeResponseDto> Handle(RegisterWithCodeByEmailCommand request, CancellationToken cancellationToken)
     {
         try
         {
@@ -86,7 +91,12 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
             // For now, the code is just saved to the database
             // In production, you would send it via Email using an external provider
 
-            return true;
+            // Return response with code in development mode, without code in production
+            return new VerificationCodeResponseDto
+            {
+                Success = true,
+                Code = _hostEnvironment.IsDevelopment() ? verificationCode : null
+            };
         }
         catch (AppException)
         {

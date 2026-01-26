@@ -1,4 +1,5 @@
 using Identity.Application.Commands.Auth;
+using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
@@ -7,29 +8,33 @@ using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace Identity.Application.Handlers.Auth;
 
-public class GetVerificationCodeByPhoneCommandHandler : IRequestHandler<GetVerificationCodeByPhoneCommand, bool>
+public class GetVerificationCodeByPhoneCommandHandler : IRequestHandler<GetVerificationCodeByPhoneCommand, VerificationCodeResponseDto>
 {
     private readonly IUserRepository _userRepository;
     private readonly IOtpService _otpService;
     private readonly IConfiguration _configuration;
     private readonly ITenantContext _tenantContext;
+    private readonly IHostEnvironment _hostEnvironment;
 
     public GetVerificationCodeByPhoneCommandHandler(
         IUserRepository userRepository,
         IOtpService otpService,
         IConfiguration configuration,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        IHostEnvironment hostEnvironment)
     {
         _userRepository = userRepository;
         _otpService = otpService;
         _configuration = configuration;
         _tenantContext = tenantContext;
+        _hostEnvironment = hostEnvironment;
     }
 
-    public async Task<bool> Handle(GetVerificationCodeByPhoneCommand request, CancellationToken cancellationToken)
+    public async Task<VerificationCodeResponseDto> Handle(GetVerificationCodeByPhoneCommand request, CancellationToken cancellationToken)
     {
         try
         {
@@ -84,7 +89,12 @@ public class GetVerificationCodeByPhoneCommandHandler : IRequestHandler<GetVerif
             // For now, the code is just saved to the database
             // In production, you would send it via SMS using an external provider
 
-            return true;
+            // Return response with code in development mode, without code in production
+            return new VerificationCodeResponseDto
+            {
+                Success = true,
+                Code = _hostEnvironment.IsDevelopment() ? verificationCode : null
+            };
         }
         catch (AppException)
         {

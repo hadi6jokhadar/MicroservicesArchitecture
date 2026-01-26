@@ -42,7 +42,8 @@ public static class AuthApiHandlers
         CancellationToken ct = default)
     {
         var result = await mediator.Send(command, ct);
-        return Results.Ok(new { success = result, message = localizationService.GetString(LocalizationKeys.Success.VerificationCodeSentPhone) });
+        result.Message = localizationService.GetString(LocalizationKeys.Success.VerificationCodeSentPhone);
+        return Results.Ok(result);
     }
 
     /// <summary>
@@ -55,7 +56,8 @@ public static class AuthApiHandlers
         CancellationToken ct = default)
     {
         var result = await mediator.Send(command, ct);
-        return Results.Ok(new { success = result, message = localizationService.GetString(LocalizationKeys.Success.VerificationCodeSentEmail) });
+        result.Message = localizationService.GetString(LocalizationKeys.Success.VerificationCodeSentEmail);
+        return Results.Ok(result);
     }
 
     /// <summary>
@@ -92,7 +94,8 @@ public static class AuthApiHandlers
         CancellationToken ct = default)
     {
         var result = await mediator.Send(command, ct);
-        return Results.Ok(new { success = result, message = localizationService.GetString(LocalizationKeys.Success.RegistrationSuccessfulLoginPhone) });
+        result.Message = localizationService.GetString(LocalizationKeys.Success.RegistrationSuccessfulLoginPhone);
+        return Results.Ok(result);
     }
 
     /// <summary>
@@ -105,7 +108,8 @@ public static class AuthApiHandlers
         CancellationToken ct = default)
     {
         var result = await mediator.Send(command, ct);
-        return Results.Ok(new { success = result, message = localizationService.GetString(LocalizationKeys.Success.RegistrationSuccessfulLoginEmail) });
+        result.Message = localizationService.GetString(LocalizationKeys.Success.RegistrationSuccessfulLoginEmail);
+        return Results.Ok(result);
     }
 
     /// <summary>

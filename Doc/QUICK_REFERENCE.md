@@ -393,13 +393,15 @@ await _mediator.Send(command);
 
 - POST `/api/auth/register` - Register user with password
 - POST `/api/auth/login` - Login with email + password
-- POST `/api/auth/register-with-code-by-phone` - Register with phone (passwordless)
-- POST `/api/auth/register-with-code-by-email` - Register with email (passwordless)
-- POST `/api/auth/get-verification-code-by-phone` - Request OTP code for phone
-- POST `/api/auth/get-verification-code-by-email` - Request OTP code for email
+- POST `/api/auth/register-with-code-by-phone` - Register with phone (passwordless) - Returns code in dev mode
+- POST `/api/auth/register-with-code-by-email` - Register with email (passwordless) - Returns code in dev mode
+- POST `/api/auth/get-verification-code-by-phone` - Request OTP code for phone - Returns code in dev mode
+- POST `/api/auth/get-verification-code-by-email` - Request OTP code for email - Returns code in dev mode
 - POST `/api/auth/login-with-code-by-phone` - Login with phone + OTP code
 - POST `/api/auth/login-with-code-by-email` - Login with email + OTP code
 - GET `/api/user/profile` - Get user info
+
+> **Note:** Endpoints marked "Returns code in dev mode" expose the verification code in the response when `ASPNETCORE_ENVIRONMENT=Development`. In production, code is always `null`. See [VERIFICATION_CODE_DEVELOPMENT_MODE_UPDATE.md](VERIFICATION_CODE_DEVELOPMENT_MODE_UPDATE.md).
 
 **Device Token Endpoints:**
 

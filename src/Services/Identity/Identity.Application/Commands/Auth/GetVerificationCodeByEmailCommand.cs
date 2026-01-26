@@ -1,4 +1,5 @@
 using FluentValidation;
+using Identity.Application.DTOs;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Validation;
 using MediatR;
@@ -7,7 +8,7 @@ namespace Identity.Application.Commands.Auth;
 
 public record GetVerificationCodeByEmailCommand(
     string Email
-) : IRequest<bool>;
+) : IRequest<VerificationCodeResponseDto>;
 
 public class GetVerificationCodeByEmailCommandValidator : LocalizedValidator<GetVerificationCodeByEmailCommand>
 {

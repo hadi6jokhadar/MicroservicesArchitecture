@@ -100,16 +100,16 @@ public static class EndpointMappingExtensions
         authGroup.MapPost("/get-verification-code-by-phone", AuthApiHandlers.GetVerificationCodeByPhoneHandler)
             .WithName("GetVerificationCodeByPhone")
             .WithSummary("Get verification code for phone number")
-            .WithDescription("Generate and send a 5-digit verification code to the user's phone number. x-tenant-id header is optional.")
-            .Produces<object>(200)
+            .WithDescription("Generate and send a 5-digit verification code to the user's phone number. In development mode, returns the code in the response. In production mode, only returns success status. x-tenant-id header is optional.")
+            .Produces<Identity.Application.DTOs.VerificationCodeResponseDto>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<GetVerificationCodeByPhoneCommand>>();
 
         authGroup.MapPost("/get-verification-code-by-email", AuthApiHandlers.GetVerificationCodeByEmailHandler)
             .WithName("GetVerificationCodeByEmail")
             .WithSummary("Get verification code for email")
-            .WithDescription("Generate and send a 5-digit verification code to the user's email. x-tenant-id header is optional.")
-            .Produces<object>(200)
+            .WithDescription("Generate and send a 5-digit verification code to the user's email. In development mode, returns the code in the response. In production mode, only returns success status. x-tenant-id header is optional.")
+            .Produces<Identity.Application.DTOs.VerificationCodeResponseDto>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<GetVerificationCodeByEmailCommand>>();
 
@@ -132,16 +132,16 @@ public static class EndpointMappingExtensions
         authGroup.MapPost("/register-with-code-by-phone", AuthApiHandlers.RegisterWithCodeByPhoneHandler)
             .WithName("RegisterWithCodeByPhone")
             .WithSummary("Register new user with phone verification")
-            .WithDescription("Create a new user account using phone number (no email or password required). x-tenant-id header is optional.")
-            .Produces<object>(200)
+            .WithDescription("Create a new user account using phone number (no email or password required). In development mode, returns the verification code in the response. In production mode, only returns success status. x-tenant-id header is optional.")
+            .Produces<Identity.Application.DTOs.VerificationCodeResponseDto>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<RegisterWithCodeByPhoneCommand>>();
 
         authGroup.MapPost("/register-with-code-by-email", AuthApiHandlers.RegisterWithCodeByEmailHandler)
             .WithName("RegisterWithCodeByEmail")
             .WithSummary("Register new user with email verification")
-            .WithDescription("Create a new user account using email (no phone or password required). x-tenant-id header is optional.")
-            .Produces<object>(200)
+            .WithDescription("Create a new user account using email (no phone or password required). In development mode, returns the verification code in the response. In production mode, only returns success status. x-tenant-id header is optional.")
+            .Produces<Identity.Application.DTOs.VerificationCodeResponseDto>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<RegisterWithCodeByEmailCommand>>();
 

@@ -1,7 +1,7 @@
 # 📚 Microservices Architecture - Documentation Index
 
-**Last Updated:** January 24, 2026  
-**Version:** 2.6
+**Last Updated:** January 26, 2026  
+**Version:** 2.7
 
 ---
 
@@ -88,6 +88,7 @@ Doc/
 │  ├─ TENANT_AWARE_CORS_GUIDE.md            ← Tenant-specific CORS
 │  ├─ PHONE_VERIFICATION_LOGIN_GUIDE.md     ← Phone/Email OTP authentication
 │  ├─ OTP_SECURITY_AND_VALIDATION_UPDATE.md ← 🔴 NEW: OTP security system
+│  ├─ VERIFICATION_CODE_DEVELOPMENT_MODE_UPDATE.md ← 🔴 NEW: Dev mode code exposure (Jan 26, 2026)
 │  ├─ PHONE_VERIFICATION_QUICK_REFERENCE.md ← Quick OTP reference
 │  ├─ DEVICE_TOKEN_REFACTORING_SUMMARY.md   ← 🔴 NEW: Device token complete summary
 │  ├─ DEVICE_TOKEN_MANAGEMENT_GUIDE.md      ← 🔴 NEW: Device token developer guide

@@ -1,5 +1,8 @@
 # Phone Verification Login - Quick Reference
 
+**Last Updated:** January 26, 2026  
+**See Also:** [VERIFICATION_CODE_DEVELOPMENT_MODE_UPDATE.md](VERIFICATION_CODE_DEVELOPMENT_MODE_UPDATE.md) for development mode behavior
+
 ## 🚀 Quick Start
 
 ### Testing the Feature (Development)
@@ -38,14 +41,27 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+**Response (Production):**
 
 ```json
 {
   "success": true,
+  "code": null,
   "message": "Verification code sent successfully"
 }
 ```
+
+**Response (Development):**
+
+```json
+{
+  "success": true,
+  "code": "12345",
+  "message": "Verification code sent successfully"
+}
+```
+
+> **Note:** In development mode (`ASPNETCORE_ENVIRONMENT=Development`), the verification code is included in the response for testing. In production, `code` is always `null` for security. See [VERIFICATION_CODE_DEVELOPMENT_MODE_UPDATE.md](VERIFICATION_CODE_DEVELOPMENT_MODE_UPDATE.md).
 
 ### 2️⃣ Login with Code
 
@@ -83,14 +99,27 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+**Response (Production):**
 
 ```json
 {
   "success": true,
+  "code": null,
   "message": "Registration successful. Please login with the verification code sent to your phone."
 }
 ```
+
+**Response (Development):**
+
+```json
+{
+  "success": true,
+  "code": "12345",
+  "message": "Registration successful. Please login with the verification code sent to your phone."
+}
+```
+
+> **Note:** In development mode, the verification code is included in the response. See [VERIFICATION_CODE_DEVELOPMENT_MODE_UPDATE.md](VERIFICATION_CODE_DEVELOPMENT_MODE_UPDATE.md).
 
 ## 🧪 Testing Flow
 
