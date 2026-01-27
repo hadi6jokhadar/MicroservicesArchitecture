@@ -463,7 +463,7 @@ Delete a translation key (and all its translations).
 
 **Response:** `204 No Content`
 
-#### POST /api/translations
+#### POST /api/translations/values
 
 Set or update a translation value.
 
@@ -538,19 +538,6 @@ Bulk import translations from JSON.
   "errors": []
 }
 ```
-
-#### DELETE /api/translations/{language}
-
-Delete all translations for a specific language (optionally filtered by tenantId).
-
-**Authorization:** Bearer token with `Admin` or `SuperAdmin` role
-
-**Parameters:**
-
-- `language` (path, required): Language code
-- `tenantId` (query, optional): Tenant identifier
-
-**Response:** `204 No Content`
 
 ---
 
@@ -769,7 +756,7 @@ public class SendEmailHandler
 
   "DatabaseSettings": {
     "Provider": "PostgreSql",
-    "ConnectionString": "Host=localhost;Port=5432;Database=translation;Username=postgres;Password=yourpassword;",
+    "ConnectionString": "Host=localhost;Port=5432;Database=global;Username=postgres;Password=yourpassword;Minimum Pool Size=5;Maximum Pool Size=50;Connection Idle Lifetime=300;Connection Pruning Interval=10;Pooling=true;",
     "EnableSensitiveDataLogging": false,
     "EnableDetailedErrors": false,
     "CommandTimeout": 30,
@@ -786,10 +773,10 @@ public class SendEmailHandler
   },
 
   "MultiTenancy": {
-    "Enabled": true,
+    "Enabled": false,
     "TenantServiceUrl": "http://localhost:5002",
     "CacheExpirationMinutes": 5,
-    "JwtMode": "PerTenant"
+    "JwtMode": "Shared"
   },
 
   "Cors": {
