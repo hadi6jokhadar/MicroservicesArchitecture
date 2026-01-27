@@ -26,6 +26,8 @@
   "exception_file_empty": "File is empty or null",
   "exception_invalid_user_id": "Invalid user ID",
   "exception_tenant_context_required": "User-specific notifications require a tenant context. Please provide a TenantId in the request body",
+  "exception_translation_key_not_found": "Translation key not found",
+  "exception_translation_key_already_exists": "Translation key '{0}' already exists",
 
   "validation_required": "{0} is required",
   "validation_email_invalid": "Invalid email address",
@@ -161,5 +163,11 @@
   "field_page_size": "Page size",
   "field_file_id": "File ID",
   "field_file_name": "File name",
-  "field_older_than_days": "Older than days"
+  "field_older_than_days": "Older than days",
+  "field_key": "Key",
+  "field_language": "Language",
+  "field_value": "Value",
+  "field_category": "Category",
+  "field_translations": "Translations",
+  "field_translation_count": "Translation count"
 }

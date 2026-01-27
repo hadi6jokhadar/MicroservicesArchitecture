@@ -2,6 +2,8 @@
 
 This document tracks which files were extracted from the Identity.API.Tests project and moved to the shared testing library.
 
+**Last Updated:** January 27, 2026
+
 ## 📦 New Shared Library
 
 **Project:** `IhsanDev.Shared.Testing`  
@@ -237,12 +239,10 @@ These test files remain exactly the same:
 When creating tests for Product/Order/Catalog services:
 
 1. **Copy these files** (~90 lines each):
-
    - IntegrationTestBase (service-specific)
    - CustomWebApplicationFactory (service-specific)
 
 2. **Get for free** (~230 lines):
-
    - Generic testing infrastructure
    - Helper utilities
    - Database management
@@ -397,13 +397,60 @@ services.AddDbContext<TenantNotificationDbContext>(options => ...);
 // In IntegrationTestBase
 protected async Task ExecuteGlobalDbContextAsync(Func<NotificationDbContext, Task> action) { }
 protected async Task ExecuteTenantDbContextAsync(Func<TenantNotificationDbContext, Task> action) { }
+```
+
+### Issue: Singleton Cache Persists Across Tests
+
+**Problem:** Tests fail because cached data from earlier tests is reused (e.g., Translation.API.Tests).
+
+**Root Cause:** `MemoryDistributedCache` registered as singleton, cache persists across test executions.
+
+**Evidence:**
+
+```
+[MediatR] Handled Query in 3ms  ← Cache hit (DB queries take 10-20ms)
+```
+
+**Solution:** Clear specific cache keys before tests that need fresh data:
+
+```csharp
+// In IntegrationTestBase
+protected async Task ClearCacheAsync()
+{
+    using var scope = Factory.Services.CreateScope();
+    var cache = scope.ServiceProvider.GetRequiredService<IDistributedCache>();
+
+    var keysToClear = new[] {
+        "translations:en:global:all",
+        "translations:en:tenant-xyz:all"
+    };
+
+    foreach (var key in keysToClear)
+    {
+        await cache.RemoveAsync(key);
+    }
+}
+
+// In test method
+[Fact]
+public async Task MyTest()
+{
+    await ClearCacheAsync();  // ✅ Clear before querying
+
+    // Test code...
+}
+```
+
+**Details:** See [TRANSLATION_SERVICE_TEST_FIX_SUMMARY.md](TRANSLATION_SERVICE_TEST_FIX_SUMMARY.md) for complete cache pollution fix.
+protected async Task ExecuteTenantDbContextAsync(Func<TenantNotificationDbContext, Task> action) { }
 
 // Cleanup both
 protected async Task CleanupAllTestDataAsync()
 {
-    await CleanupGlobalQueueAsync();
-    await CleanupTenantNotificationsAsync();
+await CleanupGlobalQueueAsync();
+await CleanupTenantNotificationsAsync();
 }
+
 ```
 
 ## 🎉 Success Metrics
@@ -431,6 +478,7 @@ protected async Task CleanupAllTestDataAsync()
 
 ---
 
-**Date:** October 19, 2025  
-**Status:** ✅ Complete  
+**Date:** October 19, 2025
+**Status:** ✅ Complete
 **Next Steps:** Use this pattern for all future microservice tests
+```

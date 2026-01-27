@@ -48,6 +48,8 @@ public static class LocalizationKeys
         public const string SuperAdminClaimProtected = "exception_superadmin_claim_protected";
         public const string ValidationError = "exception_validation_error";
         public const string UnexpectedError = "exception_unexpected_error";
+        public const string TranslationKeyNotFound = "exception_translation_key_not_found";
+        public const string TranslationKeyAlreadyExists = "exception_translation_key_already_exists";
     }
 
     /// <summary>
@@ -150,6 +152,14 @@ public static class LocalizationKeys
         public const string FileId = "field_file_id";
         public const string FileName = "field_file_name";
         public const string OlderThanDays = "field_older_than_days";
+        
+        // Translation fields
+        public const string Key = "field_key";
+        public const string Language = "field_language";
+        public const string Value = "field_value";
+        public const string Category = "field_category";
+        public const string Translations = "field_translations";
+        public const string TranslationCount = "field_translation_count";
     }
 
     /// <summary>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="FluentValidation.AspNetCore" />
+    <PackageReference Include="MediatR" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Translation.Application\Translation.Application.csproj" />
+    <ProjectReference Include="..\Translation.Infrastructure\Translation.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\IhsanDev.Shared.Infrastructure\IhsanDev.Shared.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\IhsanDev.Shared.Application\IhsanDev.Shared.Application.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,7 +1,7 @@
 # 📚 Microservices Architecture - Documentation Index
 
-**Last Updated:** January 26, 2026  
-**Version:** 2.7
+**Last Updated:** January 27, 2026  
+**Version:** 2.8
 
 ---
 
@@ -24,6 +24,8 @@
 - 🔐 **Identity Service Optional Tenant?** → [IDENTITY_OPTIONAL_TENANT_IMPLEMENTATION_SUMMARY.md](IDENTITY_OPTIONAL_TENANT_IMPLEMENTATION_SUMMARY.md) or [IDENTITY_OPTIONAL_TENANT_QUICK_REFERENCE.md](IDENTITY_OPTIONAL_TENANT_QUICK_REFERENCE.md)
 - ⭐ **Identity Service Latest Updates?** → [IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md](IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md) - **NEW (Jan 12, 2026)**
 - 📁 **File Storage?** → [FILE_MANAGER_QUICK_REFERENCE.md](FILE_MANAGER_QUICK_REFERENCE.md) or [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md)
+- 🌍 **Translations?** → [TRANSLATION_SERVICE_QUICK_REFERENCE.md](TRANSLATION_SERVICE_QUICK_REFERENCE.md) or [TRANSLATION_SERVICE_GUIDE.md](TRANSLATION_SERVICE_GUIDE.md) - **NEW (Jan 27, 2026)**
+- 🧪 **Translation Tests Fixed?** → [TRANSLATION_SERVICE_TEST_FIX_SUMMARY.md](TRANSLATION_SERVICE_TEST_FIX_SUMMARY.md) - **NEW (Jan 27, 2026)** - Build & cache pollution fixes
 - 🔌 **Service-to-Service HTTP Clients?** → [SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md](SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md) - **NEW (Nov 2025)**
 - 🖼️ **Profile Pictures?** → [PROFILE_PICTURE_COMPLETE_GUIDE.md](PROFILE_PICTURE_COMPLETE_GUIDE.md) or [PROFILE_PICTURE_QUICK_REFERENCE.md](PROFILE_PICTURE_QUICK_REFERENCE.md)
 - ⚡ **N+1 Query Problems?** → [PROFILE_PICTURE_BATCH_OPTIMIZATION.md](PROFILE_PICTURE_BATCH_OPTIMIZATION.md) - **20-50x performance boost**
@@ -79,6 +81,9 @@ Doc/
 │  ├─ FILE_MANAGER_SERVICE_GUIDE.md         ← File storage architecture
 │  ├─ FILE_MANAGER_QUICK_REFERENCE.md       ← 🔴 NEW: File Manager API quick reference
 │  ├─ FILEMANAGER_CLIENT_USAGE_GUIDE.md     ← 🔴 FileManager service client usage
+│  ├─ TRANSLATION_SERVICE_GUIDE.md          ← 🔴 NEW: Translation service guide (Jan 27, 2026)
+│  ├─ TRANSLATION_SERVICE_TEST_FIX_SUMMARY.md ← 🔴 NEW: Test fixes - build & cache pollution (Jan 27, 2026)
+│  ├─ TRANSLATION_SERVICE_QUICK_REFERENCE.md ← 🔴 NEW: Translation quick reference (Jan 27, 2026)
 │  ├─ SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md  ← 🔴 NEW: HTTP client extensions (Nov 2025)
 │  ├─ PROFILE_PICTURE_COMPLETE_GUIDE.md     ← 🔴 NEW: Profile picture integration (Nov 2025)
 │  ├─ PROFILE_PICTURE_BATCH_OPTIMIZATION.md ← 🔴 NEW: N+1 prevention & batch fetching (Nov 2025)
@@ -130,7 +135,8 @@ Doc/
 ├─ Testing Documentation
 │  ├─ SHARED_TESTING_ANALYSIS.md            ← Testing infrastructure
 │  ├─ SHARED_TESTING_FILES.md               ← Test helpers & patterns
-│  ├─ SHARED_TESTING_MIGRATION.md           ← Test migration guide
+│  ├─ INTEGRATION_TESTING_PROMPT.md         ← Integration testing guide
+│  └─ TRANSLATION_SERVICE_TEST_FIX_SUMMARY.md ← 🔴 NEW: Translation test fixes (Jan 27, 2026)
 │  └─ INTEGRATION_TESTING_PROMPT.md         ← Integration testing guide
 │
 ├─ Update Summaries
@@ -156,6 +162,12 @@ Doc/
 │  │ • User Management  │  │  • Multi-tenancy     │  │        │  │
 │  │ • Multi-tenant ✓   │  │  • Single DB (own)   │  │        │  │
 │  └────────────────────┘  └──────────────────────┘  └────────┘  │
+│                                                                   │
+│  ┌────────────────────┐  ┌──────────────────────┐               │
+│  │ Notification (5004)│  │ Translation (5006)   │               │
+│  │ • SignalR/Firebase │  │ • Multi-language     │               │
+│  │ • Global DB        │  │ • Global + Tenant    │               │
+│  └────────────────────┘  └──────────────────────┘               │
 └─────────────────────────────────────────────────────────────────┘
                   │                        │
     ┌─────────────┴────────────────────────┴─────────────────┐

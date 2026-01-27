@@ -26,6 +26,8 @@
   "exception_file_empty": "الملف فارغ أو غير موجود",
   "exception_invalid_user_id": "معرّف المستخدم غير صالح",
   "exception_tenant_context_required": "تتطلب الإشعارات الخاصة بالمستخدم سياق مستأجر. يرجى توفير TenantId في نص الطلب",
+  "exception_translation_key_not_found": "مفتاح الترجمة غير موجود",
+  "exception_translation_key_already_exists": "مفتاح الترجمة '{0}' موجود بالفعل",
 
   "validation_required": "{0} مطلوب",
   "validation_email_invalid": "عنوان البريد الإلكتروني غير صالح",
@@ -161,5 +163,11 @@
   "field_page_size": "حجم الصفحة",
   "field_file_id": "معرف الملف",
   "field_file_name": "اسم الملف",
-  "field_older_than_days": "أقدم من بالأيام"
+  "field_older_than_days": "أقدم من بالأيام",
+  "field_key": "المفتاح",
+  "field_language": "اللغة",
+  "field_value": "القيمة",
+  "field_category": "الفئة",
+  "field_translations": "الترجمات",
+  "field_translation_count": "عدد الترجمات"
 }

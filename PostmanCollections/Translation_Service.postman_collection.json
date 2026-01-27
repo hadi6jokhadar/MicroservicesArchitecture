@@ -1,0 +1,528 @@
+{
+  "info": {
+    "name": "Translation Service API",
+    "description": "Postman collection for Translation microservice endpoints - Manages multi-language translations with optional tenant-specific overrides",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5006",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "your-tenant-id",
+      "type": "string",
+      "description": "Optional - Leave empty for global translations only"
+    },
+    {
+      "key": "authToken",
+      "value": "your-jwt-token",
+      "type": "string"
+    },
+    {
+      "key": "serviceSecret",
+      "value": "CHANGE_ME_SHARED_SECRET",
+      "type": "string"
+    },
+    {
+      "key": "translationKeyId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Public Endpoints",
+      "description": "Endpoints accessible without authentication",
+      "item": [
+        {
+          "name": "Get Translations (Global Only)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/en",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "en"],
+              "description": "Get translations for English language - Returns only global translations (TenantId = null)"
+            },
+            "description": "Get all translations for a specific language. Without x-tenant-id header, returns only global/base translations."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Translations (With Tenant Override)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text",
+                "description": "Enables tenant-specific translation overrides"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/en",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "en"],
+              "description": "Get translations with tenant-specific overrides. Returns global translations + tenant overrides (tenant-specific values take priority)"
+            },
+            "description": "Get translations for a language with tenant-specific overrides. Global translations + tenant overrides are returned, with tenant values taking priority."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Translations by Category",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text",
+                "description": "Optional - for tenant-specific overrides"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/en?category=Validation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "en"],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "Validation",
+                  "description": "Filter by category (e.g., Validation, General, Errors)"
+                }
+              ]
+            },
+            "description": "Get translations filtered by category. Useful for loading only specific translation groups."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Translations (Arabic)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/ar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "ar"]
+            },
+            "description": "Example: Get Arabic translations with optional tenant overrides"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Translation Keys",
+      "description": "Endpoints for managing translation keys (Admin/SuperAdmin only)",
+      "item": [
+        {
+          "name": "Get Translation Keys (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text",
+                "description": "Optional"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/keys?pageNumber=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "keys"],
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                },
+                {
+                  "key": "category",
+                  "value": "General",
+                  "disabled": true,
+                  "description": "Optional - filter by category"
+                },
+                {
+                  "key": "searchTerm",
+                  "value": "welcome",
+                  "disabled": true,
+                  "description": "Optional - search in keys"
+                }
+              ]
+            },
+            "description": "Get paginated list of translation keys with optional filtering"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Translation Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"common.welcome\",\n  \"category\": \"General\",\n  \"description\": \"Welcome message displayed on homepage\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/keys",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "keys"]
+            },
+            "description": "Create a new translation key. This creates the key structure; use Set Translation endpoint to add actual translations."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Translation Key",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{translationKeyId}},\n  \"description\": \"Updated description for welcome message\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/keys/{{translationKeyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "keys", "{{translationKeyId}}"]
+            },
+            "description": "Update a translation key's description"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Translation Key",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/keys/{{translationKeyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "keys", "{{translationKeyId}}"]
+            },
+            "description": "Delete a translation key and all its values (global and tenant-specific)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Translation Values",
+      "description": "Endpoints for setting translation values (Admin/SuperAdmin only)",
+      "item": [
+        {
+          "name": "Set Global Translation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"common.welcome\",\n  \"language\": \"en\",\n  \"value\": \"Welcome to our application\",\n  \"category\": \"General\",\n  \"tenantId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/values",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "values"]
+            },
+            "description": "Set a global translation (TenantId = null). This translation will be available to all tenants unless overridden."
+          },
+          "response": []
+        },
+        {
+          "name": "Set Tenant-Specific Translation Override",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"common.welcome\",\n  \"language\": \"en\",\n  \"value\": \"Welcome to ACME Corporation\",\n  \"category\": \"General\",\n  \"tenantId\": \"tenant-123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/values",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "values"]
+            },
+            "description": "Set a tenant-specific translation override. This will override the global translation for the specified tenant."
+          },
+          "response": []
+        },
+        {
+          "name": "Set Arabic Translation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"common.welcome\",\n  \"language\": \"ar\",\n  \"value\": \"مرحباً بك في تطبيقنا\",\n  \"category\": \"General\",\n  \"tenantId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/values",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "values"]
+            },
+            "description": "Example: Set Arabic translation"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Bulk Import",
+      "description": "Bulk import translations from JSON",
+      "item": [
+        {
+          "name": "Import Global Translations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"translations\": {\n    \"common.welcome\": \"Welcome\",\n    \"common.goodbye\": \"Goodbye\",\n    \"common.hello\": \"Hello\",\n    \"validation.required\": \"This field is required\",\n    \"validation.email\": \"Invalid email format\"\n  },\n  \"language\": \"en\",\n  \"category\": \"General\",\n  \"tenantId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/import",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "import"]
+            },
+            "description": "Bulk import multiple translations at once (up to 1000 keys). Creates keys if they don't exist, updates values if they do."
+          },
+          "response": []
+        },
+        {
+          "name": "Import Tenant-Specific Translations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"translations\": {\n    \"common.welcome\": \"Welcome to ACME Corp\",\n    \"common.companyName\": \"ACME Corporation\",\n    \"common.tagline\": \"Innovation at its finest\"\n  },\n  \"language\": \"en\",\n  \"category\": \"Branding\",\n  \"tenantId\": \"tenant-123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/import",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "import"]
+            },
+            "description": "Bulk import tenant-specific translation overrides"
+          },
+          "response": []
+        },
+        {
+          "name": "Import Arabic Translations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"translations\": {\n    \"common.welcome\": \"مرحباً\",\n    \"common.goodbye\": \"وداعاً\",\n    \"common.hello\": \"السلام عليكم\",\n    \"validation.required\": \"هذا الحقل مطلوب\",\n    \"validation.email\": \"صيغة البريد الإلكتروني غير صحيحة\"\n  },\n  \"language\": \"ar\",\n  \"category\": \"General\",\n  \"tenantId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/import",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "import"]
+            },
+            "description": "Example: Bulk import Arabic translations"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "description": "Service health verification",
+      "item": [
+        {
+          "name": "Root Endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Check if Translation Service is running"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

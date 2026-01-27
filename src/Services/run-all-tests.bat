@@ -24,6 +24,11 @@ timeout /t 2 /nobreak >nul
 REM FileManager Service Tests - Magenta-ish (#6200ffff)
 echo [FileManager Service Tests]
 wt.exe --tabColor "#6200ffff" --title "FileManager Tests" cmd.exe /k "cd /d %~dp0FileManager\FileManager.API.Tests && dotnet test"
+timeout /t 2 /nobreak >nul
+
+REM Translation Service Tests - Orange (#FF8800)
+echo [Translation Service Tests]
+wt.exe --tabColor "#FF8800" --title "Translation Tests" cmd.exe /k "cd /d %~dp0Translation\Translation.API.Tests && dotnet test"
 
 echo.
 echo ====================================

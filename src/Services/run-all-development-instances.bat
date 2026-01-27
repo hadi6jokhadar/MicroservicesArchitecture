@@ -19,5 +19,9 @@ timeout /t 4 /nobreak >nul
 
 REM FileManager Service - Magenta-ish
 wt.exe --tabColor "#6200ffff" --title "FileManager Service" cmd.exe /k "cd /d "%~dp0FileManager\FileManager.API" && run-development-instance.bat"
+timeout /t 4 /nobreak >nul
+
+REM Translation Service - Orange
+wt.exe --tabColor "#FF8800" --title "Translation Service" cmd.exe /k "cd /d "%~dp0Translation\Translation.API" && run-development-instance.bat"
 
 echo All development instances are starting...

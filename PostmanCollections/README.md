@@ -39,10 +39,19 @@ This directory contains Postman collections for all the microservices in the arc
   - Tenant management (admin only)
   - Public tenant information
 
+### 5. Translation Service (`Translation_Service.postman_collection.json`)
+
+- **Base URL**: `http://localhost:5006`
+- **Endpoints**:
+  - Get translations (public, with optional tenant-specific overrides)
+  - Translation key management (admin only)
+  - Set/update translation values (global and tenant-specific)
+  - Bulk import translations
+  - Multi-language support (global and per-tenant customization)
+
 ## Setup Instructions
 
 1. **Import Collections**:
-
    - Open Postman
    - Click "Import" button
    - Select "File" tab
@@ -50,7 +59,6 @@ This directory contains Postman collections for all the microservices in the arc
 
 2. **Configure Variables**:
    Each collection has predefined variables that need to be set:
-
    - `baseUrl`: Service URL (already set to correct localhost ports)
    - `tenantId`: Your tenant identifier (update this)
    - `authToken`: JWT token for authentication (obtain from login endpoints)
@@ -100,5 +108,6 @@ Make sure your services are running on the specified ports:
 - Tenant: 5002
 - Notification: 5004
 - FileManager: 5005
+- Translation: 5006
 
 You can use the provided batch files in the services directories to start them.
