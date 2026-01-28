@@ -28,6 +28,7 @@
   "exception_tenant_context_required": "User-specific notifications require a tenant context. Please provide a TenantId in the request body",
   "exception_translation_key_not_found": "Translation key not found",
   "exception_translation_key_already_exists": "Translation key '{0}' already exists",
+  "exception_translation_value_not_found": "Translation value not found",
 
   "validation_required": "{0} is required",
   "validation_email_invalid": "Invalid email address",

@@ -50,6 +50,7 @@ public static class LocalizationKeys
         public const string UnexpectedError = "exception_unexpected_error";
         public const string TranslationKeyNotFound = "exception_translation_key_not_found";
         public const string TranslationKeyAlreadyExists = "exception_translation_key_already_exists";
+        public const string TranslationValueNotFound = "exception_translation_value_not_found";
     }
 
     /// <summary>

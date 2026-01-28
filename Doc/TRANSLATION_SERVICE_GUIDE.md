@@ -508,6 +508,29 @@ Set or update a translation value.
 }
 ```
 
+#### DELETE /api/translations/values/{id}
+
+Delete a specific translation value without deleting the entire key.
+
+**Authorization:** Bearer token with `Admin` or `SuperAdmin` role
+
+**Usage Example:**
+
+```bash
+# Delete a specific translation value (e.g., remove Arabic translation but keep English)
+DELETE /api/translations/values/5
+```
+
+**Use Cases:**
+
+- Remove a translation for a specific language
+- Delete a tenant-specific override to fall back to global translation
+- Clean up obsolete translations
+
+**Response:** `204 No Content`
+
+**Note:** This deletes only the translation value, not the translation key. To delete the key and all its values, use `DELETE /api/translations/keys/{id}`.
+
 #### POST /api/translations/import
 
 Bulk import translations from JSON.

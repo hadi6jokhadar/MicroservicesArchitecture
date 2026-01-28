@@ -28,6 +28,7 @@
   "exception_tenant_context_required": "تتطلب الإشعارات الخاصة بالمستخدم سياق مستأجر. يرجى توفير TenantId في نص الطلب",
   "exception_translation_key_not_found": "مفتاح الترجمة غير موجود",
   "exception_translation_key_already_exists": "مفتاح الترجمة '{0}' موجود بالفعل",
+  "exception_translation_value_not_found": "قيمة الترجمة غير موجودة",
 
   "validation_required": "{0} مطلوب",
   "validation_email_invalid": "عنوان البريد الإلكتروني غير صالح",

@@ -396,6 +396,36 @@
             "description": "Example: Set Arabic translation"
           },
           "response": []
+        },
+        {
+          "name": "Delete Translation Value",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/translations/values/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "translations", "values", "1"],
+              "description": "Delete a specific translation value by ID"
+            },
+            "description": "Delete a single translation value without deleting the entire key. Use this to remove a translation for a specific language or tenant override."
+          },
+          "response": []
         }
       ]
     },

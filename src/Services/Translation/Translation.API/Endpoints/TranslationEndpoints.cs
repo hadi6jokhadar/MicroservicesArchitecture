@@ -132,6 +132,22 @@ public static class TranslationEndpoints
         .ProducesValidationProblem();
         
         /// <summary>
+        /// Delete a specific translation value
+        /// </summary>
+        adminGroup.MapDelete("/values/{id:int}", async (
+            int id,
+            IMediator mediator) =>
+        {
+            var command = new DeleteTranslationValueCommand(id);
+            var result = await mediator.Send(command);
+            return result ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("DeleteTranslationValue")
+        .WithDescription("Delete a specific translation value (admin only)")
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status404NotFound);
+        
+        /// <summary>
         /// Bulk import translations from JSON
         /// </summary>
         adminGroup.MapPost("/import", async (
