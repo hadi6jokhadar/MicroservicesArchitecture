@@ -974,6 +974,21 @@ Authorization: Bearer {token}
 POST /api/auth/login
 ```
 
+### Issue: 500 Error When Re-Adding Deleted Translation Key
+
+**Symptoms:** 500 error when creating a key with the same name after deletion
+
+**Cause:** Soft-delete keeps records with `IsArchived = true`. The unique index needs filtering.
+
+**Solution:** The unique index now filters archived records:
+
+```sql
+CREATE UNIQUE INDEX "IX_TranslationKeys_Key" ON "TranslationKeys" ("Key")
+WHERE "IsArchived" = false;
+```
+
+You can now delete and re-create keys with the same name without errors.
+
 ---
 
 ## Performance Considerations

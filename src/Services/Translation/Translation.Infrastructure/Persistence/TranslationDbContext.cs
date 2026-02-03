@@ -98,10 +98,11 @@ public class TranslationDbContext : BaseDbContext
             entity.ToTable("TranslationKeys");
             entity.HasKey(e => e.Id);
             
-            // Unique constraint on Key
+            // Unique constraint on Key (excluding archived records to allow re-creation after soft-delete)
             entity.HasIndex(e => e.Key)
                 .IsUnique()
-                .HasDatabaseName("IX_TranslationKeys_Key");
+                .HasDatabaseName("IX_TranslationKeys_Key")
+                .HasFilter("\"IsArchived\" = false");
             
             // Index on Category for filtering
             entity.HasIndex(e => e.Category)

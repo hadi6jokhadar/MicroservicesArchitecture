@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Translation.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Translation.Infrastructure.Persistence;
 namespace Translation.Infrastructure.Migrations
 {
     [DbContext(typeof(TranslationDbContext))]
-    partial class TranslationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260203174028_AddFilterToKeyUniqueIndex")]
+    partial class AddFilterToKeyUniqueIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

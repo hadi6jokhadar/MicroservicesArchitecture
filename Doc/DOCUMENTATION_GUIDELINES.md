@@ -39,6 +39,26 @@
   - `*_PROGRESS.md` (progress tracking)
 - ✅ **INSTEAD:** Update the main topic file directly
 
+### 3. **FIXING BUGS - UPDATE, DON'T CREATE**
+
+- ❌ **NEVER** create separate fix documentation files
+- ❌ **NEVER** index every bug fix in DOCUMENTATION_INDEX.md
+- ✅ **DO:** Add/update a concise troubleshooting entry in the main doc file
+- ✅ **DO:** Update affected code examples to show the correct implementation
+- ✅ **DO:** Remove outdated/wrong code snippets
+
+**Example:**
+
+```
+❌ BAD:
+Create TRANSLATION_SOFT_DELETE_FIX.md with detailed explanation
+
+✅ GOOD:
+Add one troubleshooting entry in TRANSLATION_SERVICE_GUIDE.md:
+"### Issue: 500 Error When Re-Adding Deleted Key
+**Solution:** Unique index now filters archived records..."
+```
+
 **Reason:** Summaries and logs become outdated. The code is the source of truth.
 
 ### 3. **DOCUMENTATION = PERMANENT REFERENCE ONLY**

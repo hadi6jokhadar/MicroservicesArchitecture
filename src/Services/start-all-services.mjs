@@ -71,7 +71,7 @@ async function startServices() {
     );
 
     // 4 second delay
-    await delay(2000);
+    await delay(4000);
   }
 
   console.log("\nAll development instances are starting...");
