@@ -18,6 +18,8 @@ public class TenantConfigDto
     public TenantConfiguration? Data { get; set; }
     public bool IsActive { get; set; }
     public bool IsExpired { get; set; }
+    public string Created { get; set; } = string.Empty;
+    public string? LastModified { get; set; }
 
     /// <summary>
     /// Maps TenantSettings entity to TenantConfigDto
@@ -34,6 +36,8 @@ public class TenantConfigDto
             ExpireDate = tenant.ExpireDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             IsActive = tenant.IsActive,
             IsExpired = tenant.IsExpired,
+            Created = tenant.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            LastModified = tenant.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             Data = DeserializeData(tenant.Data)
         };
     }

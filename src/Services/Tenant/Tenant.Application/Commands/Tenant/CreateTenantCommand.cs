@@ -16,7 +16,8 @@ public record CreateTenantCommand(
     int UserId,
     DateTime StartDate,
     DateTime ExpireDate,
-    TenantConfiguration Data
+    TenantConfiguration Data,
+    bool IsActive
 ) : IRequest<TenantDto>;
 
 public class CreateTenantCommandValidator : LocalizedValidator<CreateTenantCommand>
