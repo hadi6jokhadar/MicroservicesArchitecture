@@ -42,7 +42,8 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: 1,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: tenantConfig
+            Data: tenantConfig,
+            IsActive: true
         );
 
         // Act - Call handler directly via MediatR
@@ -71,7 +72,8 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: GenerateUniqueUserId(), // Different user but same tenant ID
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: CreateDefaultTenantConfiguration()
+            Data: CreateDefaultTenantConfiguration(),
+            IsActive: true
         );
 
         // Act & Assert
@@ -116,7 +118,8 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: 1,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: null!
+            Data: null!,
+            IsActive: true
         );
 
         // Act & Assert
@@ -135,7 +138,8 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: GenerateUniqueUserId(), // Use unique user ID
             StartDate: DateTime.UtcNow.AddDays(-30),
             ExpireDate: DateTime.UtcNow.AddDays(-1),
-            Data: CreateDefaultTenantConfiguration()
+            Data: CreateDefaultTenantConfiguration(),
+            IsActive: true
         );
 
         // Act
@@ -436,7 +440,8 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: 1,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: CreateDefaultTenantConfiguration()
+            Data: CreateDefaultTenantConfiguration(),
+            IsActive: true
         );
 
         // Act & Assert
@@ -455,7 +460,8 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: 1,
             StartDate: DateTime.UtcNow.AddYears(1),
             ExpireDate: DateTime.UtcNow,
-            Data: CreateDefaultTenantConfiguration()
+            Data: CreateDefaultTenantConfiguration(),
+            IsActive: true
         );
 
         // Act & Assert
@@ -474,7 +480,8 @@ public class TenantEndpointsTests : IntegrationTestBase
             UserId: 1,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: CreateDefaultTenantConfiguration()
+            Data: CreateDefaultTenantConfiguration(),
+            IsActive: true
         );
 
         // Act & Assert

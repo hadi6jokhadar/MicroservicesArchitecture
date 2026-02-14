@@ -52,7 +52,7 @@ public class GetTenantByUserQueryValidator : LocalizedValidator<GetTenantByUserQ
 /// <summary>
 /// Query to get all active tenants with pagination
 /// </summary>
-public record GetAllActiveTenantsQuery(int PageNumber = 1, int PageSize = 10) : IRequest<PaginatedList<TenantDto>>;
+public record GetAllActiveTenantsQuery(int PageNumber = 1, int PageSize = 10, bool IsArchived = false) : IRequest<PaginatedList<TenantDto>>;
 
 public class GetAllActiveTenantsQueryValidator : LocalizedValidator<GetAllActiveTenantsQuery>
 {

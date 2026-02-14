@@ -12,7 +12,8 @@ public record GetUsersCommand(
     int PageSize = 10,
     string? SearchTerm = null,
     string? RoleName = null,
-    bool? Status = null
+    bool? Status = null,
+    bool IsArchived = false
 ) : IRequest<PaginatedList<UserDto>>;
 
 public class GetUsersCommandValidator : LocalizedValidator<GetUsersCommand>

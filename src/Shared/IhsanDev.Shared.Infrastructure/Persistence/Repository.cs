@@ -62,4 +62,11 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
         
         return await DeleteAsync(entity, cancellationToken);
     }
+
+    public virtual async Task<bool> HardDeleteAsync(T entity, CancellationToken cancellationToken = default)
+    {
+        _dbSet.Remove(entity);
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 }

@@ -11,6 +11,7 @@ public interface IFileManagerService
     Task<List<FileManagerResponse>> GetFilesByIdsAsync(List<int> ids, CancellationToken cancellationToken = default);
     Task<PaginatedList<FileManagerResponse>> GetFilesAsync(FileManagerListRequest request, CancellationToken cancellationToken = default);
     Task<FileManagerResponse> UpdateFileAsync(int id, string? name = null, FileGroup? group = null, bool? status = null, bool? isArchived = null, bool? temp = null, CancellationToken cancellationToken = default);
+    Task<FileManagerResponse> ToggleArchiveStatusAsync(int id, CancellationToken cancellationToken = default);
     Task<bool> DeleteFileAsync(int id, CancellationToken cancellationToken = default);
     Task<int> DeleteAllTempFilesAsync(CancellationToken cancellationToken = default);
     Task<int> DeleteOldTempFilesAsync(int olderThanDays, CancellationToken cancellationToken = default);

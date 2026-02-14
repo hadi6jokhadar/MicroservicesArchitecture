@@ -186,6 +186,24 @@ public class FileManagerService : IFileManagerService
         return FileManagerResponse.MapFrom(entity, _urlPrefix);
     }
 
+    public async Task<FileManagerResponse> ToggleArchiveStatusAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var entity = await _repository.GetByIdAsync(id, cancellationToken);
+        if (entity == null)
+        {
+            throw new Domain.Exceptions.FileNotFoundException(id);
+        }
+
+        entity.IsArchived = !entity.IsArchived;
+        entity.LastModified = DateTime.UtcNow;
+
+        await _repository.UpdateAsync(entity, cancellationToken);
+        
+        _logger.LogInformation("File archive status toggled: ID={Id}, IsArchived={IsArchived}", id, entity.IsArchived);
+
+        return FileManagerResponse.MapFrom(entity, _urlPrefix);
+    }
+
     public async Task<bool> DeleteFileAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);

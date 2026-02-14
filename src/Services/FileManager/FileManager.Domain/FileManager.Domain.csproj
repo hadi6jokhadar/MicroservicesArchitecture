@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Shared\IhsanDev.Shared.Kernel\IhsanDev.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\..\Shared\IhsanDev.Shared.Infrastructure\IhsanDev.Shared.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Infrastructure.Persistence;
+using IhsanDev.Shared.Application.Common.Models;
 using Translation.Domain.Entities;
 
 namespace Translation.Domain.Repositories;
@@ -26,10 +27,11 @@ public interface ITranslationKeyRepository : IRepository<TranslationKey>
     /// <summary>
     /// Get paginated translation keys with optional filtering
     /// </summary>
-    Task<(List<TranslationKey> Items, int TotalCount)> GetPaginatedAsync(
+    Task<PaginatedList<TranslationKey>> GetPaginatedAsync(
         int pageNumber = 1,
         int pageSize = 10,
         string? category = null,
         string? searchTerm = null,
+        bool isArchived = false,
         CancellationToken cancellationToken = default);
 }

@@ -121,16 +121,14 @@ public class GetAllActiveTenantsQueryHandler : IRequestHandler<GetAllActiveTenan
     {
         try
         {
-            var query = _tenantRepository.GetAll();
+            // Use repository method that supports isArchived filtering
+            var (items, totalCount) = await _tenantRepository.GetAllActiveAsync(
+                request.PageNumber,
+                request.PageSize,
+                request.IsArchived,
+                cancellationToken);
 
-            // Filter only active tenants
-            query = query.Where(t => t.IsActive && !t.IsArchived);
-
-            // Order by created date (newest first)
-            query = query.OrderByDescending(t => t.Created);
-
-            // Manual projection to DTO
-            var dtoQuery = query.Select(t => new TenantDto
+            var tenantDtos = items.Select(t => new TenantDto
             {
                 Id = t.Id,
                 TenantId = t.TenantId,
@@ -142,12 +140,15 @@ public class GetAllActiveTenantsQueryHandler : IRequestHandler<GetAllActiveTenan
                 IsExpired = t.IsExpired,
                 Created = t.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
                 LastModified = t.LastModified != null ? t.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null
-            });
+            }).ToList();
 
-            var paginatedList = await dtoQuery
-                .PaginatedListAsync(request.PageNumber, request.PageSize, cancellationToken);
+            var totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);
 
-            return paginatedList;
+            return new PaginatedList<TenantDto>(
+                tenantDtos,
+                totalCount,
+                request.PageNumber,
+                totalPages);
         }
         catch (Exception)
         {

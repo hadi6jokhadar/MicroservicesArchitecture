@@ -1,14 +1,15 @@
 using Notification.Domain.Entities;
 using Notification.Domain.Enums;
 
+using IhsanDev.Shared.Kernel.Dto.Identity;
+
 namespace Notification.Application.DTOs;
 
 /// <summary>
 /// DTO for notification queue item details (SuperAdmin view)
 /// </summary>
-public class QueueItemDto
+public class QueueItemDto : BaseDto
 {
-    public int Id { get; set; }
     public string? TenantId { get; set; }
     public int? UserId { get; set; }
     public DeliveryType DeliveryType { get; set; }
@@ -22,8 +23,6 @@ public class QueueItemDto
     public string ExpiresAt { get; set; } = string.Empty;
     public string? Error { get; set; }
     public int? NotificationId { get; set; }
-    public string CreatedAt { get; set; } = string.Empty;
-    public string? UpdatedAt { get; set; }
 
     /// <summary>
     /// Maps NotificationQueueItem entity to QueueItemDto
@@ -46,8 +45,9 @@ public class QueueItemDto
             ExpiresAt = queueItem.ExpiresAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             Error = queueItem.Error,
             NotificationId = queueItem.NotificationId,
-            CreatedAt = queueItem.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
-            UpdatedAt = queueItem.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture)
+            Created = queueItem.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            LastModified = queueItem.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            IsArchived = queueItem.IsArchived
         };
     }
 }

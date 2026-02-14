@@ -1,12 +1,14 @@
 using FileManager.Domain.Entities;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using IhsanDev.Shared.Infrastructure.Persistence;
+using IhsanDev.Shared.Infrastructure.Services.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace FileManager.Infrastructure.Persistence;
 
-public class FileManagerDbContext : DbContext
+public class FileManagerDbContext : BaseDbContext
 {
     private readonly ITenantContext? _tenantContext;
     private readonly IConfiguration? _configuration;
@@ -14,10 +16,11 @@ public class FileManagerDbContext : DbContext
 
     public FileManagerDbContext(
         DbContextOptions<FileManagerDbContext> options,
+        ICurrentUserService currentUserService,
         ITenantContext? tenantContext = null,
         IConfiguration? configuration = null,
         ILogger<FileManagerDbContext>? logger = null)
-        : base(options)
+        : base(options, currentUserService)
     {
         _tenantContext = tenantContext;
         _configuration = configuration;

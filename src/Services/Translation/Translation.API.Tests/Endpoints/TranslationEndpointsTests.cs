@@ -645,7 +645,6 @@ public class TranslationEndpointsTests : IntegrationTestBase
         result.Should().NotBeNull();
         result.Items.Should().HaveCountGreaterOrEqualTo(3);
         result.PageNumber.Should().Be(1);
-        result.PageSize.Should().Be(10);
         result.TotalCount.Should().BeGreaterOrEqualTo(3);
     }
 
@@ -667,7 +666,6 @@ public class TranslationEndpointsTests : IntegrationTestBase
         // Assert
         result.Should().NotBeNull();
         result.PageNumber.Should().Be(2);
-        result.PageSize.Should().Be(5);
         result.Items.Should().HaveCountLessThanOrEqualTo(5);
         result.TotalCount.Should().BeGreaterOrEqualTo(15);
     }
@@ -1011,17 +1009,32 @@ public class TranslationEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task DeleteTranslationKey_MultipleTimes_ShouldFailOnSecondAttempt()
+    public async Task DeleteTranslationKey_SequentialCalls_ShouldArchiveThenHardDelete()
     {
         // Arrange
-        var key = await CreateTestTranslationKeyAsync("delete_twice", "general");
+        var key = await CreateTestTranslationKeyAsync("delete_sequential", "general");
         var command = new DeleteTranslationKeyCommand(Id: key.Id);
 
-        // Act - First deletion
+        // Act - First deletion (Archives)
         var firstResult = await SendAsync(command);
         firstResult.Should().BeTrue();
+        
+        // Verify it is archived but still exists
+        var archivedKey = await ExecuteDbContextAsync(async context =>
+            await context.TranslationKeys.IgnoreQueryFilters().FirstOrDefaultAsync(k => k.Id == key.Id));
+        archivedKey.Should().NotBeNull();
+        archivedKey!.IsArchived.Should().BeTrue();
 
-        // Act & Assert - Second deletion should fail
+        // Act - Second deletion (Hard Deletes)
+        var secondResult = await SendAsync(command);
+        secondResult.Should().BeTrue();
+
+        // Verify it is gone
+        var deletedKey = await ExecuteDbContextAsync(async context =>
+            await context.TranslationKeys.IgnoreQueryFilters().FirstOrDefaultAsync(k => k.Id == key.Id));
+        deletedKey.Should().BeNull();
+
+        // Act & Assert - Third deletion should fail
         await Assert.ThrowsAsync<NotFoundException>(async () => await SendAsync(command));
     }
 

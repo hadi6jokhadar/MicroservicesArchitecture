@@ -142,7 +142,10 @@ public class IdentityDbContext : BaseDbContext
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.Email)
+                .IsUnique()
+                .HasFilter("\"IsArchived\" = false");
+                
             entity.Property(e => e.Email).HasMaxLength(256);
             entity.Property(e => e.FirstName).HasMaxLength(100);
             entity.Property(e => e.LastName).HasMaxLength(100);
@@ -167,7 +170,10 @@ public class IdentityDbContext : BaseDbContext
         // Role configuration
         modelBuilder.Entity<Role>(entity =>
         {
-            entity.HasIndex(e => e.NormalizedName).IsUnique();
+            entity.HasIndex(e => e.NormalizedName)
+                .IsUnique()
+                .HasFilter("\"IsArchived\" = false");
+                
             entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
             entity.Property(e => e.NormalizedName).HasMaxLength(100).IsRequired();
             entity.Property(e => e.Description).HasMaxLength(500);
@@ -186,7 +192,10 @@ public class IdentityDbContext : BaseDbContext
         // Claim configuration
         modelBuilder.Entity<Claim>(entity =>
         {
-            entity.HasIndex(e => e.ClaimValue).IsUnique();
+            entity.HasIndex(e => e.ClaimValue)
+                .IsUnique()
+                .HasFilter("\"IsArchived\" = false");
+                
             entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
             entity.Property(e => e.NormalizedName).HasMaxLength(100).IsRequired();
             entity.Property(e => e.Description).HasMaxLength(500);
@@ -202,13 +211,17 @@ public class IdentityDbContext : BaseDbContext
         // UserRole junction table configuration
         modelBuilder.Entity<UserRole>(entity =>
         {
-            entity.HasIndex(e => new { e.UserId, e.RoleId }).IsUnique();
+            entity.HasIndex(e => new { e.UserId, e.RoleId })
+                .IsUnique()
+                .HasFilter("\"IsArchived\" = false");
         });
 
         // RoleClaim junction table configuration
         modelBuilder.Entity<RoleClaim>(entity =>
         {
-            entity.HasIndex(e => new { e.RoleId, e.ClaimId }).IsUnique();
+            entity.HasIndex(e => new { e.RoleId, e.ClaimId })
+                .IsUnique()
+                .HasFilter("\"IsArchived\" = false");
         });
     }
 }

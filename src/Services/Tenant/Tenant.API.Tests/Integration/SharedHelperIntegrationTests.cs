@@ -37,7 +37,8 @@ public class SharedHelperIntegrationTests : IntegrationTestBase
             UserId: userId,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: CreateDefaultTenantConfiguration()
+            Data: CreateDefaultTenantConfiguration(),
+            IsActive: true
         );
 
         var createdTenant = await SendAsync(createCommand);
@@ -85,7 +86,8 @@ public class SharedHelperIntegrationTests : IntegrationTestBase
                     AccessTokenExpirationMinutes = 60,
                     RefreshTokenExpirationDays = 7
                 }
-            }
+            },
+            IsActive: true
         );
 
         var tenant = await SendAsync(createCommand);
@@ -162,7 +164,8 @@ public class SharedHelperIntegrationTests : IntegrationTestBase
                         AccessTokenExpirationMinutes = 60,
                         RefreshTokenExpirationDays = 7
                     }
-                }
+                },
+                IsActive: true
             );
 
             var tenant = await SendAsync(createCommand);

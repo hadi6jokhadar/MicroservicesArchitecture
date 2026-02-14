@@ -88,6 +88,12 @@ public static class EndpointMappingExtensions
             .WithDescription("Delete tenant configuration (Admin only)")
             .Produces<object>(200);
 
+        adminGroup.MapPatch("/{tenantId}/toggle-archive", TenantApiHandlers.ToggleTenantArchivedStatusHandler)
+            .WithName("ToggleTenantArchivedStatus")
+            .WithSummary("Toggle tenant archived status")
+            .WithDescription("Archive or unarchive tenant (Admin only)")
+            .Produces<object>(200);
+
         return app;
     }
 }

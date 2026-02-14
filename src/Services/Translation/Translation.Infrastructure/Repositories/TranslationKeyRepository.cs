@@ -2,6 +2,7 @@ using Translation.Domain.Entities;
 using Translation.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
 using IhsanDev.Shared.Infrastructure.Persistence;
+using IhsanDev.Shared.Application.Common.Models;
 using Translation.Infrastructure.Persistence;
 
 namespace Translation.Infrastructure.Repositories;
@@ -12,18 +13,28 @@ public class TranslationKeyRepository : Repository<TranslationKey>, ITranslation
     {
     }
 
+    /// <summary>
+    /// Override to allow retrieving archived translation keys (needed for toggle archive operation)
+    /// </summary>
+    public override async Task<TranslationKey?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+    }
+
     public async Task<TranslationKey?> GetByKeyAsync(string key, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Key == key && !t.IsArchived, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Key == key, cancellationToken);
     }
 
     public async Task<IEnumerable<TranslationKey>> GetByCategoryAsync(string category, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .AsNoTracking()
-            .Where(t => t.Category == category && !t.IsArchived)
+            .Where(t => t.Category == category)
             .ToListAsync(cancellationToken);
     }
 
@@ -34,21 +45,22 @@ public class TranslationKeyRepository : Repository<TranslationKey>, ITranslation
             .AnyAsync(t => t.Key == key && !t.IsArchived, cancellationToken);
     }
 
-    public async Task<(List<TranslationKey> Items, int TotalCount)> GetPaginatedAsync(
+    public async Task<PaginatedList<TranslationKey>> GetPaginatedAsync(
         int pageNumber = 1,
         int pageSize = 10,
         string? category = null,
         string? searchTerm = null,
+        bool isArchived = false,
         CancellationToken cancellationToken = default)
     {
         var query = _dbSet
             .AsNoTracking()
-            .Where(t => !t.IsArchived);
+            .Where(t => t.IsArchived == isArchived);
 
         // Apply category filter
         if (!string.IsNullOrWhiteSpace(category))
         {
-            query = query.Where(t => t.Category == category);
+            query = query.Where(t => t.Category.Contains(category));
         }
 
         // Apply search term filter
@@ -72,6 +84,7 @@ public class TranslationKeyRepository : Repository<TranslationKey>, ITranslation
             .Include(t => t.Values)
             .ToListAsync(cancellationToken);
 
-        return (items, totalCount);
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        return new PaginatedList<TranslationKey>(items, totalCount, pageNumber, totalPages);
     }
 }

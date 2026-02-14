@@ -52,6 +52,9 @@ public class GetUsersCommandHandler : IRequestHandler<GetUsersCommand, Paginated
             query = query.Where(u => u.Status == request.Status.Value);
         }
 
+        // Apply archived filter
+        query = query.Where(u => u.IsArchived == request.IsArchived);
+
         // Order by created date (newest first)
         query = query.OrderByDescending(u => u.Created);
 

@@ -81,4 +81,17 @@ public static class AdminApiHandlers
         var result = await mediator.Send(command, ct);
         return Results.Ok(result);
     }
+
+    /// <summary>
+    /// Handle toggle user archived status (Admin only)
+    /// </summary>
+    public static async Task<IResult> ToggleUserArchivedStatusHandler(
+        int id,
+        IMediator mediator,
+        CancellationToken ct = default)
+    {
+        var command = new ToggleUserArchivedStatusCommand(id);
+        var result = await mediator.Send(command, ct);
+        return Results.Ok(result);
+    }
 }

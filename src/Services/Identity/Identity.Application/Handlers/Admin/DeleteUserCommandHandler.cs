@@ -34,12 +34,18 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, bool>
             if (user == null)
                 throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
-            // Soft delete by setting IsArchived to true
-            user.IsArchived = true;
-            user.Status = false;
-            user.LastModified = DateTime.UtcNow;
-
-            await _userRepository.UpdateAsync(user, cancellationToken);
+            // If already archived, do a hard delete (permanent removal)
+            // Otherwise, do a soft delete (set IsArchived = true)
+            if (user.IsArchived)
+            {
+                // Hard delete: Remove from database permanently
+                await _userRepository.HardDeleteAsync(user, cancellationToken);
+            }
+            else
+            {
+                // Soft delete: Set IsArchived = true
+                await _userRepository.DeleteAsync(user, cancellationToken);
+            }
 
             // Mark profile picture as temporary (eligible for cleanup) if exists
             if (user.ProfilePictureId.HasValue)

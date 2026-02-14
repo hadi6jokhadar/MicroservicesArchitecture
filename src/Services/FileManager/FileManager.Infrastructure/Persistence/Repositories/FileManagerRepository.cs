@@ -2,22 +2,32 @@ using FileManager.Domain.Entities;
 using FileManager.Domain.Enums;
 using FileManager.Domain.Interfaces;
 using FileManager.Infrastructure.Persistence;
+using IhsanDev.Shared.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace FileManager.Infrastructure.Persistence.Repositories;
 
-public class FileManagerRepository : IFileManagerRepository
+public class FileManagerRepository : Repository<FileManagerEntity>, IFileManagerRepository
 {
-    private readonly FileManagerDbContext _context;
-
-    public FileManagerRepository(FileManagerDbContext context)
+    public FileManagerRepository(FileManagerDbContext context) : base(context)
     {
-        _context = context;
     }
 
-    public async Task<FileManagerEntity?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Override to perform hard delete instead of soft delete
+    /// Files should be completely removed from the database when deleted
+    /// </summary>
+    public override async Task<bool> DeleteAsync(FileManagerEntity entity, CancellationToken cancellationToken = default)
     {
-        return await _context.FileManager
+        _dbSet.Remove(entity);
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public override async Task<FileManagerEntity?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        // Override to include archived files, consistent with original behavior
+        return await _dbSet
             .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
     }
 
@@ -28,7 +38,7 @@ public class FileManagerRepository : IFileManagerRepository
             return new List<FileManagerEntity>();
         }
 
-        return await _context.FileManager
+        return await _dbSet
             .Where(f => ids.Contains(f.Id))
             .ToListAsync(cancellationToken);
     }
@@ -50,7 +60,7 @@ public class FileManagerRepository : IFileManagerRepository
         int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.FileManager.AsQueryable();
+        var query = _dbSet.AsQueryable();
 
         // Apply filters
         if (id.HasValue)
@@ -113,33 +123,13 @@ public class FileManagerRepository : IFileManagerRepository
         return (items, totalCount);
     }
 
-    public async Task<FileManagerEntity> AddAsync(FileManagerEntity entity, CancellationToken cancellationToken = default)
-    {
-        _context.FileManager.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
-        return entity;
-    }
-
-    public async Task UpdateAsync(FileManagerEntity entity, CancellationToken cancellationToken = default)
-    {
-        entity.LastModified = DateTime.UtcNow;
-        _context.FileManager.Update(entity);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task DeleteAsync(FileManagerEntity entity, CancellationToken cancellationToken = default)
-    {
-        _context.FileManager.Remove(entity);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
     public async Task<int> DeleteAllTempAsync(CancellationToken cancellationToken = default)
     {
-        var tempFiles = await _context.FileManager
+        var tempFiles = await _dbSet
             .Where(f => f.Temp)
             .ToListAsync(cancellationToken);
 
-        _context.FileManager.RemoveRange(tempFiles);
+        _dbSet.RemoveRange(tempFiles);
         await _context.SaveChangesAsync(cancellationToken);
 
         return tempFiles.Count;
@@ -148,11 +138,11 @@ public class FileManagerRepository : IFileManagerRepository
     public async Task<int> DeleteOldTempFilesAsync(int olderThanDays, CancellationToken cancellationToken = default)
     {
         var cutoffDate = DateTime.UtcNow.AddDays(-olderThanDays);
-        var oldTempFiles = await _context.FileManager
+        var oldTempFiles = await _dbSet
             .Where(f => f.Temp && f.Created < cutoffDate)
             .ToListAsync(cancellationToken);
 
-        _context.FileManager.RemoveRange(oldTempFiles);
+        _dbSet.RemoveRange(oldTempFiles);
         await _context.SaveChangesAsync(cancellationToken);
 
         return oldTempFiles.Count;
@@ -160,7 +150,7 @@ public class FileManagerRepository : IFileManagerRepository
 
     public async Task<List<FileManagerEntity>> GetTempFilesAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.FileManager
+        return await _dbSet
             .Where(f => f.Temp)
             .ToListAsync(cancellationToken);
     }
@@ -168,7 +158,7 @@ public class FileManagerRepository : IFileManagerRepository
     public async Task<List<FileManagerEntity>> GetOldTempFilesAsync(int olderThanDays, CancellationToken cancellationToken = default)
     {
         var cutoffDate = DateTime.UtcNow.AddDays(-olderThanDays);
-        return await _context.FileManager
+        return await _dbSet
             .Where(f => f.Temp && f.Created < cutoffDate)
             .ToListAsync(cancellationToken);
     }

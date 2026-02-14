@@ -78,7 +78,8 @@ namespace Identity.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClaimValue")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsArchived\" = false");
 
                     b.ToTable("Claims");
                 });
@@ -129,7 +130,8 @@ namespace Identity.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsArchived\" = false");
 
                     b.ToTable("Roles");
                 });
@@ -171,7 +173,8 @@ namespace Identity.Infrastructure.Migrations
                     b.HasIndex("ClaimId");
 
                     b.HasIndex("RoleId", "ClaimId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsArchived\" = false");
 
                     b.ToTable("RoleClaims");
                 });
@@ -258,7 +261,8 @@ namespace Identity.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsArchived\" = false");
 
                     b.ToTable("Users");
                 });
@@ -300,7 +304,8 @@ namespace Identity.Infrastructure.Migrations
                     b.HasIndex("RoleId");
 
                     b.HasIndex("UserId", "RoleId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsArchived\" = false");
 
                     b.ToTable("UserRoles");
                 });

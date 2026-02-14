@@ -31,7 +31,18 @@ public class DeleteTenantCommandHandler : IRequestHandler<DeleteTenantCommand, b
                 throw new NotFoundException(LocalizationKeys.Exceptions.TenantNotFound);
             }
 
-            await _tenantRepository.DeleteAsync(tenant.Id, cancellationToken);
+            // If already archived, do a hard delete (permanent removal)
+            // Otherwise, do a soft delete (set IsArchived = true)
+            if (tenant.IsArchived)
+            {
+                // Hard delete: Remove from database permanently
+                await _tenantRepository.HardDeleteAsync(tenant, cancellationToken);
+            }
+            else
+            {
+                // Soft delete: Set IsArchived = true
+                await _tenantRepository.DeleteAsync(tenant.Id, cancellationToken);
+            }
 
             // Invalidate cache for this tenant
             var cacheKey = $"tenant_config_{tenant.TenantId}";

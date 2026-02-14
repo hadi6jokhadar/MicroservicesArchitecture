@@ -60,6 +60,15 @@ public static class EndpointMappingExtensions
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<GetQueueItemsCommand>>();
 
+        // Toggle queue item archive status
+        serviceAdminGroup.MapPatch("/queue/{id:int}/toggle-archive", NotificationApiHandlers.ToggleQueueItemArchivedStatusHandler)
+            .WithName("ToggleQueueItemArchivedStatus")
+            .WithSummary("Toggle queue item archived status (Service/SuperAdmin only)")
+            .WithDescription("Archive or unarchive a notification queue item.")
+            .WithMetadata(new BypassTenantAttribute())
+            .Produces<QueueItemDto>(200)
+            .Produces(404);
+
         // =============================================================================
         // GROUP 2: User Endpoints (Tenant-Specific Access)
         // =============================================================================

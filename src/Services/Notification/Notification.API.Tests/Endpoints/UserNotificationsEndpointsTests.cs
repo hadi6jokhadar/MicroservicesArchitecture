@@ -60,7 +60,7 @@ public class UserNotificationsEndpointsTests : IntegrationTestBase, IAsyncLifeti
         result.Should().NotBeNull();
         result.Should().HaveCount(3);
         result.Should().OnlyContain(n => n.UserId == userId);
-        result.Should().BeInDescendingOrder(n => n.CreatedAt);
+        result.Should().BeInDescendingOrder(n => n.Created);
     }
 
     [Fact]

@@ -57,7 +57,10 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCountGreaterOrEqualTo(3);
-        result.HasNextPage.Should().BeFalse();
+        // Since this is an integration test with a shared database, TotalCount might exceed 100
+        // We can only assert HasNextPage is false if TotalCount <= PageSize
+        bool expectedHasNextPage = result.TotalCount > 100;
+        result.HasNextPage.Should().Be(expectedHasNextPage);
         result.HasPreviousPage.Should().BeFalse();
     }
 
@@ -172,7 +175,8 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
                     AccessTokenExpirationMinutes = 60,
                     RefreshTokenExpirationDays = 7
                 }
-            }
+            },
+            IsActive: true
         );
 
         // Act
@@ -217,7 +221,8 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
             UserId: 456,
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: complexData
+            Data: complexData,
+            IsActive: true
         );
 
         // Act
@@ -418,7 +423,8 @@ public class AdminTenantEndpointsTests : IntegrationTestBase
             UserId: GenerateUniqueUserId(), // Generate unique user ID for each
             StartDate: DateTime.UtcNow,
             ExpireDate: DateTime.UtcNow.AddYears(1),
-            Data: CreateDefaultTenantConfiguration()
+            Data: CreateDefaultTenantConfiguration(),
+            IsActive: true
         )).ToList();
 
         // Act

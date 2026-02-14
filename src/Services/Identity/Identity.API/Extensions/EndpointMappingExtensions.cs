@@ -194,6 +194,12 @@ public static class EndpointMappingExtensions
             .WithDescription("Enable or disable user account (Admin only). x-tenant-id header is optional.")
             .Produces<object>(200);
 
+        adminGroup.MapPatch("/users/{id:int}/toggle-archive", AdminApiHandlers.ToggleUserArchivedStatusHandler)
+            .WithName("ToggleUserArchivedStatus")
+            .WithSummary("Toggle user archived status")
+            .WithDescription("Archive or unarchive user account (Admin only). x-tenant-id header is optional.")
+            .Produces<object>(200);
+
         adminGroup.MapDelete("/users/{id:int}", AdminApiHandlers.DeleteUserHandler)
             .WithName("DeleteUserById")
             .WithSummary("Delete user")

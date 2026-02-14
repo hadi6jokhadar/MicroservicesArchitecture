@@ -11,6 +11,7 @@ using FluentValidation;
 using IhsanDev.Shared.Application.Common.Behaviors;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Extensions;
+using FileManager.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using IhsanDev.Shared.Kernel.Enums;
@@ -49,6 +50,11 @@ builder.Services.AddLocalizationService();
 builder.Services.AddCustomLogging(builder.Configuration, "FileManager");
 
 // ============================================
+// Identity Services
+// ============================================
+builder.Services.AddScoped<IhsanDev.Shared.Infrastructure.Services.Identity.ICurrentUserService, IhsanDev.Shared.Infrastructure.Services.CurrentUserService>();
+
+// ============================================
 // Multi-Tenancy Support (Optional)
 // ============================================
 builder.Services.AddMultiTenancy(builder.Configuration);
@@ -56,9 +62,7 @@ builder.Services.AddMultiTenancy(builder.Configuration);
 // ============================================
 // Database Configuration (Multi-Provider)
 // ============================================
-builder.Services.AddDatabaseContext<FileManagerDbContext>(
-    builder.Configuration,
-    migrationAssembly: typeof(FileManagerDbContext).Assembly.GetName().Name);
+builder.Services.AddInfrastructureServices(builder.Configuration);
 
 // Add database migration service for automatic database creation
 builder.Services.AddDatabaseMigration();
@@ -220,10 +224,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.Configure<FileManagerOptions>(
     builder.Configuration.GetSection("FileManagerOptions"));
 
-// Register repositories and services
-builder.Services.AddScoped<IFileManagerRepository, FileManagerRepository>();
-builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
-builder.Services.AddScoped<IFileManagerService, FileManagerService>();
+
 
 // ============================================
 // Service-to-Service HTTP Clients
@@ -243,7 +244,7 @@ builder.Services.AddTenantServiceClient<FileManager.Application.Interfaces.ITena
 // ============================================
 // Background Jobs
 // ============================================
-builder.Services.AddHostedService<FileManager.Infrastructure.BackgroundJobs.TempFileCleanupService>();
+
 
 var app = builder.Build();
 

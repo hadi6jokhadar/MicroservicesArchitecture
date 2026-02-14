@@ -25,3 +25,5 @@ public record DeleteFileCommand(int Id) : IRequest<bool>;
 public record DeleteAllTempFilesCommand() : IRequest<int>;
 
 public record DeleteOldTempFilesCommand(int OlderThanDays) : IRequest<int>;
+
+public record ToggleArchiveFileCommand(int Id) : IRequest<FileManagerResponse>;

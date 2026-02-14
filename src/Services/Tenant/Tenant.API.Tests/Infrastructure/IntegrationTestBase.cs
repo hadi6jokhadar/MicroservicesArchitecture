@@ -99,7 +99,8 @@ public abstract class IntegrationTestBase :
             UserId: userId ?? GenerateUniqueUserId(),
             StartDate: startDate ?? DateTime.UtcNow,
             ExpireDate: expireDate ?? DateTime.UtcNow.AddYears(1),
-            Data: data ?? CreateDefaultTenantConfiguration()
+            Data: data ?? CreateDefaultTenantConfiguration(),
+            IsActive: true
         );
 
         var result = await SendAsync(command);

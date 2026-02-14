@@ -21,7 +21,8 @@ public record GetQueueItemsCommand(
     DeliveryType? DeliveryType = null,
     DateTime? FromDate = null,
     DateTime? ToDate = null,
-    string? SearchTerm = null
+    string? SearchTerm = null,
+    bool IsArchived = false
 ) : IRequest<PaginatedList<QueueItemDto>>;
 
 public class GetQueueItemsCommandValidator : LocalizedValidator<GetQueueItemsCommand>

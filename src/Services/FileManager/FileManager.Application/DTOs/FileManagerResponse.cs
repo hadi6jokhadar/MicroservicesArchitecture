@@ -1,12 +1,12 @@
 using FileManager.Domain.Entities;
 using FileManager.Domain.Enums;
 using System.Globalization;
+using IhsanDev.Shared.Kernel.Dto.Identity;
 
 namespace FileManager.Application.DTOs;
 
-public class FileManagerResponse
+public class FileManagerResponse : BaseDto
 {
-    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Extension { get; set; } = string.Empty;
     public long Size { get; set; }
@@ -15,11 +15,7 @@ public class FileManagerResponse
     public FileGroup Group { get; set; }
     public FileType Type { get; set; }
     public bool Temp { get; set; }
-    public bool Status { get; set; }
-    public bool IsArchived { get; set; }
     public int? UserId { get; set; }
-    public string Created { get; set; } = string.Empty;
-    public string? LastModified { get; set; }
 
     public static FileManagerResponse MapFrom(FileManagerEntity entity, string? rootUrl = null)
     {

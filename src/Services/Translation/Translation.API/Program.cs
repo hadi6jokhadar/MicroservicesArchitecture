@@ -6,7 +6,7 @@ using IhsanDev.Shared.Infrastructure.Filters;
 using IhsanDev.Shared.Infrastructure.Services;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using MediatR;
-using Translation.API.Endpoints;
+using Translation.API.Extensions;
 using Translation.Application.Commands;
 using Translation.Infrastructure.Persistence;
 using Translation.Infrastructure.Extensions;

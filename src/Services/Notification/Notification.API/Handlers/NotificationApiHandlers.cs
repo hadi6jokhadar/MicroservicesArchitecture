@@ -129,6 +129,7 @@ public static class NotificationApiHandlers
         DateTime? fromDate = null,
         DateTime? toDate = null,
         string? searchTerm = null,
+        bool isArchived = false,
         CancellationToken ct = default)
     {
         var command = new GetQueueItemsCommand(
@@ -141,9 +142,24 @@ public static class NotificationApiHandlers
             DeliveryType: deliveryType,
             FromDate: fromDate,
             ToDate: toDate,
-            SearchTerm: searchTerm
+            SearchTerm: searchTerm,
+            IsArchived: isArchived
         );
 
+        var result = await mediator.Send(command, ct);
+        return Results.Ok(result);
+    }
+
+    /// <summary>
+    /// Toggle queue item archived status (Service/SuperAdmin only)
+    /// </summary>
+    public static async Task<IResult> ToggleQueueItemArchivedStatusHandler(
+        int id,
+        IMediator mediator,
+        ILocalizationService localizationService,
+        CancellationToken ct = default)
+    {
+        var command = new ToggleQueueItemArchivedStatusCommand(id);
         var result = await mediator.Send(command, ct);
         return Results.Ok(result);
     }

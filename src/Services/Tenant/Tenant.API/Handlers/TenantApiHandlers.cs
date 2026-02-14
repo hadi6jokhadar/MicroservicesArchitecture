@@ -1,6 +1,7 @@
 using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Tenant.Application.Commands.Tenant;
+using Tenant.Domain.Repositories;
 
 namespace Tenant.API.Handlers;
 
@@ -57,10 +58,11 @@ public static class TenantApiHandlers
     public static async Task<IResult> GetAllActiveTenantsHandler(
         int pageNumber = 1,
         int pageSize = 100,
+        bool isArchived = false,
         IMediator mediator = null!,
         CancellationToken ct = default)
     {
-        var query = new GetAllActiveTenantsQuery(pageNumber, pageSize);
+        var query = new GetAllActiveTenantsQuery(pageNumber, pageSize, isArchived);
         var result = await mediator.Send(query, ct);
         
         return Results.Ok(result);
@@ -111,6 +113,29 @@ public static class TenantApiHandlers
         var result = await mediator.Send(command, ct);
         
         return Results.Ok(new { message = localizationService.GetString(LocalizationKeys.Success.TenantDeleted) });
+    }
+
+    /// <summary>
+    /// Toggle tenant archived status
+    /// </summary>
+    public static async Task<IResult> ToggleTenantArchivedStatusHandler(
+        string tenantId,
+        IMediator mediator,
+        ILocalizationService localizationService,
+        ITenantRepository tenantRepository,
+        CancellationToken ct = default)
+    {
+        // Need to find by tenant ID to get integer ID
+        var tenant = await tenantRepository.GetByTenantIdAsync(tenantId, ct);
+        if (tenant == null)
+        {
+            return Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound, tenantId) });
+        }
+
+        var command = new ToggleTenantArchivedStatusCommand(tenant.Id);
+        var result = await mediator.Send(command, ct);
+        
+        return Results.Ok(result);
     }
 
     /// <summary>

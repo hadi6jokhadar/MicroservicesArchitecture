@@ -6,7 +6,7 @@ public class FileManagerListRequest
 {
     public int? Id { get; set; }
     public bool? Status { get; set; }
-    public bool? IsArchived { get; set; }
+    public bool? IsArchived { get; set; } = false;
     public DateTime? From { get; set; }
     public DateTime? To { get; set; }
     public string? TextFilter { get; set; }

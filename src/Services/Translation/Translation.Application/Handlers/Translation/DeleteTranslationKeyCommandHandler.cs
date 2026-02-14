@@ -40,7 +40,18 @@ public class DeleteTranslationKeyCommandHandler : IRequestHandler<DeleteTranslat
         // Get all translation values for this key to know which caches to invalidate
         var translationValues = await _valueRepository.GetByKeyIdAsync(key.Id, cancellationToken);
         
-        await _keyRepository.DeleteAsync(key, cancellationToken);
+        // If already archived, do a hard delete (permanent removal)
+        // Otherwise, do a soft delete (set IsArchived = true)
+        if (key.IsArchived)
+        {
+            // Hard delete: Remove from database permanently
+            await _keyRepository.HardDeleteAsync(key, cancellationToken);
+        }
+        else
+        {
+            // Soft delete: Set IsArchived = true
+            await _keyRepository.DeleteAsync(key, cancellationToken);
+        }
         
         // Invalidate cache for all languages and tenants that had this translation
         // Cache key pattern: translations:{language}:{tenantId}:{category}

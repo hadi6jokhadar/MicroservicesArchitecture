@@ -79,10 +79,12 @@ namespace Tenant.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsArchived\" = false");
 
                     b.HasIndex("UserId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsArchived\" = false");
 
                     b.ToTable("TenantSettings");
                 });

@@ -131,11 +131,14 @@ public class NotificationQueueRepository : Repository<NotificationQueueItem>, IN
         DeliveryType? deliveryType = null,
         DateTime? fromDate = null,
         DateTime? toDate = null,
-        string? searchTerm = null)
+        string? searchTerm = null,
+        bool isArchived = false)
     {
         var query = _dbSet.AsNoTracking().AsQueryable();
 
         // Apply filters
+        query = query.Where(q => q.IsArchived == isArchived);
+
         if (!string.IsNullOrWhiteSpace(tenantId))
             query = query.Where(q => q.TenantId == tenantId);
 

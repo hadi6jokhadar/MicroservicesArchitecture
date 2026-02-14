@@ -21,8 +21,13 @@ public class TenantDbContext : BaseDbContext
         modelBuilder.Entity<TenantSettings>(entity =>
         {
             // Unique indexes
-            entity.HasIndex(e => e.TenantId).IsUnique();
-            entity.HasIndex(e => e.UserId).IsUnique(); // Each user can have exactly one tenant
+            entity.HasIndex(e => e.TenantId)
+                .IsUnique()
+                .HasFilter("\"IsArchived\" = false");
+                
+            entity.HasIndex(e => e.UserId)
+                .IsUnique() // Each user can have exactly one tenant
+                .HasFilter("\"IsArchived\" = false");
             
             // Property configurations
             entity.Property(e => e.TenantId)

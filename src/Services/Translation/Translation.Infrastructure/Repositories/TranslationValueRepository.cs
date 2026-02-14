@@ -65,7 +65,7 @@ public class TranslationValueRepository : Repository<TranslationValue>, ITransla
     {
         return await _dbSet
             .AsNoTracking()
-            .Where(v => v.TranslationKeyId == translationKeyId && !v.IsArchived)
+            .Where(v => v.TranslationKeyId == translationKeyId)
             .ToListAsync(cancellationToken);
     }
 

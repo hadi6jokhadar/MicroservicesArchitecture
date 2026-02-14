@@ -1,11 +1,11 @@
 using FileManager.Domain.Entities;
 using FileManager.Domain.Enums;
+using IhsanDev.Shared.Infrastructure.Persistence;
 
 namespace FileManager.Domain.Interfaces;
 
-public interface IFileManagerRepository
+public interface IFileManagerRepository : IRepository<FileManagerEntity>
 {
-    Task<FileManagerEntity?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<List<FileManagerEntity>> GetByIdsAsync(List<int> ids, CancellationToken cancellationToken = default);
     Task<(List<FileManagerEntity> Items, int TotalCount)> GetAllAsync(
         int? id = null,
@@ -23,9 +23,6 @@ public interface IFileManagerRepository
         int pageNumber = 1,
         int pageSize = 10,
         CancellationToken cancellationToken = default);
-    Task<FileManagerEntity> AddAsync(FileManagerEntity entity, CancellationToken cancellationToken = default);
-    Task UpdateAsync(FileManagerEntity entity, CancellationToken cancellationToken = default);
-    Task DeleteAsync(FileManagerEntity entity, CancellationToken cancellationToken = default);
     Task<int> DeleteAllTempAsync(CancellationToken cancellationToken = default);
     Task<int> DeleteOldTempFilesAsync(int olderThanDays, CancellationToken cancellationToken = default);
     Task<List<FileManagerEntity>> GetTempFilesAsync(CancellationToken cancellationToken = default);

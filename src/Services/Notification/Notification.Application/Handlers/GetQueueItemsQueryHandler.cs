@@ -33,7 +33,8 @@ public class GetQueueItemsQueryHandler : IRequestHandler<GetQueueItemsCommand, P
             deliveryType: request.DeliveryType,
             fromDate: request.FromDate,
             toDate: request.ToDate,
-            searchTerm: request.SearchTerm
+            searchTerm: request.SearchTerm,
+            isArchived: request.IsArchived
         );
 
         // Manual projection to DTOs
@@ -53,8 +54,8 @@ public class GetQueueItemsQueryHandler : IRequestHandler<GetQueueItemsCommand, P
             ExpiresAt = q.ExpiresAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             Error = q.Error,
             NotificationId = q.NotificationId,
-            CreatedAt = q.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
-            UpdatedAt = q.LastModified != null ? q.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null
+            Created = q.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            LastModified = q.LastModified != null ? q.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null
         });
 
         // Create paginated result

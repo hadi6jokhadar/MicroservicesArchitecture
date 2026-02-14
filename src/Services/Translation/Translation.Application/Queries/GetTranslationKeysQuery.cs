@@ -15,8 +15,9 @@ public record GetTranslationKeysQuery(
     int PageSize = 10,
     string? Category = null,
     string? TenantId = null,
-    string? SearchTerm = null
-) : IRequest<PaginatedList<TranslationKeyDto>>;
+    string? SearchTerm = null,
+    bool IsArchived = false
+) : IRequest<IhsanDev.Shared.Application.Common.Models.PaginatedList<TranslationKeyDto>>;
 
 public class GetTranslationKeysQueryValidator : LocalizedValidator<GetTranslationKeysQuery>
 {

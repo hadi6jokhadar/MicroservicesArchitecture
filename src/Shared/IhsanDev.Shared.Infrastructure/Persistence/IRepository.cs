@@ -9,4 +9,5 @@ public interface IRepository<T> where T : class
     Task<T> UpdateAsync(T entity, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(T entity, CancellationToken cancellationToken = default);
     Task<bool> DeleteByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<bool> HardDeleteAsync(T entity, CancellationToken cancellationToken = default);
 }

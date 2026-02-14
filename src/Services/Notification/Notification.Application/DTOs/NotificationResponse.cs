@@ -1,15 +1,13 @@
+using IhsanDev.Shared.Kernel.Dto.Identity;
+using Notification.Domain.Entities;
+
 namespace Notification.Application.DTOs;
 
 /// <summary>
 /// Response DTO for notification details
 /// </summary>
-public class NotificationResponse
+public class NotificationResponse : BaseDto
 {
-    /// <summary>
-    /// Notification unique identifier
-    /// </summary>
-    public int Id { get; set; }
-
     /// <summary>
     /// Notification title
     /// </summary>
@@ -31,11 +29,6 @@ public class NotificationResponse
     public bool IsRead { get; set; }
 
     /// <summary>
-    /// Timestamp when notification was created
-    /// </summary>
-    public string CreatedAt { get; set; } = string.Empty;
-
-    /// <summary>
     /// Timestamp when notification was read
     /// </summary>
     public string? ReadAt { get; set; }
@@ -48,7 +41,7 @@ public class NotificationResponse
     /// <summary>
     /// Maps Notification entity to NotificationResponse
     /// </summary>
-    public static NotificationResponse MapFrom(Domain.Entities.Notification notification)
+    public static NotificationResponse MapFrom(Notification.Domain.Entities.Notification notification)
     {
         return new NotificationResponse
         {
@@ -57,9 +50,11 @@ public class NotificationResponse
             Message = notification.Message,
             Data = notification.Data,
             IsRead = notification.IsRead,
-            CreatedAt = notification.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            Created = notification.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             ReadAt = notification.ReadAt?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
-            UserId = notification.UserId
+            UserId = notification.UserId,
+            Status = notification.Status,
+            IsArchived = notification.IsArchived
         };
     }
 }

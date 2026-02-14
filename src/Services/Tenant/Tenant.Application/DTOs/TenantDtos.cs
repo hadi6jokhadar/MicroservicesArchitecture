@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Kernel.Dto.Tenant;
+using IhsanDev.Shared.Kernel.Dto.Identity;
 using System.Text.Json;
 using Tenant.Domain.Entities;
 
@@ -7,9 +8,8 @@ namespace Tenant.Application.DTOs;
 /// <summary>
 /// Tenant configuration data transfer object (includes sensitive data field)
 /// </summary>
-public class TenantConfigDto
+public class TenantConfigDto : BaseDto
 {
-    public int Id { get; set; }
     public string TenantId { get; set; } = string.Empty;
     public string TenantName { get; set; } = string.Empty;
     public int UserId { get; set; }
@@ -18,8 +18,6 @@ public class TenantConfigDto
     public TenantConfiguration? Data { get; set; }
     public bool IsActive { get; set; }
     public bool IsExpired { get; set; }
-    public string Created { get; set; } = string.Empty;
-    public string? LastModified { get; set; }
 
     /// <summary>
     /// Maps TenantSettings entity to TenantConfigDto
@@ -66,9 +64,8 @@ public class TenantConfigDto
 /// <summary>
 /// Tenant response DTO (excludes sensitive data field)
 /// </summary>
-public class TenantDto
+public class TenantDto : BaseDto
 {
-    public int Id { get; set; }
     public string TenantId { get; set; } = string.Empty;
     public string TenantName { get; set; } = string.Empty;
     public int UserId { get; set; }
@@ -76,8 +73,6 @@ public class TenantDto
     public string ExpireDate { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public bool IsExpired { get; set; }
-    public string Created { get; set; } = string.Empty;
-    public string? LastModified { get; set; }
 
     /// <summary>
     /// Maps TenantSettings entity to TenantDto

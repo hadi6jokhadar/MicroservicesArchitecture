@@ -44,11 +44,14 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
             // }
 
             // Serialize TenantConfiguration to JSON string for database storage
-            var dataJson = JsonSerializer.Serialize(request.Data, new JsonSerializerOptions 
-            { 
-                WriteIndented = false,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
+            // If Data is null, store an empty JSON object
+            var dataJson = request.Data != null 
+                ? JsonSerializer.Serialize(request.Data, new JsonSerializerOptions 
+                { 
+                    WriteIndented = false,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                })
+                : "{}";
 
             // Create tenant
             var tenantSettings = new TenantSettings
@@ -72,7 +75,7 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
                 TenantName = created.TenantName,
                 UserId = created.UserId,
                 IsActive = created.IsActive,
-                Configuration = request.Data
+                Configuration = request.Data ?? new TenantConfiguration()
             };
 
             var cacheKey = $"tenant_config_{created.TenantId}";

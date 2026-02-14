@@ -68,5 +68,6 @@ public interface INotificationQueueRepository : IRepository<NotificationQueueIte
         DeliveryType? deliveryType = null,
         DateTime? fromDate = null,
         DateTime? toDate = null,
-        string? searchTerm = null);
+        string? searchTerm = null,
+        bool isArchived = false);
 }

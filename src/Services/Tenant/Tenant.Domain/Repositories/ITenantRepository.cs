@@ -24,6 +24,7 @@ public interface ITenantRepository : IRepository<TenantSettings>
     Task<(IEnumerable<TenantSettings> Items, int TotalCount)> GetAllActiveAsync(
         int pageNumber = 1,
         int pageSize = 10,
+        bool? isArchived = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
