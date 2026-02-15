@@ -9,95 +9,121 @@ using Identity.Domain.Repositories;
 using Identity.Domain.Entities;
 using MediatR;
 using Identity.Application.Commands;
+using Microsoft.Extensions.Logging;
 
 public class GetUsersCommandHandler : IRequestHandler<GetUsersCommand, PaginatedList<UserDto>>
 {
     private readonly IUserRepository _userRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ILogger<GetUsersCommandHandler> _logger;
 
     public GetUsersCommandHandler(
         IUserRepository userRepository,
         ProfilePictureHelper profilePictureHelper,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ILogger<GetUsersCommandHandler> logger)
     {
         _userRepository = userRepository;
         _profilePictureHelper = profilePictureHelper;
         _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     public async Task<PaginatedList<UserDto>> Handle(GetUsersCommand request, CancellationToken cancellationToken)
     {
-        // Check if requester is SuperAdmin or Admin (should include roles/claims)
-        bool includeRoles = _currentUserService.IsSuperAdmin || _currentUserService.HasRole("Admin");
-
-        // Start with base query (filtered by role if specified)
-        IQueryable<User> query = !string.IsNullOrWhiteSpace(request.RoleName)
-            ? _userRepository.GetUsersByRoleName(request.RoleName)
-            : _userRepository.GetAll();
-
-        // Apply search term filter
-        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        try
         {
-            var searchTerm = request.SearchTerm.ToLower();
-            query = query.Where(u =>
-                u.FirstName.ToLower().Contains(searchTerm) ||
-                u.LastName.ToLower().Contains(searchTerm) ||
-                (u.Email != null && u.Email.ToLower().Contains(searchTerm)));
+            // Check if requester is SuperAdmin or Admin (should include roles/claims)
+            bool includeRoles = _currentUserService.IsSuperAdmin || _currentUserService.HasRole("Admin");
+
+            // Start with base query (filtered by role if specified)
+            IQueryable<User> query;
+            if (!string.IsNullOrWhiteSpace(request.RoleName))
+            {
+                query = request.IsArchived 
+                    ? _userRepository.GetUsersByRoleNameWithArchived(request.RoleName)
+                    : _userRepository.GetUsersByRoleName(request.RoleName);
+            }
+            else
+            {
+                query = request.IsArchived
+                    ? _userRepository.GetAllWithArchived()
+                    : _userRepository.GetAll();
+            }
+        
+
+            // Apply search term filter
+            if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+            {
+                var searchTerm = request.SearchTerm.ToLower();
+                query = query.Where(u =>
+                    u.FirstName.ToLower().Contains(searchTerm) ||
+                    u.LastName.ToLower().Contains(searchTerm) ||
+                    (u.Email != null && u.Email.ToLower().Contains(searchTerm)));
+            }
+
+            // Apply status filter
+            if (request.Status.HasValue)
+            {
+                query = query.Where(u => u.Status == request.Status.Value);
+            }
+
+            // Apply archived filter
+            query = query.Where(u => u.IsArchived == request.IsArchived);
+
+            // Order by created date (newest first)
+            query = query.OrderByDescending(u => u.Created);
+
+            // Manual projection to DTO
+            var dtoQuery = query.Select(u => new UserDto
+            {
+                Id = u.Id,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Email = u.Email,
+                PhoneNumber = u.PhoneNumber,
+                Status = u.Status,
+                IsArchived = u.IsArchived,
+                CreatedBy = u.CreatedBy,
+                LastModifiedBy = u.LastModifiedBy,
+                Created = u.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+                LastModified = u.LastModified != null ? u.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null,
+                Roles = includeRoles ? u.UserRoles.Select(ur => new RoleDto 
+                { 
+                    Id = ur.Role.Id, 
+                    Name = ur.Role.Name,
+                    Description = ur.Role.Description,
+                    IsSystemRole = ur.Role.IsSystemRole,
+                    Status = ur.Role.Status,
+                    Claims = ur.Role.RoleClaims.Select(rc => new ClaimDto
+                    {
+                        Id = rc.Claim.Id,
+                        Name = rc.Claim.Name,
+                        Description = rc.Claim.Description,
+                        ClaimType = rc.Claim.ClaimType,
+                        ClaimValue = rc.Claim.ClaimValue,
+                        IsSuperAdminOnly = rc.Claim.IsSuperAdminOnly,
+                        Status = rc.Claim.Status
+                    }).ToList()
+                }).ToList() : new List<RoleDto>(),
+                ProfilePictureId = u.ProfilePictureId,
+                ProfilePicture = null,
+                VerificationCode = u.VerificationCode,
+                Data = u.Data
+            });
+
+            var paginatedList = await dtoQuery.PaginatedListAsync(request.PageNumber, request.PageSize, cancellationToken);
+
+            // Enrich all users with profile pictures in parallel
+            await _profilePictureHelper.EnrichWithProfilePicturesAsync(paginatedList.Items, cancellationToken);
+
+            return paginatedList;
         }
-
-        // Apply status filter
-        if (request.Status.HasValue)
+        catch (Exception ex)
         {
-            query = query.Where(u => u.Status == request.Status.Value);
+            _logger.LogError(ex, "Failed to get users");
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
-
-        // Apply archived filter
-        query = query.Where(u => u.IsArchived == request.IsArchived);
-
-        // Order by created date (newest first)
-        query = query.OrderByDescending(u => u.Created);
-
-        // Manual projection to DTO
-        var dtoQuery = query.Select(u => new UserDto
-        {
-            Id = u.Id,
-            FirstName = u.FirstName,
-            LastName = u.LastName,
-            Email = u.Email,
-            PhoneNumber = u.PhoneNumber,
-            Status = u.Status,
-            Created = u.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
-            LastModified = u.LastModified != null ? u.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null,
-            Roles = includeRoles ? u.UserRoles.Select(ur => new RoleDto 
-            { 
-                Id = ur.Role.Id, 
-                Name = ur.Role.Name,
-                Description = ur.Role.Description,
-                IsSystemRole = ur.Role.IsSystemRole,
-                Status = ur.Role.Status,
-                Claims = ur.Role.RoleClaims.Select(rc => new ClaimDto
-                {
-                    Id = rc.Claim.Id,
-                    Name = rc.Claim.Name,
-                    Description = rc.Claim.Description,
-                    ClaimType = rc.Claim.ClaimType,
-                    ClaimValue = rc.Claim.ClaimValue,
-                    IsSuperAdminOnly = rc.Claim.IsSuperAdminOnly,
-                    Status = rc.Claim.Status
-                }).ToList()
-            }).ToList() : new List<RoleDto>(),
-            ProfilePictureId = u.ProfilePictureId,
-            ProfilePicture = null,
-            VerificationCode = u.VerificationCode,
-            Data = u.Data
-        });
-
-        var paginatedList = await dtoQuery.PaginatedListAsync(request.PageNumber, request.PageSize, cancellationToken);
-
-        // Enrich all users with profile pictures in parallel
-        await _profilePictureHelper.EnrichWithProfilePicturesAsync(paginatedList.Items, cancellationToken);
-
-        return paginatedList;
     }
 }

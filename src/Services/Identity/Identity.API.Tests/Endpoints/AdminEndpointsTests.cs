@@ -461,15 +461,42 @@ public class AdminEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task DeleteUser_WhenAlreadyArchived_ShouldHardDeleteUser()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync(email: "harddelete@example.com");
+        await SendAsync(new DeleteUserCommand(user.Id)); // First call: Soft delete
+
+        // Act
+        var result = await SendAsync(new DeleteUserCommand(user.Id)); // Second call: Hard delete
+
+        // Assert
+        result.Should().BeTrue();
+
+        // Verify user is gone from database completely
+        var deletedUser = await ExecuteDbContextAsync(async context =>
+        {
+            return await context.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Id == user.Id);
+        });
+        
+        deletedUser.Should().BeNull();
+    }
+
+    [Fact]
     public async Task DeleteUser_AlreadyDeleted_ShouldThrowNotFoundException()
     {
         // Arrange
         var user = await CreateTestUserAsync(email: "doubledelete@example.com");
         
-        // Delete once
+        // Delete once (soft delete)
         await SendAsync(new DeleteUserCommand(user.Id));
 
-        // Act & Assert - Try to delete again
+        // Delete twice (hard delete)
+        await SendAsync(new DeleteUserCommand(user.Id));
+
+        // Act & Assert - Try to delete a third time (should now throw NotFoundException)
         await Assert.ThrowsAsync<NotFoundException>(
             async () => await SendAsync(new DeleteUserCommand(user.Id))
         );

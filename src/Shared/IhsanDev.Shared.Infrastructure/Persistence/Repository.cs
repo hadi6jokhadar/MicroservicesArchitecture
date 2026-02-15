@@ -26,6 +26,11 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
         return _dbSet.AsNoTracking().Where(e => !e.IsArchived);
     }
 
+    public virtual IQueryable<T> GetAllWithArchived()
+    {
+        return _dbSet.AsNoTracking();
+    }
+
     public virtual async Task<int> CountAsync(CancellationToken cancellationToken = default)
     {
         return await _dbSet.CountAsync(e => !e.IsArchived, cancellationToken);

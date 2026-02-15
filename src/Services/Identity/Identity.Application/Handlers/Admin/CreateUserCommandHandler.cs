@@ -10,6 +10,7 @@ using Identity.Domain.Repositories;
 using MediatR;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -21,6 +22,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
     private readonly ProfilePictureHelper _profilePictureHelper;
     private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ITenantContext _tenantContext;
+    private readonly ILogger<CreateUserCommandHandler> _logger;
 
     public CreateUserCommandHandler(
         IUserRepository userRepository,
@@ -28,7 +30,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
         IUserRoleRepository userRoleRepository,
         ProfilePictureHelper profilePictureHelper,
         IFileManagerServiceClient fileManagerClient,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        ILogger<CreateUserCommandHandler> logger)
     {
         _userRepository = userRepository;
         _userService = userService;
@@ -36,6 +39,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
         _profilePictureHelper = profilePictureHelper;
         _fileManagerClient = fileManagerClient;
         _tenantContext = tenantContext;
+        _logger = logger;
     }
 
     public async Task<UserDto> Handle(CreateUserCommand request, CancellationToken cancellationToken)
@@ -106,8 +110,9 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to create user");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

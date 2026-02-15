@@ -7,6 +7,7 @@ using Identity.Domain.Repositories;
 using MediatR;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -15,22 +16,25 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, bool>
     private readonly IUserRepository _userRepository;
     private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ITenantContext _tenantContext;
+    private readonly ILogger<DeleteUserCommandHandler> _logger;
 
     public DeleteUserCommandHandler(
         IUserRepository userRepository,
         IFileManagerServiceClient fileManagerClient,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        ILogger<DeleteUserCommandHandler> logger)
     {
         _userRepository = userRepository;
         _fileManagerClient = fileManagerClient;
         _tenantContext = tenantContext;
+        _logger = logger;
     }
 
     public async Task<bool> Handle(DeleteUserCommand request, CancellationToken cancellationToken)
     {
         try
         {
-            var user = await _userRepository.GetByIdAsync(request.Id, cancellationToken);
+            var user = await _userRepository.GetByIdWithArchivedAsync(request.Id, cancellationToken);
             if (user == null)
                 throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
@@ -68,8 +72,9 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, bool>
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to delete user");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

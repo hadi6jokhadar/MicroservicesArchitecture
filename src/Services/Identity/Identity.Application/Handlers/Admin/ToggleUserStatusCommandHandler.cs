@@ -6,6 +6,7 @@ using Identity.Application.DTOs;
 using Identity.Application.Helpers;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -14,13 +15,16 @@ public class ToggleUserStatusCommandHandler : IRequestHandler<ToggleUserStatusCo
 {
     private readonly IUserRepository _userRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
+    private readonly ILogger<ToggleUserStatusCommandHandler> _logger;
 
     public ToggleUserStatusCommandHandler(
         IUserRepository userRepository,
-        ProfilePictureHelper profilePictureHelper)
+        ProfilePictureHelper profilePictureHelper,
+        ILogger<ToggleUserStatusCommandHandler> logger)
     {
         _userRepository = userRepository;
         _profilePictureHelper = profilePictureHelper;
+        _logger = logger;
     }
 
     public async Task<UserDto> Handle(ToggleUserStatusCommand request, CancellationToken cancellationToken)
@@ -52,8 +56,9 @@ public class ToggleUserStatusCommandHandler : IRequestHandler<ToggleUserStatusCo
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to toggle user status");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

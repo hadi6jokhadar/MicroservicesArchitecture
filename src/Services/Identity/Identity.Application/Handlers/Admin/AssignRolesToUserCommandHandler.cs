@@ -73,8 +73,9 @@ public class AssignRolesToUserCommandHandler : IRequestHandler<AssignRolesToUser
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to assign roles to user");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

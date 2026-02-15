@@ -6,6 +6,7 @@ using Identity.Application.DTOs;
 using Identity.Application.Helpers;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -14,20 +15,23 @@ public class ToggleUserArchivedStatusCommandHandler : IRequestHandler<ToggleUser
 {
     private readonly IUserRepository _userRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
+    private readonly ILogger<ToggleUserArchivedStatusCommandHandler> _logger;
 
     public ToggleUserArchivedStatusCommandHandler(
         IUserRepository userRepository,
-        ProfilePictureHelper profilePictureHelper)
+        ProfilePictureHelper profilePictureHelper,
+        ILogger<ToggleUserArchivedStatusCommandHandler> logger)
     {
         _userRepository = userRepository;
         _profilePictureHelper = profilePictureHelper;
+        _logger = logger;
     }
 
     public async Task<UserDto> Handle(ToggleUserArchivedStatusCommand request, CancellationToken cancellationToken)
     {
         try
         {
-            var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
+            var user = await _userRepository.GetByIdWithArchivedAsync(request.UserId, cancellationToken);
             if (user == null)
                 throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
@@ -52,8 +56,9 @@ public class ToggleUserArchivedStatusCommandHandler : IRequestHandler<ToggleUser
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to toggle user archived status");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

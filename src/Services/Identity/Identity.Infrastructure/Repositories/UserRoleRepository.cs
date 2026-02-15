@@ -22,8 +22,14 @@ public class UserRoleRepository : IUserRoleRepository
             .Select(ur => ur.RoleId)
             .ToListAsync(cancellationToken);
 
-        // Find new roles to add
-        var newRoleIds = roleIds.Except(existingRoleIds).ToList();
+        // Verify that provided roles exist
+        var validRoleIds = await _context.Roles
+            .Where(r => roleIds.Contains(r.Id) && !r.IsArchived)
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+
+        // Find new roles to add (from the valid ones)
+        var newRoleIds = validRoleIds.Except(existingRoleIds).ToList();
 
         // Add new role assignments
         foreach (var roleId in newRoleIds)

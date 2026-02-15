@@ -6,6 +6,7 @@ using Identity.Application.Helpers;
 using Identity.Domain.Repositories;
 using MediatR;
 using Identity.Application.Commands;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -13,13 +14,16 @@ public class GetUserByIdCommandHandler : IRequestHandler<GetUserByIdCommand, Use
 {
     private readonly IUserRepository _userRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
+    private readonly ILogger<GetUserByIdCommandHandler> _logger;
 
     public GetUserByIdCommandHandler(
         IUserRepository userRepository,
-        ProfilePictureHelper profilePictureHelper)
+        ProfilePictureHelper profilePictureHelper,
+        ILogger<GetUserByIdCommandHandler> logger)
     {
         _userRepository = userRepository;
         _profilePictureHelper = profilePictureHelper;
+        _logger = logger;
     }
 
     public async Task<UserDto> Handle(GetUserByIdCommand request, CancellationToken cancellationToken)
@@ -46,8 +50,9 @@ public class GetUserByIdCommandHandler : IRequestHandler<GetUserByIdCommand, Use
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to get user by id");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

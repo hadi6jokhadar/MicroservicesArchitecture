@@ -68,7 +68,7 @@ public class RoleClaimEndpointsTests : IntegrationTestBase
         // SuperAdmin role should exist
         superAdminRole.Should().NotBeNull();
         
-        var query = new GetRoleByIdQuery(superAdminRole.Id);
+        var query = new GetRoleByIdQuery(superAdminRole!.Id);
 
         // Act
         var result = await SendAsync(query);

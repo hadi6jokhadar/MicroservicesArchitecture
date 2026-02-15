@@ -139,7 +139,7 @@ public static class DeviceTokenApiHandlers
     {
         var command = new DeleteBatchDeviceTokensCommand(request.TokenIds);
         var deletedCount = await mediator.Send(command, cancellationToken);
-        return Results.Ok(new { deletedCount });
+        return Results.Ok(deletedCount);
     }
 
     /// <summary>

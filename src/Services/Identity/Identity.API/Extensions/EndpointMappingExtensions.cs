@@ -28,13 +28,13 @@ public static class EndpointMappingExtensions
             .WithName("GetProfile")
             .WithSummary("Get current user profile")
             .WithDescription("Get the profile information of the authenticated user. x-tenant-id header is optional.")
-            .Produces<object>(200);
+            .Produces<UserDto>(200);
 
         userGroup.MapPut("/profile", UserApiHandlers.UpdateProfileHandler)
             .WithName("UpdateProfile")
             .WithSummary("Update current user profile")
             .WithDescription("Update the profile information of the authenticated user. x-tenant-id header is optional.")
-            .Produces<object>(200)
+            .Produces<UserDto>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<UpdateProfileCommand>>();
 
@@ -42,7 +42,7 @@ public static class EndpointMappingExtensions
             .WithName("DeleteUser")
             .WithSummary("Delete current user account")
             .WithDescription("Permanently delete the authenticated user's account. x-tenant-id header is optional.")
-            .Produces<object>(200);
+            .Produces<bool>(200);
 
         return app;
     }
@@ -77,7 +77,7 @@ public static class EndpointMappingExtensions
             .WithName("ForgotPassword")
             .WithSummary("Request password reset")
             .WithDescription("Send password reset link to user's email. x-tenant-id header is optional.")
-            .Produces<object>(200)
+            .Produces<string>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<ForgetPasswordCommand>>();
 
@@ -164,19 +164,19 @@ public static class EndpointMappingExtensions
             .WithName("GetAllUsers")
             .WithSummary("Get all users")
             .WithDescription("Retrieve paginated list of all users (Admin only). x-tenant-id header is optional - if provided, retrieves tenant users; otherwise retrieves global users.")
-            .Produces<object>(200);
+            .Produces<IhsanDev.Shared.Application.Common.Models.PaginatedList<UserDto>>(200);
 
         adminGroup.MapGet("/users/{id:int}", AdminApiHandlers.GetUserByIdHandler)
             .WithName("GetUserById")
             .WithSummary("Get user by ID")
             .WithDescription("Retrieve user details by ID (Admin only). x-tenant-id header is optional.")
-            .Produces<object>(200);
+            .Produces<UserDto>(200);
 
         adminGroup.MapPost("/users", AdminApiHandlers.CreateUserHandler)
             .WithName("CreateUser")
             .WithSummary("Create new user")
             .WithDescription("Create a new user account (Admin only). x-tenant-id header is optional - if provided, creates user in tenant database; otherwise in global database.")
-            .Produces<object>(200)
+            .Produces<UserDto>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<CreateUserCommand>>();
 
@@ -184,7 +184,7 @@ public static class EndpointMappingExtensions
             .WithName("UpdateUser")
             .WithSummary("Update user")
             .WithDescription("Update user information (Admin only). x-tenant-id header is optional.")
-            .Produces<object>(200)
+            .Produces<UserDto>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<UpdateUserCommand>>();
 
@@ -192,19 +192,19 @@ public static class EndpointMappingExtensions
             .WithName("ToggleUserStatus")
             .WithSummary("Toggle user status")
             .WithDescription("Enable or disable user account (Admin only). x-tenant-id header is optional.")
-            .Produces<object>(200);
+            .Produces<bool>(200);
 
         adminGroup.MapPatch("/users/{id:int}/toggle-archive", AdminApiHandlers.ToggleUserArchivedStatusHandler)
             .WithName("ToggleUserArchivedStatus")
             .WithSummary("Toggle user archived status")
             .WithDescription("Archive or unarchive user account (Admin only). x-tenant-id header is optional.")
-            .Produces<object>(200);
+            .Produces<bool>(200);
 
         adminGroup.MapDelete("/users/{id:int}", AdminApiHandlers.DeleteUserHandler)
             .WithName("DeleteUserById")
             .WithSummary("Delete user")
             .WithDescription("Permanently delete user account (Admin only). x-tenant-id header is optional.")
-            .Produces<object>(200);
+            .Produces<bool>(200);
 
         return app;
     }
@@ -256,14 +256,14 @@ public static class EndpointMappingExtensions
             .WithName("DeleteRole")
             .WithSummary("Delete role")
             .WithDescription("Delete a role (Admin/SuperAdmin only). System roles cannot be deleted. x-tenant-id header is optional.")
-            .Produces<object>(200);
+            .Produces<bool>(200);
 
         // Assign claims to role
         roleGroup.MapPost("/{id:int}/claims", RoleApiHandlers.AssignClaimsToRoleHandler)
             .WithName("AssignClaimsToRole")
             .WithSummary("Assign claims to role")
             .WithDescription("Assign permissions (claims) to a role (Admin/SuperAdmin only). x-tenant-id header is optional.")
-            .Produces<object>(200)
+            .Produces<bool>(200)
             .ProducesValidationProblem();
 
         // Assign roles to user (replaces existing roles)
@@ -271,7 +271,7 @@ public static class EndpointMappingExtensions
             .WithName("AssignRolesToUser")
             .WithSummary("Assign roles to user")
             .WithDescription("Assign roles to a user, replacing all existing roles (Admin/SuperAdmin only). x-tenant-id header is optional.")
-            .Produces<object>(200)
+            .Produces<bool>(200)
             .ProducesValidationProblem()
             .AddEndpointFilter<ValidationFilter<AssignRolesToUserCommand>>();
 
@@ -325,7 +325,7 @@ public static class EndpointMappingExtensions
             .WithName("DeleteClaim")
             .WithSummary("Delete claim")
             .WithDescription("Delete a claim/permission (Admin/SuperAdmin only). x-tenant-id header is optional.")
-            .Produces<object>(200);
+            .Produces<bool>(200);
 
         return app;
     }
@@ -407,7 +407,7 @@ public static class EndpointMappingExtensions
             .WithName("DeleteBatchDeviceTokens")
             .WithSummary("Delete multiple device tokens (batch)")
             .WithDescription("Delete multiple device tokens in a single request. For service-to-service communication. x-tenant-id header is optional.")
-            .Produces<object>(200);
+            .Produces<int>(200);
 
         // Get all device tokens for current tenant - OptionalTenant (works as global if no tenant context)
         deviceTokenGroup.MapGet("/tenant", DeviceTokenApiHandlers.GetTenantDeviceTokens)

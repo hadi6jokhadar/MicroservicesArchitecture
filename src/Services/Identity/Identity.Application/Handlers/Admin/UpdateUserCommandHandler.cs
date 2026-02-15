@@ -8,6 +8,7 @@ using Identity.Domain.Repositories;
 using MediatR;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -18,19 +19,22 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
     private readonly ProfilePictureHelper _profilePictureHelper;
     private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ITenantContext _tenantContext;
+    private readonly ILogger<UpdateUserCommandHandler> _logger;
 
     public UpdateUserCommandHandler(
         IUserRepository userRepository,
         IUserRoleRepository userRoleRepository,
         ProfilePictureHelper profilePictureHelper,
         IFileManagerServiceClient fileManagerClient,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        ILogger<UpdateUserCommandHandler> logger)
     {
         _userRepository = userRepository;
         _userRoleRepository = userRoleRepository;
         _profilePictureHelper = profilePictureHelper;
         _fileManagerClient = fileManagerClient;
         _tenantContext = tenantContext;
+        _logger = logger;
     }
 
     public async Task<UserDto> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
@@ -115,8 +119,9 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to update user");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

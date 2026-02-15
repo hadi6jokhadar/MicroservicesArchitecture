@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,16 @@ public class UserRepository : Repository<User>, IUserRepository
     {
     }
 
+    public override async Task<User> UpdateAsync(User entity, CancellationToken cancellationToken = default)
+    {
+        // Clear navigation properties before update. 
+        // This prevents EF Core from recursively tracking the detached UserRoles/Role graph
+        // which causes "another instance is already being tracked" errors when roles are shared.
+        entity.UserRoles = new List<UserRole>();
+        
+        return await base.UpdateAsync(entity, cancellationToken);
+    }
+
     public override async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -22,6 +33,18 @@ public class UserRepository : Repository<User>, IUserRepository
                     .ThenInclude(r => r.RoleClaims)
                         .ThenInclude(rc => rc.Claim)
             .FirstOrDefaultAsync(u => u.Id == id && !u.IsArchived, cancellationToken);
+    }
+
+    public async Task<User?> GetByIdWithArchivedAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RoleClaims)
+                        .ThenInclude(rc => rc.Claim)
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
 
     public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
@@ -76,6 +99,14 @@ public class UserRepository : Repository<User>, IUserRepository
         return _dbSet
             .AsNoTracking()
             .Where(u => !u.IsArchived)
+            .Where(u => u.UserRoles.Any(ur => ur.Role.NormalizedName == normalizedRoleName || ur.Role.Name == roleName));
+    }
+
+    public IQueryable<User> GetUsersByRoleNameWithArchived(string roleName)
+    {
+        var normalizedRoleName = roleName.ToUpperInvariant();
+        return _dbSet
+            .AsNoTracking()
             .Where(u => u.UserRoles.Any(ur => ur.Role.NormalizedName == normalizedRoleName || ur.Role.Name == roleName));
     }
 

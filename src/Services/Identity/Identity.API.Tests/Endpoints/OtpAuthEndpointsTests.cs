@@ -33,7 +33,7 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
         var result = await SendAsync(request);
 
         // Assert
-        result.Should().BeTrue();
+        result.Success.Should().BeTrue();
 
         // Verify code was saved in database
         var user = await GetUserByPhoneAsync(phoneNumber);
@@ -146,7 +146,7 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
         var result = await SendAsync(request);
 
         // Assert
-        result.Should().BeTrue();
+        result.Success.Should().BeTrue();
 
         // Verify code was saved in database
         var user = await GetUserByEmailAsync(email);
@@ -456,7 +456,7 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
         var result = await SendAsync(request);
 
         // Assert
-        result.Should().BeTrue();
+        result.Success.Should().BeTrue();
 
         // Verify user was created with verification code
         var user = await GetUserByPhoneAsync(phoneNumber);
@@ -486,7 +486,7 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
         var result = await SendAsync(request);
 
         // Assert
-        result.Should().BeTrue();
+        result.Success.Should().BeTrue();
 
         // Verify user was created with data property
         var user = await GetUserByPhoneAsync(phoneNumber);
@@ -581,7 +581,7 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
         var result = await SendAsync(request);
 
         // Assert
-        result.Should().BeTrue();
+        result.Success.Should().BeTrue();
 
         // Verify user was created with verification code
         var user = await GetUserByEmailAsync(email);
@@ -611,7 +611,7 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
         var result = await SendAsync(request);
 
         // Assert
-        result.Should().BeTrue();
+        result.Success.Should().BeTrue();
 
         // Verify user was created with data property
         var user = await GetUserByEmailAsync(email);
@@ -705,7 +705,7 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
             LastName: "User");
 
         var registerResult = await SendAsync(registerCommand);
-        registerResult.Should().BeTrue();
+        registerResult.Success.Should().BeTrue();
 
         // Get the generated verification code
         var user = await GetUserByPhoneAsync(phoneNumber);
@@ -735,7 +735,7 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
             LastName: "Test");
 
         var registerResult = await SendAsync(registerCommand);
-        registerResult.Should().BeTrue();
+        registerResult.Success.Should().BeTrue();
 
         // Get the generated verification code
         var user = await GetUserByEmailAsync(email);
@@ -763,7 +763,7 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
         await Task.Delay(1100); // Wait for cooldown (ensure > 1 second)
         var getCodeCommand = new GetVerificationCodeByPhoneCommand(phoneNumber);
         var getCodeResult = await SendAsync(getCodeCommand);
-        getCodeResult.Should().BeTrue();
+        getCodeResult.Success.Should().BeTrue();
 
         // Get the generated code
         var user = await GetUserByPhoneAsync(phoneNumber);

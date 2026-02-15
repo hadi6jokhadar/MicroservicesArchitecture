@@ -36,14 +36,14 @@ public class UserDto : BaseUserDto
             Status = user.Status,
             Created = user.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
             LastModified = user.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
-            Roles = includeRoles ? (user.UserRoles?.Select(ur => new RoleDto
+            Roles = includeRoles ? (user.UserRoles?.Where(ur => ur.Role != null).Select(ur => new RoleDto
             {
                 Id = ur.Role.Id,
                 Name = ur.Role.Name,
                 Description = ur.Role.Description,
                 IsSystemRole = ur.Role.IsSystemRole,
                 Status = ur.Role.Status,
-                Claims = ur.Role.RoleClaims?.Select(rc => new ClaimDto
+                Claims = ur.Role.RoleClaims?.Where(rc => rc.Claim != null).Select(rc => new ClaimDto
                 {
                     Id = rc.Claim.Id,
                     Name = rc.Claim.Name,
@@ -52,7 +52,7 @@ public class UserDto : BaseUserDto
                     ClaimValue = rc.Claim.ClaimValue,
                     IsSuperAdminOnly = rc.Claim.IsSuperAdminOnly,
                     Status = rc.Claim.Status
-                }).ToList()
+                }).ToList() ?? []
             }).ToList() ?? []) : [],
             ProfilePictureId = user.ProfilePictureId,
             ProfilePicture = null, // Will be populated by handler when requested
