@@ -52,6 +52,7 @@ public static class FileManagerEndpoints
         
         // Save file (Upload) - Tenant Users
         group.MapPost("/files", FileManagerApiHandlers.SaveFile)
+        .WithMetadata(new OptionalTenantAttribute())
         .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("SaveFile")
         .Accepts<IFormFile>("multipart/form-data")
@@ -72,6 +73,7 @@ public static class FileManagerEndpoints
 
         // Get file by ID - Tenant Users
         group.MapGet("/files/{id:int}", FileManagerApiHandlers.GetFileById)
+        .WithMetadata(new OptionalTenantAttribute())
         .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("GetFileById")
         .Produces<FileManagerResponse>()
@@ -81,6 +83,7 @@ public static class FileManagerEndpoints
 
         // Get files list (with filters and pagination) - Tenant Users
         group.MapGet("/files", FileManagerApiHandlers.GetFiles)
+        .WithMetadata(new OptionalTenantAttribute())
         .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("GetFiles")
         .Produces<PaginatedList<FileManagerResponse>>();
@@ -89,6 +92,7 @@ public static class FileManagerEndpoints
 
         // Update file metadata - Tenant Users
         group.MapPut("/files/{id:int}", FileManagerApiHandlers.UpdateFile)
+        .WithMetadata(new OptionalTenantAttribute())
         .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("UpdateFile")
         .Produces<FileManagerResponse>()
@@ -98,6 +102,7 @@ public static class FileManagerEndpoints
 
         // Delete file - Tenant Users
         group.MapDelete("/files/{id:int}", FileManagerApiHandlers.DeleteFile)
+        .WithMetadata(new OptionalTenantAttribute())
         .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("DeleteFile")
         .Produces(StatusCodes.Status204NoContent)
