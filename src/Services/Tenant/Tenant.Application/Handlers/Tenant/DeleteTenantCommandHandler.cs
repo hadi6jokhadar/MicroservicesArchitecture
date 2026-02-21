@@ -2,6 +2,7 @@ using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Domain.Repositories;
 
@@ -14,11 +15,16 @@ public class DeleteTenantCommandHandler : IRequestHandler<DeleteTenantCommand, b
 {
     private readonly ITenantRepository _tenantRepository;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<DeleteTenantCommandHandler> _logger;
 
-    public DeleteTenantCommandHandler(ITenantRepository tenantRepository, ICacheService cacheService)
+    public DeleteTenantCommandHandler(
+        ITenantRepository tenantRepository, 
+        ICacheService cacheService,
+        ILogger<DeleteTenantCommandHandler> logger)
     {
         _tenantRepository = tenantRepository;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<bool> Handle(DeleteTenantCommand request, CancellationToken cancellationToken)
@@ -57,8 +63,9 @@ public class DeleteTenantCommandHandler : IRequestHandler<DeleteTenantCommand, b
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while deleting tenant {TenantId}", request.TenantId);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

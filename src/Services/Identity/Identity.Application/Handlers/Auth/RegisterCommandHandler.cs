@@ -8,6 +8,7 @@ using Identity.Application.Helpers;
 using Identity.Domain.Entities;
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers;
 
@@ -18,19 +19,22 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRoleRepository _userRoleRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
+    private readonly ILogger<RegisterCommandHandler> _logger;
 
     public RegisterCommandHandler(
         IUserRepository userRepository,
         IUserService userService,
         IRoleRepository roleRepository,
         IUserRoleRepository userRoleRepository,
-        ProfilePictureHelper profilePictureHelper)
+        ProfilePictureHelper profilePictureHelper,
+        ILogger<RegisterCommandHandler> logger)
     {
         _userRepository = userRepository;
         _userService = userService;
         _roleRepository = roleRepository;
         _userRoleRepository = userRoleRepository;
         _profilePictureHelper = profilePictureHelper;
+        _logger = logger;
     }
 
     public async Task<UserDtoIncludesToken> Handle(
@@ -94,8 +98,9 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, UserDtoIn
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred during registration for email: {Email}", request.Email);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

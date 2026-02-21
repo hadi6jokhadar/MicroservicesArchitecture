@@ -5,6 +5,7 @@ using Identity.Application.Queries.Claim;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Admin.Claim;
 
@@ -12,13 +13,16 @@ public class GetClaimsQueryHandler : IRequestHandler<GetClaimsQuery, List<ClaimD
 {
     private readonly IClaimRepository _claimRepository;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<GetClaimsQueryHandler> _logger;
 
     public GetClaimsQueryHandler(
         IClaimRepository claimRepository,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        ILogger<GetClaimsQueryHandler> logger)
     {
         _claimRepository = claimRepository;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<List<ClaimDto>> Handle(GetClaimsQuery request, CancellationToken cancellationToken)
@@ -40,8 +44,9 @@ public class GetClaimsQueryHandler : IRequestHandler<GetClaimsQuery, List<ClaimD
 
             return claimDtos;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting claims");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
@@ -51,13 +56,16 @@ public class GetClaimByIdQueryHandler : IRequestHandler<GetClaimByIdQuery, Claim
 {
     private readonly IClaimRepository _claimRepository;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<GetClaimByIdQueryHandler> _logger;
 
     public GetClaimByIdQueryHandler(
         IClaimRepository claimRepository,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        ILogger<GetClaimByIdQueryHandler> logger)
     {
         _claimRepository = claimRepository;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<ClaimDto> Handle(GetClaimByIdQuery request, CancellationToken cancellationToken)
@@ -87,8 +95,9 @@ public class GetClaimByIdQueryHandler : IRequestHandler<GetClaimByIdQuery, Claim
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting claim {ClaimId}", request.Id);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

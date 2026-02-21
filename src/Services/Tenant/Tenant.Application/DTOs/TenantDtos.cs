@@ -34,6 +34,7 @@ public class TenantConfigDto : BaseDto
             ExpireDate = tenant.ExpireDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             IsActive = tenant.IsActive,
             IsExpired = tenant.IsExpired,
+            IsArchived = tenant.IsArchived,
             Created = tenant.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             LastModified = tenant.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             Data = DeserializeData(tenant.Data)
@@ -89,6 +90,7 @@ public class TenantDto : BaseDto
             ExpireDate = tenant.ExpireDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             IsActive = tenant.IsActive,
             IsExpired = tenant.IsExpired,
+            IsArchived = tenant.IsArchived,
             Created = tenant.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
             LastModified = tenant.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture)
         };

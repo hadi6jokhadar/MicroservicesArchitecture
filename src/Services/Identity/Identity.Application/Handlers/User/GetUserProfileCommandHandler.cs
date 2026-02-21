@@ -7,6 +7,7 @@ using Identity.Application.Helpers;
 using Identity.Domain.Repositories;
 using MediatR;
 using Identity.Application.Commands;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -15,15 +16,18 @@ public class GetUserProfileCommandHandler : IRequestHandler<GetUserProfileComman
     private readonly IUserRepository _userRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ILogger<GetUserProfileCommandHandler> _logger;
 
     public GetUserProfileCommandHandler(
         IUserRepository userRepository,
         ProfilePictureHelper profilePictureHelper,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ILogger<GetUserProfileCommandHandler> logger)
     {
         _userRepository = userRepository;
         _profilePictureHelper = profilePictureHelper;
         _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     public async Task<UserDto> Handle(GetUserProfileCommand request, CancellationToken cancellationToken)
@@ -51,8 +55,9 @@ public class GetUserProfileCommandHandler : IRequestHandler<GetUserProfileComman
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting profile for user {UserId}", request.UserId);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

@@ -3,6 +3,7 @@ using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Application.DTOs;
@@ -18,11 +19,16 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
 {
     private readonly ITenantRepository _tenantRepository;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<CreateTenantCommandHandler> _logger;
 
-    public CreateTenantCommandHandler(ITenantRepository tenantRepository, ICacheService cacheService)
+    public CreateTenantCommandHandler(
+        ITenantRepository tenantRepository, 
+        ICacheService cacheService,
+        ILogger<CreateTenantCommandHandler> logger)
     {
         _tenantRepository = tenantRepository;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<TenantDto> Handle(CreateTenantCommand request, CancellationToken cancellationToken)
@@ -91,8 +97,9 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while creating tenant with id: {TenantId}", request.TenantId);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

@@ -6,6 +6,7 @@ using Identity.Application.DTOs;
 using Identity.Application.Services;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -13,11 +14,13 @@ public class ForgetPasswordCommandHandler : IRequestHandler<ForgetPasswordComman
 {
     private readonly IUserRepository _userRepository;
     private readonly IUserService _userService;
+    private readonly ILogger<ForgetPasswordCommandHandler> _logger;
 
-    public ForgetPasswordCommandHandler(IUserRepository userRepository, IUserService userService)
+    public ForgetPasswordCommandHandler(IUserRepository userRepository, IUserService userService, ILogger<ForgetPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;
         _userService = userService;
+        _logger = logger;
     }
 
     public async Task<string> Handle(ForgetPasswordCommand request, CancellationToken cancellationToken)
@@ -36,8 +39,9 @@ public class ForgetPasswordCommandHandler : IRequestHandler<ForgetPasswordComman
 
             return LocalizationKeys.Success.PasswordResetEmailSent;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while processing forget password for email: {Email}", request.Email);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

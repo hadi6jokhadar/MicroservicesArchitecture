@@ -25,7 +25,7 @@ public class ToggleQueueItemArchivedStatusCommandHandler : IRequestHandler<Toggl
 
     public async Task<QueueItemDto> Handle(ToggleQueueItemArchivedStatusCommand request, CancellationToken cancellationToken)
     {
-        var queueItem = await _queueRepository.GetByIdAsync(request.Id, cancellationToken);
+        var queueItem = await _queueRepository.GetByIdWithArchivedAsync(request.Id, cancellationToken);
         if (queueItem == null)
         {
             throw new NotFoundException(

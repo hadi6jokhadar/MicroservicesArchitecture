@@ -81,7 +81,9 @@ public class TenantRepository : Repository<TenantSettings>, ITenantRepository
         var entity = await _dbSet.FindAsync(new object[] { id }, cancellationToken);
         if (entity != null)
         {
-            _dbSet.Remove(entity);
+            entity.IsArchived = true;
+            entity.LastModified = DateTime.UtcNow;
+            _dbSet.Update(entity);
             await _context.SaveChangesAsync(cancellationToken);
         }
     }

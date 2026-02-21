@@ -5,6 +5,7 @@ using IhsanDev.Shared.Infrastructure.Services.Identity;
 using Identity.Application.Commands.Admin.Role;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Admin.Role;
 
@@ -14,17 +15,20 @@ public class AssignClaimsToRoleCommandHandler : IRequestHandler<AssignClaimsToRo
     private readonly IRoleClaimRepository _roleClaimRepository;
     private readonly ICacheService _cacheService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ILogger<AssignClaimsToRoleCommandHandler> _logger;
 
     public AssignClaimsToRoleCommandHandler(
         IRoleRepository roleRepository,
         IRoleClaimRepository roleClaimRepository,
         ICacheService cacheService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ILogger<AssignClaimsToRoleCommandHandler> logger)
     {
         _roleRepository = roleRepository;
         _roleClaimRepository = roleClaimRepository;
         _cacheService = cacheService;
         _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     public async Task<bool> Handle(AssignClaimsToRoleCommand request, CancellationToken cancellationToken)
@@ -55,8 +59,9 @@ public class AssignClaimsToRoleCommandHandler : IRequestHandler<AssignClaimsToRo
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while assigning claims to role {RoleId}", request.RoleId);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

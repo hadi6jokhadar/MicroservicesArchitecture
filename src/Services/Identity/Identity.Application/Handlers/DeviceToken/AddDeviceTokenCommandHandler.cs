@@ -1,8 +1,10 @@
 using Identity.Application.Commands.DeviceToken;
 using Identity.Domain.Repositories;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Kernel.Dto;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.DeviceToken;
 
@@ -13,18 +15,23 @@ public class AddDeviceTokenCommandHandler : IRequestHandler<AddDeviceTokenComman
 {
     private readonly IDeviceTokenRepository _deviceTokenRepository;
     private readonly IUserRepository _userRepository;
+    private readonly ILogger<AddDeviceTokenCommandHandler> _logger;
 
     public AddDeviceTokenCommandHandler(
         IDeviceTokenRepository deviceTokenRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        ILogger<AddDeviceTokenCommandHandler> logger)
     {
         _deviceTokenRepository = deviceTokenRepository;
         _userRepository = userRepository;
+        _logger = logger;
     }
 
     public async Task<DeviceTokenDto> Handle(AddDeviceTokenCommand request, CancellationToken cancellationToken)
     {
-        // Verify user exists
+        try
+        {
+            // Verify user exists
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user == null)
         {
@@ -77,6 +84,16 @@ public class AddDeviceTokenCommandHandler : IRequestHandler<AddDeviceTokenComman
         var result = await _deviceTokenRepository.AddAsync(deviceToken, cancellationToken);
 
         return MapToDto(result);
+        }
+        catch (AppException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while adding device token for user {UserId}", request.UserId);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+        }
     }
 
     private static DeviceTokenDto MapToDto(IhsanDev.Shared.Kernel.Entities.DeviceToken deviceToken)

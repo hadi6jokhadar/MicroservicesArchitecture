@@ -6,6 +6,7 @@ using Identity.Application.Commands.Admin.Claim;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Admin.Claim;
 
@@ -14,15 +15,18 @@ public class UpdateClaimCommandHandler : IRequestHandler<UpdateClaimCommand, Cla
     private readonly IClaimRepository _claimRepository;
     private readonly ICacheService _cacheService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ILogger<UpdateClaimCommandHandler> _logger;
 
     public UpdateClaimCommandHandler(
         IClaimRepository claimRepository,
         ICacheService cacheService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ILogger<UpdateClaimCommandHandler> logger)
     {
         _claimRepository = claimRepository;
         _cacheService = cacheService;
         _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     public async Task<ClaimDto> Handle(UpdateClaimCommand request, CancellationToken cancellationToken)
@@ -58,8 +62,9 @@ public class UpdateClaimCommandHandler : IRequestHandler<UpdateClaimCommand, Cla
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while updating claim {ClaimId}", request.Id);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

@@ -21,6 +21,13 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
             .FirstOrDefaultAsync(e => e.Id == id && !e.IsArchived, cancellationToken);
     }
 
+    public virtual async Task<T?> GetByIdWithArchivedAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+    }
+
     public virtual IQueryable<T> GetAll()
     {
         return _dbSet.AsNoTracking().Where(e => !e.IsArchived);

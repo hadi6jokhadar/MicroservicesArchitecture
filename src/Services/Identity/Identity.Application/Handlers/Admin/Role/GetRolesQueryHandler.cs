@@ -5,6 +5,7 @@ using Identity.Application.Queries.Role;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Admin.Role;
 
@@ -12,13 +13,16 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, List<RoleDto>
 {
     private readonly IRoleRepository _roleRepository;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<GetRolesQueryHandler> _logger;
 
     public GetRolesQueryHandler(
         IRoleRepository roleRepository,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        ILogger<GetRolesQueryHandler> logger)
     {
         _roleRepository = roleRepository;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<List<RoleDto>> Handle(GetRolesQuery request, CancellationToken cancellationToken)
@@ -40,8 +44,9 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, List<RoleDto>
 
             return roleDtos;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting roles");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
@@ -51,13 +56,16 @@ public class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, RoleDto
 {
     private readonly IRoleRepository _roleRepository;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<GetRoleByIdQueryHandler> _logger;
 
     public GetRoleByIdQueryHandler(
         IRoleRepository roleRepository,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        ILogger<GetRoleByIdQueryHandler> logger)
     {
         _roleRepository = roleRepository;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<RoleDto> Handle(GetRoleByIdQuery request, CancellationToken cancellationToken)
@@ -87,8 +95,9 @@ public class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, RoleDto
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting role {RoleId}", request.Id);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

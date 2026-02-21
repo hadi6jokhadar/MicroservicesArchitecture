@@ -1,8 +1,10 @@
 using Identity.Application.Commands.DeviceToken;
 using Identity.Domain.Repositories;
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Kernel.Dto;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.DeviceToken;
 
@@ -12,15 +14,21 @@ namespace Identity.Application.Handlers.DeviceToken;
 public class UpdateDeviceTokenCommandHandler : IRequestHandler<UpdateDeviceTokenCommand, DeviceTokenDto>
 {
     private readonly IDeviceTokenRepository _deviceTokenRepository;
+    private readonly ILogger<UpdateDeviceTokenCommandHandler> _logger;
 
-    public UpdateDeviceTokenCommandHandler(IDeviceTokenRepository deviceTokenRepository)
+    public UpdateDeviceTokenCommandHandler(
+        IDeviceTokenRepository deviceTokenRepository,
+        ILogger<UpdateDeviceTokenCommandHandler> logger)
     {
         _deviceTokenRepository = deviceTokenRepository;
+        _logger = logger;
     }
 
     public async Task<DeviceTokenDto> Handle(UpdateDeviceTokenCommand request, CancellationToken cancellationToken)
     {
-        var deviceToken = await _deviceTokenRepository.GetByIdAsync(request.Id, cancellationToken);
+        try
+        {
+            var deviceToken = await _deviceTokenRepository.GetByIdAsync(request.Id, cancellationToken);
         if (deviceToken == null)
         {
             throw new NotFoundException($"Device token with ID {request.Id} not found");
@@ -72,5 +80,15 @@ public class UpdateDeviceTokenCommandHandler : IRequestHandler<UpdateDeviceToken
             IsPrimary = deviceToken.IsPrimary,
             Created = deviceToken.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture)
         };
+        }
+        catch (AppException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while updating device token {TokenId}", request.Id);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+        }
     }
 }

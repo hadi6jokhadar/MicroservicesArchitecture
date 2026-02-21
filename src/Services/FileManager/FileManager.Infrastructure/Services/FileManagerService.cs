@@ -157,7 +157,7 @@ public class FileManagerService : IFileManagerService
         bool? temp = null,
         CancellationToken cancellationToken = default)
     {
-        var entity = await _repository.GetByIdAsync(id, cancellationToken);
+        var entity = await _repository.GetByIdWithArchivedAsync(id, cancellationToken);
         if (entity == null)
         {
             throw new Domain.Exceptions.FileNotFoundException(id);
@@ -188,7 +188,7 @@ public class FileManagerService : IFileManagerService
 
     public async Task<FileManagerResponse> ToggleArchiveStatusAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _repository.GetByIdAsync(id, cancellationToken);
+        var entity = await _repository.GetByIdWithArchivedAsync(id, cancellationToken);
         if (entity == null)
         {
             throw new Domain.Exceptions.FileNotFoundException(id);

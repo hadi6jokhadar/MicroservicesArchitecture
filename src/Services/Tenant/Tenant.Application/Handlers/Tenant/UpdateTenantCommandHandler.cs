@@ -2,6 +2,7 @@ using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Application.DTOs;
@@ -16,11 +17,16 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, T
 {
     private readonly ITenantRepository _tenantRepository;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<UpdateTenantCommandHandler> _logger;
 
-    public UpdateTenantCommandHandler(ITenantRepository tenantRepository, ICacheService cacheService)
+    public UpdateTenantCommandHandler(
+        ITenantRepository tenantRepository, 
+        ICacheService cacheService,
+        ILogger<UpdateTenantCommandHandler> logger)
     {
         _tenantRepository = tenantRepository;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<TenantDto> Handle(UpdateTenantCommand request, CancellationToken cancellationToken)
@@ -63,8 +69,9 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, T
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while updating tenant {TenantId}", request.TenantId);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

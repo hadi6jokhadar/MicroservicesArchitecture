@@ -1,7 +1,10 @@
 using Identity.Application.Commands.DeviceToken;
 using Identity.Domain.Repositories;
+using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Kernel.Dto;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.DeviceToken;
 
@@ -11,15 +14,21 @@ namespace Identity.Application.Handlers.DeviceToken;
 public class GetBatchDeviceTokensQueryHandler : IRequestHandler<GetBatchDeviceTokensQuery, Dictionary<int, List<DeviceTokenDto>>>
 {
     private readonly IDeviceTokenRepository _deviceTokenRepository;
+    private readonly ILogger<GetBatchDeviceTokensQueryHandler> _logger;
 
-    public GetBatchDeviceTokensQueryHandler(IDeviceTokenRepository deviceTokenRepository)
+    public GetBatchDeviceTokensQueryHandler(
+        IDeviceTokenRepository deviceTokenRepository,
+        ILogger<GetBatchDeviceTokensQueryHandler> logger)
     {
         _deviceTokenRepository = deviceTokenRepository;
+        _logger = logger;
     }
 
     public async Task<Dictionary<int, List<DeviceTokenDto>>> Handle(GetBatchDeviceTokensQuery request, CancellationToken cancellationToken)
     {
-        if (!request.UserIds.Any())
+        try
+        {
+            if (!request.UserIds.Any())
         {
             return new Dictionary<int, List<DeviceTokenDto>>();
         }
@@ -42,6 +51,16 @@ public class GetBatchDeviceTokensQueryHandler : IRequestHandler<GetBatchDeviceTo
         }
 
         return result;
+        }
+        catch (AppException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while getting batch device tokens");
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+        }
     }
 
     private static DeviceTokenDto MapToDto(IhsanDev.Shared.Kernel.Entities.DeviceToken deviceToken)

@@ -5,6 +5,7 @@ using Identity.Application.Commands.Admin.Role;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Admin.Role;
 
@@ -12,13 +13,16 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, RoleD
 {
     private readonly IRoleRepository _roleRepository;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<CreateRoleCommandHandler> _logger;
 
     public CreateRoleCommandHandler(
         IRoleRepository roleRepository,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        ILogger<CreateRoleCommandHandler> logger)
     {
         _roleRepository = roleRepository;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<RoleDto> Handle(CreateRoleCommand request, CancellationToken cancellationToken)
@@ -51,8 +55,9 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, RoleD
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while creating role {RoleName}", request.Name);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

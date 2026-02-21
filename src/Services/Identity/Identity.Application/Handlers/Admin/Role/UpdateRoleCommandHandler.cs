@@ -6,6 +6,7 @@ using Identity.Application.Commands.Admin.Role;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Admin.Role;
 
@@ -14,15 +15,18 @@ public class UpdateRoleCommandHandler : IRequestHandler<UpdateRoleCommand, RoleD
     private readonly IRoleRepository _roleRepository;
     private readonly ICacheService _cacheService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ILogger<UpdateRoleCommandHandler> _logger;
 
     public UpdateRoleCommandHandler(
         IRoleRepository roleRepository,
         ICacheService cacheService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ILogger<UpdateRoleCommandHandler> logger)
     {
         _roleRepository = roleRepository;
         _cacheService = cacheService;
         _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     public async Task<RoleDto> Handle(UpdateRoleCommand request, CancellationToken cancellationToken)
@@ -59,8 +63,9 @@ public class UpdateRoleCommandHandler : IRequestHandler<UpdateRoleCommand, RoleD
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while updating role {RoleId}", request.Id);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

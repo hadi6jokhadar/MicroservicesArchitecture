@@ -6,6 +6,7 @@ using Identity.Application.DTOs;
 using Identity.Application.Helpers;
 using Identity.Application.Services;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers;
 
@@ -14,13 +15,16 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, U
 {
     private readonly IUserService _userService;
     private readonly ProfilePictureHelper _profilePictureHelper;
+    private readonly ILogger<RefreshTokenCommandHandler> _logger;
 
     public RefreshTokenCommandHandler(
         IUserService userService,
-        ProfilePictureHelper profilePictureHelper)
+        ProfilePictureHelper profilePictureHelper,
+        ILogger<RefreshTokenCommandHandler> logger)
     {
         _userService = userService;
         _profilePictureHelper = profilePictureHelper;
+        _logger = logger;
     }
 
     public async Task<UserDtoIncludesToken> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
@@ -45,8 +49,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, U
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred during refresh token");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

@@ -9,6 +9,7 @@ using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Auth;
 
@@ -19,19 +20,22 @@ public class LoginWithCodeByEmailCommandHandler : IRequestHandler<LoginWithCodeB
     private readonly IConfiguration _configuration;
     private readonly ITenantContext _tenantContext;
     private readonly ProfilePictureHelper _profilePictureHelper;
+    private readonly ILogger<LoginWithCodeByEmailCommandHandler> _logger;
 
     public LoginWithCodeByEmailCommandHandler(
         IUserRepository userRepository,
         IUserService userService,
         IConfiguration configuration,
         ITenantContext tenantContext,
-        ProfilePictureHelper profilePictureHelper)
+        ProfilePictureHelper profilePictureHelper,
+        ILogger<LoginWithCodeByEmailCommandHandler> logger)
     {
         _userRepository = userRepository;
         _userService = userService;
         _configuration = configuration;
         _tenantContext = tenantContext;
         _profilePictureHelper = profilePictureHelper;
+        _logger = logger;
     }
 
     public async Task<UserDtoIncludesToken> Handle(LoginWithCodeByEmailCommand request, CancellationToken cancellationToken)
@@ -113,8 +117,9 @@ public class LoginWithCodeByEmailCommandHandler : IRequestHandler<LoginWithCodeB
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred during login with code for email: {Email}", request.Email);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

@@ -9,6 +9,7 @@ using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Auth;
 
@@ -19,19 +20,22 @@ public class GetVerificationCodeByPhoneCommandHandler : IRequestHandler<GetVerif
     private readonly IConfiguration _configuration;
     private readonly ITenantContext _tenantContext;
     private readonly IHostEnvironment _hostEnvironment;
+    private readonly ILogger<GetVerificationCodeByPhoneCommandHandler> _logger;
 
     public GetVerificationCodeByPhoneCommandHandler(
         IUserRepository userRepository,
         IOtpService otpService,
         IConfiguration configuration,
         ITenantContext tenantContext,
-        IHostEnvironment hostEnvironment)
+        IHostEnvironment hostEnvironment,
+        ILogger<GetVerificationCodeByPhoneCommandHandler> logger)
     {
         _userRepository = userRepository;
         _otpService = otpService;
         _configuration = configuration;
         _tenantContext = tenantContext;
         _hostEnvironment = hostEnvironment;
+        _logger = logger;
     }
 
     public async Task<VerificationCodeResponseDto> Handle(GetVerificationCodeByPhoneCommand request, CancellationToken cancellationToken)
@@ -100,8 +104,9 @@ public class GetVerificationCodeByPhoneCommandHandler : IRequestHandler<GetVerif
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting verification code for phone number: {PhoneNumber}", request.PhoneNumber);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

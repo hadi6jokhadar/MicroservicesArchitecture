@@ -2,6 +2,7 @@ using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Application.DTOs;
 using Tenant.Domain.Repositories;
@@ -15,18 +16,23 @@ public class ToggleTenantArchivedStatusCommandHandler : IRequestHandler<ToggleTe
 {
     private readonly ITenantRepository _tenantRepository;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<ToggleTenantArchivedStatusCommandHandler> _logger;
 
-    public ToggleTenantArchivedStatusCommandHandler(ITenantRepository tenantRepository, ICacheService cacheService)
+    public ToggleTenantArchivedStatusCommandHandler(
+        ITenantRepository tenantRepository, 
+        ICacheService cacheService,
+        ILogger<ToggleTenantArchivedStatusCommandHandler> logger)
     {
         _tenantRepository = tenantRepository;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<TenantDto> Handle(ToggleTenantArchivedStatusCommand request, CancellationToken cancellationToken)
     {
         try
         {
-            var tenant = await _tenantRepository.GetByIdAsync(request.TenantId, cancellationToken);
+            var tenant = await _tenantRepository.GetByIdWithArchivedAsync(request.TenantId, cancellationToken);
             if (tenant == null)
             {
                 throw new NotFoundException(LocalizationKeys.Exceptions.TenantNotFound);
@@ -50,8 +56,9 @@ public class ToggleTenantArchivedStatusCommandHandler : IRequestHandler<ToggleTe
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while toggling archived status for tenant {TenantId}", request.TenantId);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

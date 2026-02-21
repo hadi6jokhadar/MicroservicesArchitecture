@@ -10,6 +10,7 @@ using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Auth;
 
@@ -22,6 +23,7 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
     private readonly IConfiguration _configuration;
     private readonly ITenantContext _tenantContext;
     private readonly IHostEnvironment _hostEnvironment;
+    private readonly ILogger<RegisterWithCodeByEmailCommandHandler> _logger;
 
     public RegisterWithCodeByEmailCommandHandler(
         IUserRepository userRepository,
@@ -30,7 +32,8 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
         IOtpService otpService,
         IConfiguration configuration,
         ITenantContext tenantContext,
-        IHostEnvironment hostEnvironment)
+        IHostEnvironment hostEnvironment,
+        ILogger<RegisterWithCodeByEmailCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
@@ -39,6 +42,7 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
         _configuration = configuration;
         _tenantContext = tenantContext;
         _hostEnvironment = hostEnvironment;
+        _logger = logger;
     }
 
     public async Task<VerificationCodeResponseDto> Handle(RegisterWithCodeByEmailCommand request, CancellationToken cancellationToken)
@@ -102,8 +106,9 @@ public class RegisterWithCodeByEmailCommandHandler : IRequestHandler<RegisterWit
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred during registration with code for email: {Email}", request.Email);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

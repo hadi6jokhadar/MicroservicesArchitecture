@@ -9,6 +9,7 @@ using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Auth;
 
@@ -19,19 +20,22 @@ public class LoginWithCodeByPhoneCommandHandler : IRequestHandler<LoginWithCodeB
     private readonly IConfiguration _configuration;
     private readonly ITenantContext _tenantContext;
     private readonly ProfilePictureHelper _profilePictureHelper;
+    private readonly ILogger<LoginWithCodeByPhoneCommandHandler> _logger;
 
     public LoginWithCodeByPhoneCommandHandler(
         IUserRepository userRepository,
         IUserService userService,
         IConfiguration configuration,
         ITenantContext tenantContext,
-        ProfilePictureHelper profilePictureHelper)
+        ProfilePictureHelper profilePictureHelper,
+        ILogger<LoginWithCodeByPhoneCommandHandler> logger)
     {
         _userRepository = userRepository;
         _userService = userService;
         _configuration = configuration;
         _tenantContext = tenantContext;
         _profilePictureHelper = profilePictureHelper;
+        _logger = logger;
     }
 
     public async Task<UserDtoIncludesToken> Handle(LoginWithCodeByPhoneCommand request, CancellationToken cancellationToken)
@@ -113,8 +117,9 @@ public class LoginWithCodeByPhoneCommandHandler : IRequestHandler<LoginWithCodeB
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred during login with code for phone number: {PhoneNumber}", request.PhoneNumber);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

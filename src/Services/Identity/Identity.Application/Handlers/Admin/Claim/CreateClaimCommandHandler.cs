@@ -5,6 +5,7 @@ using Identity.Application.Commands.Admin.Claim;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Admin.Claim;
 
@@ -12,13 +13,16 @@ public class CreateClaimCommandHandler : IRequestHandler<CreateClaimCommand, Cla
 {
     private readonly IClaimRepository _claimRepository;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<CreateClaimCommandHandler> _logger;
 
     public CreateClaimCommandHandler(
         IClaimRepository claimRepository,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        ILogger<CreateClaimCommandHandler> logger)
     {
         _claimRepository = claimRepository;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<ClaimDto> Handle(CreateClaimCommand request, CancellationToken cancellationToken)
@@ -53,8 +57,9 @@ public class CreateClaimCommandHandler : IRequestHandler<CreateClaimCommand, Cla
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while creating claim {ClaimName}", request.Name);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

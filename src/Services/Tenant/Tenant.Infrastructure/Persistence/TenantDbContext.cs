@@ -26,7 +26,6 @@ public class TenantDbContext : BaseDbContext
                 .HasFilter("\"IsArchived\" = false");
                 
             entity.HasIndex(e => e.UserId)
-                .IsUnique() // Each user can have exactly one tenant
                 .HasFilter("\"IsArchived\" = false");
             
             // Property configurations

@@ -9,6 +9,7 @@ using Identity.Domain.Repositories;
 using MediatR;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Application.Handlers.Commands;
 
@@ -16,22 +17,25 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
 {
     private readonly IUserRepository _userRepository;
     private readonly ProfilePictureHelper _profilePictureHelper;
-    private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ITenantContext _tenantContext;
+    private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ILogger<UpdateProfileCommandHandler> _logger;
 
     public UpdateProfileCommandHandler(
         IUserRepository userRepository,
         ProfilePictureHelper profilePictureHelper,
         IFileManagerServiceClient fileManagerClient,
         ITenantContext tenantContext,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ILogger<UpdateProfileCommandHandler> logger)
     {
         _userRepository = userRepository;
         _profilePictureHelper = profilePictureHelper;
         _fileManagerClient = fileManagerClient;
         _tenantContext = tenantContext;
         _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     public async Task<UserDto> Handle(UpdateProfileCommand request, CancellationToken cancellationToken)
@@ -70,7 +74,7 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
                 catch (Exception ex)
                 {
                     // Log warning but don't fail the operation
-                    Console.WriteLine($"Warning: Failed to mark old profile picture {oldProfilePictureId} as temporary: {ex.Message}");
+                    _logger.LogWarning(ex, "Warning: Failed to mark old profile picture {OldProfilePictureId} as temporary", oldProfilePictureId);
                 }
             }
 
@@ -84,7 +88,7 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
                 catch (Exception ex)
                 {
                     // Log warning but don't fail the operation
-                    Console.WriteLine($"Warning: Failed to mark new profile picture {request.ProfilePictureId} as permanent: {ex.Message}");
+                    _logger.LogWarning(ex, "Warning: Failed to mark new profile picture {NewProfilePictureId} as permanent", request.ProfilePictureId);
                 }
             }
 
@@ -105,8 +109,9 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while updating profile for user {UserId}", request.Id);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

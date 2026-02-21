@@ -18,10 +18,14 @@ namespace Tenant.Application.Handlers.Tenant;
 public class GetTenantConfigQueryHandler : IRequestHandler<GetTenantConfigQuery, TenantConfigDto?>
 {
     private readonly ITenantRepository _tenantRepository;
+    private readonly ILogger<GetTenantConfigQueryHandler> _logger;
 
-    public GetTenantConfigQueryHandler(ITenantRepository tenantRepository)
+    public GetTenantConfigQueryHandler(
+        ITenantRepository tenantRepository,
+        ILogger<GetTenantConfigQueryHandler> logger)
     {
         _tenantRepository = tenantRepository;
+        _logger = logger;
     }
 
     public async Task<TenantConfigDto?> Handle(GetTenantConfigQuery request, CancellationToken cancellationToken)
@@ -36,8 +40,9 @@ public class GetTenantConfigQueryHandler : IRequestHandler<GetTenantConfigQuery,
 
             return TenantConfigDto.MapFrom(tenant);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting config for tenant {TenantId}", request.TenantId);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
@@ -49,10 +54,14 @@ public class GetTenantConfigQueryHandler : IRequestHandler<GetTenantConfigQuery,
 public class GetTenantByIdQueryHandler : IRequestHandler<GetTenantByIdQuery, TenantDto?>
 {
     private readonly ITenantRepository _tenantRepository;
+    private readonly ILogger<GetTenantByIdQueryHandler> _logger;
 
-    public GetTenantByIdQueryHandler(ITenantRepository tenantRepository)
+    public GetTenantByIdQueryHandler(
+        ITenantRepository tenantRepository,
+        ILogger<GetTenantByIdQueryHandler> logger)
     {
         _tenantRepository = tenantRepository;
+        _logger = logger;
     }
 
     public async Task<TenantDto?> Handle(GetTenantByIdQuery request, CancellationToken cancellationToken)
@@ -67,8 +76,9 @@ public class GetTenantByIdQueryHandler : IRequestHandler<GetTenantByIdQuery, Ten
 
             return TenantDto.MapFrom(tenant);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting tenant by ID {TenantId}", request.TenantId);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
@@ -80,10 +90,14 @@ public class GetTenantByIdQueryHandler : IRequestHandler<GetTenantByIdQuery, Ten
 public class GetTenantByUserQueryHandler : IRequestHandler<GetTenantByUserQuery, TenantDto?>
 {
     private readonly ITenantRepository _tenantRepository;
+    private readonly ILogger<GetTenantByUserQueryHandler> _logger;
 
-    public GetTenantByUserQueryHandler(ITenantRepository tenantRepository)
+    public GetTenantByUserQueryHandler(
+        ITenantRepository tenantRepository,
+        ILogger<GetTenantByUserQueryHandler> logger)
     {
         _tenantRepository = tenantRepository;
+        _logger = logger;
     }
 
     public async Task<TenantDto?> Handle(GetTenantByUserQuery request, CancellationToken cancellationToken)
@@ -98,8 +112,9 @@ public class GetTenantByUserQueryHandler : IRequestHandler<GetTenantByUserQuery,
 
             return TenantDto.MapFrom(tenant);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting tenant by user ID {UserId}", request.UserId);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
@@ -111,10 +126,14 @@ public class GetTenantByUserQueryHandler : IRequestHandler<GetTenantByUserQuery,
 public class GetAllActiveTenantsQueryHandler : IRequestHandler<GetAllActiveTenantsQuery, PaginatedList<TenantDto>>
 {
     private readonly ITenantRepository _tenantRepository;
+    private readonly ILogger<GetAllActiveTenantsQueryHandler> _logger;
 
-    public GetAllActiveTenantsQueryHandler(ITenantRepository tenantRepository)
+    public GetAllActiveTenantsQueryHandler(
+        ITenantRepository tenantRepository,
+        ILogger<GetAllActiveTenantsQueryHandler> logger)
     {
         _tenantRepository = tenantRepository;
+        _logger = logger;
     }
 
     public async Task<PaginatedList<TenantDto>> Handle(GetAllActiveTenantsQuery request, CancellationToken cancellationToken)
@@ -138,6 +157,7 @@ public class GetAllActiveTenantsQueryHandler : IRequestHandler<GetAllActiveTenan
                 ExpireDate = t.ExpireDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
                 IsActive = t.IsActive,
                 IsExpired = t.IsExpired,
+                IsArchived = t.IsArchived,
                 Created = t.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
                 LastModified = t.LastModified != null ? t.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null
             }).ToList();
@@ -150,8 +170,9 @@ public class GetAllActiveTenantsQueryHandler : IRequestHandler<GetAllActiveTenan
                 request.PageNumber,
                 totalPages);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting all active tenants");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
@@ -245,8 +266,9 @@ public class GetAllActiveTenantsWithConfigQueryHandler : IRequestHandler<GetAllA
 
             return paginatedList;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while getting all active tenants with config");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }
