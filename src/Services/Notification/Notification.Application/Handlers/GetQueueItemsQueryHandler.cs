@@ -55,7 +55,8 @@ public class GetQueueItemsQueryHandler : IRequestHandler<GetQueueItemsCommand, P
             Error = q.Error,
             NotificationId = q.NotificationId,
             Created = q.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
-            LastModified = q.LastModified != null ? q.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null
+            LastModified = q.LastModified != null ? q.LastModified.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture) : null,
+            IsArchived = q.IsArchived
         });
 
         // Create paginated result
