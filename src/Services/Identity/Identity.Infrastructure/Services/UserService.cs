@@ -164,9 +164,8 @@ public class UserService : IUserService
         _logger.LogInformation("✅ JWT token generated successfully for user '{Email}' (UserId: {UserId}, Expires: {Expires})", 
             user.Email, user.Id, tokenDescriptor.Expires);
 
-        // Manual mapping - Do NOT include roles in response body (they're in the JWT)
-        // Roles are only included in response if caller is SuperAdmin/Admin (handled in handlers)
-        var authenticationResult = UserDtoIncludesToken.MapFrom(user, includeRoles: false);
+        // Map to DTO and include roles in response body for login success
+        var authenticationResult = UserDtoIncludesToken.MapFrom(user, includeRoles: true);
     
         authenticationResult.AccessToken = accessToken;
         authenticationResult.RefreshToken = refreshToken;

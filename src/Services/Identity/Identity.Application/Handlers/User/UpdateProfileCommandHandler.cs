@@ -92,8 +92,8 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
                 }
             }
 
-            // Only include roles if requester is SuperAdmin or Admin
-            bool includeRoles = _currentUserService.IsSuperAdmin || _currentUserService.HasRole("Admin");
+            // Include roles for the user profile response
+            bool includeRoles = true;
             var userProfile = UserDto.MapFrom(user, includeRoles);
             
             // Enrich with profile picture
