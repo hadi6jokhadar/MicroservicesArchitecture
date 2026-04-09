@@ -1,0 +1,202 @@
+{
+  "info": {
+    "name": "AI Service API",
+    "description": "Postman collection for the AI microservice endpoints (FastAPI)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5008",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "your-tenant-id",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "your-jwt-token",
+      "type": "string"
+    },
+    {
+      "key": "serviceSecret",
+      "value": "CHANGE_ME_SHARED_SECRET",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Get Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Settings Endpoints",
+      "item": [
+        {
+          "name": "Get Tenant AI Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "settings"]
+            }
+          }
+        },
+        {
+          "name": "Create AI Setting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ModelType\": \"Text\",\n  \"Provider\": \"OpenAI\",\n  \"ApiKey\": \"sk-your-openai-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "settings"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "System Prompts Endpoints",
+      "item": [
+        {
+          "name": "Get Tenant Prompts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/prompts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "prompts"]
+            }
+          }
+        },
+        {
+          "name": "Create System Prompt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Name\": \"EnhanceText\",\n  \"PromptText\": \"You are a helpful text editor. Please enhance the following text.\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/prompts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "prompts"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat Endpoints",
+      "item": [
+        {
+          "name": "Stream Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Write a haiku about artificial intelligence.\"\n    }\n  ],\n  \"file_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/stream",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chat", "stream"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,6 +2,15 @@
 
 This directory contains Postman collections for all the microservices in the architecture. Each service has its own collection file that can be imported into Postman.
 
+## Auto Generation Workflow
+
+You can generate or refresh collections directly from endpoint source code using the custom Copilot prompt:
+
+- `.github/prompts/generate_postman_collections.prompt.md`
+
+Use it when endpoint files change and you want collection files to stay aligned with real routes.
+The workflow scans `src/Services/*/*.API/Endpoints/**/*.cs` and updates files in this folder.
+
 ## Collections
 
 ### 1. FileManager Service (`FileManager_Service.postman_collection.json`)

@@ -45,7 +45,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, UserDtoIncludes
                 throw new UnauthorizedException(LocalizationKeys.Exceptions.InvalidCredentials);
 
             user.LastLogin = DateTime.UtcNow;
-            await _userRepository.UpdateAsync(user, cancellationToken);
+            await _userRepository.UpdateLastLoginAsync(user.Id, cancellationToken);
 
             var authResult = await _userService.GenerateTokensAsync(user);
             

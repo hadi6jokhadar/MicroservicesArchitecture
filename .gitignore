@@ -290,9 +290,28 @@ paket-files/
 # CodeRush personal settings
 .cr/personal
 
-# Python Tools for Visual Studio (PTVS)
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.py.class
+venv/
+.venv/
+env/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Cake - Uncomment if you are using it
 # tools/**

@@ -3,8 +3,8 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** January 27, 2026  
-**Total Files:** 28
+**Last Updated:** April 9, 2026  
+**Total Files:** 32
 
 ---
 
@@ -93,6 +93,40 @@ Files are organized by category. Each entry includes:
 - Copying service structure
 - Setting up Clean Architecture layers
 - Need microservice boilerplate
+
+---
+
+## AI Service (Python)
+
+### AI_SERVICE_OVERVIEW.md
+
+**Description:** Full architecture and operational overview for the AI Python service, including endpoints, auth modes, tenant handling, startup behavior, and runtime flow.  
+**Read When:**
+
+- Understanding AI service architecture
+- Onboarding to AI.API codebase
+- Working on AI endpoint behavior
+- Troubleshooting service startup or routing
+
+### AI_SERVICE_MIGRATION_GUIDE.md
+
+**Description:** How AI.API handles database creation, Alembic upgrades, and schema bootstrap. Includes migration workflow and troubleshooting for missing tables and model changes.  
+**Read When:**
+
+- Debugging migration or startup database issues
+- Seeing relation does not exist errors
+- Changing ORM model schema
+- Creating Alembic revisions
+
+### PYTHON_SHARED_LIBRARY_GUIDE.md
+
+**Description:** Documentation for the shared Python package (`ihsandev_shared`) that powers config loading, auth, exceptions, logging, DB utilities, and service clients.  
+**Read When:**
+
+- Modifying shared Python modules
+- Integrating new Python services
+- Understanding shared auth and error handling behavior
+- Troubleshooting shared package behavior
 
 ---
 
@@ -406,6 +440,7 @@ Files are organized by category. Each entry includes:
 | Add translations         | TRANSLATION_SERVICE_GUIDE.md, LOCALIZATION_GUIDE.md                                           |
 | Service-to-service call  | SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md, SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md      |
 | Database issue           | DATABASE_PER_TENANT_ARCHITECTURE.md, AUTOMATIC_DATABASE_MIGRATION.md                          |
+| Understand AI service    | AI_SERVICE_OVERVIEW.md, AI_SERVICE_MIGRATION_GUIDE.md, PYTHON_SHARED_LIBRARY_GUIDE.md         |
 | Write tests              | SHARED_TESTING_FILES.md                                                                       |
 | Understand multi-tenancy | MULTI_TENANCY_GUIDE.md, DATABASE_PER_TENANT_ARCHITECTURE.md, TENANT_MIDDLEWARE_EXPLAINED.md   |
 
@@ -428,14 +463,7 @@ AI agents: Do NOT reference or create these files - they have been removed:
 
 ## 📊 Documentation Statistics
 
-- **Total Files:** 34
-- **Core Architecture:** 5 files
-- **Service Guides:** 9 files
-- **Auth & Security:** 3 files
-- **Performance:** 5 files
-- **Development Patterns:** 3 files
-- **Special Files:** 3 files
-- **Other Guides:** 6 files
+- **Total Files:** 32
 
 **Average file size:** Comprehensive (each file contains complete information on its topic)
 
@@ -488,5 +516,5 @@ cd Doc
 
 ---
 
-**Last Updated:** January 27, 2026  
+**Last Updated:** April 9, 2026  
 **Maintained By:** AI agents following DOCUMENTATION_GUIDELINES.md

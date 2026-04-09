@@ -1,5 +1,6 @@
 ---
-description: Verifies if a specific service follows the MicroservicesArchitecture standards defined in create_new_service.md.
+agent: "agent"
+description: "Verifies if a specific service follows the MicroservicesArchitecture standards."
 ---
 
 # Service Verification Workflow
@@ -8,15 +9,15 @@ Use this workflow to audit an existing service against the project's architectur
 
 ## 1. Load Standards
 
-First, read the architectural standards defined in the `create_new_service` workflow:
-`@[MicroservicesArchitecture/.agent/workflows/create_new_service.md]`
+First, read the architectural standards defined in the `create_new_service` prompt:
+`.github/prompts/create_new_service.prompt.md`
 
 ## 2. Analyze Target Service
 
 The user should provide the path to the service they want verified (e.g., `src/Services/Catalog`).
 
-1.  **Explore the Structure**: Use `list_dir` to map out the service's `API`, `Application`, `Domain`, and `Infrastructure` directories.
-2.  **Sample Key Files**: Use `view_file` to inspect representative files in each layer (e.g., one Entity, one DTO, one Repository, one Controller/Endpoint).
+1. **Explore the Structure**: Map out the service's `API`, `Application`, `Domain`, and `Infrastructure` directories.
+2. **Sample Key Files**: Inspect representative files in each layer (e.g., one Entity, one DTO, one Repository, one Endpoint).
 
 ## 3. Verification Checklist
 
@@ -47,7 +48,7 @@ Compare the service's implementation against these key requirements:
 
 ### Shared Kernel Usage
 
-- [ ] **Localization**: references `ILocalizationService` and `LocalizationKeys` instead of hardcoded strings.
+- [ ] **Localization**: References `ILocalizationService` and `LocalizationKeys` instead of hardcoded strings.
 - [ ] **Result Types**: Uses standard result wrappers or HTTP responses consistent with the Identity service.
 
 ## 4. Report Results

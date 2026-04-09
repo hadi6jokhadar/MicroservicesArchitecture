@@ -13,6 +13,19 @@ public class UserRepository : Repository<User>, IUserRepository
     {
     }
 
+    public override async Task<User> UpdateAsync(User entity, CancellationToken cancellationToken = default)
+    {
+        // Temporarily null out UserRoles to prevent EF Core from attaching the entire
+        // Role/RoleClaim graph during a simple User update, which causes tracking exceptions.
+        var originalRoles = entity.UserRoles;
+        entity.UserRoles = null!;
+        
+        var result = await base.UpdateAsync(entity, cancellationToken);
+        
+        entity.UserRoles = originalRoles;
+        return result;
+    }
+
     public override async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -127,5 +140,14 @@ public class UserRepository : Repository<User>, IUserRepository
 
         await _context.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    public async Task UpdateLastLoginAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        await _dbSet.Where(u => u.Id == userId && !u.IsArchived)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.LastLogin, DateTime.UtcNow)
+                .SetProperty(u => u.LastModified, DateTime.UtcNow), 
+            cancellationToken);
     }
 }

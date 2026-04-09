@@ -1,0 +1,18 @@
+{
+  "files.exclude": {
+    "**/venv": true,
+    "**/.venv": true,
+    "**/env": true,
+    "**/.env": true,
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/*.pyo": true,
+    "**/*.pyd": true,
+    "**/node_modules": true,
+    "**/.nx": true,
+    "**/dist": true,
+    "**/bin": true,
+    "**/obj": true,
+    "**/.vs": true
+  }
+}

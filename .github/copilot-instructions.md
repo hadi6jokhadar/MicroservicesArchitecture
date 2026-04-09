@@ -1,15 +1,24 @@
 # GitHub Copilot Instructions for MicroservicesArchitecture
 
+## 🎯 Essential Reading First
+
+**CRITICAL:** Before ANY task:
+
+- Read `.github/instructions/Dotnet.instructions.md` for backend rules
+- Read `../.github/instructions/terminal.instructions.md` for terminal rules (root workspace)
+- Start with `Doc/DOCUMENTATION_INDEX.md` as the single entry point to all documentation
+- For Postman sync tasks, use `.github/prompts/generate_postman_collections.prompt.md`
+
 ## Project Overview
 
 .NET 8 microservices with Clean Architecture, DDD, CQRS, optional multi-tenancy, and database-per-tenant support.
 
 ## CRITICAL: Workflow for Every Task
 
-1. **Read** relevant `Doc/*.md` files first (start with `Doc/00_START_HERE.md`)
+1. **Read** relevant `Doc/*.md` files first (start with `Doc/DOCUMENTATION_INDEX.md`)
 2. **Implement** the requested changes
 3. **Update** affected documentation in `Doc/` folder
-4. **Update** `Doc/00_START_HERE.md` if you added/modified doc files
+4. **Update** `Doc/DOCUMENTATION_INDEX.md` if you added/modified doc files
 
 ## Architecture Quick Reference
 
@@ -72,7 +81,6 @@ public static MyDto MapFrom(MyEntity entity)
 
 - ✅ **ALWAYS** use `.ToUniversalTime()` before `.ToString()`
 - ✅ Format: `"yyyy-MM-ddTHH:mm:ssZ"` with `CultureInfo.InvariantCulture`
-- See: `Doc/DATETIME_STANDARDIZATION_SUMMARY.md`
 
 ### Manual Mapping Pattern (No AutoMapper)
 
@@ -87,8 +95,6 @@ public class UserDto
     }
 }
 ```
-
-See: `Doc/AUTOMAPPER_REMOVAL_SUMMARY.md`
 
 ### CQRS with MediatR
 
@@ -132,15 +138,33 @@ else
 
 - `Redis:Enabled=true` (production) or `false` (dev - auto in-memory fallback)
 - Used for tenant configs, SignalR backplane
-- See: `Doc/REDIS_ENABLED_VS_DISABLED_GUIDE.md`
+- See: `Doc/CACHING_STRATEGY_COMPARISON.md`
 
 ## Key Files to Reference
 
-- `Doc/00_START_HERE.md` - Complete documentation index
+- `Doc/DOCUMENTATION_INDEX.md` - **START HERE** - Complete documentation index
+- `.github/instructions/database-strategy.instructions.md` - **Database strategy decision (A/B/C/D) — read before any new service**
+- `Doc/AI_SERVICE_OVERVIEW.md` - AI service architecture and runtime behavior
+- `Doc/AI_SERVICE_MIGRATION_GUIDE.md` - AI service migration and schema bootstrap behavior
+- `Doc/PYTHON_SHARED_LIBRARY_GUIDE.md` - Shared Python package usage and contracts
 - `Doc/NEW_SERVICE_INTEGRATION_GUIDE.md` - Creating new services
-- `Doc/MULTI_TENANCY_QUICK_START.md` - Multi-tenancy setup
+- `Doc/DATABASE_PER_TENANT_ARCHITECTURE.md` - Multi-tenancy DB architecture
+- `Doc/MULTI_TENANCY_GUIDE.md` - Multi-tenancy setup
 - `Doc/BYPASS_TENANT_ENDPOINTS_GUIDE.md` - Admin/global endpoints
-- `Doc/BOTTLENECKS_COMPLETION_SUMMARY.md` - Performance optimizations
+- `Doc/PERFORMANCE_OPTIMIZATION_GUIDE.md` - Performance optimizations
+
+## Quick Decision Tree — Database Strategy for New Services
+
+```
+Stores tenant-specific data?
+├─ NO + system registry?            → Strategy A (Single Global DB)   e.g. TenantService
+├─ NO + shared with tenant rows?    → Strategy D (Global + TenantId column) e.g. TranslationService
+├─ YES + pure tenant data?          → Strategy B (Per-Tenant DB)      e.g. Identity, FileManager
+└─ YES + global queue + tenant log? → Strategy C (Dual DB)            e.g. NotificationService
+```
+
+Full patterns (DbContext code, Program.cs pipeline, appsettings):
+→ `.github/instructions/database-strategy.instructions.md`
 
 ## Common Pitfalls & Solutions
 
@@ -159,7 +183,7 @@ dotnet run
 # Or in PowerShell: dotnet build; dotnet run
 ```
 
-See: `.github/instructions/terminal.instructions.md`
+See: `.github/instructions/Terminal.instructions.md`
 
 ### ❌ DON'T: Create tenant service as multi-tenant
 
@@ -177,7 +201,7 @@ See: `.github/instructions/terminal.instructions.md`
 
 - Project migrated to **Minimal APIs** (Grouped pattern)
 - New endpoints: Use endpoint handlers in `{ServiceName}.API/Endpoints/`
-- See: `Doc/MINIMAL_API_MIGRATION.md`
+- See: `Doc/NEW_SERVICE_INTEGRATION_GUIDE.md`
 
 ### ⚠️ CRITICAL: Admin Endpoints with BypassTenant
 
@@ -234,9 +258,12 @@ if (multiTenancyEnabled)
 - **Create admin/global endpoints?** → `Doc/BYPASS_TENANT_ENDPOINTS_GUIDE.md`
 - Understand architecture? → `Doc/DATABASE_PER_TENANT_ARCHITECTURE.md`
 - Add authentication? → `Doc/SHARED_IDENTITY_SERVICE_GUIDE.md`
-- Enable multi-tenancy? → `Doc/MULTI_TENANCY_QUICK_START.md`
-- Send notifications? → `Doc/SERVICE_TO_NOTIFICATION_INTEGRATION_GUIDE.md`
-- Optimize performance? → `Doc/BOTTLENECKS_COMPLETION_SUMMARY.md`
+- Enable multi-tenancy? → `Doc/MULTI_TENANCY_GUIDE.md`
+- Send notifications? → `Doc/NOTIFICATION_SERVICE_README.md`
+- AI service overview? → `Doc/AI_SERVICE_OVERVIEW.md`
+- AI migration behavior? → `Doc/AI_SERVICE_MIGRATION_GUIDE.md`
+- Shared Python files? → `Doc/PYTHON_SHARED_LIBRARY_GUIDE.md`
+- Optimize performance? → `Doc/PERFORMANCE_OPTIMIZATION_GUIDE.md`
 - Write tests? → `Doc/SHARED_TESTING_FILES.md`
 
 ## Technology Stack Reference
@@ -247,6 +274,20 @@ if (multiTenancyEnabled)
 - **Redis 2.7** (distributed cache), **SignalR 8.0** (real-time)
 - **xUnit 2.6**, **Moq 4.20**, **FluentAssertions 6.12**
 
+## 🤖 Auto-Maintenance Rules
+
+After completing ANY task, the agent MUST self-check and update instruction files if the codebase changed:
+
+| Change Made                                     | Section to Update                                                      |
+| ----------------------------------------------- | ---------------------------------------------------------------------- |
+| New/deleted/renamed `Doc/*.md`                  | This file → "Key Files to Reference" + "Quick Decision Tree"           |
+| New service added or port changed               | This file + root `copilot-instructions.md` → Architecture service list |
+| New shared library added to `src/Shared/`       | This file → "Shared Libraries" list                                    |
+| New endpoint pattern or anti-pattern discovered | This file → "Common Pitfalls" or "Essential Patterns"                  |
+| New prompt created in `.github/prompts/`        | This file → "Essential Reading First" if it's a core workflow          |
+
+**Do updates inline** — no separate task, update as part of completing the original request.
+
 ---
 
-**Last Updated**: November 2025 | **Version**: 2.1
+**Last Updated**: April 2026 | **Version**: 2.2
