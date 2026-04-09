@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from pydantic import BaseModel, UUID4
-from typing import List, Optional, AsyncGenerator
+from typing import List, Optional, AsyncGenerator, Any
 import json
 import uuid
 
@@ -24,6 +24,37 @@ class ChatRequest(BaseModel):
     session_id: Optional[UUID4] = None
     messages: List[ChatMessage]
     file_ids: Optional[List[UUID4]] = [] # For FileManager integration
+
+
+PROVIDER_ALIASES = {
+    "openai": "openai",
+    "azure": "azure",
+    "azureopenai": "azure",
+    "anthropic": "anthropic",
+    "google": "gemini",
+    "gemini": "gemini",
+    "ollama": "ollama",
+    "groq": "groq",
+    "mistral": "mistral",
+}
+
+
+def build_litellm_model(provider: Any, model_name: Any) -> str:
+    """Build a LiteLLM model identifier from DB values in a case-insensitive way."""
+    provider_text = str(provider or "")
+    model_text = str(model_name or "")
+
+    normalized_provider = PROVIDER_ALIASES.get(provider_text.strip().lower(), provider_text.strip().lower())
+    normalized_model = model_text.strip()
+
+    if not normalized_provider:
+        return normalized_model
+
+    # If model is already provider-qualified, keep it unchanged to avoid double-prefixing.
+    if "/" in normalized_model:
+        return normalized_model
+
+    return f"{normalized_provider}/{normalized_model}"
 
 async def log_token_usage_background(
     db: AsyncSession,
@@ -91,9 +122,12 @@ async def chat_stream(
 
     async def generate() -> AsyncGenerator[str, None]:
         try:
+            model_name_value = str(ai_settings.ModelName)
+            litellm_model = build_litellm_model(ai_settings.Provider, model_name_value)
+
             # Connect dynamically using Tenant's Settings via LiteLLM
             response = await acompletion(
-                model=f"{ai_settings.Provider}/{ai_settings.ModelName}", # e.g., "openai/gpt-4o", "azure/gpt-35-turbo"
+                model=litellm_model,
                 messages=litellm_messages,
                 api_key=ai_settings.ApiKey,
                 stream=True
@@ -115,9 +149,9 @@ async def chat_stream(
             # option for OpenAI which returns usage on the final chunk. For brevity, assuming pseudo tracking here:
             background_tasks.add_task(
                 log_token_usage_background,
-                db, tenant_id, user_id, ai_settings.ModelName, "/api/v1/chat/stream", 
-                prompt_tokens=len(str(litellm_messages))/4, # Rough estimation fallback
-                completion_tokens=len(complete_response)/4
+                db, tenant_id, user_id, model_name_value, "/api/v1/chat/stream", 
+                prompt_tokens=int(len(str(litellm_messages)) / 4), # Rough estimation fallback
+                completion_tokens=int(len(complete_response) / 4)
             )
             
             yield "data: [DONE]\n\n"

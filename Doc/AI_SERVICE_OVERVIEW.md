@@ -124,6 +124,12 @@ Important sections:
 - `ServiceCommunication`
 - `FileManagerSettings`
 
+Provider setting behavior for chat streaming:
+
+- `Provider` is handled case-insensitively before calling LiteLLM.
+- Known aliases are normalized (example: `OpenAI` becomes `openai`, `AzureOpenAI` becomes `azure`).
+- If `ModelName` already includes a provider prefix (`provider/model`), the value is used as-is.
+
 ## Development and Testing
 
 Run script:

@@ -24,8 +24,12 @@ async def test_chat_stream_success(client, mock_db_session, mocker):
     mock_setting.ApiKey = "fake-key"
     mock_db_session.execute.return_value.scalar_one_or_none.return_value = mock_setting
     
+    called_kwargs = {}
+
     # Mock LiteLLM acompletion
     async def mock_acompletion(*args, **kwargs):
+        called_kwargs.update(kwargs)
+
         class MockChoice:
             class MockDelta:
                 content = "Hello there!"
@@ -56,7 +60,15 @@ async def test_chat_stream_success(client, mock_db_session, mocker):
     assert "data: " in content
     assert "Hello there!" in content
     assert "[DONE]" in content
+    assert called_kwargs.get("model") == "openai/gpt-4o"
 
     # The background task should have logged token usage, which calls db.add and db.commit.
     assert mock_db_session.add.called
     assert mock_db_session.commit.called
+
+
+def test_build_litellm_model_handles_already_prefixed_model():
+    from api.routes.chat import build_litellm_model
+
+    model = build_litellm_model("OpenAI", "openai/gpt-4o")
+    assert model == "openai/gpt-4o"
