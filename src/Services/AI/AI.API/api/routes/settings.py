@@ -49,13 +49,13 @@ async def create_setting(
     resolved_tenant_id = setting.TenantId
     if resolved_tenant_id is None and tenant_id:
         resolved_tenant_id = tenant_id
-    
+
     new_setting = AiProviderSettings(
         TenantId=resolved_tenant_id,
         ModelType=setting.ModelType,
         Provider=setting.Provider,
         ApiKey=setting.ApiKey,
-        ModelName=setting.ModelName
+        ModelName=setting.ModelName,
     )
     db.add(new_setting)
     await db.commit()

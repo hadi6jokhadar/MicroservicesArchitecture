@@ -126,3 +126,22 @@ Current setup uses editable install in service requirements, which keeps service
 3. Keep error contracts stable in shared exceptions module.
 4. Add tests in consuming services whenever shared behavior changes.
 5. Update this document when shared module contracts change.
+
+## SQLAlchemy Model Instructions (AI Service)
+
+For AI service data models, follow SQLAlchemy 2.0+ Declarative Mapping standards:
+
+1. Use `Mapped[...]` annotations for all mapped attributes.
+2. Use `mapped_column(...)` for all column definitions.
+3. Use UUID as the default primary key type for distributed scalability.
+4. Use Alembic revision-based migrations for schema evolution (especially for changes to existing tables).
+
+Example:
+
+```python
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+Id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+```

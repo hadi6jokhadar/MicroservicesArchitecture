@@ -134,6 +134,14 @@ else
 - Inject `INotificationServiceClient` from Shared.Infrastructure
 - See: `Doc/SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md`
 
+### AI Python ORM Model Standard
+
+- For `src/Services/AI/AI.API/models/*`, use SQLAlchemy 2.0+ Declarative Mapping
+- Use `Mapped[...]` and `mapped_column(...)` for all mapped attributes
+- Prefer UUID primary keys for distributed scalability
+- Use Alembic revisions for schema evolution on existing tables
+- See: `Doc/AI_SERVICE_MIGRATION_GUIDE.md`
+
 ### Caching Strategy
 
 - `Redis:Enabled=true` (production) or `false` (dev - auto in-memory fallback)

@@ -17,6 +17,27 @@ The AI service uses:
 3. Alembic for migration execution
 4. Metadata bootstrap for missing tables
 
+## Model Authoring Standard (Required)
+
+When creating or updating AI service ORM models, use SQLAlchemy 2.0+ Declarative Mapping style.
+
+Required rules:
+
+1. Use `Mapped[...]` type annotations for every mapped attribute.
+2. Use `mapped_column(...)` instead of legacy `Column(...)` in model classes.
+3. Prefer UUID primary keys (`UUID(as_uuid=True)`) for distributed scalability and cross-service consistency.
+4. Use Alembic revisions for schema evolution on existing databases.
+
+Example pattern:
+
+```python
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+Id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+```
+
 ## Startup Flow
 
 On service startup, the lifecycle does the following in order:
