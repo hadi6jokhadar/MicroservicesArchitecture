@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 from pydantic import BaseModel, ConfigDict, UUID4
 from typing import List, Optional
 import uuid
@@ -24,6 +25,12 @@ class ProviderSettingsResponse(ProviderSettingsCreate):
     Id: UUID4
 
 
+class SettingsScopeFilter(str):
+    ALL = "all"
+    TENANT = "tenant"
+    GLOBAL = "global"
+
+
 async def _get_scoped_setting(
     setting_id: uuid.UUID,
     tenant_id: Optional[str],
@@ -41,16 +48,32 @@ async def _get_scoped_setting(
 @router.get("/", response_model=List[ProviderSettingsResponse])
 @optional_tenant
 async def get_settings(
+    scope: str = SettingsScopeFilter.ALL,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_auth)
 ):
-    if tenant_id:
-        result = await db.execute(select(AiProviderSettings).where(AiProviderSettings.TenantId == tenant_id))
+    normalized_scope = scope.lower()
+    if normalized_scope not in {SettingsScopeFilter.ALL, SettingsScopeFilter.TENANT, SettingsScopeFilter.GLOBAL}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid scope filter. Allowed values: all, tenant, global.",
+        )
+
+    query = select(AiProviderSettings)
+
+    if normalized_scope == SettingsScopeFilter.GLOBAL:
+        query = query.where(AiProviderSettings.TenantId.is_(None))
+    elif normalized_scope == SettingsScopeFilter.TENANT:
+        if tenant_id:
+            query = query.where(AiProviderSettings.TenantId == tenant_id)
+        else:
+            query = query.where(AiProviderSettings.TenantId.is_not(None))
     else:
-        # Get Global settings
-        result = await db.execute(select(AiProviderSettings).where(AiProviderSettings.TenantId.is_(None)))
-    
+        if tenant_id:
+            query = query.where(or_(AiProviderSettings.TenantId == tenant_id, AiProviderSettings.TenantId.is_(None)))
+
+    result = await db.execute(query)
     return result.scalars().all()
 
 

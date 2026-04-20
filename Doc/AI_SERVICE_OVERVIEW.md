@@ -128,7 +128,17 @@ For endpoints decorated with optional tenant behavior, missing tenant does not f
 Settings and prompts use optional tenant behavior:
 
 - With `x-tenant-id` or a JWT `tenantId` claim, item lookups and mutations stay inside that tenant scope.
-- Without tenant context, the endpoints operate only on global rows where `TenantId` is null.
+- Without tenant context, item lookups and mutations still use global scope for single-item operations.
+
+List endpoint behavior for both `GET /api/v1/settings/` and `GET /api/v1/prompts/`:
+
+- `scope=all` (default):
+  - With tenant context: returns tenant rows plus global rows where `TenantId` is null.
+  - Without tenant context: returns all rows.
+- `scope=tenant`:
+  - With tenant context: returns only rows for the resolved tenant.
+  - Without tenant context: returns all rows where `TenantId` is not null.
+- `scope=global`: returns only rows where `TenantId` is null.
 
 ## Runtime and Startup
 

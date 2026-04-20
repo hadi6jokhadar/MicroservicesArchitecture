@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 from pydantic import BaseModel, ConfigDict, UUID4
 from typing import List, Optional
 import uuid
@@ -22,6 +23,12 @@ class SystemPromptResponse(SystemPromptCreate):
     Id: UUID4
 
 
+class PromptScopeFilter(str):
+    ALL = "all"
+    TENANT = "tenant"
+    GLOBAL = "global"
+
+
 async def _get_scoped_prompt(
     prompt_id: uuid.UUID,
     tenant_id: Optional[str],
@@ -39,16 +46,32 @@ async def _get_scoped_prompt(
 @router.get("/", response_model=List[SystemPromptResponse])
 @optional_tenant
 async def get_system_prompts(
+    scope: str = PromptScopeFilter.ALL,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_auth)
 ):
-    if tenant_id:
-        result = await db.execute(select(AiSystemPrompt).where(AiSystemPrompt.TenantId == tenant_id))
+    normalized_scope = scope.lower()
+    if normalized_scope not in {PromptScopeFilter.ALL, PromptScopeFilter.TENANT, PromptScopeFilter.GLOBAL}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid scope filter. Allowed values: all, tenant, global.",
+        )
+
+    query = select(AiSystemPrompt)
+
+    if normalized_scope == PromptScopeFilter.GLOBAL:
+        query = query.where(AiSystemPrompt.TenantId.is_(None))
+    elif normalized_scope == PromptScopeFilter.TENANT:
+        if tenant_id:
+            query = query.where(AiSystemPrompt.TenantId == tenant_id)
+        else:
+            query = query.where(AiSystemPrompt.TenantId.is_not(None))
     else:
-        # Get Global generic prompts
-        result = await db.execute(select(AiSystemPrompt).where(AiSystemPrompt.TenantId.is_(None)))
-    
+        if tenant_id:
+            query = query.where(or_(AiSystemPrompt.TenantId == tenant_id, AiSystemPrompt.TenantId.is_(None)))
+
+    result = await db.execute(query)
     return result.scalars().all()
 
 
