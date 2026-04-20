@@ -13,6 +13,15 @@ The workflow scans `src/Services/*/*.API/Endpoints/**/*.cs` and updates files in
 
 ## Collections
 
+### 0. AI Service (`AI_Service.postman_collection.json`)
+
+- **Base URL**: `http://localhost:5008`
+- **Endpoints**:
+  - Health check
+  - AI provider settings full CRUD
+  - System prompts full CRUD
+  - Chat streaming
+
 ### 1. FileManager Service (`FileManager_Service.postman_collection.json`)
 
 - **Base URL**: `http://localhost:5005`

@@ -19,6 +19,7 @@
 2. **Implement** the requested changes
 3. **Update** affected documentation in `Doc/` folder
 4. **Update** `Doc/DOCUMENTATION_INDEX.md` if you added/modified doc files
+5. **For Python service work**, use the project-local `venv\Scripts\python.exe` instead of system Python whenever a `venv` folder exists
 
 ## Architecture Quick Reference
 
@@ -140,6 +141,7 @@ else
 - Use `Mapped[...]` and `mapped_column(...)` for all mapped attributes
 - Prefer UUID primary keys for distributed scalability
 - Use Alembic revisions for schema evolution on existing tables
+- For `src/Services/AI/AI.API`, run Python commands with `venv\Scripts\python.exe` so local editable dependencies resolve correctly
 - See: `Doc/AI_SERVICE_MIGRATION_GUIDE.md`
 
 ### Caching Strategy

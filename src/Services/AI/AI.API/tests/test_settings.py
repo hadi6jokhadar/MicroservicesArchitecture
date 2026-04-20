@@ -82,3 +82,125 @@ async def test_create_setting_accepts_string_tenant_id(client, mock_db_session):
 
     data = response.json()
     assert data["TenantId"] == "ihsandev"
+
+
+@pytest.mark.asyncio
+async def test_get_setting_by_id(client, mock_db_session):
+    setting_id = uuid.uuid4()
+    mock_setting = AiProviderSettings(
+        Id=setting_id,
+        TenantId="tenant-001",
+        ModelType=ModelTypeEnum.Text,
+        Provider="OpenAI",
+        ApiKey="test-key-get-one",
+        ModelName="gpt-4.1"
+    )
+    mock_db_session.mock_execute_result.scalar_one_or_none.return_value = mock_setting
+
+    response = await client.get(f"/api/v1/settings/{setting_id}")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["Id"] == str(setting_id)
+    assert data["ModelName"] == "gpt-4.1"
+
+
+@pytest.mark.asyncio
+async def test_get_setting_returns_404_when_not_found(client, mock_db_session):
+    mock_db_session.mock_execute_result.scalar_one_or_none.return_value = None
+
+    response = await client.get(f"/api/v1/settings/{uuid.uuid4()}")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "AI provider setting not found."
+
+
+@pytest.mark.asyncio
+async def test_update_setting(client, mock_db_session):
+    setting_id = uuid.uuid4()
+    existing_setting = AiProviderSettings(
+        Id=setting_id,
+        TenantId="tenant-001",
+        ModelType=ModelTypeEnum.Text,
+        Provider="OpenAI",
+        ApiKey="old-key",
+        ModelName="gpt-4o-mini"
+    )
+    mock_db_session.mock_execute_result.scalar_one_or_none.return_value = existing_setting
+
+    payload = {
+        "ModelType": "Text",
+        "Provider": "AzureOpenAI",
+        "ApiKey": "new-key",
+        "ModelName": "gpt-4.1-mini"
+    }
+
+    response = await client.put(f"/api/v1/settings/{setting_id}", json=payload)
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["Provider"] == "AzureOpenAI"
+    assert data["ApiKey"] == "new-key"
+    assert data["TenantId"] is not None
+    assert mock_db_session.commit.called
+    assert mock_db_session.refresh.called
+
+
+@pytest.mark.asyncio
+async def test_update_setting_in_global_scope_keeps_existing_tenant(client, mock_db_session, monkeypatch):
+    async def override_get_tenant_id_none():
+        return None
+
+    from api.dependencies import get_tenant_id
+    from main import app
+
+    existing_setting = AiProviderSettings(
+        Id=uuid.uuid4(),
+        TenantId=None,
+        ModelType=ModelTypeEnum.Text,
+        Provider="OpenAI",
+        ApiKey="global-key",
+        ModelName="gpt-4o"
+    )
+    mock_db_session.mock_execute_result.scalar_one_or_none.return_value = existing_setting
+    app.dependency_overrides[get_tenant_id] = override_get_tenant_id_none
+
+    payload = {
+        "ModelType": "Text",
+        "Provider": "OpenAI",
+        "ApiKey": "updated-global-key",
+        "ModelName": "gpt-4.1"
+    }
+
+    response = await client.put(f"/api/v1/settings/{existing_setting.Id}", json=payload)
+
+    app.dependency_overrides.pop(get_tenant_id, None)
+
+    assert response.status_code == 200
+    assert response.json()["TenantId"] is None
+
+
+@pytest.mark.asyncio
+async def test_delete_setting(client, mock_db_session):
+    existing_setting = AiProviderSettings(
+        Id=uuid.uuid4(),
+        TenantId="tenant-001",
+        ModelType=ModelTypeEnum.Text,
+        Provider="OpenAI",
+        ApiKey="test-key-delete",
+        ModelName="gpt-4o"
+    )
+    mock_db_session.mock_execute_result.scalar_one_or_none.return_value = existing_setting
+
+    response = await client.delete(f"/api/v1/settings/{existing_setting.Id}")
+    assert response.status_code == 204
+    assert mock_db_session.delete.called
+    assert mock_db_session.commit.called
+
+
+@pytest.mark.asyncio
+async def test_delete_setting_returns_404_when_not_found(client, mock_db_session):
+    mock_db_session.mock_execute_result.scalar_one_or_none.return_value = None
+
+    response = await client.delete(f"/api/v1/settings/{uuid.uuid4()}")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "AI provider setting not found."

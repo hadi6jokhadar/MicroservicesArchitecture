@@ -21,17 +21,37 @@ Default local URL:
 4. Logs token usage for auditing and cost tracking.
 5. Supports internal service calls using shared-secret headers.
 6. Supports end-user requests using JWT bearer tokens.
+7. Orchestrates chat request preparation using LangGraph before calling LiteLLM.
+8. Enforces request and payload validation using Pydantic models.
 
 ## High-Level Architecture
 
 ### API Layer
 
 - `main.py`: FastAPI app startup, middleware, exception handlers, router registration.
-- `api/routes/chat.py`: Streaming chat endpoint.
+- `api/routes/chat.py`: Streaming chat endpoint with Pydantic request models and LangGraph orchestration pipeline.
 - `api/routes/settings.py`: AI provider settings CRUD.
 - `api/routes/system_prompts.py`: System prompt CRUD.
 - `api/dependencies.py`: Auth and tenant resolution helpers.
 - `api/attributes.py`: Optional tenant and bypass tenant decorators.
+
+## Framework, Orchestration, and Validation
+
+### FastAPI
+
+- API framework is FastAPI (`main.py` app initialization and route registration).
+- Route dependencies and exception handlers use FastAPI dependency injection and middleware pipeline.
+
+### LangGraph
+
+- Chat request orchestration uses a compiled LangGraph workflow in `api/routes/chat.py`.
+- Current workflow nodes prepare message payloads and resolve provider model identifiers before LiteLLM invocation.
+
+### Pydantic Validation
+
+- Request and response contracts are Pydantic models across chat, settings, and prompt routes.
+- Chat endpoint enforces message role values (`system`, `user`, `assistant`, `tool`) and non-empty content.
+- Empty message collections are rejected by validation and return standardized validation error responses.
 
 ### Core Layer
 
@@ -95,9 +115,20 @@ For endpoints decorated with optional tenant behavior, missing tenant does not f
 - `GET /health`
 - `POST /api/v1/chat/stream`
 - `GET /api/v1/settings/`
+- `GET /api/v1/settings/{setting_id}`
 - `POST /api/v1/settings/`
+- `PUT /api/v1/settings/{setting_id}`
+- `DELETE /api/v1/settings/{setting_id}`
 - `GET /api/v1/prompts/`
+- `GET /api/v1/prompts/{prompt_id}`
 - `POST /api/v1/prompts/`
+- `PUT /api/v1/prompts/{prompt_id}`
+- `DELETE /api/v1/prompts/{prompt_id}`
+
+Settings and prompts use optional tenant behavior:
+
+- With `x-tenant-id` or a JWT `tenantId` claim, item lookups and mutations stay inside that tenant scope.
+- Without tenant context, the endpoints operate only on global rows where `TenantId` is null.
 
 ## Runtime and Startup
 
@@ -143,6 +174,7 @@ Virtual environment setup:
 Tests:
 
 - `tests/` directory
+- `tests/test_chat.py` includes coverage for LangGraph orchestration and chat request validation.
 
 ## Related Docs
 

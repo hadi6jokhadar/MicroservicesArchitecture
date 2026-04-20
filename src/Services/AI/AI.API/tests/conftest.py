@@ -29,6 +29,7 @@ def mock_db_session(mocker):
     mock_session.add = mocker.MagicMock()
     mock_session.commit = mocker.AsyncMock()
     mock_session.refresh = mocker.AsyncMock()
+    mock_session.delete = mocker.AsyncMock()
 
     # Apply overriding
     async def override_get_db():
@@ -38,6 +39,7 @@ def mock_db_session(mocker):
     
     # Store the result mock chain so tests can attach return values
     mock_session.mock_scalars = mock_scalars
+    mock_session.mock_execute_result = mock_execute_result
     
     return mock_session
 

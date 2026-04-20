@@ -119,6 +119,25 @@ Package metadata is in:
 
 Current setup uses editable install in service requirements, which keeps service code synced with local shared package changes.
 
+## Python Interpreter Rule
+
+When working in a Python service that contains a local virtual environment, always use the interpreter from that service's `venv` folder.
+
+For `src/Services/AI/AI.API`, use:
+
+- `venv\Scripts\python.exe`
+
+Do not use system Python for service commands such as:
+
+1. Running tests
+2. Starting the service
+3. Running Alembic commands
+4. Installing packages into the service environment
+
+Reason:
+
+- The AI service depends on editable local packages such as `src/Shared/ihsandev_shared`, and those imports may fail when commands are run outside the service virtual environment.
+
 ## Best Practices
 
 1. Keep service-specific logic inside each service, not in the shared package.

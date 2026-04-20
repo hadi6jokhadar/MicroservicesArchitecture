@@ -1,6 +1,6 @@
 import pytest
 import uuid
-from unittest.mock import AsyncMock
+from pydantic import ValidationError
 
 @pytest.mark.asyncio
 async def test_chat_stream_requires_settings(client, mock_db_session, mocker):
@@ -72,3 +72,33 @@ def test_build_litellm_model_handles_already_prefixed_model():
 
     model = build_litellm_model("OpenAI", "openai/gpt-4o")
     assert model == "openai/gpt-4o"
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_rejects_empty_messages(client):
+    response = await client.post("/api/v1/chat/stream", json={"messages": []})
+    assert response.status_code == 400
+
+
+def test_chat_message_role_validation():
+    from api.routes.chat import ChatMessage
+
+    with pytest.raises(ValidationError):
+        ChatMessage(role="invalid-role", content="Hello")
+
+
+@pytest.mark.asyncio
+async def test_run_chat_orchestration_builds_payload_and_model(mocker):
+    from api.routes.chat import ChatRequest, run_chat_orchestration
+
+    mock_setting = mocker.MagicMock()
+    mock_setting.Provider = "OpenAI"
+    mock_setting.ModelName = "gpt-4o-mini"
+    mock_setting.ApiKey = "test-key"
+
+    request = ChatRequest(messages=[{"role": "user", "content": "Hello"}])
+    state = await run_chat_orchestration(request, mock_setting)
+
+    assert state["litellm_model"] == "openai/gpt-4o-mini"
+    assert state["litellm_messages"] == [{"role": "user", "content": "Hello"}]
+    assert state["api_key"] == "test-key"

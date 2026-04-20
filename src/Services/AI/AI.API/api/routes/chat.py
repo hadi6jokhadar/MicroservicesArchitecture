@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from pydantic import BaseModel, UUID4
-from typing import List, Optional, AsyncGenerator, Any
+from pydantic import BaseModel, Field, UUID4
+from typing import List, Optional, AsyncGenerator, Any, Literal, TypedDict
 import json
 import uuid
+from langgraph.graph import END, START, StateGraph
 
 from core.database import get_db
 from api.dependencies import require_auth, get_tenant_id
@@ -17,13 +18,29 @@ from litellm import acompletion
 router = APIRouter()
 
 class ChatMessage(BaseModel):
-    role: str # "user", "assistant"
-    content: str
+    role: Literal["system", "user", "assistant", "tool"]
+    content: str = Field(min_length=1)
 
 class ChatRequest(BaseModel):
     session_id: Optional[UUID4] = None
-    messages: List[ChatMessage]
-    file_ids: Optional[List[UUID4]] = [] # For FileManager integration
+    messages: List[ChatMessage] = Field(min_length=1)
+    file_ids: List[UUID4] = Field(default_factory=list)  # For FileManager integration
+
+
+class ChatOrchestrationInput(BaseModel):
+    request: ChatRequest
+    provider: str = Field(min_length=1)
+    model_name: str = Field(min_length=1)
+    api_key: str = Field(min_length=1)
+
+
+class ChatWorkflowState(TypedDict):
+    request: ChatRequest
+    provider: str
+    model_name: str
+    api_key: str
+    litellm_messages: List[dict[str, str]]
+    litellm_model: str
 
 
 PROVIDER_ALIASES = {
@@ -55,6 +72,54 @@ def build_litellm_model(provider: Any, model_name: Any) -> str:
         return normalized_model
 
     return f"{normalized_provider}/{normalized_model}"
+
+
+def _prepare_messages_node(state: ChatWorkflowState) -> ChatWorkflowState:
+    """Convert validated Pydantic messages into LiteLLM payload format."""
+    return {
+        **state,
+        "litellm_messages": [{"role": msg.role, "content": msg.content} for msg in state["request"].messages],
+    }
+
+
+def _resolve_model_node(state: ChatWorkflowState) -> ChatWorkflowState:
+    return {
+        **state,
+        "litellm_model": build_litellm_model(state["provider"], state["model_name"]),
+    }
+
+
+def _build_chat_workflow():
+    workflow = StateGraph(ChatWorkflowState)
+    workflow.add_node("prepare_messages", _prepare_messages_node)
+    workflow.add_node("resolve_model", _resolve_model_node)
+    workflow.add_edge(START, "prepare_messages")
+    workflow.add_edge("prepare_messages", "resolve_model")
+    workflow.add_edge("resolve_model", END)
+    return workflow.compile()
+
+
+CHAT_WORKFLOW = _build_chat_workflow()
+
+
+async def run_chat_orchestration(request: ChatRequest, ai_settings: AiProviderSettings) -> ChatWorkflowState:
+    orchestration_input = ChatOrchestrationInput(
+        request=request,
+        provider=str(ai_settings.Provider),
+        model_name=str(ai_settings.ModelName),
+        api_key=str(ai_settings.ApiKey),
+    )
+
+    initial_state: ChatWorkflowState = {
+        "request": orchestration_input.request,
+        "provider": orchestration_input.provider,
+        "model_name": orchestration_input.model_name,
+        "api_key": orchestration_input.api_key,
+        "litellm_messages": [],
+        "litellm_model": "",
+    }
+
+    return await CHAT_WORKFLOW.ainvoke(initial_state)
 
 async def log_token_usage_background(
     db: AsyncSession,
@@ -113,8 +178,10 @@ async def chat_stream(
     # Fetch Custom AI Settings
     ai_settings = await get_tenant_model_settings(db, tenant_id, ModelTypeEnum.Text)
 
-    # Format messages for LiteLLM (OpenAI standard)
-    litellm_messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+    orchestration_state = await run_chat_orchestration(request, ai_settings)
+    litellm_messages = orchestration_state["litellm_messages"]
+    litellm_model = orchestration_state["litellm_model"]
+    provider_api_key = orchestration_state["api_key"]
 
     # File manager logic would typically intercept `request.file_ids` here, 
     # fetch contents from FileManagerService using httpx, and append to `litellm_messages`.
@@ -123,13 +190,12 @@ async def chat_stream(
     async def generate() -> AsyncGenerator[str, None]:
         try:
             model_name_value = str(ai_settings.ModelName)
-            litellm_model = build_litellm_model(ai_settings.Provider, model_name_value)
 
             # Connect dynamically using Tenant's Settings via LiteLLM
             response = await acompletion(
                 model=litellm_model,
                 messages=litellm_messages,
-                api_key=ai_settings.ApiKey,
+                api_key=provider_api_key,
                 stream=True
             )
             

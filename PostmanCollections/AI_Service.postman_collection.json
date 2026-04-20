@@ -21,6 +21,16 @@
       "type": "string"
     },
     {
+      "key": "settingId",
+      "value": "00000000-0000-0000-0000-000000000001",
+      "type": "string"
+    },
+    {
+      "key": "promptId",
+      "value": "00000000-0000-0000-0000-000000000002",
+      "type": "string"
+    },
+    {
       "key": "serviceSecret",
       "value": "CHANGE_ME_SHARED_SECRET",
       "type": "string"
@@ -64,9 +74,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/settings",
+              "raw": "{{baseUrl}}/api/v1/settings/",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "settings"]
+              "path": ["api", "v1", "settings", ""]
             }
           }
         },
@@ -95,9 +105,130 @@
               "raw": "{\n  \"ModelType\": \"Text\",\n  \"Provider\": \"OpenAI\",\n  \"ApiKey\": \"sk-your-openai-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/settings",
+              "raw": "{{baseUrl}}/api/v1/settings/",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "settings"]
+              "path": ["api", "v1", "settings", ""]
+            }
+          }
+        },
+        {
+          "name": "Get AI Setting By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings/{{settingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "settings", "{{settingId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update AI Setting",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ModelType\": \"Text\",\n  \"Provider\": \"AzureOpenAI\",\n  \"ApiKey\": \"updated-api-key\",\n  \"ModelName\": \"gpt-4.1\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings/{{settingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "settings", "{{settingId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete AI Setting",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings/{{settingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "settings", "{{settingId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Global AI Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "settings", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Global AI Setting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ModelType\": \"Text\",\n  \"Provider\": \"OpenAI\",\n  \"ApiKey\": \"sk-global-openai-key\",\n  \"ModelName\": \"gpt-4o-mini\",\n  \"TenantId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "settings", ""]
             }
           }
         }
@@ -123,9 +254,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/prompts",
+              "raw": "{{baseUrl}}/api/v1/prompts/",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "prompts"]
+              "path": ["api", "v1", "prompts", ""]
             }
           }
         },
@@ -154,9 +285,130 @@
               "raw": "{\n  \"Name\": \"EnhanceText\",\n  \"PromptText\": \"You are a helpful text editor. Please enhance the following text.\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/prompts",
+              "raw": "{{baseUrl}}/api/v1/prompts/",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "prompts"]
+              "path": ["api", "v1", "prompts", ""]
+            }
+          }
+        },
+        {
+          "name": "Get System Prompt By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/prompts/{{promptId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "prompts", "{{promptId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update System Prompt",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Name\": \"Summarizer\",\n  \"PromptText\": \"Summarize the following text in a concise way.\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/prompts/{{promptId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "prompts", "{{promptId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete System Prompt",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/prompts/{{promptId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "prompts", "{{promptId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Global Prompts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/prompts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "prompts", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Global System Prompt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Name\": \"GlobalPrompt\",\n  \"PromptText\": \"Use a neutral and helpful tone.\",\n  \"TenantId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/prompts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "prompts", ""]
             }
           }
         }
