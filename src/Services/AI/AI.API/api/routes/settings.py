@@ -7,7 +7,7 @@ from typing import List, Optional
 import uuid
 
 from core.database import get_db
-from api.dependencies import require_auth, get_tenant_id
+from api.dependencies import get_tenant_id, require_superadmin_or_service
 from api.attributes import optional_tenant
 from models import AiProviderSettings, ModelTypeEnum
 
@@ -51,7 +51,7 @@ async def get_settings(
     scope: str = SettingsScopeFilter.ALL,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
+    auth: dict = Depends(require_superadmin_or_service)
 ):
     normalized_scope = scope.lower()
     if normalized_scope not in {SettingsScopeFilter.ALL, SettingsScopeFilter.TENANT, SettingsScopeFilter.GLOBAL}:
@@ -83,7 +83,7 @@ async def get_setting(
     setting_id: UUID4,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
+    auth: dict = Depends(require_superadmin_or_service)
 ):
     setting = await _get_scoped_setting(setting_id, tenant_id, db)
     if setting is None:
@@ -97,7 +97,7 @@ async def create_setting(
     setting: ProviderSettingsCreate,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
+    auth: dict = Depends(require_superadmin_or_service)
 ):
     # Depending on auth, might want to restrict this to 'Admin' users only.
     resolved_tenant_id = setting.TenantId
@@ -126,7 +126,7 @@ async def update_setting(
     setting: ProviderSettingsCreate,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
+    auth: dict = Depends(require_superadmin_or_service)
 ):
     existing_setting = await _get_scoped_setting(setting_id, tenant_id, db)
     if existing_setting is None:
@@ -153,7 +153,7 @@ async def delete_setting(
     setting_id: UUID4,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
+    auth: dict = Depends(require_superadmin_or_service)
 ):
     existing_setting = await _get_scoped_setting(setting_id, tenant_id, db)
     if existing_setting is None:

@@ -7,7 +7,7 @@ from typing import List, Optional
 import uuid
 
 from core.database import get_db
-from api.dependencies import require_auth, get_tenant_id
+from api.dependencies import get_tenant_id, require_superadmin_or_service
 from api.attributes import optional_tenant
 from models import AiSystemPrompt
 
@@ -49,7 +49,7 @@ async def get_system_prompts(
     scope: str = PromptScopeFilter.ALL,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
+    auth: dict = Depends(require_superadmin_or_service)
 ):
     normalized_scope = scope.lower()
     if normalized_scope not in {PromptScopeFilter.ALL, PromptScopeFilter.TENANT, PromptScopeFilter.GLOBAL}:
@@ -81,7 +81,7 @@ async def get_system_prompt(
     prompt_id: UUID4,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
+    auth: dict = Depends(require_superadmin_or_service)
 ):
     prompt = await _get_scoped_prompt(prompt_id, tenant_id, db)
     if prompt is None:
@@ -95,7 +95,7 @@ async def create_system_prompt(
     prompt: SystemPromptCreate,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
+    auth: dict = Depends(require_superadmin_or_service)
 ):
     resolved_tenant_id = prompt.TenantId
     if resolved_tenant_id is None and tenant_id:
@@ -121,7 +121,7 @@ async def update_system_prompt(
     prompt: SystemPromptCreate,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
+    auth: dict = Depends(require_superadmin_or_service)
 ):
     existing_prompt = await _get_scoped_prompt(prompt_id, tenant_id, db)
     if existing_prompt is None:
@@ -146,7 +146,7 @@ async def delete_system_prompt(
     prompt_id: UUID4,
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
+    auth: dict = Depends(require_superadmin_or_service)
 ):
     existing_prompt = await _get_scoped_prompt(prompt_id, tenant_id, db)
     if existing_prompt is None:

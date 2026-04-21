@@ -20,6 +20,45 @@ async def require_auth(user_info: dict = Depends(get_current_user_or_service)):
     return user_info
 
 
+def _extract_roles(payload: dict) -> set[str]:
+    roles: set[str] = set()
+
+    raw_roles = payload.get("roles")
+    if isinstance(raw_roles, list):
+        roles.update(str(role) for role in raw_roles if role)
+    elif isinstance(raw_roles, str) and raw_roles:
+        roles.add(raw_roles)
+
+    raw_role = payload.get("role")
+    if isinstance(raw_role, list):
+        roles.update(str(role) for role in raw_role if role)
+    elif isinstance(raw_role, str) and raw_role:
+        roles.add(raw_role)
+
+    claim_role = payload.get("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+    if isinstance(claim_role, list):
+        roles.update(str(role) for role in claim_role if role)
+    elif isinstance(claim_role, str) and claim_role:
+        roles.add(claim_role)
+
+    return roles
+
+
+async def require_superadmin_or_service(user_info: dict = Depends(require_auth)):
+    if user_info.get("role") == "Service":
+        return user_info
+
+    payload = user_info.get("payload") or {}
+    roles = _extract_roles(payload)
+    if "SuperAdmin" not in roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SuperAdmin role is required for this endpoint.",
+        )
+
+    return user_info
+
+
 def _allows_missing_tenant(request: Request) -> bool:
     """Checks route metadata flags that mirror .NET OptionalTenant/BypassTenant attributes."""
     endpoint = request.scope.get("endpoint")

@@ -91,6 +91,8 @@ Headers:
 
 Secret and allow-list are defined in `appsettings.json` under `ServiceCommunication`.
 
+Service-to-service calls are treated as internal trusted calls and are allowed to access admin-level AI configuration endpoints.
+
 ### End User Mode
 
 Header:
@@ -98,6 +100,12 @@ Header:
 - `Authorization: Bearer <token>`
 
 JWT validation uses `Jwt` settings from `appsettings.json`.
+
+Authorization behavior for configuration endpoints:
+
+- `settings` and `system-prompts` endpoints require either:
+  - an internal service-to-service request (`X-Service-Secret` and `X-Service-Name`), or
+  - a user JWT containing the `SuperAdmin` role.
 
 ## Tenant Handling
 
@@ -119,11 +127,11 @@ For endpoints decorated with optional tenant behavior, missing tenant does not f
 - `POST /api/v1/settings/`
 - `PUT /api/v1/settings/{setting_id}`
 - `DELETE /api/v1/settings/{setting_id}`
-- `GET /api/v1/prompts/`
-- `GET /api/v1/prompts/{prompt_id}`
-- `POST /api/v1/prompts/`
-- `PUT /api/v1/prompts/{prompt_id}`
-- `DELETE /api/v1/prompts/{prompt_id}`
+- `GET /api/v1/system-prompts/`
+- `GET /api/v1/system-prompts/{prompt_id}`
+- `POST /api/v1/system-prompts/`
+- `PUT /api/v1/system-prompts/{prompt_id}`
+- `DELETE /api/v1/system-prompts/{prompt_id}`
 
 Settings and prompts use optional tenant behavior:
 
