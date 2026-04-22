@@ -14,15 +14,22 @@ from models import AiProviderSettings, ModelTypeEnum
 router = APIRouter()
 
 class ProviderSettingsCreate(BaseModel):
+    Key: str
     ModelType: ModelTypeEnum
     Provider: str
     ApiKey: str
     ModelName: str
     TenantId: Optional[str] = None
 
-class ProviderSettingsResponse(ProviderSettingsCreate):
+class ProviderSettingsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     Id: UUID4
+    Key: str
+    ModelType: ModelTypeEnum
+    Provider: str
+    ApiKey: str
+    ModelName: str
+    TenantId: Optional[str] = None
 
 
 class SettingsScopeFilter(str):
@@ -39,8 +46,7 @@ async def _get_scoped_setting(
     query = select(AiProviderSettings).where(AiProviderSettings.Id == setting_id)
     if tenant_id:
         query = query.where(AiProviderSettings.TenantId == tenant_id)
-    else:
-        query = query.where(AiProviderSettings.TenantId.is_(None))
+    # When tenant_id is None (superadmin/service), no TenantId restriction — access any setting
 
     result = await db.execute(query)
     return result.scalar_one_or_none()
@@ -77,6 +83,24 @@ async def get_settings(
     return result.scalars().all()
 
 
+@router.get("/by-key/{key}", response_model=Optional[ProviderSettingsResponse])
+@optional_tenant
+async def get_setting_by_key(
+    key: str,
+    tenant_id: Optional[str] = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    auth: dict = Depends(require_superadmin_or_service)
+):
+    query = select(AiProviderSettings).where(AiProviderSettings.Key == key)
+    if tenant_id:
+        query = query.where(
+            or_(AiProviderSettings.TenantId == tenant_id, AiProviderSettings.TenantId.is_(None))
+        )
+    result = await db.execute(query)
+    setting = result.scalar_one_or_none()
+    return setting
+
+
 @router.get("/{setting_id}", response_model=ProviderSettingsResponse)
 @optional_tenant
 async def get_setting(
@@ -105,6 +129,7 @@ async def create_setting(
         resolved_tenant_id = tenant_id
 
     new_setting = AiProviderSettings(
+        Key=setting.Key,
         TenantId=resolved_tenant_id,
         ModelType=setting.ModelType,
         Provider=setting.Provider,
@@ -137,6 +162,7 @@ async def update_setting(
         resolved_tenant_id = tenant_id if tenant_id else existing_setting.TenantId
 
     existing_setting.TenantId = resolved_tenant_id
+    existing_setting.Key = setting.Key
     existing_setting.ModelType = setting.ModelType
     existing_setting.Provider = setting.Provider
     existing_setting.ApiKey = setting.ApiKey

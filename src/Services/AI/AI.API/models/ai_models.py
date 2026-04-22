@@ -17,6 +17,7 @@ class AiProviderSettings(Base):
     __tablename__ = "AiProviderSettings"
 
     Id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    Key: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
     TenantId: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     ModelType: Mapped[ModelTypeEnum] = mapped_column(Enum(ModelTypeEnum), nullable=False, default=ModelTypeEnum.Text)
     Provider: Mapped[str] = mapped_column(String(50), nullable=False)

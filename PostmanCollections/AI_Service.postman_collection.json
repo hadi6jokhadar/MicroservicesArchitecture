@@ -26,9 +26,27 @@
       "type": "string"
     },
     {
+      "key": "settingKey",
+      "value": "gpt4-tenant",
+      "type": "string",
+      "description": "The unique Key field of an AiProviderSettings row — used in chat requests"
+    },
+    {
       "key": "promptId",
       "value": "00000000-0000-0000-0000-000000000002",
       "type": "string"
+    },
+    {
+      "key": "systemPromptKey",
+      "value": "support-bot",
+      "type": "string",
+      "description": "The Name field of an AiSystemPrompt row — used as system_prompt_key in chat requests"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string",
+      "description": "Returned in every SSE chunk as session_id. Paste here to continue an existing session."
     },
     {
       "key": "serviceSecret",
@@ -102,12 +120,35 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"ModelType\": \"Text\",\n  \"Provider\": \"OpenAI\",\n  \"ApiKey\": \"sk-your-openai-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
+              "raw": "{\n  \"Key\": \"gpt4-tenant\",\n  \"ModelType\": \"Text\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-your-openai-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/settings/",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "settings", ""]
+            }
+          }
+        },
+        {
+          "name": "Get AI Setting By Key",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings/by-key/{{settingKey}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "settings", "by-key", "{{settingKey}}"]
             }
           }
         },
@@ -156,7 +197,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"ModelType\": \"Text\",\n  \"Provider\": \"AzureOpenAI\",\n  \"ApiKey\": \"updated-api-key\",\n  \"ModelName\": \"gpt-4.1\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
+              "raw": "{\n  \"Key\": \"gpt4-tenant\",\n  \"ModelType\": \"Text\",\n  \"Provider\": \"azure\",\n  \"ApiKey\": \"updated-api-key\",\n  \"ModelName\": \"gpt-4.1\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/settings/{{settingId}}",
@@ -223,7 +264,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"ModelType\": \"Text\",\n  \"Provider\": \"OpenAI\",\n  \"ApiKey\": \"sk-global-openai-key\",\n  \"ModelName\": \"gpt-4o-mini\",\n  \"TenantId\": null\n}"
+              "raw": "{\n  \"Key\": \"gpt4o-mini-global\",\n  \"ModelType\": \"Text\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-global-openai-key\",\n  \"ModelName\": \"gpt-4o-mini\",\n  \"TenantId\": null\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/settings/",
@@ -418,7 +459,7 @@
       "name": "Chat Endpoints",
       "item": [
         {
-          "name": "Stream Chat",
+          "name": "Stream Chat — New Session",
           "request": {
             "method": "POST",
             "header": [
@@ -439,7 +480,69 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Write a haiku about artificial intelligence.\"\n    }\n  ],\n  \"file_ids\": []\n}"
+              "raw": "{\n  \"settings_key\": \"{{settingKey}}\",\n  \"system_prompt_key\": \"{{systemPromptKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Write a haiku about artificial intelligence.\"\n    }\n  ],\n  \"file_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/stream",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chat", "stream"]
+            }
+          }
+        },
+        {
+          "name": "Stream Chat — New Session (no system prompt)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings_key\": \"{{settingKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Explain quantum computing in simple terms.\"\n    }\n  ],\n  \"file_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/stream",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chat", "stream"]
+            }
+          }
+        },
+        {
+          "name": "Stream Chat — Continue Existing Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"{{sessionId}}\",\n  \"settings_key\": \"{{settingKey}}\",\n  \"system_prompt_key\": \"{{systemPromptKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Can you elaborate on your previous answer?\"\n    }\n  ],\n  \"file_ids\": []\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/chat/stream",
