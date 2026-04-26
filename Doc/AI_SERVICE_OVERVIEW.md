@@ -3,7 +3,7 @@
 ## Purpose
 
 The AI service is a Python FastAPI microservice that acts as an AI gateway inside the MicroservicesArchitecture solution.
-It centralizes model access, tenant-aware settings, prompt management, and streaming chat responses.
+It centralizes model access, tenant-aware settings, prompt management, and both streaming and single chat responses.
 
 Service path:
 
@@ -15,7 +15,7 @@ Default local URL:
 
 ## What the Service Does
 
-1. Accepts chat requests and streams model responses.
+1. Accepts chat requests and supports streaming or single-response model outputs.
 2. Reads provider settings per tenant, with global fallback.
 3. Stores and retrieves system prompts.
 4. Logs token usage for auditing and cost tracking.
@@ -31,7 +31,7 @@ Default local URL:
 ### API Layer
 
 - `main.py`: FastAPI app startup, middleware, exception handlers, router registration.
-- `api/routes/chat.py`: Streaming chat endpoint with Pydantic request models and LangGraph orchestration pipeline.
+- `api/routes/chat.py`: Streaming and single-response chat endpoints with Pydantic request models and LangGraph orchestration pipeline.
 - `api/routes/settings.py`: AI provider settings CRUD.
 - `api/routes/system_prompts.py`: System prompt CRUD.
 - `api/routes/chat_sessions.py`: Chat session listing with filtering and pagination.
@@ -115,7 +115,7 @@ Authorization behavior for configuration endpoints:
 
 Authorization behavior for chat and observability endpoints:
 
-- `POST /api/v1/chat/stream` accepts authenticated user calls and internal service calls.
+- `POST /api/v1/chat/stream` and `POST /api/v1/chat/single` accept authenticated user calls and internal service calls.
 - `GET /api/v1/chat-sessions/`, `GET /api/v1/chat-messages/`, `GET /api/v1/chat-message-files/`, and `GET /api/v1/token-usage-logs/` require internal service authentication or `SuperAdmin`.
 
 ## Tenant Handling
@@ -129,10 +129,18 @@ Resolution order:
 
 For endpoints decorated with optional tenant behavior, missing tenant does not fail and route logic can operate in global scope.
 
+Chat endpoint tenant behavior:
+
+- `POST /api/v1/chat/stream` and `POST /api/v1/chat/single` are optional-tenant endpoints.
+- If `x-tenant-id` or JWT `tenantId` is provided, chat uses tenant plus global settings lookup.
+- If tenant context is missing, settings are resolved by `Key` regardless of `TenantId`, while prompts continue to use global scope.
+- Chat sessions created without tenant context are stored under the service global chat tenant scope (`global`) so persistence remains valid.
+
 ## Main Endpoints
 
 - `GET /health`
 - `POST /api/v1/chat/stream`
+- `POST /api/v1/chat/single`
 - `GET /api/v1/settings/`
 - `GET /api/v1/settings/by-key/{key}`
 - `GET /api/v1/settings/{setting_id}`
@@ -148,6 +156,19 @@ For endpoints decorated with optional tenant behavior, missing tenant does not f
 - `GET /api/v1/chat-messages/`
 - `GET /api/v1/chat-message-files/`
 - `GET /api/v1/token-usage-logs/`
+
+### Chat Response Modes
+
+- `POST /api/v1/chat/stream`: Server-Sent Events streaming mode that emits incremental `content` chunks and ends with `[DONE]`.
+- `POST /api/v1/chat/single`: single-response mode that waits for completion and returns one JSON payload.
+
+Single-response payload fields:
+
+- `session_id`: chat session UUID.
+- `content`: full assistant response text.
+- `prompt_tokens`: prompt token count.
+- `completion_tokens`: completion token count.
+- `total_tokens`: total token count.
 
 Filter and pagination support on list endpoints:
 
@@ -198,13 +219,13 @@ Important sections:
 - `ServiceCommunication`
 - `FileManagerSettings`
 
-Provider setting behavior for chat streaming:
+Provider setting behavior for chat endpoints:
 
 - `Provider` is handled case-insensitively before calling LiteLLM.
 - Known aliases are normalized (example: `OpenAI` becomes `openai`, `AzureOpenAI` becomes `azure`).
 - If `ModelName` already includes a provider prefix (`provider/model`), the value is used as-is.
 
-FileManager context enrichment behavior for chat streaming:
+FileManager context enrichment behavior for chat endpoints:
 
 - Request payload supports `file_ids` as integer FileManager IDs.
 - AI service calls shared `FileManagerServiceClient.get_files_by_ids()` with tenant forwarding.
@@ -223,7 +244,7 @@ Virtual environment setup:
 Tests:
 
 - `tests/` directory
-- `tests/test_chat.py` includes coverage for LangGraph orchestration and chat request validation.
+- `tests/test_chat.py` includes coverage for chat stream and single endpoints, provider-failure paths, token fallback estimation, file-context injection, and LangGraph orchestration behavior.
 - `tests/test_settings.py` and `tests/test_system_prompts.py` cover CRUD and scoped lookup behavior.
 - `tests/test_chat_sessions.py`, `tests/test_chat_messages.py`, `tests/test_chat_message_files.py`, and `tests/test_token_usage_logs.py` cover list endpoints, filter validation, and pagination-bound validation.
 - `tests/conftest.py` uses dependency overrides to simulate authenticated SuperAdmin access and deterministic tenant context for route tests.

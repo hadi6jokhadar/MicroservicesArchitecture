@@ -11,6 +11,7 @@ from langgraph.graph import END, START, StateGraph
 
 from core.database import get_db, AsyncSessionFactory
 from api.dependencies import require_auth, get_tenant_id
+from api.attributes import optional_tenant
 from models import AiProviderSettings, AiTokenUsageLog, AiChatMessage, AiChatSession, AiSystemPrompt
 from ihsandev_shared.clients import FileManagerServiceClient
 from core.config import settings
@@ -38,6 +39,14 @@ class ChatRequest(BaseModel):
     file_ids: List[int] = Field(default_factory=list)  # FileManager integer IDs for context injection
 
 
+class ChatSingleResponse(BaseModel):
+    session_id: UUID4
+    content: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
 class ChatOrchestrationInput(BaseModel):
     request: ChatRequest
     provider: str = Field(min_length=1)
@@ -56,6 +65,16 @@ class ChatWorkflowState(TypedDict):
     litellm_model: str
 
 
+class ChatRuntimeContext(TypedDict):
+    user_id: Optional[int]
+    session_id: uuid.UUID
+    litellm_messages: List[dict[str, str]]
+    litellm_model: str
+    provider_api_key: str
+    model_name: str
+    user_content: str
+
+
 PROVIDER_ALIASES = {
     "openai": "openai",
     "azure": "azure",
@@ -67,6 +86,8 @@ PROVIDER_ALIASES = {
     "groq": "groq",
     "mistral": "mistral",
 }
+
+GLOBAL_CHAT_TENANT_ID = "global"
 
 
 def build_litellm_model(provider: Any, model_name: Any) -> str:
@@ -145,7 +166,7 @@ async def run_chat_orchestration(
     return await CHAT_WORKFLOW.ainvoke(initial_state) # type: ignore
 
 async def log_token_usage_background(
-    tenant_id: str,
+    tenant_id: Optional[str],
     user_id: Optional[int],
     model_name: str,
     endpoint: str,
@@ -196,17 +217,26 @@ async def persist_messages_background(
 
 async def get_settings_by_key(
     key: str,
-    tenant_id: str,
+    tenant_id: Optional[str],
     db: AsyncSession,
 ) -> AiProviderSettings:
-    """Lookup AiProviderSettings by Key, scoped to the caller's tenant or global (TenantId IS NULL)."""
-    stmt = select(AiProviderSettings).where(
-        AiProviderSettings.Key == key,
-        or_(AiProviderSettings.TenantId == tenant_id, AiProviderSettings.TenantId.is_(None)),
-    ).order_by(
-        # Prefer tenant-specific over global when both share the same key
-        AiProviderSettings.TenantId.is_(None)
-    )
+    """Lookup AiProviderSettings by Key.
+
+    With tenant context: prefer tenant row, then global fallback.
+    Without tenant context: resolve by key regardless of TenantId.
+    """
+    if tenant_id:
+        stmt = select(AiProviderSettings).where(
+            AiProviderSettings.Key == key,
+            or_(AiProviderSettings.TenantId == tenant_id, AiProviderSettings.TenantId.is_(None)),
+        ).order_by(
+            # Prefer tenant-specific over global when both share the same key
+            AiProviderSettings.TenantId.is_(None)
+        )
+    else:
+        stmt = select(AiProviderSettings).where(
+            AiProviderSettings.Key == key,
+        )
     result = await db.execute(stmt)
     setting = result.scalars().first()
     if not setting:
@@ -219,46 +249,56 @@ async def get_settings_by_key(
 
 async def get_system_prompt_by_key(
     name: str,
-    tenant_id: str,
+    tenant_id: Optional[str],
     db: AsyncSession,
 ) -> Optional[str]:
     """Lookup AiSystemPrompt by Name, scoped to the caller's tenant or global. Returns prompt text or None."""
-    stmt = select(AiSystemPrompt).where(
-        AiSystemPrompt.Name == name,
-        or_(AiSystemPrompt.TenantId == tenant_id, AiSystemPrompt.TenantId.is_(None)),
-    ).order_by(
-        # Prefer tenant-specific over global when both share the same name
-        AiSystemPrompt.TenantId.is_(None)
-    )
+    if tenant_id:
+        stmt = select(AiSystemPrompt).where(
+            AiSystemPrompt.Name == name,
+            or_(AiSystemPrompt.TenantId == tenant_id, AiSystemPrompt.TenantId.is_(None)),
+        ).order_by(
+            # Prefer tenant-specific over global when both share the same name
+            AiSystemPrompt.TenantId.is_(None)
+        )
+    else:
+        stmt = select(AiSystemPrompt).where(
+            AiSystemPrompt.Name == name,
+            AiSystemPrompt.TenantId.is_(None),
+        )
     result = await db.execute(stmt)
     prompt = result.scalars().first()
     return prompt.PromptText if prompt else None
 
-@router.post("/stream")
-async def chat_stream(
+
+def _extract_user_id(auth: dict) -> Optional[int]:
+    """Extract integer user id from JWT payload when available."""
+    user_id_str: Optional[str] = auth.get("payload", {}).get("nameid", None)
+    return int(user_id_str) if user_id_str and user_id_str.isdigit() else None
+
+
+async def _resolve_system_prompt_for_request(
     request: ChatRequest,
-    background_tasks: BackgroundTasks,
-    tenant_id: str = Depends(get_tenant_id),
-    db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_auth)
-):
-    user_id_str: Optional[str] = auth.get("payload", {}).get("nameid", None)  # Subject (int) from JWT
-    user_id: Optional[int] = int(user_id_str) if user_id_str and user_id_str.isdigit() else None
+    tenant_id: Optional[str],
+    db: AsyncSession,
+) -> Optional[str]:
+    if not request.system_prompt_key:
+        return None
+    return await get_system_prompt_by_key(request.system_prompt_key, tenant_id, db)
 
-    # 1. Resolve provider settings by key (tenant-scoped, global fallback)
-    ai_settings = await get_settings_by_key(request.settings_key, tenant_id, db)
 
-    # 2. Resolve system prompt by key if provided (tenant-scoped, global fallback)
-    system_prompt: Optional[str] = None
-    if request.system_prompt_key:
-        system_prompt = await get_system_prompt_by_key(request.system_prompt_key, tenant_id, db)
+async def _resolve_or_create_session_id(
+    requested_session_id: Optional[UUID4],
+    tenant_id: Optional[str],
+    user_id: Optional[int],
+    db: AsyncSession,
+) -> uuid.UUID:
+    session_tenant_id = tenant_id or GLOBAL_CHAT_TENANT_ID
 
-    # 3. Resolve or create the chat session
-    session_id: uuid.UUID
-    if request.session_id:
+    if requested_session_id:
         stmt = select(AiChatSession).where(
-            AiChatSession.Id == request.session_id,
-            AiChatSession.TenantId == tenant_id,
+            AiChatSession.Id == requested_session_id,
+            AiChatSession.TenantId == session_tenant_id,
         )
         result = await db.execute(stmt)
         session = result.scalar_one_or_none()
@@ -267,44 +307,171 @@ async def chat_stream(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Chat session not found.",
             )
-        session_id = session.Id
-    else:
-        # If no user_id found in JWT, we use a fallback ID (0 for system/anonymous) 
-        # as UserId is NOT NULL in AiChatSession
-        new_session = AiChatSession(
-            TenantId=tenant_id,
-            UserId=user_id or 0,
-        )
-        db.add(new_session)
-        await db.flush()   # populates new_session.Id without committing yet
-        session_id = new_session.Id
-        await db.commit()
+        return session.Id
+
+    # If no user_id found in JWT, use 0 as UserId is NOT NULL in AiChatSession.
+    new_session = AiChatSession(
+        TenantId=session_tenant_id,
+        UserId=user_id or 0,
+    )
+    db.add(new_session)
+    await db.flush()  # populates new_session.Id without committing yet
+    if new_session.Id is None:
+        new_session.Id = uuid.uuid4()
+    await db.commit()
+    return new_session.Id
+
+
+def _build_file_context_message(files_metadata: Any) -> Optional[dict[str, str]]:
+    if not files_metadata:
+        return None
+
+    file_lines = [
+        f"- {f.get('name', 'file')}{f.get('extension', '')} → {f.get('url', '')}"
+        for f in files_metadata
+        if isinstance(f, dict) and f.get("url")
+    ]
+    if not file_lines:
+        return None
+
+    return {
+        "role": "user",
+        "content": "The following files are attached to this message:\n" + "\n".join(file_lines),
+    }
+
+
+async def _inject_file_context_if_present(
+    litellm_messages: List[dict[str, str]],
+    file_ids: List[int],
+    tenant_id: Optional[str],
+) -> List[dict[str, str]]:
+    if not file_ids:
+        return litellm_messages
+
+    files_metadata = await file_manager_client.get_files_by_ids(file_ids, tenant_id)
+    file_context = _build_file_context_message(files_metadata)
+    if not file_context:
+        return litellm_messages
+
+    # Inject file context immediately before the last user message.
+    return litellm_messages[:-1] + [file_context] + litellm_messages[-1:]
+
+
+def _estimate_tokens_if_missing(
+    prompt_tokens: int,
+    completion_tokens: int,
+    litellm_messages: List[dict[str, str]],
+    complete_response: str,
+) -> tuple[int, int]:
+    estimated_prompt_tokens = prompt_tokens
+    estimated_completion_tokens = completion_tokens
+
+    if estimated_prompt_tokens == 0:
+        estimated_prompt_tokens = max(1, len(str(litellm_messages)) // 4)
+    if estimated_completion_tokens == 0:
+        estimated_completion_tokens = max(1, len(complete_response) // 4)
+
+    return estimated_prompt_tokens, estimated_completion_tokens
+
+
+def _schedule_chat_persistence_tasks(
+    background_tasks: BackgroundTasks,
+    session_id: uuid.UUID,
+    user_content: str,
+    complete_response: str,
+    tenant_id: Optional[str],
+    user_id: Optional[int],
+    model_name: str,
+    endpoint: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+) -> None:
+    background_tasks.add_task(
+        persist_messages_background,
+        session_id,
+        user_content,
+        complete_response,
+        prompt_tokens,
+        completion_tokens,
+    )
+
+    background_tasks.add_task(
+        log_token_usage_background,
+        tenant_id,
+        user_id,
+        model_name,
+        endpoint,
+        prompt_tokens,
+        completion_tokens,
+    )
+
+
+async def _build_chat_runtime_context(
+    request: ChatRequest,
+    tenant_id: Optional[str],
+    db: AsyncSession,
+    auth: dict,
+) -> ChatRuntimeContext:
+    user_id = _extract_user_id(auth)
+    ai_settings = await get_settings_by_key(request.settings_key, tenant_id, db)
+    system_prompt = await _resolve_system_prompt_for_request(request, tenant_id, db)
+    session_id = await _resolve_or_create_session_id(request.session_id, tenant_id, user_id, db)
 
     orchestration_state = await run_chat_orchestration(request, ai_settings, system_prompt)
     litellm_messages: List[dict[str, str]] = list(orchestration_state["litellm_messages"])
-    litellm_model = orchestration_state["litellm_model"]
-    provider_api_key = orchestration_state["api_key"]
-    model_name_value = str(ai_settings.ModelName)
+    litellm_messages = await _inject_file_context_if_present(litellm_messages, request.file_ids, tenant_id)
 
-    # 4. Fetch file metadata via service-to-service and inject file URLs into the message context
-    if request.file_ids:
-        files_metadata = await file_manager_client.get_files_by_ids(request.file_ids, tenant_id)
-        if files_metadata:
-            file_lines = [
-                f"- {f.get('name', 'file')}{f.get('extension', '')} → {f.get('url', '')}"
-                for f in files_metadata
-                if isinstance(f, dict) and f.get('url')
-            ]
-            if file_lines:
-                file_context: dict[str, str] = {
-                    "role": "user",
-                    "content": "The following files are attached to this message:\n" + "\n".join(file_lines),
-                }
-                # Inject file context immediately before the last user message
-                litellm_messages = litellm_messages[:-1] + [file_context] + litellm_messages[-1:]
+    return {
+        "user_id": user_id,
+        "session_id": session_id,
+        "litellm_messages": litellm_messages,
+        "litellm_model": orchestration_state["litellm_model"],
+        "provider_api_key": orchestration_state["api_key"],
+        "model_name": str(ai_settings.ModelName),
+        "user_content": request.messages[-1].content,
+    }
 
-    # Capture the last user message content for persistence
-    user_content = request.messages[-1].content
+
+def _extract_non_stream_content(response: Any) -> str:
+    if not getattr(response, "choices", None):
+        return ""
+
+    first_choice = response.choices[0]
+    message = getattr(first_choice, "message", None)
+    if message is None:
+        return ""
+
+    content = getattr(message, "content", "")
+    return content or ""
+
+
+def _extract_usage_tokens(response: Any) -> tuple[int, int]:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return 0, 0
+
+    prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+    completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+    return prompt_tokens, completion_tokens
+
+@router.post("/stream")
+@optional_tenant
+async def chat_stream(
+    request: ChatRequest,
+    background_tasks: BackgroundTasks,
+    tenant_id: Optional[str] = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    auth: dict = Depends(require_auth)
+):
+    runtime_context = await _build_chat_runtime_context(request, tenant_id, db, auth)
+
+    session_id = runtime_context["session_id"]
+    litellm_messages = runtime_context["litellm_messages"]
+    litellm_model = runtime_context["litellm_model"]
+    provider_api_key = runtime_context["provider_api_key"]
+    model_name_value = runtime_context["model_name"]
+    user_id = runtime_context["user_id"]
+    user_content = runtime_context["user_content"]
 
     async def generate() -> AsyncGenerator[str, None]:
         complete_response = ""
@@ -341,25 +508,18 @@ async def chat_stream(
 
         finally:
             if success:
-                # Fallback token estimation if provider didn't return usage
-                if prompt_tokens == 0:
-                    prompt_tokens = max(1, len(str(litellm_messages)) // 4)
-                if completion_tokens == 0:
-                    completion_tokens = max(1, len(complete_response) // 4)
+                prompt_tokens, completion_tokens = _estimate_tokens_if_missing(
+                    prompt_tokens,
+                    completion_tokens,
+                    litellm_messages,
+                    complete_response,
+                )
 
-                # Persist user + assistant messages
-                background_tasks.add_task(
-                    persist_messages_background,
+                _schedule_chat_persistence_tasks(
+                    background_tasks,
                     session_id,
                     user_content,
                     complete_response,
-                    prompt_tokens,
-                    completion_tokens,
-                )
-
-                # Persist token usage log
-                background_tasks.add_task(
-                    log_token_usage_background,
                     tenant_id,
                     user_id,
                     model_name_value,
@@ -369,3 +529,66 @@ async def chat_stream(
                 )
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@router.post("/single", response_model=ChatSingleResponse)
+@optional_tenant
+async def chat_single_response(
+    request: ChatRequest,
+    background_tasks: BackgroundTasks,
+    tenant_id: Optional[str] = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    auth: dict = Depends(require_auth)
+):
+    runtime_context = await _build_chat_runtime_context(request, tenant_id, db, auth)
+
+    session_id = runtime_context["session_id"]
+    litellm_messages = runtime_context["litellm_messages"]
+    litellm_model = runtime_context["litellm_model"]
+    provider_api_key = runtime_context["provider_api_key"]
+    model_name_value = runtime_context["model_name"]
+    user_id = runtime_context["user_id"]
+    user_content = runtime_context["user_content"]
+
+    try:
+        response = await acompletion(
+            model=litellm_model,
+            messages=litellm_messages,
+            api_key=provider_api_key,
+            stream=False,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+    assistant_content = _extract_non_stream_content(response)
+    prompt_tokens, completion_tokens = _extract_usage_tokens(response)
+    prompt_tokens, completion_tokens = _estimate_tokens_if_missing(
+        prompt_tokens,
+        completion_tokens,
+        litellm_messages,
+        assistant_content,
+    )
+
+    _schedule_chat_persistence_tasks(
+        background_tasks,
+        session_id,
+        user_content,
+        assistant_content,
+        tenant_id,
+        user_id,
+        model_name_value,
+        "/api/v1/chat/single",
+        prompt_tokens,
+        completion_tokens,
+    )
+
+    return ChatSingleResponse(
+        session_id=session_id,
+        content=assistant_content,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=prompt_tokens + completion_tokens,
+    )

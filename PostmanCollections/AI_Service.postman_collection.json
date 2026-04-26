@@ -46,7 +46,7 @@
       "key": "sessionId",
       "value": "",
       "type": "string",
-      "description": "Returned in every SSE chunk as session_id. Paste here to continue an existing session."
+      "description": "Returned as session_id in stream chunks and in single-response JSON. Paste here to continue an existing session."
     },
     {
       "key": "serviceSecret",
@@ -548,6 +548,99 @@
               "raw": "{{baseUrl}}/api/v1/chat/stream",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "chat", "stream"]
+            }
+          }
+        },
+        {
+          "name": "Single Chat — New Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings_key\": \"{{settingKey}}\",\n  \"system_prompt_key\": \"{{systemPromptKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Write a haiku about artificial intelligence.\"\n    }\n  ],\n  \"file_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/single",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chat", "single"]
+            }
+          }
+        },
+        {
+          "name": "Single Chat — New Session (no system prompt)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings_key\": \"{{settingKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Explain quantum computing in simple terms.\"\n    }\n  ],\n  \"file_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/single",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chat", "single"]
+            }
+          }
+        },
+        {
+          "name": "Single Chat — Continue Existing Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"{{sessionId}}\",\n  \"settings_key\": \"{{settingKey}}\",\n  \"system_prompt_key\": \"{{systemPromptKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Can you elaborate on your previous answer?\"\n    }\n  ],\n  \"file_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/single",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chat", "single"]
             }
           }
         }
