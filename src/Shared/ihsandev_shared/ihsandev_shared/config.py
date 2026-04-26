@@ -24,7 +24,7 @@ import os
 from typing import List
 
 from pydantic import BaseModel
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +122,4 @@ class BaseAppSettings(BaseSettings):
     ServiceCommunication: ServiceCommunicationSettings
     Cors: CorsSettings = CorsSettings()
     Logging: LoggingSettings = LoggingSettings()
-
-    class Config:
-        env_nested_delimiter = "__"
+    model_config = SettingsConfigDict(env_nested_delimiter="__")

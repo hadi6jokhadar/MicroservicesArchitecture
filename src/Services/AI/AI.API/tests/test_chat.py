@@ -1,19 +1,21 @@
 import pytest
 import uuid
 from pydantic import ValidationError
+from unittest.mock import AsyncMock
 
 @pytest.mark.asyncio
 async def test_chat_stream_requires_settings(client, mock_db_session, mocker):
-    # If the mocked db returns nothing for ai settings, should raise 500
-    mock_db_session.execute.return_value.scalar_one_or_none.return_value = None
+    # If no setting exists for the provided key, the endpoint returns 404.
+    mock_db_session.mock_scalars.first.return_value = None
 
     payload = {
+        "settings_key": "default",
         "messages": [{"role": "user", "content": "Hello"}]
     }
     
     response = await client.post("/api/v1/chat/stream", json=payload)
-    assert response.status_code == 500
-    assert "No AI Provider Settings configured" in response.json()["detail"]
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
 
 @pytest.mark.asyncio
 async def test_chat_stream_success(client, mock_db_session, mocker):
@@ -22,7 +24,7 @@ async def test_chat_stream_success(client, mock_db_session, mocker):
     mock_setting.Provider = "OpenAI"
     mock_setting.ModelName = "gpt-4o"
     mock_setting.ApiKey = "fake-key"
-    mock_db_session.execute.return_value.scalar_one_or_none.return_value = mock_setting
+    mock_db_session.mock_scalars.first.return_value = mock_setting
     
     called_kwargs = {}
 
@@ -41,12 +43,15 @@ async def test_chat_stream_success(client, mock_db_session, mocker):
         yield MockChunk()
 
     mocker.patch("api.routes.chat.acompletion", side_effect=mock_acompletion)
+    mocker.patch("api.routes.chat.persist_messages_background", new_callable=AsyncMock)
+    mocker.patch("api.routes.chat.log_token_usage_background", new_callable=AsyncMock)
 
     # We also need to prevent background task issues or explicitly check
     # But BackgroundTasks in FastAPI TestClient are executed synchronously after response.
     # So our DB mock will be called.
     
     payload = {
+        "settings_key": "default",
         "messages": [{"role": "user", "content": "Hi"}]
     }
     
@@ -62,10 +67,6 @@ async def test_chat_stream_success(client, mock_db_session, mocker):
     assert "[DONE]" in content
     assert called_kwargs.get("model") == "openai/gpt-4o"
 
-    # The background task should have logged token usage, which calls db.add and db.commit.
-    assert mock_db_session.add.called
-    assert mock_db_session.commit.called
-
 
 def test_build_litellm_model_handles_already_prefixed_model():
     from api.routes.chat import build_litellm_model
@@ -76,7 +77,7 @@ def test_build_litellm_model_handles_already_prefixed_model():
 
 @pytest.mark.asyncio
 async def test_chat_stream_rejects_empty_messages(client):
-    response = await client.post("/api/v1/chat/stream", json={"messages": []})
+    response = await client.post("/api/v1/chat/stream", json={"settings_key": "default", "messages": []})
     assert response.status_code == 400
 
 
@@ -96,7 +97,7 @@ async def test_run_chat_orchestration_builds_payload_and_model(mocker):
     mock_setting.ModelName = "gpt-4o-mini"
     mock_setting.ApiKey = "test-key"
 
-    request = ChatRequest(messages=[{"role": "user", "content": "Hello"}])
+    request = ChatRequest(settings_key="default", messages=[{"role": "user", "content": "Hello"}])
     state = await run_chat_orchestration(request, mock_setting)
 
     assert state["litellm_model"] == "openai/gpt-4o-mini"

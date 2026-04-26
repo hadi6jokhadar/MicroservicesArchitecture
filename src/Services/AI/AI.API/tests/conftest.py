@@ -9,10 +9,18 @@ from api.dependencies import get_db, require_auth, get_tenant_id
 
 # Mock dependencies
 async def override_require_auth():
-    return {"role": "User", "payload": {"sub": str(uuid.uuid4())}}
+    return {
+        "role": "User",
+        "payload": {
+            "sub": str(uuid.uuid4()),
+            "tenantId": "tenant-test",
+            "nameid": "123",
+            "roles": ["SuperAdmin"],
+        },
+    }
 
 async def override_get_tenant_id():
-    return str(uuid.uuid4())
+    return "tenant-test"
 
 @pytest.fixture
 def mock_db_session(mocker):

@@ -40,6 +40,7 @@ Key features:
    - ServiceCommunicationSettings
    - CorsSettings
    - LoggingSettings
+4. Uses Pydantic v2 settings configuration with `model_config = SettingsConfigDict(...)` instead of class-based `Config`.
 
 ### database.py
 

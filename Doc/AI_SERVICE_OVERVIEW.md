@@ -224,6 +224,9 @@ Tests:
 
 - `tests/` directory
 - `tests/test_chat.py` includes coverage for LangGraph orchestration and chat request validation.
+- `tests/test_settings.py` and `tests/test_system_prompts.py` cover CRUD and scoped lookup behavior.
+- `tests/test_chat_sessions.py`, `tests/test_chat_messages.py`, `tests/test_chat_message_files.py`, and `tests/test_token_usage_logs.py` cover list endpoints, filter validation, and pagination-bound validation.
+- `tests/conftest.py` uses dependency overrides to simulate authenticated SuperAdmin access and deterministic tenant context for route tests.
 
 ## Related Docs
 

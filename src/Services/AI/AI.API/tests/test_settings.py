@@ -7,6 +7,7 @@ async def test_get_settings(client, mock_db_session, mocker):
     # Mock returning one item
     mock_setting = AiProviderSettings(
         Id=uuid.uuid4(),
+        Key="default",
         TenantId="tenant-001",
         ModelType=ModelTypeEnum.Text,
         Provider="OpenAI",
@@ -27,6 +28,7 @@ async def test_get_settings(client, mock_db_session, mocker):
 @pytest.mark.asyncio
 async def test_create_setting(client, mock_db_session):
     payload = {
+        "Key": "default",
         "ModelType": "Text",
         "Provider": "Azure",
         "ApiKey": "test-azure-key",
@@ -53,6 +55,7 @@ async def test_create_setting(client, mock_db_session):
 @pytest.mark.asyncio
 async def test_create_setting_without_tenant_context(client, mock_db_session):
     payload = {
+        "Key": "default",
         "ModelType": "Text",
         "Provider": "OpenAI",
         "ApiKey": "test-openai-key",
@@ -70,6 +73,7 @@ async def test_create_setting_without_tenant_context(client, mock_db_session):
 @pytest.mark.asyncio
 async def test_create_setting_accepts_string_tenant_id(client, mock_db_session):
     payload = {
+        "Key": "default",
         "ModelType": "Text",
         "Provider": "OpenAI",
         "ApiKey": "test-openai-key",
@@ -89,6 +93,7 @@ async def test_get_setting_by_id(client, mock_db_session):
     setting_id = uuid.uuid4()
     mock_setting = AiProviderSettings(
         Id=setting_id,
+        Key="default",
         TenantId="tenant-001",
         ModelType=ModelTypeEnum.Text,
         Provider="OpenAI",
@@ -106,6 +111,25 @@ async def test_get_setting_by_id(client, mock_db_session):
 
 
 @pytest.mark.asyncio
+async def test_get_setting_by_key(client, mock_db_session):
+    setting_id = uuid.uuid4()
+    mock_setting = AiProviderSettings(
+        Id=setting_id,
+        Key="default",
+        TenantId="tenant-001",
+        ModelType=ModelTypeEnum.Text,
+        Provider="OpenAI",
+        ApiKey="test-key-by-key",
+        ModelName="gpt-4o-mini"
+    )
+    mock_db_session.mock_execute_result.scalar_one_or_none.return_value = mock_setting
+
+    response = await client.get("/api/v1/settings/by-key/default")
+    assert response.status_code == 200
+    assert response.json()["Id"] == str(setting_id)
+
+
+@pytest.mark.asyncio
 async def test_get_setting_returns_404_when_not_found(client, mock_db_session):
     mock_db_session.mock_execute_result.scalar_one_or_none.return_value = None
 
@@ -119,6 +143,7 @@ async def test_update_setting(client, mock_db_session):
     setting_id = uuid.uuid4()
     existing_setting = AiProviderSettings(
         Id=setting_id,
+        Key="default",
         TenantId="tenant-001",
         ModelType=ModelTypeEnum.Text,
         Provider="OpenAI",
@@ -128,6 +153,7 @@ async def test_update_setting(client, mock_db_session):
     mock_db_session.mock_execute_result.scalar_one_or_none.return_value = existing_setting
 
     payload = {
+        "Key": "default-updated",
         "ModelType": "Text",
         "Provider": "AzureOpenAI",
         "ApiKey": "new-key",
@@ -155,6 +181,7 @@ async def test_update_setting_in_global_scope_keeps_existing_tenant(client, mock
 
     existing_setting = AiProviderSettings(
         Id=uuid.uuid4(),
+        Key="default",
         TenantId=None,
         ModelType=ModelTypeEnum.Text,
         Provider="OpenAI",
@@ -165,6 +192,7 @@ async def test_update_setting_in_global_scope_keeps_existing_tenant(client, mock
     app.dependency_overrides[get_tenant_id] = override_get_tenant_id_none
 
     payload = {
+        "Key": "default",
         "ModelType": "Text",
         "Provider": "OpenAI",
         "ApiKey": "updated-global-key",
@@ -183,6 +211,7 @@ async def test_update_setting_in_global_scope_keeps_existing_tenant(client, mock
 async def test_delete_setting(client, mock_db_session):
     existing_setting = AiProviderSettings(
         Id=uuid.uuid4(),
+        Key="default",
         TenantId="tenant-001",
         ModelType=ModelTypeEnum.Text,
         Provider="OpenAI",
