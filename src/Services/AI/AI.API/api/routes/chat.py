@@ -71,12 +71,15 @@ class ChatRuntimeContext(TypedDict):
     litellm_messages: List[dict[str, str]]
     litellm_model: str
     provider_api_key: str
+    provider_api_base: Optional[str]
     model_name: str
     user_content: str
 
 
 PROVIDER_ALIASES = {
     "openai": "openai",
+    "qwen": "openai",
+    "qwenai": "openai",
     "azure": "azure",
     "azureopenai": "azure",
     "anthropic": "anthropic",
@@ -88,6 +91,7 @@ PROVIDER_ALIASES = {
 }
 
 GLOBAL_CHAT_TENANT_ID = "global"
+QWEN_PROVIDER_NAMES = {"qwen", "qwenai"}
 
 
 def build_litellm_model(provider: Any, model_name: Any) -> str:
@@ -106,6 +110,13 @@ def build_litellm_model(provider: Any, model_name: Any) -> str:
         return normalized_model
 
     return f"{normalized_provider}/{normalized_model}"
+
+
+def _resolve_provider_api_base(provider: Any) -> Optional[str]:
+    provider_key = str(provider or "").strip().lower()
+    if provider_key in QWEN_PROVIDER_NAMES:
+        return settings.AiProviderRouting.QwenOpenAiCompatibleBaseUrl
+    return None
 
 
 def _prepare_messages_node(state: ChatWorkflowState) -> ChatWorkflowState:
@@ -414,6 +425,7 @@ async def _build_chat_runtime_context(
 ) -> ChatRuntimeContext:
     user_id = _extract_user_id(auth)
     ai_settings = await get_settings_by_key(request.settings_key, tenant_id, db)
+    provider_api_base = _resolve_provider_api_base(ai_settings.Provider)
     system_prompt = await _resolve_system_prompt_for_request(request, tenant_id, db)
     session_id = await _resolve_or_create_session_id(request.session_id, tenant_id, user_id, db)
 
@@ -427,6 +439,7 @@ async def _build_chat_runtime_context(
         "litellm_messages": litellm_messages,
         "litellm_model": orchestration_state["litellm_model"],
         "provider_api_key": orchestration_state["api_key"],
+        "provider_api_base": provider_api_base,
         "model_name": str(ai_settings.ModelName),
         "user_content": request.messages[-1].content,
     }
@@ -469,6 +482,7 @@ async def chat_stream(
     litellm_messages = runtime_context["litellm_messages"]
     litellm_model = runtime_context["litellm_model"]
     provider_api_key = runtime_context["provider_api_key"]
+    provider_api_base = runtime_context["provider_api_base"]
     model_name_value = runtime_context["model_name"]
     user_id = runtime_context["user_id"]
     user_content = runtime_context["user_content"]
@@ -481,12 +495,18 @@ async def chat_stream(
 
         try:
             # Connect dynamically using resolved settings via LiteLLM
+            completion_kwargs: dict[str, Any] = {
+                "model": litellm_model,
+                "messages": litellm_messages,
+                "api_key": provider_api_key,
+                "stream": True,
+                "stream_options": {"include_usage": True},
+            }
+            if provider_api_base:
+                completion_kwargs["api_base"] = provider_api_base
+
             response: AsyncIterator[Any] = await acompletion(  # type: ignore[assignment]
-                model=litellm_model,
-                messages=litellm_messages,
-                api_key=provider_api_key,
-                stream=True,
-                stream_options={"include_usage": True},
+                **completion_kwargs
             )
 
             async for chunk in response:
@@ -546,17 +566,22 @@ async def chat_single_response(
     litellm_messages = runtime_context["litellm_messages"]
     litellm_model = runtime_context["litellm_model"]
     provider_api_key = runtime_context["provider_api_key"]
+    provider_api_base = runtime_context["provider_api_base"]
     model_name_value = runtime_context["model_name"]
     user_id = runtime_context["user_id"]
     user_content = runtime_context["user_content"]
 
     try:
-        response = await acompletion(
-            model=litellm_model,
-            messages=litellm_messages,
-            api_key=provider_api_key,
-            stream=False,
-        )
+        completion_kwargs: dict[str, Any] = {
+            "model": litellm_model,
+            "messages": litellm_messages,
+            "api_key": provider_api_key,
+            "stream": False,
+        }
+        if provider_api_base:
+            completion_kwargs["api_base"] = provider_api_base
+
+        response = await acompletion(**completion_kwargs)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -218,11 +218,13 @@ Important sections:
 - `Cors`
 - `ServiceCommunication`
 - `FileManagerSettings`
+- `AiProviderRouting`
 
 Provider setting behavior for chat endpoints:
 
 - `Provider` is handled case-insensitively before calling LiteLLM.
-- Known aliases are normalized (example: `OpenAI` becomes `openai`, `AzureOpenAI` becomes `azure`).
+- Known aliases are normalized (example: `OpenAI` becomes `openai`, `AzureOpenAI` becomes `azure`, `QwenAI` becomes `openai`).
+- `QwenAI` and `Qwen` providers use `AiProviderRouting.QwenOpenAiCompatibleBaseUrl` as LiteLLM `api_base` so requests are sent to the Qwen-compatible endpoint instead of OpenAI.
 - If `ModelName` already includes a provider prefix (`provider/model`), the value is used as-is.
 
 FileManager context enrichment behavior for chat endpoints:

@@ -285,6 +285,52 @@ def test_build_litellm_model_handles_already_prefixed_model():
     assert model == "openai/gpt-4o"
 
 
+def test_build_litellm_model_maps_qwenai_to_openai_provider():
+    from api.routes.chat import build_litellm_model
+
+    model = build_litellm_model("QwenAI", "qwen3-max")
+    assert model == "openai/qwen3-max"
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_qwen_provider_uses_qwen_compatible_api_base(client, mock_db_session, mocker):
+    mock_setting = mocker.MagicMock()
+    mock_setting.Provider = "QwenAI"
+    mock_setting.ModelName = "qwen3-max"
+    mock_setting.ApiKey = "qwen-key"
+    mock_db_session.mock_scalars.first.return_value = mock_setting
+
+    called_kwargs = {}
+
+    async def mock_acompletion(*args, **kwargs):
+        called_kwargs.update(kwargs)
+
+        class MockChoice:
+            class MockDelta:
+                content = "ok"
+            delta = MockDelta()
+
+        class MockChunk:
+            choices = [MockChoice()]
+            usage = None
+
+        yield MockChunk()
+
+    mocker.patch("api.routes.chat.acompletion", side_effect=mock_acompletion)
+    mocker.patch("api.routes.chat.persist_messages_background", new_callable=AsyncMock)
+    mocker.patch("api.routes.chat.log_token_usage_background", new_callable=AsyncMock)
+
+    payload = {
+        "settings_key": "default",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+
+    response = await client.post("/api/v1/chat/stream", json=payload)
+    assert response.status_code == 200
+    assert called_kwargs.get("model") == "openai/qwen3-max"
+    assert called_kwargs.get("api_base") == "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+
+
 @pytest.mark.asyncio
 async def test_chat_stream_rejects_empty_messages(client):
     response = await client.post("/api/v1/chat/stream", json={"settings_key": "default", "messages": []})
