@@ -23,6 +23,8 @@ Default local URL:
 6. Supports end-user requests using JWT bearer tokens.
 7. Orchestrates chat request preparation using LangGraph before calling LiteLLM.
 8. Enforces request and payload validation using Pydantic models.
+9. Resolves attached FileManager file IDs into URL context before model invocation.
+10. Exposes read endpoints for sessions, messages, message files, and token usage logs.
 
 ## High-Level Architecture
 
@@ -32,6 +34,10 @@ Default local URL:
 - `api/routes/chat.py`: Streaming chat endpoint with Pydantic request models and LangGraph orchestration pipeline.
 - `api/routes/settings.py`: AI provider settings CRUD.
 - `api/routes/system_prompts.py`: System prompt CRUD.
+- `api/routes/chat_sessions.py`: Chat session listing with filtering and pagination.
+- `api/routes/chat_messages.py`: Chat message listing with filtering and pagination.
+- `api/routes/chat_message_files.py`: Chat message to file relation listing.
+- `api/routes/token_usage_logs.py`: Token usage log listing with filtering and pagination.
 - `api/dependencies.py`: Auth and tenant resolution helpers.
 - `api/attributes.py`: Optional tenant and bypass tenant decorators.
 
@@ -107,6 +113,11 @@ Authorization behavior for configuration endpoints:
   - an internal service-to-service request (`X-Service-Secret` and `X-Service-Name`), or
   - a user JWT containing the `SuperAdmin` role.
 
+Authorization behavior for chat and observability endpoints:
+
+- `POST /api/v1/chat/stream` accepts authenticated user calls and internal service calls.
+- `GET /api/v1/chat-sessions/`, `GET /api/v1/chat-messages/`, `GET /api/v1/chat-message-files/`, and `GET /api/v1/token-usage-logs/` require internal service authentication or `SuperAdmin`.
+
 ## Tenant Handling
 
 Tenant ID convention in AI service is string.
@@ -123,20 +134,34 @@ For endpoints decorated with optional tenant behavior, missing tenant does not f
 - `GET /health`
 - `POST /api/v1/chat/stream`
 - `GET /api/v1/settings/`
+- `GET /api/v1/settings/by-key/{key}`
 - `GET /api/v1/settings/{setting_id}`
 - `POST /api/v1/settings/`
 - `PUT /api/v1/settings/{setting_id}`
 - `DELETE /api/v1/settings/{setting_id}`
-- `GET /api/v1/system-prompts/`
-- `GET /api/v1/system-prompts/{prompt_id}`
-- `POST /api/v1/system-prompts/`
-- `PUT /api/v1/system-prompts/{prompt_id}`
-- `DELETE /api/v1/system-prompts/{prompt_id}`
+- `GET /api/v1/prompts/`
+- `GET /api/v1/prompts/{prompt_id}`
+- `POST /api/v1/prompts/`
+- `PUT /api/v1/prompts/{prompt_id}`
+- `DELETE /api/v1/prompts/{prompt_id}`
+- `GET /api/v1/chat-sessions/`
+- `GET /api/v1/chat-messages/`
+- `GET /api/v1/chat-message-files/`
+- `GET /api/v1/token-usage-logs/`
+
+Filter and pagination support on list endpoints:
+
+- `chat-sessions`: `user_id`, `title`, `created_from`, `created_to`, `skip`, `limit`.
+- `chat-messages`: `session_id`, `role`, `created_from`, `created_to`, `skip`, `limit`.
+- `chat-message-files`: `message_id`, `file_id`, `skip`, `limit`.
+- `token-usage-logs`: `user_id`, `model_name`, `endpoint`, `created_from`, `created_to`, `skip`, `limit`.
 
 Settings and prompts use optional tenant behavior:
 
 - With `x-tenant-id` or a JWT `tenantId` claim, item lookups and mutations stay inside that tenant scope.
-- Without tenant context, item lookups and mutations still use global scope for single-item operations.
+- Without tenant context:
+  - settings item lookups and mutations are not restricted by tenant when called as service or SuperAdmin.
+  - prompt item lookups and mutations are restricted to global prompts (`TenantId` is null).
 
 List endpoint behavior for both `GET /api/v1/settings/` and `GET /api/v1/prompts/`:
 
@@ -178,6 +203,12 @@ Provider setting behavior for chat streaming:
 - `Provider` is handled case-insensitively before calling LiteLLM.
 - Known aliases are normalized (example: `OpenAI` becomes `openai`, `AzureOpenAI` becomes `azure`).
 - If `ModelName` already includes a provider prefix (`provider/model`), the value is used as-is.
+
+FileManager context enrichment behavior for chat streaming:
+
+- Request payload supports `file_ids` as integer FileManager IDs.
+- AI service calls shared `FileManagerServiceClient.get_files_by_ids()` with tenant forwarding.
+- Resolved file URLs are injected as an additional user context message immediately before the last user message.
 
 ## Development and Testing
 

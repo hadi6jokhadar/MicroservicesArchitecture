@@ -25,6 +25,13 @@ from core.logger import get_logger, init_logging
 init_logging()
 logger = get_logger(__name__)
 
+# Suppress verbose third-party logs
+import logging
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("watchfiles").setLevel(logging.WARNING)
+logging.getLogger("litellm").setLevel(logging.WARNING)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,10 +46,14 @@ async def lifespan(app: FastAPI):
         # Resolve alembic binary relative to the current Python executable
         # so it works inside any virtual environment on any OS
         alembic_bin = os.path.join(os.path.dirname(sys.executable), "alembic")
+        if sys.platform == "win32":
+            alembic_bin += ".exe"
         if not os.path.isfile(alembic_bin):
             alembic_bin = "alembic"  # fall back to PATH
 
-        subprocess.run([alembic_bin, "upgrade", "head"], check=True)
+        # Ensure we run in the directory where alembic.ini is located
+        cwd = os.path.dirname(os.path.abspath(__file__))
+        subprocess.run([alembic_bin, "upgrade", "head"], check=True, cwd=cwd)
         logger.info("Database migrations completed successfully.")
     except Exception:
         logger.exception("Failed to run database migrations.")
@@ -92,7 +103,13 @@ from api.routes import chat_sessions as chat_sessions_router
 from api.routes import chat_messages as chat_messages_router
 from api.routes import chat_message_files as chat_message_files_router
 from api.routes import token_usage_logs as token_usage_logs_router
-from clients.file_manager import file_manager_client
+from ihsandev_shared.clients import FileManagerServiceClient
+
+file_manager_client = FileManagerServiceClient(
+    base_url=settings.FileManagerSettings.BaseUrl,
+    shared_secret=settings.ServiceCommunication.SharedSecret,
+    service_name=settings.ServiceCommunication.ServiceName,
+)
 
 app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["Settings"])
 app.include_router(prompts_router.router, prefix="/api/v1/prompts", tags=["System Prompts"])

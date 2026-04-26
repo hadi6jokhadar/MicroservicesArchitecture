@@ -3,7 +3,7 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** April 20, 2026  
+**Last Updated:** April 26, 2026  
 **Total Files:** 32
 
 ---
@@ -176,16 +176,15 @@ Files are organized by category. Each entry includes:
 - File lifecycle management
 - Redis caching for tenant configs
 
-### FILEMANAGER_CLIENT_USAGE_GUIDE.md
+### SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md
 
-**Description:** How to use FileManager from other services. HTTP client setup, IFileManagerServiceClient interface, service-to-service authentication.  
+**Description:** Reusable .NET HTTP client extension methods for inter-service communication, including FileManager client registration and service-secret header setup.  
 **Read When:**
 
-- Integrating FileManager into your service
-- Uploading files from another service
-- Service-to-service file operations
-- Profile picture integration (Identity Service)
-- Email attachments (Notification Service)
+- Integrating FileManager into a .NET service
+- Registering typed service clients through shared extensions
+- Verifying service-to-service header configuration
+- Aligning timeout and SSL behavior in dev environments
 
 ---
 

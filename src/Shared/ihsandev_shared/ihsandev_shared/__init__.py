@@ -7,7 +7,7 @@ Provides:
   security   → JWT verify + SharedSecret service-to-service auth (mirrors ServiceAuthenticationMiddleware)
   exceptions → RFC 7807 ProblemDetails handlers (mirrors GlobalExceptionHandlingMiddleware)
   database   → parse_connection_string + ensure_database_exists utilities
-  clients    → BaseServiceClient for service-to-service HTTP calls
+  clients    → BaseServiceClient + FileManagerServiceClient for service-to-service HTTP calls
 """
 from .config import (
     load_json_settings,
@@ -23,6 +23,7 @@ from .logger import setup_logger, get_logger
 from .security import verify_jwt_token, make_auth_dependency
 from .exceptions import global_exception_handler, app_exception_handler, AppException
 from .database import parse_connection_string, ensure_database_exists
+from .clients import BaseServiceClient, FileManagerServiceClient
 
 __all__ = [
     "load_json_settings",
@@ -42,4 +43,6 @@ __all__ = [
     "AppException",
     "parse_connection_string",
     "ensure_database_exists",
+    "BaseServiceClient",
+    "FileManagerServiceClient",
 ]

@@ -19,7 +19,10 @@ Primary current consumer:
 - `ihsandev_shared/exceptions.py`
 - `ihsandev_shared/logger.py`
 - `ihsandev_shared/security.py`
+- `ihsandev_shared/__init__.py`
 - `ihsandev_shared/clients/base_client.py`
+- `ihsandev_shared/clients/file_manager_client.py`
+- `ihsandev_shared/clients/__init__.py`
 
 ## Modules and Responsibilities
 
@@ -97,9 +100,27 @@ Provides base HTTP client for internal service communication.
 Key features:
 
 1. Adds service auth headers automatically.
-2. Supports common HTTP methods.
+2. Supports common HTTP methods (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
 3. Supports tenant header forwarding.
 4. Handles request and response errors consistently.
+
+### clients/file_manager_client.py
+
+Provides typed FileManager client built on top of `BaseServiceClient`.
+
+Key features:
+
+1. `get_file_by_id(file_id, tenant_id=None)` calls `GET /api/filemanager/internal/files/{file_id}`.
+2. `get_files_by_ids(file_ids, tenant_id=None)` calls `GET /api/filemanager/internal/files/batch` using repeated `fileIds` query params.
+3. `change_temp_status(file_id, temp, tenant_id=None)` calls `PATCH /api/filemanager/internal/files/{file_id}/temp-status`.
+4. Mirrors the .NET `IFileManagerServiceClient` service-to-service contract used by backend services.
+
+### **init**.py exports
+
+The package-level exports include:
+
+1. Shared settings, auth, exception, logging, and database helpers.
+2. `BaseServiceClient` and `FileManagerServiceClient` for downstream internal HTTP calls.
 
 ## Integration Pattern in Services
 
@@ -110,6 +131,7 @@ A Python service typically:
 3. Uses shared exception handlers in FastAPI app registration.
 4. Uses shared DB helpers for database bootstrap.
 5. Uses shared base client for downstream service calls.
+6. Uses `FileManagerServiceClient` when file metadata or temp status operations are needed.
 
 ## Versioning and Packaging
 
@@ -145,6 +167,10 @@ Reason:
 3. Keep error contracts stable in shared exceptions module.
 4. Add tests in consuming services whenever shared behavior changes.
 5. Update this document when shared module contracts change.
+
+## AI Service Integration Note
+
+`AI.API` uses `FileManagerServiceClient` during `POST /api/v1/chat/stream` to resolve request `file_ids` into file URLs and inject them into model context.
 
 ## SQLAlchemy Model Instructions (AI Service)
 

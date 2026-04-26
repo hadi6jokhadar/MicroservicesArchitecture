@@ -9,6 +9,20 @@
         "ASPNETCORE_URLS": "http://localhost:5003;https://localhost:5103",
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    {
+      "name": "Python: AI.API (uvicorn)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["main:app", "--reload", "--host", "0.0.0.0", "--port", "5008"],
+      "cwd": "${workspaceFolder}/src/Services/AI/AI.API",
+      "python": "${workspaceFolder}/src/Services/AI/AI.API/venv/Scripts/python.exe",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src/Services/AI/AI.API"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
     }
   ]
 }

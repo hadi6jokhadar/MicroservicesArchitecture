@@ -135,6 +135,34 @@ class BaseServiceClient:
                 logger.error("Network error calling %s%s: %s", self._base_url, path, exc)
                 raise
 
+    async def patch(
+        self,
+        path: str,
+        body: Any = None,
+        tenant_id: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Performs a PATCH request with an optional JSON body to the downstream service."""
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.patch(
+                    f"{self._base_url}{path}",
+                    json=body,
+                    headers=self._build_headers(tenant_id),
+                    **kwargs,
+                )
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as exc:
+                logger.error(
+                    "PATCH %s%s failed: %s %s",
+                    self._base_url, path, exc.response.status_code, exc.response.text,
+                )
+                raise
+            except httpx.RequestError as exc:
+                logger.error("Network error calling %s%s: %s", self._base_url, path, exc)
+                raise
+
     async def delete(
         self,
         path: str,

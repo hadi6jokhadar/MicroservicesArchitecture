@@ -6,5 +6,6 @@ public enum FileGroup
     Shared = 2,
     System = 3,
     Project = 4,
-    Archive = 5
+    Archive = 5,
+    AI = 6
 }

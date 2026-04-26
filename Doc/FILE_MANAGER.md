@@ -283,7 +283,7 @@ Example: https://localhost:5005/ihsandev/123/personal/abc-123.jpg
 | Extension      | varchar(10)    | File extension (.pdf, .jpg) | ❌      |
 | Size           | bigint         | Size in bytes               | ❌      |
 | Path           | varchar(500)   | Storage path (relative)     | ❌      |
-| Group          | int            | FileGroup enum (0-4)        | ✅      |
+| Group          | int            | FileGroup enum (1-6)        | ✅      |
 | Type           | int            | FileType enum (0-3)         | ✅      |
 | Temp           | bool           | Temporary flag              | ✅      |
 | UserId         | int (nullable) | Owner user ID               | ✅      |
@@ -303,11 +303,12 @@ Example: https://localhost:5005/ihsandev/123/personal/abc-123.jpg
 ```csharp
 public enum FileGroup
 {
-    Personal = 0,  // User's private files
-    Shared = 1,    // Shared within tenant
-    System = 2,    // System files (logos, templates)
-    Project = 3,   // Project-specific files
-    Archive = 4    // Archived files
+    Personal = 1,  // User's private files
+    Shared = 2,    // Shared within tenant
+    System = 3,    // System files (logos, templates)
+    Project = 4,   // Project-specific files
+    Archive = 5,   // Archived files
+    AI = 6         // AI-generated or AI-related files
 }
 ```
 
@@ -565,7 +566,7 @@ public class YourCommandHandler
 }
 ```
 
-**See:** `FILEMANAGER_CLIENT_USAGE_GUIDE.md` for complete examples and best practices.
+**See:** `SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md` for shared .NET client registration patterns and `PYTHON_SHARED_LIBRARY_GUIDE.md` for Python shared client usage.
 
 ---
 
@@ -819,11 +820,12 @@ dotnet ef database update
 
 ## Related Documentation
 
-- **FILEMANAGER_CLIENT_USAGE_GUIDE.md** - Using FileManager from other services
+- **SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md** - Using shared .NET service clients
+- **PYTHON_SHARED_LIBRARY_GUIDE.md** - Python service client integration
 - **MULTI_TENANCY_GUIDE.md** - Multi-tenancy configuration
 - **BYPASS_TENANT_ENDPOINTS_GUIDE.md** - Creating admin/global endpoints
 - **AUTOMATIC_DATABASE_MIGRATION.md** - Database auto-migration
-- **REDIS_CACHE_QUICK_REFERENCE.md** - Redis caching setup
+- **CACHING_STRATEGY_COMPARISON.md** - Redis caching strategy guidance
 - **SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md** - Service communication
 
 ---

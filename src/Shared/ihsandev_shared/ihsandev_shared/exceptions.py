@@ -105,8 +105,14 @@ def _extract_validation_errors(exc: RequestValidationError) -> dict[str, list[st
     return errors
 
 
-async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
+async def app_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handles AppException in .NET-like ProblemDetails format."""
+    # Narrow the exception type to AppException to access its properties
+    if not isinstance(exc, AppException):
+        # This handler should only be registered for AppException,
+        # but the signature requires Exception for type safety in FastAPI.
+        return await global_exception_handler(request, exc)
+
     logger.warning("AppException on %s: %s", request.url, exc.message)
     return JSONResponse(
         status_code=exc.status_code,
@@ -121,9 +127,12 @@ async def app_exception_handler(request: Request, exc: AppException) -> JSONResp
 
 
 async def request_validation_exception_handler(
-    request: Request, exc: RequestValidationError
+    request: Request, exc: Exception
 ) -> JSONResponse:
     """Converts FastAPI/Pydantic validation errors to shared ProblemDetails format."""
+    if not isinstance(exc, RequestValidationError):
+        return await global_exception_handler(request, exc)
+
     errors = _extract_validation_errors(exc)
     logger.warning("Validation failed on %s: %s", request.url, errors)
 
@@ -140,8 +149,11 @@ async def request_validation_exception_handler(
     )
 
 
-async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Formats HTTPException using the shared ProblemDetails shape."""
+    if not isinstance(exc, HTTPException):
+        return await global_exception_handler(request, exc)
+
     detail = exc.detail if isinstance(exc.detail, str) else "Request failed"
     status_code = exc.status_code or status.HTTP_500_INTERNAL_SERVER_ERROR
 

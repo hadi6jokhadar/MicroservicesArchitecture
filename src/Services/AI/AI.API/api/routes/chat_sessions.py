@@ -19,7 +19,7 @@ class ChatSessionResponse(BaseModel):
 
     Id: UUID4
     TenantId: str
-    UserId: UUID4
+    UserId: int
     Title: Optional[str] = None
     CreatedAt: datetime
 
@@ -30,7 +30,7 @@ async def list_chat_sessions(
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_superadmin_or_service),
-    user_id: Optional[uuid.UUID] = Query(default=None, description="Filter by user UUID"),
+    user_id: Optional[int] = Query(default=None, description="Filter by user ID"),
     title: Optional[str] = Query(default=None, description="Filter by title (case-insensitive substring)"),
     created_from: Optional[datetime] = Query(default=None, description="Filter sessions created on or after this datetime (UTC)"),
     created_to: Optional[datetime] = Query(default=None, description="Filter sessions created on or before this datetime (UTC)"),

@@ -618,8 +618,8 @@ builder.Services.AddNotificationServiceClient(
 
 ## Related Documentation
 
-- [FileManager Client Usage Guide](FILEMANAGER_CLIENT_USAGE_GUIDE.md)
-- [Service Authentication Guide](SERVICE_AUTHENTICATION_GUIDE.md)
+- [File Manager Guide](FILE_MANAGER.md)
+- [Service-to-Service Communication Guide](SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md)
 - [Bypass Tenant Endpoints Guide](BYPASS_TENANT_ENDPOINTS_GUIDE.md)
 - [Multi-Tenancy Architecture](DATABASE_PER_TENANT_ARCHITECTURE.md)
 

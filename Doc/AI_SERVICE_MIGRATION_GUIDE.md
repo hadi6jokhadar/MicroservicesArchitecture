@@ -101,6 +101,19 @@ Create a new revision whenever model changes affect existing schema, for example
 
 create-all will not safely perform these upgrades on existing tables.
 
+## Recent Schema Update
+
+Current AI schema stores user identity references as integer IDs in:
+
+1. `AiChatSession.UserId`
+2. `AiTokenUsageLog.UserId`
+
+This change is tracked by Alembic revision:
+
+- `d27084ec4fea_change_userid_to_integer.py`
+
+If a local environment was created before this revision, ensure `alembic upgrade head` runs successfully before testing chat session or token usage queries.
+
 ## Standard Migration Commands
 
 From `src/Services/AI/AI.API`:

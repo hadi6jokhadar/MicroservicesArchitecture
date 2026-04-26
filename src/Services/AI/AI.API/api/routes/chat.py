@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_
 from pydantic import BaseModel, Field, UUID4
-from typing import List, Optional, AsyncGenerator, Any, Literal, TypedDict
+from typing import AsyncIterator, List, Optional, AsyncGenerator, Any, Literal, TypedDict
 import json
 import uuid
 from langgraph.graph import END, START, StateGraph
@@ -12,6 +12,14 @@ from langgraph.graph import END, START, StateGraph
 from core.database import get_db, AsyncSessionFactory
 from api.dependencies import require_auth, get_tenant_id
 from models import AiProviderSettings, AiTokenUsageLog, AiChatMessage, AiChatSession, AiSystemPrompt
+from ihsandev_shared.clients import FileManagerServiceClient
+from core.config import settings
+
+file_manager_client = FileManagerServiceClient(
+    base_url=settings.FileManagerSettings.BaseUrl,
+    shared_secret=settings.ServiceCommunication.SharedSecret,
+    service_name=settings.ServiceCommunication.ServiceName,
+)
 
 # LiteLLM unifies 100+ LLMs using the standard OpenAI format
 from litellm import acompletion  # type: ignore
@@ -27,7 +35,7 @@ class ChatRequest(BaseModel):
     settings_key: str = Field(min_length=1)               # Resolves AiProviderSettings by Key
     system_prompt_key: Optional[str] = None               # Resolves AiSystemPrompt by Name (optional)
     messages: List[ChatMessage] = Field(min_length=1)
-    file_ids: List[UUID4] = Field(default_factory=list)  # For FileManager integration
+    file_ids: List[int] = Field(default_factory=list)  # FileManager integer IDs for context injection
 
 
 class ChatOrchestrationInput(BaseModel):
@@ -138,7 +146,7 @@ async def run_chat_orchestration(
 
 async def log_token_usage_background(
     tenant_id: str,
-    user_id: Optional[str],
+    user_id: Optional[int],
     model_name: str,
     endpoint: str,
     prompt_tokens: int,
@@ -148,7 +156,7 @@ async def log_token_usage_background(
     async with AsyncSessionFactory() as db:
         usage_log = AiTokenUsageLog(
             TenantId=tenant_id,
-            UserId=uuid.UUID(user_id) if user_id else None,
+            UserId=user_id,
             ModelName=model_name,
             Endpoint=endpoint,
             PromptTokens=prompt_tokens,
@@ -234,7 +242,8 @@ async def chat_stream(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_auth)
 ):
-    user_id: Optional[str] = auth.get("payload", {}).get("sub", None)  # Subject UUID from JWT
+    user_id_str: Optional[str] = auth.get("payload", {}).get("nameid", None)  # Subject (int) from JWT
+    user_id: Optional[int] = int(user_id_str) if user_id_str and user_id_str.isdigit() else None
 
     # 1. Resolve provider settings by key (tenant-scoped, global fallback)
     ai_settings = await get_settings_by_key(request.settings_key, tenant_id, db)
@@ -260,9 +269,11 @@ async def chat_stream(
             )
         session_id = session.Id
     else:
+        # If no user_id found in JWT, we use a fallback ID (0 for system/anonymous) 
+        # as UserId is NOT NULL in AiChatSession
         new_session = AiChatSession(
             TenantId=tenant_id,
-            UserId=uuid.UUID(user_id) if user_id else uuid.uuid4(),
+            UserId=user_id or 0,
         )
         db.add(new_session)
         await db.flush()   # populates new_session.Id without committing yet
@@ -270,10 +281,27 @@ async def chat_stream(
         await db.commit()
 
     orchestration_state = await run_chat_orchestration(request, ai_settings, system_prompt)
-    litellm_messages = orchestration_state["litellm_messages"]
+    litellm_messages: List[dict[str, str]] = list(orchestration_state["litellm_messages"])
     litellm_model = orchestration_state["litellm_model"]
     provider_api_key = orchestration_state["api_key"]
     model_name_value = str(ai_settings.ModelName)
+
+    # 4. Fetch file metadata via service-to-service and inject file URLs into the message context
+    if request.file_ids:
+        files_metadata = await file_manager_client.get_files_by_ids(request.file_ids, tenant_id)
+        if files_metadata:
+            file_lines = [
+                f"- {f.get('name', 'file')}{f.get('extension', '')} → {f.get('url', '')}"
+                for f in files_metadata
+                if isinstance(f, dict) and f.get('url')
+            ]
+            if file_lines:
+                file_context: dict[str, str] = {
+                    "role": "user",
+                    "content": "The following files are attached to this message:\n" + "\n".join(file_lines),
+                }
+                # Inject file context immediately before the last user message
+                litellm_messages = litellm_messages[:-1] + [file_context] + litellm_messages[-1:]
 
     # Capture the last user message content for persistence
     user_content = request.messages[-1].content
@@ -286,7 +314,7 @@ async def chat_stream(
 
         try:
             # Connect dynamically using resolved settings via LiteLLM
-            response = await acompletion(
+            response: AsyncIterator[Any] = await acompletion(  # type: ignore[assignment]
                 model=litellm_model,
                 messages=litellm_messages,
                 api_key=provider_api_key,

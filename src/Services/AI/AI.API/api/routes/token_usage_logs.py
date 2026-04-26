@@ -19,7 +19,7 @@ class TokenUsageLogResponse(BaseModel):
 
     Id: UUID4
     TenantId: Optional[str] = None
-    UserId: Optional[UUID4] = None
+    UserId: Optional[int] = None
     ModelName: str
     PromptTokens: int
     CompletionTokens: int
@@ -34,7 +34,7 @@ async def list_token_usage_logs(
     tenant_id: Optional[str] = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_superadmin_or_service),
-    user_id: Optional[uuid.UUID] = Query(default=None, description="Filter by user UUID"),
+    user_id: Optional[int] = Query(default=None, description="Filter by user ID"),
     model_name: Optional[str] = Query(default=None, description="Filter by model name (case-insensitive substring)"),
     endpoint: Optional[str] = Query(default=None, description="Filter by endpoint path (case-insensitive substring)"),
     created_from: Optional[datetime] = Query(default=None, description="Filter logs created on or after this datetime (UTC)"),
