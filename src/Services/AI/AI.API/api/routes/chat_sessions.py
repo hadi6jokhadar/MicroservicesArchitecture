@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from pydantic import BaseModel, ConfigDict, UUID4
@@ -22,6 +22,10 @@ class ChatSessionResponse(BaseModel):
     UserId: int
     Title: Optional[str] = None
     CreatedAt: datetime
+
+
+class UpdateChatSessionRequest(BaseModel):
+    title: str
 
 
 @router.get("/", response_model=List[ChatSessionResponse])
@@ -58,3 +62,51 @@ async def list_chat_sessions(
 
     result = await db.execute(query)
     return result.scalars().all()
+
+
+@router.delete("/{session_id}", status_code=204)
+@optional_tenant
+async def delete_chat_session(
+    session_id: UUID4,
+    tenant_id: Optional[str] = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    auth: dict = Depends(require_superadmin_or_service),
+):
+    query = select(AiChatSession).where(AiChatSession.Id == session_id)
+    if tenant_id:
+        query = query.where(AiChatSession.TenantId == tenant_id)
+
+    result = await db.execute(query)
+    session = result.scalar_one_or_none()
+
+    if session is None:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+
+    await db.delete(session)
+    await db.commit()
+
+
+@router.patch("/{session_id}", response_model=ChatSessionResponse)
+@optional_tenant
+async def update_chat_session(
+    session_id: UUID4,
+    body: UpdateChatSessionRequest,
+    tenant_id: Optional[str] = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    auth: dict = Depends(require_superadmin_or_service),
+):
+    query = select(AiChatSession).where(AiChatSession.Id == session_id)
+    if tenant_id:
+        query = query.where(AiChatSession.TenantId == tenant_id)
+
+    result = await db.execute(query)
+    session = result.scalar_one_or_none()
+
+    if session is None:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+
+    session.Title = body.title
+    await db.commit()
+    await db.refresh(session)
+    return session
+
