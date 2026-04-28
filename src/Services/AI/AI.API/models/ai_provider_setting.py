@@ -31,3 +31,5 @@ class AiProviderSettings(Base):
     FrequencyPenalty: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Presence penalty (-2.0–2.0). None means provider default.
     PresencePenalty: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Description of the setting
+    Description: Mapped[str | None] = mapped_column(String(500), nullable=True)

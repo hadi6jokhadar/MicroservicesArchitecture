@@ -208,6 +208,46 @@ async def test_update_setting_in_global_scope_keeps_existing_tenant(client, mock
 
 
 @pytest.mark.asyncio
+async def test_update_setting_null_tenant_id_clears_it(client, mock_db_session):
+    # This test verifies the fix for clearing TenantId to null (Global)
+    async def override_get_tenant_id_none():
+        return None
+
+    from api.dependencies import get_tenant_id
+    from main import app
+
+    setting_id = uuid.uuid4()
+    existing_setting = AiProviderSettings(
+        Id=setting_id,
+        Key="tenant-setting",
+        TenantId="some-tenant",
+        ModelType=ModelTypeEnum.Text,
+        Provider="OpenAI",
+        ApiKey="some-key",
+        ModelName="gpt-4o"
+    )
+    mock_db_session.mock_execute_result.scalar_one_or_none.return_value = existing_setting
+    app.dependency_overrides[get_tenant_id] = override_get_tenant_id_none
+
+    payload = {
+        "Key": "tenant-setting",
+        "ModelType": "Text",
+        "Provider": "OpenAI",
+        "ApiKey": "some-key",
+        "ModelName": "gpt-4o",
+        "TenantId": None  # Attempt to clear TenantId
+    }
+
+    response = await client.put(f"/api/v1/settings/{setting_id}", json=payload)
+    
+    app.dependency_overrides.pop(get_tenant_id, None)
+
+    assert response.status_code == 200
+    assert response.json()["TenantId"] is None
+    assert mock_db_session.commit.called
+
+
+@pytest.mark.asyncio
 async def test_delete_setting(client, mock_db_session):
     existing_setting = AiProviderSettings(
         Id=uuid.uuid4(),

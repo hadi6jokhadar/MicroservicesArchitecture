@@ -27,6 +27,7 @@ class ProviderSettingsCreate(BaseModel):
     TopP: Optional[float] = None
     FrequencyPenalty: Optional[float] = None
     PresencePenalty: Optional[float] = None
+    Description: Optional[str] = None
 
 class ProviderSettingsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -44,6 +45,7 @@ class ProviderSettingsResponse(BaseModel):
     TopP: Optional[float] = None
     FrequencyPenalty: Optional[float] = None
     PresencePenalty: Optional[float] = None
+    Description: Optional[str] = None
 
 
 class SettingsScopeFilter(str):
@@ -156,6 +158,7 @@ async def create_setting(
         TopP=setting.TopP,
         FrequencyPenalty=setting.FrequencyPenalty,
         PresencePenalty=setting.PresencePenalty,
+        Description=setting.Description,
     )
     db.add(new_setting)
     await db.commit()
@@ -178,9 +181,15 @@ async def update_setting(
     if existing_setting is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI provider setting not found.")
 
+    # Only override TenantId with current tenant if it's not explicitly provided in the request
+    # This allows setting TenantId to null (Global) if requested by a superadmin or authorized user
     resolved_tenant_id = setting.TenantId
-    if resolved_tenant_id is None:
-        resolved_tenant_id = tenant_id if tenant_id else existing_setting.TenantId
+    
+    # If TenantId is not in the set of fields provided (null in JSON), it defaults to None in Pydantic Model.
+    # However, if it's None, we should keep the current tenant_id context UNLESS the user is trying to make it Global.
+    # To fix the issue where setting it to null (Global) isn't working:
+    if resolved_tenant_id is None and tenant_id:
+        resolved_tenant_id = tenant_id
 
     existing_setting.TenantId = resolved_tenant_id
     existing_setting.Key = setting.Key
@@ -195,6 +204,7 @@ async def update_setting(
     existing_setting.TopP = setting.TopP
     existing_setting.FrequencyPenalty = setting.FrequencyPenalty
     existing_setting.PresencePenalty = setting.PresencePenalty
+    existing_setting.Description = setting.Description
 
     await db.commit()
     await db.refresh(existing_setting)
