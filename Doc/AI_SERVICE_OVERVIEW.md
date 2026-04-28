@@ -45,15 +45,15 @@ Default local URL:
 
 Shared logic extracted from route handlers to keep endpoints thin and stable:
 
-| File                       | Responsibility                                                                                                          |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `core/ai/schemas.py`       | Pydantic request/response models for chat                                                                               |
-| `core/ai/utils.py`         | `build_litellm_model`, `normalize_model_type`, `extract_user_id`, `estimate_tokens_if_missing`, `parse_response_format` |
-| `core/ai/db_queries.py`    | `get_settings_by_key`, `get_system_prompt_by_key`                                                                       |
-| `core/ai/sessions.py`      | `resolve_or_create_session` — create or validate chat sessions                                                          |
-| `core/ai/persistence.py`   | Background tasks for message persistence and token usage logging                                                        |
-| `core/ai/file_context.py`  | FileManager client singleton and file URL injection into messages                                                       |
-| `core/ai/chat_workflow.py` | LangGraph chat workflow, `ChatWorkflowState`, `ChatRuntimeContext`, `build_chat_runtime_context`                        |
+| File                       | Responsibility                                                                                                                                                                                                                                                                                |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/ai/schemas.py`       | Pydantic request/response models for chat                                                                                                                                                                                                                                                     |
+| `core/ai/utils.py`         | `build_litellm_model`, `normalize_model_type`, `extract_user_id`, `estimate_tokens_if_missing`, `parse_response_format`, `map_litellm_exception_to_http`, provider strategy constants (`PROVIDERS_WITHOUT_RESPONSE_FORMAT`, `PROVIDERS_REQUIRING_MAX_TOKENS`, `ANTHROPIC_DEFAULT_MAX_TOKENS`) |
+| `core/ai/db_queries.py`    | `get_settings_by_key`, `get_system_prompt_by_key`                                                                                                                                                                                                                                             |
+| `core/ai/sessions.py`      | `resolve_or_create_session` — create or validate chat sessions                                                                                                                                                                                                                                |
+| `core/ai/persistence.py`   | Background tasks for message persistence and token usage logging                                                                                                                                                                                                                              |
+| `core/ai/file_context.py`  | FileManager client singleton and file URL injection into messages                                                                                                                                                                                                                             |
+| `core/ai/chat_workflow.py` | LangGraph chat workflow, `ChatWorkflowState`, `ChatRuntimeContext`, `build_chat_runtime_context`                                                                                                                                                                                              |
 
 ## Framework, Orchestration, and Validation
 
@@ -65,7 +65,9 @@ Shared logic extracted from route handlers to keep endpoints thin and stable:
 ### LangGraph
 
 - Chat request orchestration uses `CHAT_WORKFLOW` (compiled graph) in `core/ai/chat_workflow.py`.
-- Chat workflow nodes: `prepare_messages` → `resolve_model`.
+- Chat workflow nodes: `normalize_provider` → `prepare_messages` → [conditional] → `preflight_validation` → `resolve_model`.
+- Anthropic requests are routed through an additional `anthropic_transform` node between `prepare_messages` and `preflight_validation` to enforce `max_tokens` and handle provider-specific constraints.
+- `preflight_validation` strips parameters unsupported by the resolved provider (e.g. `response_format` for Anthropic/Ollama).
 - The workflow is compiled once at module import and reused across requests.
 
 ### Pydantic Validation

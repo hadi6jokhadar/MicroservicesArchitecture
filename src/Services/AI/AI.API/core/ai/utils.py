@@ -1,7 +1,12 @@
 import json
 from typing import Any, List, Optional
 
+from fastapi import HTTPException, status
 from models import AiProviderSettings, ModelTypeEnum
+
+# ---------------------------------------------------------------------------
+# Provider registry
+# ---------------------------------------------------------------------------
 
 PROVIDER_ALIASES: dict[str, str] = {
     "openai": "openai",
@@ -16,6 +21,16 @@ PROVIDER_ALIASES: dict[str, str] = {
     "groq": "groq",
     "mistral": "mistral",
 }
+
+# Providers that do not support the response_format parameter.
+# Passing it to these providers causes a provider-side 400 error.
+PROVIDERS_WITHOUT_RESPONSE_FORMAT: frozenset[str] = frozenset({"anthropic", "ollama"})
+
+# Providers that require an explicit max_tokens value.
+PROVIDERS_REQUIRING_MAX_TOKENS: frozenset[str] = frozenset({"anthropic"})
+
+# Default max_tokens injected when the caller omits it for providers that require it.
+ANTHROPIC_DEFAULT_MAX_TOKENS: int = 4096
 
 
 def build_litellm_model(provider: Any, model_name: Any) -> str:
@@ -92,3 +107,45 @@ def estimate_tokens_if_missing(
         completion_tokens if completion_tokens != 0 else max(1, len(complete_response) // 4)
     )
     return estimated_prompt, estimated_completion
+
+
+# ---------------------------------------------------------------------------
+# Unified provider error mapper
+# ---------------------------------------------------------------------------
+
+def map_litellm_exception_to_http(exc: Exception) -> HTTPException:
+    """Map a LiteLLM provider exception to a standardized FastAPI HTTPException.
+
+    Catches the full litellm exception hierarchy and translates it into the
+    HTTP status codes callers expect:
+        RateLimitError            -> 429
+        ContextWindowExceededError -> 400
+        AuthenticationError       -> 401
+        BadRequestError           -> 400
+        NotFoundError             -> 404
+        ServiceUnavailableError   -> 503
+        Timeout                   -> 504
+        <any other>               -> 500
+    """
+    try:
+        import litellm.exceptions as _le
+
+        _mapping: list[tuple[type, int]] = [
+            (_le.RateLimitError, status.HTTP_429_TOO_MANY_REQUESTS),
+            (_le.ContextWindowExceededError, status.HTTP_400_BAD_REQUEST),
+            (_le.AuthenticationError, status.HTTP_401_UNAUTHORIZED),
+            (_le.BadRequestError, status.HTTP_400_BAD_REQUEST),
+            (_le.NotFoundError, status.HTTP_404_NOT_FOUND),
+            (_le.ServiceUnavailableError, status.HTTP_503_SERVICE_UNAVAILABLE),
+            (_le.Timeout, status.HTTP_504_GATEWAY_TIMEOUT),
+        ]
+        for exc_type, status_code in _mapping:
+            if isinstance(exc, exc_type):
+                return HTTPException(status_code=status_code, detail=str(exc))
+    except (ImportError, AttributeError):
+        pass
+
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=str(exc) or "Unexpected AI provider error.",
+    )

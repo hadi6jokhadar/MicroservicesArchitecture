@@ -11,7 +11,7 @@ from api.dependencies import get_tenant_id, require_auth
 from core.ai.chat_workflow import build_chat_runtime_context
 from core.ai.persistence import schedule_chat_persistence_tasks
 from core.ai.schemas import ChatRequest, ChatSingleResponse
-from core.ai.utils import estimate_tokens_if_missing
+from core.ai.utils import estimate_tokens_if_missing, map_litellm_exception_to_http
 from core.database import get_db
 
 router = APIRouter()
@@ -97,7 +97,8 @@ async def chat_stream(
             yield "data: [DONE]\n\n"
 
         except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            http_exc = map_litellm_exception_to_http(e)
+            yield f"data: {json.dumps({'error': str(e), 'status_code': http_exc.status_code})}\n\n"
 
         finally:
             if success:
@@ -155,7 +156,7 @@ async def chat_single_response(
 
         response = await acompletion(**completion_kwargs)  # type: ignore[assignment]
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise map_litellm_exception_to_http(e)
 
     assistant_content = ""
     if getattr(response, "choices", None):

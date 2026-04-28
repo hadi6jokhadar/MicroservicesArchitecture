@@ -10,6 +10,10 @@ from core.ai.file_context import inject_file_context_if_present
 from core.ai.schemas import ChatMessage, ChatRequest
 from core.ai.sessions import resolve_or_create_session
 from core.ai.utils import (
+    ANTHROPIC_DEFAULT_MAX_TOKENS,
+    PROVIDER_ALIASES,
+    PROVIDERS_REQUIRING_MAX_TOKENS,
+    PROVIDERS_WITHOUT_RESPONSE_FORMAT,
     build_litellm_model,
     extract_user_id,
     normalize_model_type,
@@ -25,6 +29,7 @@ from models import AiProviderSettings, ModelTypeEnum
 class ChatWorkflowState(TypedDict):
     request: ChatRequest
     provider: str
+    provider_normalized: str  # resolved via PROVIDER_ALIASES (e.g. "anthropic", "openai")
     model_name: str
     api_key: str
     system_prompt: Optional[str]
@@ -59,6 +64,17 @@ class ChatRuntimeContext(TypedDict):
 # Workflow nodes
 # ---------------------------------------------------------------------------
 
+def _normalize_provider_node(state: ChatWorkflowState) -> ChatWorkflowState:
+    """Resolve the raw provider string to a canonical LiteLLM prefix via PROVIDER_ALIASES.
+
+    This is the entry-point node and the single source of truth for which
+    provider-specific branches are taken further down the graph.
+    """
+    raw = str(state["provider"] or "").strip().lower()
+    normalized = PROVIDER_ALIASES.get(raw, raw)
+    return {**state, "provider_normalized": normalized}
+
+
 def _prepare_messages_node(state: ChatWorkflowState) -> ChatWorkflowState:
     """Build the LiteLLM message list, prepending the system prompt when present."""
     messages: List[dict[str, str]] = []
@@ -71,6 +87,34 @@ def _prepare_messages_node(state: ChatWorkflowState) -> ChatWorkflowState:
     return {**state, "litellm_messages": messages}
 
 
+def _anthropic_transform_node(state: ChatWorkflowState) -> ChatWorkflowState:
+    """Apply Anthropic-specific transformations before the pre-flight check.
+
+    1. Enforce max_tokens — Anthropic requires an explicit value and will return
+       a 400 if it is omitted.  Fall back to ANTHROPIC_DEFAULT_MAX_TOKENS.
+    2. System messages — LiteLLM converts the leading system-role message to
+       Anthropic's top-level `system` field automatically; no structural change
+       is needed here, but the enforcement ensures nothing slips through.
+    """
+    max_tokens = state["max_completion_tokens"]
+    if max_tokens is None:
+        max_tokens = ANTHROPIC_DEFAULT_MAX_TOKENS
+    return {**state, "max_completion_tokens": max_tokens}
+
+
+def _preflight_validation_node(state: ChatWorkflowState) -> ChatWorkflowState:
+    """Strip parameters unsupported by the resolved provider.
+
+    Providers in PROVIDERS_WITHOUT_RESPONSE_FORMAT (e.g. anthropic, ollama)
+    do not accept a response_format argument.  Passing it causes a provider-
+    side 400; we strip it here before the model identifier is built.
+    """
+    response_format = state["response_format"]
+    if state["provider_normalized"] in PROVIDERS_WITHOUT_RESPONSE_FORMAT:
+        response_format = None
+    return {**state, "response_format": response_format}
+
+
 def _resolve_model_node(state: ChatWorkflowState) -> ChatWorkflowState:
     """Resolve the fully-qualified LiteLLM model identifier."""
     return {
@@ -80,16 +124,46 @@ def _resolve_model_node(state: ChatWorkflowState) -> ChatWorkflowState:
 
 
 # ---------------------------------------------------------------------------
+# Conditional router
+# ---------------------------------------------------------------------------
+
+def _route_by_provider(state: ChatWorkflowState) -> str:
+    """Return the branch key for the conditional edge after prepare_messages."""
+    return "anthropic" if state["provider_normalized"] == "anthropic" else "default"
+
+
+# ---------------------------------------------------------------------------
 # Compiled graph (module-level singleton)
 # ---------------------------------------------------------------------------
 
 def _build_chat_workflow():
     workflow = StateGraph(ChatWorkflowState)
+
+    # Register nodes
+    workflow.add_node("normalize_provider", _normalize_provider_node)
     workflow.add_node("prepare_messages", _prepare_messages_node)
+    workflow.add_node("anthropic_transform", _anthropic_transform_node)
+    workflow.add_node("preflight_validation", _preflight_validation_node)
     workflow.add_node("resolve_model", _resolve_model_node)
-    workflow.add_edge(START, "prepare_messages")
-    workflow.add_edge("prepare_messages", "resolve_model")
+
+    # Linear entry: normalize first, then build message list
+    workflow.add_edge(START, "normalize_provider")
+    workflow.add_edge("normalize_provider", "prepare_messages")
+
+    # Branch: Anthropic gets an extra transformation step
+    workflow.add_conditional_edges(
+        "prepare_messages",
+        _route_by_provider,
+        {"anthropic": "anthropic_transform", "default": "preflight_validation"},
+    )
+
+    # Anthropic rejoins the main path after its transform
+    workflow.add_edge("anthropic_transform", "preflight_validation")
+
+    # Final linear path: strip unsupported params → build model string
+    workflow.add_edge("preflight_validation", "resolve_model")
     workflow.add_edge("resolve_model", END)
+
     return workflow.compile()
 
 
@@ -111,6 +185,7 @@ async def run_chat_orchestration(
     initial_state: ChatWorkflowState = {
         "request": request,
         "provider": str(ai_settings.Provider),
+        "provider_normalized": "",  # populated by normalize_provider node
         "model_name": str(ai_settings.ModelName),
         "api_key": str(ai_settings.ApiKey),
         "system_prompt": system_prompt,
