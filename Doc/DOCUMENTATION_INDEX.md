@@ -4,7 +4,7 @@
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
 **Last Updated:** April 28, 2026  
-**Total Files:** 32
+**Total Files:** 33
 
 ---
 
@@ -107,6 +107,16 @@ Files are organized by category. Each entry includes:
 - Onboarding to AI.API codebase
 - Working on AI endpoint behavior
 - Troubleshooting service startup or routing
+
+### AI_SERVICE_CHAT_INTEGRATION_GUIDE.md
+
+**Description:** How any .NET microservice can call the AI service chat endpoints (`/api/v1/chat/single` or `/api/v1/chat/stream`) using service-to-service authentication. Covers required request fields (`settings_key`, `system_prompt_key`, `messages`), optional tenant and file attachment support, HttpClient registration, snake_case serialization, and error handling.  
+**Read When:**
+
+- A .NET service needs to perform AI tasks internally (summarize, generate, classify)
+- Integrating AI chat into a non-AI service
+- Troubleshooting 401/403/404 errors when calling AI from another service
+- Understanding what must exist in the AI DB before calling the endpoint
 
 ### AI_SERVICE_MIGRATION_GUIDE.md
 
