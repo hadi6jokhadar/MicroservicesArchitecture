@@ -12,6 +12,7 @@ from api.dependencies import get_tenant_id, require_auth
 from core.ai.chat_workflow import build_chat_runtime_context
 from core.ai.persistence import schedule_chat_persistence_tasks
 from core.ai.schemas import ChatRequest, ChatSingleResponse
+from core.ai.session_title import schedule_session_title_task
 from core.ai.utils import estimate_tokens_if_missing, map_litellm_exception_to_http
 from core.database import get_db
 
@@ -138,6 +139,12 @@ async def chat_stream(
                     prompt_tokens,
                     completion_tokens,
                 )
+                schedule_session_title_task(
+                    background_tasks,
+                    ctx["session_id"],
+                    ctx["user_content"],
+                    tenant_id,
+                )
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -208,6 +215,12 @@ async def chat_single_response(
         "/api/v1/chat/single",
         prompt_tokens,
         completion_tokens,
+    )
+    schedule_session_title_task(
+        background_tasks,
+        ctx["session_id"],
+        ctx["user_content"],
+        tenant_id,
     )
 
     return ChatSingleResponse(

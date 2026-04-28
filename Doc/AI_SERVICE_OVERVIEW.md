@@ -25,6 +25,7 @@ Default local URL:
 8. Enforces request and payload validation using Pydantic models.
 9. Fetches attached FileManager file IDs, encodes them as Base64, and injects OpenAI-compatible multimodal content blocks into the chat payload before LLM invocation.
 10. Exposes read endpoints for sessions, messages, message files, and token usage logs.
+11. Automatically generates and persists a session title after the first AI response in any untitled session, using the `Session-Title` system prompt and the `QwenAI-qwen3-vl-32b-instruct` provider settings key.
 
 ## High-Level Architecture
 
@@ -37,7 +38,7 @@ Default local URL:
 - `api/routes/chat_sessions.py`: Chat session listing with filtering and pagination.
 - `api/routes/chat_messages.py`: Chat message listing with filtering and pagination.
 - `api/routes/chat_message_files.py`: Chat message to file relation listing.
-- `api/routes/token_usage_logs.py`: Token usage log listing with filtering and pagination.
+- `api/routes/token_usage_logs.py`: Token usage log listing with filtering, pagination, and aggregate statistics (`GET /stats`).
 - `api/dependencies.py`: Auth and tenant resolution helpers.
 - `api/attributes.py`: Optional tenant and bypass tenant decorators.
 
@@ -55,6 +56,7 @@ Shared logic extracted from route handlers to keep endpoints thin and stable:
 | `core/ai/file_context.py`     | FileManager client singleton (`file_manager_client`) used by the multimodal transform node                                                                                                                                                                                                    |
 | `core/ai/multimodal_utils.py` | MIME classification, raw-byte fetcher, Base64 encoder, OpenAI-compatible content block builders (`image_url`, `input_audio`, document text), provider capability sets (`PROVIDERS_SUPPORTING_VISION`, `PROVIDERS_SUPPORTING_AUDIO`), batch processor `build_media_content_blocks`             |
 | `core/ai/chat_workflow.py`    | LangGraph chat workflow, `ChatWorkflowState`, `ChatRuntimeContext`, `build_chat_runtime_context`                                                                                                                                                                                              |
+| `core/ai/session_title.py`    | Session title auto-generation: `generate_session_title_background`, `schedule_session_title_task`, constants `SESSION_TITLE_PROMPT_NAME`, `SESSION_TITLE_SETTINGS_KEY`                                                                                                                        |
 
 ## Framework, Orchestration, and Validation
 
@@ -78,6 +80,33 @@ Shared logic extracted from route handlers to keep endpoints thin and stable:
 - Request and response contracts are Pydantic models across chat, settings, and prompt routes.
 - Chat endpoint enforces message role values (`system`, `user`, `assistant`, `tool`) and non-empty content.
 - Empty message collections are rejected by validation and return standardized validation error responses.
+
+### Automatic Session Title Generation
+
+After the first AI response in a session whose `Title` column is `NULL`, a background task is enqueued automatically from both `POST /api/v1/chat/stream` and `POST /api/v1/chat/single`.
+
+**Implementation file:** `core/ai/session_title.py`
+
+**Flow:**
+
+1. `schedule_session_title_task` enqueues `generate_session_title_background` via FastAPI `BackgroundTasks`.
+2. The task opens its own DB session (`AsyncSessionFactory`) so it never blocks the main request.
+3. It re-fetches the session and returns immediately if `Title` is already set (concurrent write guard — title is only ever generated once per session).
+4. Looks up the `Session-Title` system prompt (`SESSION_TITLE_PROMPT_NAME`). If the prompt does not exist the task exits silently — **no error is raised**.
+5. Fetches AI provider settings using `SESSION_TITLE_SETTINGS_KEY = "QwenAI-qwen3-vl-32b-instruct"`.
+6. Calls the AI with `[system: Session-Title prompt, user: first user message]`, no streaming.
+7. Strips quotes and whitespace from the response; truncates to 255 characters.
+8. In a **single commit**: persists `AiChatSession.Title` and writes an `AiTokenUsageLog` row for the title call (endpoint label `"/api/v1/chat/session-title"`).
+
+**Required setup:**
+
+| Resource                   | Value                                                                                                                                   |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| System prompt `Name`       | `Session-Title`                                                                                                                         |
+| System prompt `PromptText` | e.g. `"Generate a concise title (≤5 words) for this conversation based on the user's first message. Return only the title, no quotes."` |
+| Provider settings `Key`    | `QwenAI-qwen3-vl-32b-instruct`                                                                                                          |
+
+**Error handling:** all exceptions are caught and logged at `ERROR` level; the background task never propagates exceptions back to the caller.
 
 ### Multimodal File Attachments
 
@@ -170,7 +199,7 @@ Authorization behavior for chat and observability endpoints:
 
 - `POST /api/v1/chat/stream` and `POST /api/v1/chat/single` accept LLM chat requests from authenticated users and internal service calls.
 - `POST /api/v1/asr/transcribe` accepts audio transcription requests from authenticated users and internal service calls. Requires the `AiProviderSettings.ModelType` to be `Audio`.
-- `GET /api/v1/chat-sessions/`, `GET /api/v1/chat-messages/`, `GET /api/v1/chat-message-files/`, and `GET /api/v1/token-usage-logs/` require internal service authentication or `SuperAdmin`.
+- `GET /api/v1/chat-sessions/`, `GET /api/v1/chat-messages/`, `GET /api/v1/chat-message-files/`, `GET /api/v1/token-usage-logs/`, and `GET /api/v1/token-usage-logs/stats` require internal service authentication or `SuperAdmin`.
 
 ## Tenant Handling
 
@@ -210,6 +239,7 @@ Chat endpoint tenant behavior:
 - `GET /api/v1/chat-messages/`
 - `GET /api/v1/chat-message-files/`
 - `GET /api/v1/token-usage-logs/`
+- `GET /api/v1/token-usage-logs/stats`
 
 ### Chat Response Modes
 
@@ -245,6 +275,29 @@ Filter and pagination support on list endpoints:
 - `chat-messages`: `session_id`, `role`, `created_from`, `created_to`, `skip`, `limit`.
 - `chat-message-files`: `message_id`, `file_id`, `skip`, `limit`.
 - `token-usage-logs`: `user_id`, `model_name`, `endpoint`, `created_from`, `created_to`, `skip`, `limit`.
+
+### Token Usage Statistics Endpoint
+
+`GET /api/v1/token-usage-logs/stats`
+
+Returns aggregate token usage statistics. Requires internal service auth or `SuperAdmin`. Decorated with `@optional_tenant` — omitting `x-tenant-id` returns global stats across all tenants.
+
+**Query parameters:** `model_name`, `endpoint`, `created_from`, `created_to` (same substring/range semantics as the list endpoint; no pagination).
+
+**Response model (`TokenUsageStatsResponse`):**
+
+| Field                    | Type                     | Description                                          |
+| ------------------------ | ------------------------ | ---------------------------------------------------- |
+| `total_tokens`           | `int`                    | Sum of all `TotalTokens`                             |
+| `prompt_tokens`          | `int`                    | Sum of all `PromptTokens`                            |
+| `completion_tokens`      | `int`                    | Sum of all `CompletionTokens`                        |
+| `total_requests`         | `int`                    | Count of matching log rows                           |
+| `avg_tokens_per_request` | `float`                  | `total_tokens / total_requests` (0 if no rows)       |
+| `tokens_by_model`        | `TokensByModelItem[]`    | Per-model breakdown, ordered by total tokens desc    |
+| `tokens_by_endpoint`     | `TokensByEndpointItem[]` | Per-endpoint breakdown, ordered by total tokens desc |
+| `tokens_over_time`       | `TokensOverTimeItem[]`   | Daily aggregation ordered by date asc                |
+
+**Implementation:** runs four independent async SQLAlchemy queries (totals, by-model group-by, by-endpoint group-by, daily cast-to-Date group-by). All filters are applied to each query via a shared `_apply_filters` helper inside the route function.
 
 Settings and prompts use optional tenant behavior:
 
