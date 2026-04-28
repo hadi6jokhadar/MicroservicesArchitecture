@@ -14,5 +14,7 @@ public interface IFileManagerService
     Task<FileManagerResponse> ToggleArchiveStatusAsync(int id, CancellationToken cancellationToken = default);
     Task<bool> DeleteFileAsync(int id, CancellationToken cancellationToken = default);
     Task<int> DeleteAllTempFilesAsync(CancellationToken cancellationToken = default);
-    Task<int> DeleteOldTempFilesAsync(int olderThanDays, CancellationToken cancellationToken = default);
+    Task<int> DeleteOldTempFilesAsync(int olderThanDays, int aiOlderThanDays = 30, CancellationToken cancellationToken = default);
+    Task<FileManagerResponse> UploadToBlobAsync(int id, CancellationToken cancellationToken = default);
+    Task<FileManagerResponse> RemoveFromBlobAsync(int id, CancellationToken cancellationToken = default);
 }

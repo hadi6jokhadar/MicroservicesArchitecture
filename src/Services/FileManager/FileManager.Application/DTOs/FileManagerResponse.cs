@@ -16,6 +16,8 @@ public class FileManagerResponse : BaseDto
     public FileType Type { get; set; }
     public bool Temp { get; set; }
     public int? UserId { get; set; }
+    /// <summary>Optional public URL from a third-party blob provider (e.g. Cloudflare R2).</summary>
+    public string? ExternalUrl { get; set; }
 
     public static FileManagerResponse MapFrom(FileManagerEntity entity, string? rootUrl = null)
     {
@@ -43,6 +45,7 @@ public class FileManagerResponse : BaseDto
             Status = entity.Status,
             IsArchived = entity.IsArchived,
             UserId = entity.UserId,
+            ExternalUrl = entity.ExternalUrl,
             Created = entity.Created.ToUniversalTime()
                 .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
             LastModified = entity.LastModified?.ToUniversalTime()

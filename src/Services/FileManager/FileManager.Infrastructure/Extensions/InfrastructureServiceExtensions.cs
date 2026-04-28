@@ -20,6 +20,7 @@ public static class InfrastructureServiceExtensions
 
         services.AddScoped<IFileManagerRepository, FileManagerRepository>();
         services.AddScoped<IFileStorage, LocalFileStorage>();
+        services.AddScoped<BlobStorageFactory>();
         services.AddScoped<IFileManagerService, FileManagerService>();
         
         services.AddHostedService<FileManager.Infrastructure.BackgroundJobs.TempFileCleanupService>();

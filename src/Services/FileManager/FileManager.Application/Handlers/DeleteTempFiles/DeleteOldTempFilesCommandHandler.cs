@@ -24,7 +24,7 @@ public class DeleteOldTempFilesCommandHandler : IRequestHandler<DeleteOldTempFil
     {
         try
         {
-            return await _fileManagerService.DeleteOldTempFilesAsync(request.OlderThanDays, cancellationToken);
+            return await _fileManagerService.DeleteOldTempFilesAsync(request.OlderThanDays, request.AiOlderThanDays, cancellationToken);
         }
         catch (AppException)
         {
@@ -32,7 +32,7 @@ public class DeleteOldTempFilesCommandHandler : IRequestHandler<DeleteOldTempFil
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An error occurred while deleting temporary files older than {Days} days", request.OlderThanDays);
+            _logger.LogError(ex, "An error occurred while deleting temporary files older than {Days} days (AI: {AiDays} days)", request.OlderThanDays, request.AiOlderThanDays);
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
         }
     }

@@ -13,18 +13,12 @@ class FileManagerSettings(BaseModel):
     BaseUrl: str
 
 
-class AiProviderRoutingSettings(BaseModel):
-    # Qwen exposes an OpenAI-compatible endpoint that LiteLLM can target via api_base.
-    QwenOpenAiCompatibleBaseUrl: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-
-
 # ---------------------------------------------------------------------------
 # Full settings for the AI service (extends the shared base)
 # ---------------------------------------------------------------------------
 
 class AppSettings(BaseAppSettings):
     FileManagerSettings: FileManagerSettings
-    AiProviderRouting: AiProviderRoutingSettings = AiProviderRoutingSettings()
 
 
 # Load appsettings.json + appsettings.{env}.json from the AI.API root directory

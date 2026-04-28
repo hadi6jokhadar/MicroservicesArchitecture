@@ -118,6 +118,49 @@ async def test_chat_single_response_success(client, mock_db_session, mocker):
 
 
 @pytest.mark.asyncio
+async def test_chat_single_response_allows_request_max_completion_tokens_override(client, mock_db_session, mocker):
+    mock_setting = mocker.MagicMock()
+    mock_setting.Provider = "OpenAI"
+    mock_setting.ModelName = "gpt-4o"
+    mock_setting.ApiKey = "fake-key"
+    mock_db_session.mock_scalars.first.return_value = mock_setting
+
+    called_kwargs = {}
+
+    class MockMessage:
+        content = "Single response"
+
+    class MockChoice:
+        message = MockMessage()
+
+    class MockUsage:
+        prompt_tokens = 10
+        completion_tokens = 10
+
+    class MockCompletionResponse:
+        choices = [MockChoice()]
+        usage = MockUsage()
+
+    async def mock_acompletion(*args, **kwargs):
+        called_kwargs.update(kwargs)
+        return MockCompletionResponse()
+
+    mocker.patch("api.routes.chat.acompletion", side_effect=mock_acompletion)
+    mocker.patch("api.routes.chat.persist_messages_background", new_callable=AsyncMock)
+    mocker.patch("api.routes.chat.log_token_usage_background", new_callable=AsyncMock)
+
+    payload = {
+        "settings_key": "default",
+        "messages": [{"role": "user", "content": "Hi"}],
+        "max_completion_tokens": 7000,
+    }
+
+    response = await client.post("/api/v1/chat/single", json=payload)
+    assert response.status_code == 200
+    assert called_kwargs.get("max_tokens") == 7000
+
+
+@pytest.mark.asyncio
 async def test_chat_single_response_estimates_tokens_when_usage_missing(client, mock_db_session, mocker):
     mock_setting = mocker.MagicMock()
     mock_setting.Provider = "OpenAI"
@@ -178,6 +221,66 @@ async def test_chat_single_response_returns_500_when_provider_fails(client, mock
     response = await client.post("/api/v1/chat/single", json=payload)
     assert response.status_code == 500
     assert "provider down" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_chat_single_response_routes_audio_model_to_transcription(client, mock_db_session, mocker):
+    mock_setting = mocker.MagicMock()
+    mock_setting.Provider = "OpenAI"
+    mock_setting.ModelName = "paraformer-v2"
+    mock_setting.ApiKey = "audio-key"
+    mock_setting.ModelType = "Audio"
+    mock_setting.ApiBaseUrl = "https://example.com/v1"
+    mock_db_session.mock_scalars.first.return_value = mock_setting
+
+    async def mock_get_files_by_ids(file_ids, tenant_id):
+        return [{"id": 1, "url": "https://cdn.example.com/test.wav"}]
+
+    async def mock_download_audio(url):
+        return ("test.wav", b"fake-audio", "audio/wav")
+
+    class MockTranscriptionResponse:
+        text = "hello from audio"
+
+    async def mock_atranscription(*args, **kwargs):
+        return MockTranscriptionResponse()
+
+    mocker.patch("api.routes.chat.file_manager_client.get_files_by_ids", side_effect=mock_get_files_by_ids)
+    mocker.patch("api.routes.chat._download_audio_bytes", side_effect=mock_download_audio)
+    mocker.patch("api.routes.chat.atranscription", side_effect=mock_atranscription)
+    mocker.patch("api.routes.chat.persist_messages_background", new_callable=AsyncMock)
+    mocker.patch("api.routes.chat.log_token_usage_background", new_callable=AsyncMock)
+
+    payload = {
+        "settings_key": "default",
+        "messages": [{"role": "user", "content": "transcribe this"}],
+        "file_ids": [1],
+    }
+
+    response = await client.post("/api/v1/chat/single", json=payload)
+    assert response.status_code == 200
+    assert response.json()["content"] == "hello from audio"
+
+
+@pytest.mark.asyncio
+async def test_chat_single_response_audio_requires_file_ids(client, mock_db_session, mocker):
+    mock_setting = mocker.MagicMock()
+    mock_setting.Provider = "OpenAI"
+    mock_setting.ModelName = "paraformer-v2"
+    mock_setting.ApiKey = "audio-key"
+    mock_setting.ModelType = "Audio"
+    mock_db_session.mock_scalars.first.return_value = mock_setting
+    mocker.patch("api.routes.chat.persist_messages_background", new_callable=AsyncMock)
+    mocker.patch("api.routes.chat.log_token_usage_background", new_callable=AsyncMock)
+
+    payload = {
+        "settings_key": "default",
+        "messages": [{"role": "user", "content": "transcribe this"}],
+    }
+
+    response = await client.post("/api/v1/chat/single", json=payload)
+    assert response.status_code == 400
+    assert "requires at least one file id" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -292,12 +395,21 @@ def test_build_litellm_model_maps_qwenai_to_openai_provider():
     assert model == "openai/qwen3-max"
 
 
+def test_normalize_dashscope_model_name_strips_prefix_and_lowercases():
+    from api.routes.chat import _normalize_dashscope_model_name
+
+    model = _normalize_dashscope_model_name("openai/PARAFORMER-V2")
+    assert model == "paraformer-v2"
+
+
 @pytest.mark.asyncio
 async def test_chat_stream_qwen_provider_uses_qwen_compatible_api_base(client, mock_db_session, mocker):
     mock_setting = mocker.MagicMock()
     mock_setting.Provider = "QwenAI"
     mock_setting.ModelName = "qwen3-max"
     mock_setting.ApiKey = "qwen-key"
+    mock_setting.ApiBaseUrl = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    mock_setting.MaxCompletionTokens = 4096
     mock_db_session.mock_scalars.first.return_value = mock_setting
 
     called_kwargs = {}
@@ -329,12 +441,175 @@ async def test_chat_stream_qwen_provider_uses_qwen_compatible_api_base(client, m
     assert response.status_code == 200
     assert called_kwargs.get("model") == "openai/qwen3-max"
     assert called_kwargs.get("api_base") == "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    assert called_kwargs.get("max_tokens") == 4096
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_routes_audio_model_to_transcription(client, mock_db_session, mocker):
+    mock_setting = mocker.MagicMock()
+    mock_setting.Provider = "OpenAI"
+    mock_setting.ModelName = "paraformer-v2"
+    mock_setting.ApiKey = "audio-key"
+    mock_setting.ModelType = "Audio"
+    mock_setting.ApiBaseUrl = "https://example.com/v1"
+    mock_db_session.mock_scalars.first.return_value = mock_setting
+
+    async def mock_get_files_by_ids(file_ids, tenant_id):
+        return [{"id": 1, "url": "https://cdn.example.com/test.wav"}]
+
+    async def mock_download_audio(url):
+        return ("test.wav", b"fake-audio", "audio/wav")
+
+    class MockTranscriptionResponse:
+        text = "streamed audio text"
+
+    async def mock_atranscription(*args, **kwargs):
+        return MockTranscriptionResponse()
+
+    mocker.patch("api.routes.chat.file_manager_client.get_files_by_ids", side_effect=mock_get_files_by_ids)
+    mocker.patch("api.routes.chat._download_audio_bytes", side_effect=mock_download_audio)
+    mocker.patch("api.routes.chat.atranscription", side_effect=mock_atranscription)
+    mocker.patch("api.routes.chat.persist_messages_background", new_callable=AsyncMock)
+    mocker.patch("api.routes.chat.log_token_usage_background", new_callable=AsyncMock)
+
+    payload = {
+        "settings_key": "default",
+        "messages": [{"role": "user", "content": "transcribe this"}],
+        "file_ids": [1],
+    }
+
+    response = await client.post("/api/v1/chat/stream", json=payload)
+    assert response.status_code == 200
+    assert "streamed audio text" in response.text
+    assert "[DONE]" in response.text
+
+
+@pytest.mark.asyncio
+async def test_chat_single_response_routes_dashscope_asr_url_to_direct_call(client, mock_db_session, mocker):
+    mock_setting = mocker.MagicMock()
+    mock_setting.Provider = "OpenAI"
+    mock_setting.ModelName = "paraformer-v2"
+    mock_setting.ApiKey = "audio-key"
+    mock_setting.ModelType = "Audio"
+    mock_setting.ApiBaseUrl = "https://dashscope-intl.aliyuncs.com/api/v1/services/audio/asr/transcription"
+    mock_db_session.mock_scalars.first.return_value = mock_setting
+
+    async def mock_get_files_by_ids(file_ids, tenant_id):
+        return [{"id": 1, "url": "https://cdn.example.com/test.wav"}]
+
+    async def mock_dashscope_call(endpoint_url, api_key, model_name, audio_url):
+        return "dashscope direct text"
+
+    mocker.patch("api.routes.chat.file_manager_client.get_files_by_ids", side_effect=mock_get_files_by_ids)
+    mocker.patch("api.routes.chat._run_dashscope_asr_transcription", side_effect=mock_dashscope_call)
+    mocker.patch("api.routes.chat.persist_messages_background", new_callable=AsyncMock)
+    mocker.patch("api.routes.chat.log_token_usage_background", new_callable=AsyncMock)
+
+    payload = {
+        "settings_key": "default",
+        "messages": [{"role": "user", "content": "transcribe this"}],
+        "file_ids": [1],
+    }
+
+    response = await client.post("/api/v1/chat/single", json=payload)
+    assert response.status_code == 200
+    assert response.json()["content"] == "dashscope direct text"
+
+
+@pytest.mark.asyncio
+async def test_run_dashscope_asr_transcription_model_not_found_has_actionable_hint(mocker):
+    from api.routes.chat import _run_dashscope_asr_transcription
+
+    class MockResponse:
+        status_code = 400
+        text = '{"code":"InvalidParameter","message":"Model not exist."}'
+
+        def json(self):
+            return {"code": "InvalidParameter", "message": "Model not exist."}
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def post(self, *args, **kwargs):
+            return MockResponse()
+
+    mocker.patch("api.routes.chat.httpx.AsyncClient", MockAsyncClient)
+
+    with pytest.raises(Exception) as exc_info:
+        await _run_dashscope_asr_transcription(
+            "https://dashscope-intl.aliyuncs.com/api/v1/services/audio/asr/transcription",
+            "key",
+            "openai/PARAFORMER-V2",
+            "https://cdn.example.com/test.wav",
+        )
+
+    assert "Model not exist" in str(exc_info.value)
+    assert "without provider prefix" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
 async def test_chat_stream_rejects_empty_messages(client):
     response = await client.post("/api/v1/chat/stream", json={"settings_key": "default", "messages": []})
     assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_emits_done_metadata_with_finish_reason(client, mock_db_session, mocker):
+    mock_setting = mocker.MagicMock()
+    mock_setting.Provider = "OpenAI"
+    mock_setting.ModelName = "gpt-4o"
+    mock_setting.ApiKey = "fake-key"
+    mock_db_session.mock_scalars.first.return_value = mock_setting
+
+    class TextChunkChoice:
+        finish_reason = None
+
+        class Delta:
+            content = "partial-output"
+
+        delta = Delta()
+
+    class FinalChunkChoice:
+        finish_reason = "length"
+
+        class Delta:
+            content = None
+
+        delta = Delta()
+
+    class TextChunk:
+        choices = [TextChunkChoice()]
+        usage = None
+
+    class FinalChunk:
+        choices = [FinalChunkChoice()]
+        usage = None
+
+    async def mock_acompletion(*args, **kwargs):
+        yield TextChunk()
+        yield FinalChunk()
+
+    mocker.patch("api.routes.chat.acompletion", side_effect=mock_acompletion)
+    mocker.patch("api.routes.chat.persist_messages_background", new_callable=AsyncMock)
+    mocker.patch("api.routes.chat.log_token_usage_background", new_callable=AsyncMock)
+
+    payload = {
+        "settings_key": "default",
+        "messages": [{"role": "user", "content": "Hi"}],
+    }
+
+    response = await client.post("/api/v1/chat/stream", json=payload)
+    assert response.status_code == 200
+    assert "\"finish_reason\": \"length\"" in response.text
+    assert "\"is_truncated\": true" in response.text
+    assert "[DONE]" in response.text
 
 
 def test_chat_message_role_validation():

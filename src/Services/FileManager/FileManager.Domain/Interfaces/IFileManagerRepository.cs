@@ -24,7 +24,7 @@ public interface IFileManagerRepository : IRepository<FileManagerEntity>
         int pageSize = 10,
         CancellationToken cancellationToken = default);
     Task<int> DeleteAllTempAsync(CancellationToken cancellationToken = default);
-    Task<int> DeleteOldTempFilesAsync(int olderThanDays, CancellationToken cancellationToken = default);
+    Task<int> DeleteOldTempFilesAsync(int olderThanDays, int aiOlderThanDays = 30, CancellationToken cancellationToken = default);
     Task<List<FileManagerEntity>> GetTempFilesAsync(CancellationToken cancellationToken = default);
-    Task<List<FileManagerEntity>> GetOldTempFilesAsync(int olderThanDays, CancellationToken cancellationToken = default);
+    Task<List<FileManagerEntity>> GetOldTempFilesAsync(int olderThanDays, int aiOlderThanDays = 30, CancellationToken cancellationToken = default);
 }

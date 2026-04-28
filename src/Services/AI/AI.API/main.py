@@ -31,6 +31,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("watchfiles").setLevel(logging.WARNING)
 logging.getLogger("litellm").setLevel(logging.WARNING)
+logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
 
 @asynccontextmanager
@@ -101,26 +102,18 @@ from api.routes import system_prompts as prompts_router
 from api.routes import chat as chat_router
 from api.routes import chat_sessions as chat_sessions_router
 from api.routes import chat_messages as chat_messages_router
+from api.routes import chat_messages as chat_messages_router
 from api.routes import chat_message_files as chat_message_files_router
 from api.routes import token_usage_logs as token_usage_logs_router
-from ihsandev_shared.clients import FileManagerServiceClient
-
-file_manager_client = FileManagerServiceClient(
-    base_url=settings.FileManagerSettings.BaseUrl,
-    shared_secret=settings.ServiceCommunication.SharedSecret,
-    service_name=settings.ServiceCommunication.ServiceName,
-)
 
 app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["Settings"])
 app.include_router(prompts_router.router, prefix="/api/v1/prompts", tags=["System Prompts"])
 app.include_router(chat_router.router, prefix="/api/v1/chat", tags=["AI Chat"])
 app.include_router(chat_sessions_router.router, prefix="/api/v1/chat-sessions", tags=["Chat Sessions"])
 app.include_router(chat_messages_router.router, prefix="/api/v1/chat-messages", tags=["Chat Messages"])
+app.include_router(chat_messages_router.router, prefix="/api/v1/chat-messages", tags=["Chat Messages"])
 app.include_router(chat_message_files_router.router, prefix="/api/v1/chat-message-files", tags=["Chat Message Files"])
 app.include_router(token_usage_logs_router.router, prefix="/api/v1/token-usage-logs", tags=["Token Usage Logs"])
-
-# Register the FileManagerClient as an app-level singleton (mirrors .NET DI singleton)
-app.state.file_manager_client = file_manager_client
 
 
 @app.get("/health")

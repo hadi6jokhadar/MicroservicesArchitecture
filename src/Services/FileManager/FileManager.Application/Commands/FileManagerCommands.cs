@@ -24,6 +24,12 @@ public record DeleteFileCommand(int Id) : IRequest<bool>;
 
 public record DeleteAllTempFilesCommand() : IRequest<int>;
 
-public record DeleteOldTempFilesCommand(int OlderThanDays) : IRequest<int>;
+public record DeleteOldTempFilesCommand(int OlderThanDays, int AiOlderThanDays = 30) : IRequest<int>;
 
 public record ToggleArchiveFileCommand(int Id) : IRequest<FileManagerResponse>;
+
+/// <summary>Uploads the local file to the configured blob provider and stores the public URL in ExternalUrl.</summary>
+public record UploadToBlobCommand(int FileId) : IRequest<FileManagerResponse>;
+
+/// <summary>Removes the file from the blob provider and clears ExternalUrl.</summary>
+public record RemoveFromBlobCommand(int FileId) : IRequest<FileManagerResponse>;

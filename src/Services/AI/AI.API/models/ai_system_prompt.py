@@ -12,3 +12,4 @@ class AiSystemPrompt(Base):
     TenantId: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     Name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     PromptText: Mapped[str] = mapped_column(Text, nullable=False)
+    ResponseFormat: Mapped[str | None] = mapped_column(Text, nullable=True)

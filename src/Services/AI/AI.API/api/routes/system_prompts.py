@@ -17,6 +17,7 @@ class SystemPromptCreate(BaseModel):
     Name: str
     PromptText: str
     TenantId: Optional[str] = None
+    ResponseFormat: Optional[str] = None
 
 class SystemPromptResponse(SystemPromptCreate):
     model_config = ConfigDict(from_attributes=True)
@@ -104,7 +105,8 @@ async def create_system_prompt(
     new_prompt = AiSystemPrompt(
         TenantId=resolved_tenant_id,
         Name=prompt.Name,
-        PromptText=prompt.PromptText
+        PromptText=prompt.PromptText,
+        ResponseFormat=prompt.ResponseFormat,
     )
     db.add(new_prompt)
     await db.commit()
@@ -134,6 +136,7 @@ async def update_system_prompt(
     existing_prompt.TenantId = resolved_tenant_id
     existing_prompt.Name = prompt.Name
     existing_prompt.PromptText = prompt.PromptText
+    existing_prompt.ResponseFormat = prompt.ResponseFormat
 
     await db.commit()
     await db.refresh(existing_prompt)

@@ -50,6 +50,10 @@ public class FileManagerEntityConfiguration : IEntityTypeConfiguration<FileManag
         builder.Property(e => e.UserId)
             .IsRequired(false);
 
+        builder.Property(e => e.ExternalUrl)
+            .IsRequired(false)
+            .HasMaxLength(2048);
+
         builder.Property(e => e.Created)
             .IsRequired();
 

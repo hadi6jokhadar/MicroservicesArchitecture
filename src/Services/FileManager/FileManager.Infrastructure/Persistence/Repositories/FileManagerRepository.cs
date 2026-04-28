@@ -135,11 +135,16 @@ public class FileManagerRepository : Repository<FileManagerEntity>, IFileManager
         return tempFiles.Count;
     }
 
-    public async Task<int> DeleteOldTempFilesAsync(int olderThanDays, CancellationToken cancellationToken = default)
+    public async Task<int> DeleteOldTempFilesAsync(int olderThanDays, int aiOlderThanDays = 30, CancellationToken cancellationToken = default)
     {
         var cutoffDate = DateTime.UtcNow.AddDays(-olderThanDays);
+        var aiCutoffDate = DateTime.UtcNow.AddDays(-aiOlderThanDays);
+
         var oldTempFiles = await _dbSet
-            .Where(f => f.Temp && f.Created < cutoffDate)
+            .Where(f => f.Temp && (
+                (f.Group != FileGroup.AI && f.Created < cutoffDate) ||
+                (f.Group == FileGroup.AI && f.Created < aiCutoffDate)
+            ))
             .ToListAsync(cancellationToken);
 
         _dbSet.RemoveRange(oldTempFiles);
@@ -155,11 +160,16 @@ public class FileManagerRepository : Repository<FileManagerEntity>, IFileManager
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<FileManagerEntity>> GetOldTempFilesAsync(int olderThanDays, CancellationToken cancellationToken = default)
+    public async Task<List<FileManagerEntity>> GetOldTempFilesAsync(int olderThanDays, int aiOlderThanDays = 30, CancellationToken cancellationToken = default)
     {
         var cutoffDate = DateTime.UtcNow.AddDays(-olderThanDays);
+        var aiCutoffDate = DateTime.UtcNow.AddDays(-aiOlderThanDays);
+
         return await _dbSet
-            .Where(f => f.Temp && f.Created < cutoffDate)
+            .Where(f => f.Temp && (
+                (f.Group != FileGroup.AI && f.Created < cutoffDate) ||
+                (f.Group == FileGroup.AI && f.Created < aiCutoffDate)
+            ))
             .ToListAsync(cancellationToken);
     }
 }

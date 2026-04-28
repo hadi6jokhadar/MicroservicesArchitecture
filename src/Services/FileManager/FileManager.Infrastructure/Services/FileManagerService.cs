@@ -5,6 +5,7 @@ using FileManager.Domain.Enums;
 using FileManager.Domain.Exceptions;
 using FileManager.Domain.Interfaces;
 using FileManager.Infrastructure.Options;
+using FileManager.Infrastructure.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,7 @@ public class FileManagerService : IFileManagerService
 {
     private readonly IFileManagerRepository _repository;
     private readonly IFileStorage _fileStorage;
+    private readonly BlobStorageFactory _blobStorageFactory;
     private readonly FileManagerOptions _options;
     private readonly ILogger<FileManagerService> _logger;
     private readonly string _urlPrefix;
@@ -22,11 +24,13 @@ public class FileManagerService : IFileManagerService
     public FileManagerService(
         IFileManagerRepository repository,
         IFileStorage fileStorage,
+        BlobStorageFactory blobStorageFactory,
         IOptions<FileManagerOptions> options,
         ILogger<FileManagerService> logger)
     {
         _repository = repository;
         _fileStorage = fileStorage;
+        _blobStorageFactory = blobStorageFactory;
         _options = options.Value;
         _logger = logger;
         // RootStoragePath is the URL prefix for responses
@@ -213,7 +217,25 @@ public class FileManagerService : IFileManagerService
             return false;
         }
 
-        // Delete from storage
+        // Delete from blob storage if an external URL exists
+        if (!string.IsNullOrWhiteSpace(entity.ExternalUrl))
+        {
+            try
+            {
+                var objectKey = ExtractObjectKeyFromExternalUrl(entity.ExternalUrl);
+                var blob = _blobStorageFactory.Create();
+                if (blob.IsConfigured)
+                {
+                    await blob.DeleteAsync(objectKey, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete file from blob storage. FileId: {Id}, ExternalUrl: {Url}", id, entity.ExternalUrl);
+            }
+        }
+
+        // Delete from local storage
         await _fileStorage.DeleteAsync(entity.Path, cancellationToken);
 
         // Delete from database
@@ -232,6 +254,7 @@ public class FileManagerService : IFileManagerService
         {
             try
             {
+                await DeleteBlobIfPresentAsync(file, cancellationToken);
                 await _fileStorage.DeleteAsync(file.Path, cancellationToken);
             }
             catch (Exception ex)
@@ -247,14 +270,15 @@ public class FileManagerService : IFileManagerService
         return deletedCount;
     }
 
-    public async Task<int> DeleteOldTempFilesAsync(int olderThanDays, CancellationToken cancellationToken = default)
+    public async Task<int> DeleteOldTempFilesAsync(int olderThanDays, int aiOlderThanDays = 30, CancellationToken cancellationToken = default)
     {
-        var oldTempFiles = await _repository.GetOldTempFilesAsync(olderThanDays, cancellationToken);
+        var oldTempFiles = await _repository.GetOldTempFilesAsync(olderThanDays, aiOlderThanDays, cancellationToken);
 
         foreach (var file in oldTempFiles)
         {
             try
             {
+                await DeleteBlobIfPresentAsync(file, cancellationToken);
                 await _fileStorage.DeleteAsync(file.Path, cancellationToken);
             }
             catch (Exception ex)
@@ -263,12 +287,124 @@ public class FileManagerService : IFileManagerService
             }
         }
 
-        var deletedCount = await _repository.DeleteOldTempFilesAsync(olderThanDays, cancellationToken);
+        var deletedCount = await _repository.DeleteOldTempFilesAsync(olderThanDays, aiOlderThanDays, cancellationToken);
 
-        _logger.LogInformation("Deleted {Count} old temporary files (older than {Days} days)", deletedCount, olderThanDays);
+        _logger.LogInformation("Deleted {Count} old temporary files (older than {Days} days, AI files older than {AiDays} days)", deletedCount, olderThanDays, aiOlderThanDays);
 
         return deletedCount;
     }
+
+    public async Task<FileManagerResponse> UploadToBlobAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var entity = await _repository.GetByIdWithArchivedAsync(id, cancellationToken);
+        if (entity == null)
+        {
+            throw new Domain.Exceptions.FileNotFoundException(id);
+        }
+
+        var blob = _blobStorageFactory.Create();
+        if (!blob.IsConfigured)
+        {
+            throw new InvalidOperationException("Blob storage is not configured. Set BlobStorage settings in appsettings.json or tenant configuration.");
+        }
+
+        // Read the local file from storage
+        var stream = await _fileStorage.GetAsync(entity.Path, cancellationToken);
+        var contentType = GetContentType(entity.Extension);
+        var objectKey = entity.Path.Replace("\\", "/");
+
+        var publicUrl = await blob.UploadAsync(objectKey, stream, contentType, cancellationToken);
+
+        entity.ExternalUrl = publicUrl;
+        entity.LastModified = DateTime.UtcNow;
+        await _repository.UpdateAsync(entity, cancellationToken);
+
+        _logger.LogInformation("File {Id} uploaded to blob. ExternalUrl: {Url}", id, publicUrl);
+
+        return FileManagerResponse.MapFrom(entity, _urlPrefix);
+    }
+
+    public async Task<FileManagerResponse> RemoveFromBlobAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var entity = await _repository.GetByIdWithArchivedAsync(id, cancellationToken);
+        if (entity == null)
+        {
+            throw new Domain.Exceptions.FileNotFoundException(id);
+        }
+
+        if (!string.IsNullOrWhiteSpace(entity.ExternalUrl))
+        {
+            var blob = _blobStorageFactory.Create();
+            if (blob.IsConfigured)
+            {
+                var objectKey = ExtractObjectKeyFromExternalUrl(entity.ExternalUrl);
+                await blob.DeleteAsync(objectKey, cancellationToken);
+            }
+
+            entity.ExternalUrl = null;
+            entity.LastModified = DateTime.UtcNow;
+            await _repository.UpdateAsync(entity, cancellationToken);
+
+            _logger.LogInformation("File {Id} removed from blob storage.", id);
+        }
+
+        return FileManagerResponse.MapFrom(entity, _urlPrefix);
+    }
+
+    /// <summary>Deletes from blob storage if the entity has an ExternalUrl set.</summary>
+    private async Task DeleteBlobIfPresentAsync(FileManagerEntity entity, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(entity.ExternalUrl))
+            return;
+
+        try
+        {
+            var blob = _blobStorageFactory.Create();
+            if (blob.IsConfigured)
+            {
+                var objectKey = ExtractObjectKeyFromExternalUrl(entity.ExternalUrl);
+                await blob.DeleteAsync(objectKey, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to remove blob for file {Id}, ExternalUrl: {Url}", entity.Id, entity.ExternalUrl);
+        }
+    }
+
+    /// <summary>
+    /// Extracts the object key from a full public URL.
+    /// e.g. https://pub-xxx.r2.dev/tenant/123/image/file.jpg → tenant/123/image/file.jpg
+    /// </summary>
+    private static string ExtractObjectKeyFromExternalUrl(string externalUrl)
+    {
+        var uri = new Uri(externalUrl);
+        // Remove leading slash from path
+        return uri.AbsolutePath.TrimStart('/');
+    }
+
+    private static string GetContentType(string extension) => extension.ToLowerInvariant() switch
+    {
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".png" => "image/png",
+        ".gif" => "image/gif",
+        ".webp" => "image/webp",
+        ".bmp" => "image/bmp",
+        ".svg" => "image/svg+xml",
+        ".mp4" => "video/mp4",
+        ".avi" => "video/x-msvideo",
+        ".mkv" => "video/x-matroska",
+        ".mov" => "video/quicktime",
+        ".webm" => "video/webm",
+        ".mp3" => "audio/mpeg",
+        ".wav" => "audio/wav",
+        ".ogg" => "audio/ogg",
+        ".pdf" => "application/pdf",
+        ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".zip" => "application/zip",
+        _ => "application/octet-stream"
+    };
 
     private FileType MapExtensionToFileType(string extension)
     {

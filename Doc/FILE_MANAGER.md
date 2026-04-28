@@ -1,8 +1,8 @@
 # File Manager Service
 
 **Purpose:** Complete guide to the File Manager Service - handles file upload, storage, retrieval, and management with multi-tenancy support.  
-**Last Updated:** January 27, 2026  
-**Status:** ✅ Production Ready (v2.0.0)
+**Last Updated:** April 27, 2026  
+**Status:** ✅ Production Ready (v3.0.0)
 
 ---
 
@@ -137,6 +137,17 @@ FileManager/
     "MaxFileSizeInMB": 50,
     "AllowedExtensions": [".jpg", ".png", ".pdf", ".docx", ".xlsx", ".zip"],
     "TempFileRetentionDays": 30
+  },
+
+  "BlobStorage": {
+    "Provider": "CloudflareR2",
+    "CloudflareR2": {
+      "AccountId": "your-cloudflare-account-id",
+      "AccessKeyId": "your-r2-access-key-id",
+      "SecretAccessKey": "your-r2-secret-access-key",
+      "BucketName": "your-bucket-name",
+      "PublicDomain": "https://pub-xxx.r2.dev"
+    }
   }
 }
 ```
@@ -161,6 +172,54 @@ FileManagerOptions__RootStoragePath="/var/filemanager/storage"
 
 ---
 
+## Blob Storage (Third-Party)
+
+Files can optionally be uploaded to a third-party blob provider (e.g. Cloudflare R2). The `ExternalUrl` field on each file record stores the public blob URL after upload.
+
+### How It Works
+
+1. Upload a file normally via `POST /files` — file is stored locally, `ExternalUrl` is `null`.
+2. Call `POST /files/{id}/upload-to-blob` — file is streamed to blob storage, `ExternalUrl` is set to the public URL.
+3. Call `DELETE /files/{id}/remove-from-blob` — file is removed from blob, `ExternalUrl` is cleared.
+4. When a file is deleted via `DELETE /files/{id}`, the blob copy is also automatically deleted if `ExternalUrl` is set.
+5. Background temp-file cleanup also removes blob copies automatically.
+
+### Configuration Priority
+
+Blob settings follow the same global/per-tenant pattern as `Cors`:
+
+1. **Per-tenant** — set `BlobStorage` in the tenant's `Configuration` JSON in the Tenant Service.
+2. **Global** — set `BlobStorage` in `appsettings.json` of the FileManager service.
+3. **None** — blob operations are silently skipped (no-op fallback).
+
+### Supported Providers
+
+| Provider key           | Description                   |
+| ---------------------- | ----------------------------- |
+| `CloudflareR2` or `R2` | Cloudflare R2 (S3-compatible) |
+
+### Per-Tenant Configuration (Tenant Service JSON)
+
+In the tenant's `Configuration` field, add a `BlobStorage` block following the same pattern as `Cors`:
+
+```json
+{
+  "Cors": { ... },
+  "BlobStorage": {
+    "Provider": "CloudflareR2",
+    "CloudflareR2": {
+      "AccountId": "abc123",
+      "AccessKeyId": "key",
+      "SecretAccessKey": "secret",
+      "BucketName": "my-bucket",
+      "PublicDomain": "https://pub-xxx.r2.dev"
+    }
+  }
+}
+```
+
+---
+
 ## API Endpoints
 
 ### Tenant Endpoints (`/api/filemanager/*`)
@@ -168,14 +227,16 @@ FileManagerOptions__RootStoragePath="/var/filemanager/storage"
 **Authentication:** Requires JWT + `x-tenant-id` header  
 **Authorization:** User, Admin, SuperAdmin roles
 
-| Endpoint               | Method | Description                      |
-| ---------------------- | ------ | -------------------------------- |
-| `/files`               | POST   | Upload file to tenant database   |
-| `/files/{id}`          | GET    | Get file metadata                |
-| `/files`               | GET    | List files (paginated, filtered) |
-| `/files/{id}`          | PUT    | Update file metadata             |
-| `/files/{id}`          | DELETE | Delete file (soft delete)        |
-| `/files/{id}/download` | GET    | Download file (anonymous)        |
+| Endpoint                       | Method | Description                                                              |
+| ------------------------------ | ------ | ------------------------------------------------------------------------ |
+| `/files`                       | POST   | Upload file to tenant database                                           |
+| `/files/{id}`                  | GET    | Get file metadata                                                        |
+| `/files`                       | GET    | List files (paginated, filtered)                                         |
+| `/files/{id}`                  | PUT    | Update file metadata                                                     |
+| `/files/{id}`                  | DELETE | Delete file (soft delete)                                                |
+| `/files/{id}/download`         | GET    | Download file (anonymous)                                                |
+| `/files/{id}/upload-to-blob`   | POST   | Upload file to third-party blob (e.g. Cloudflare R2), sets `ExternalUrl` |
+| `/files/{id}/remove-from-blob` | DELETE | Remove file from blob storage, clears `ExternalUrl`                      |
 
 **Upload File Example:**
 
@@ -204,6 +265,7 @@ Form Data:
   "size": 1048576,
   "path": "ihsandev/123/shared/abc-123-def.pdf",
   "url": "https://localhost:5005/ihsandev/123/shared/abc-123-def.pdf",
+  "externalUrl": null,
   "group": 1,
   "type": 3,
   "temp": false,
@@ -219,15 +281,17 @@ Form Data:
 **Authentication:** Requires JWT (no `x-tenant-id` header)  
 **Authorization:** Service, SuperAdmin roles
 
-| Endpoint                  | Method | Description                                 |
-| ------------------------- | ------ | ------------------------------------------- |
-| `/files?tenantId=xxx`     | POST   | Upload file to specific tenant or global DB |
-| `/files/{id}`             | GET    | Get file from any tenant                    |
-| `/files`                  | GET    | List files across tenants                   |
-| `/files/{id}`             | PUT    | Update file in any tenant                   |
-| `/files/{id}`             | DELETE | Delete file from any tenant                 |
-| `/files/temp/all`         | DELETE | Delete all temp files (cross-tenant)        |
-| `/files/temp/old?days=30` | DELETE | Delete old temp files                       |
+| Endpoint                                    | Method | Description                                 |
+| ------------------------------------------- | ------ | ------------------------------------------- |
+| `/files?tenantId=xxx`                       | POST   | Upload file to specific tenant or global DB |
+| `/files/{id}`                               | GET    | Get file from any tenant                    |
+| `/files`                                    | GET    | List files across tenants                   |
+| `/files/{id}`                               | PUT    | Update file in any tenant                   |
+| `/files/{id}`                               | DELETE | Delete file from any tenant                 |
+| `/files/temp/all`                           | DELETE | Delete all temp files (cross-tenant)        |
+| `/files/temp/old?days=30`                   | DELETE | Delete old temp files                       |
+| `/files/{id}/upload-to-blob?tenantId=xxx`   | POST   | Upload file to blob for any tenant          |
+| `/files/{id}/remove-from-blob?tenantId=xxx` | DELETE | Remove file from blob for any tenant        |
 
 **Upload to Global Database:**
 

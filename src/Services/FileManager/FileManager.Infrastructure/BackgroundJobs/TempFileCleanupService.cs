@@ -23,6 +23,7 @@ public class TempFileCleanupService : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly TimeSpan _interval = TimeSpan.FromHours(24);
     private readonly int _olderThanDays = 7; // Delete temp files older than 7 days
+    private readonly int _aiOlderThanDays = 30; // Delete AI temp files older than 30 days
 
     public TempFileCleanupService(
         IServiceProvider serviceProvider,
@@ -130,7 +131,7 @@ public class TempFileCleanupService : BackgroundService
             using var scope = _serviceProvider.CreateScope();
             var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-            var command = new DeleteOldTempFilesCommand(OlderThanDays: _olderThanDays);
+            var command = new DeleteOldTempFilesCommand(OlderThanDays: _olderThanDays, AiOlderThanDays: _aiOlderThanDays);
             var deletedCount = await mediator.Send(command, cancellationToken);
 
             _logger.LogInformation(
@@ -239,11 +240,11 @@ public class TempFileCleanupService : BackgroundService
         CancellationToken cancellationToken)
     {
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-        var command = new DeleteOldTempFilesCommand(OlderThanDays: _olderThanDays);
+        var command = new DeleteOldTempFilesCommand(OlderThanDays: _olderThanDays, AiOlderThanDays: _aiOlderThanDays);
         var deletedCount = await mediator.Send(command, cancellationToken);
 
         _logger.LogInformation(
-            "Tenant {TenantId}: Deleted {DeletedCount} temp files older than {Days} days",
-            tenantId, deletedCount, _olderThanDays);
+            "Tenant {TenantId}: Deleted {DeletedCount} temp files (Standard: {Days} days, AI: {AiDays} days)",
+            tenantId, deletedCount, _olderThanDays, _aiOlderThanDays);
     }
 }

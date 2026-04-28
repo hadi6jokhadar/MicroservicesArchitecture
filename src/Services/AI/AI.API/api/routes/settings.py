@@ -20,6 +20,13 @@ class ProviderSettingsCreate(BaseModel):
     ApiKey: str
     ModelName: str
     TenantId: Optional[str] = None
+    ApiBaseUrl: Optional[str] = None
+    Temperature: Optional[float] = None
+    Stream: Optional[bool] = None
+    MaxCompletionTokens: Optional[int] = None
+    TopP: Optional[float] = None
+    FrequencyPenalty: Optional[float] = None
+    PresencePenalty: Optional[float] = None
 
 class ProviderSettingsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -30,6 +37,13 @@ class ProviderSettingsResponse(BaseModel):
     ApiKey: str
     ModelName: str
     TenantId: Optional[str] = None
+    ApiBaseUrl: Optional[str] = None
+    Temperature: Optional[float] = None
+    Stream: Optional[bool] = None
+    MaxCompletionTokens: Optional[int] = None
+    TopP: Optional[float] = None
+    FrequencyPenalty: Optional[float] = None
+    PresencePenalty: Optional[float] = None
 
 
 class SettingsScopeFilter(str):
@@ -135,6 +149,13 @@ async def create_setting(
         Provider=setting.Provider,
         ApiKey=setting.ApiKey,
         ModelName=setting.ModelName,
+        ApiBaseUrl=setting.ApiBaseUrl,
+        Temperature=setting.Temperature,
+        Stream=setting.Stream,
+        MaxCompletionTokens=setting.MaxCompletionTokens,
+        TopP=setting.TopP,
+        FrequencyPenalty=setting.FrequencyPenalty,
+        PresencePenalty=setting.PresencePenalty,
     )
     db.add(new_setting)
     await db.commit()
@@ -167,6 +188,13 @@ async def update_setting(
     existing_setting.Provider = setting.Provider
     existing_setting.ApiKey = setting.ApiKey
     existing_setting.ModelName = setting.ModelName
+    existing_setting.ApiBaseUrl = setting.ApiBaseUrl
+    existing_setting.Temperature = setting.Temperature
+    existing_setting.Stream = setting.Stream
+    existing_setting.MaxCompletionTokens = setting.MaxCompletionTokens
+    existing_setting.TopP = setting.TopP
+    existing_setting.FrequencyPenalty = setting.FrequencyPenalty
+    existing_setting.PresencePenalty = setting.PresencePenalty
 
     await db.commit()
     await db.refresh(existing_setting)

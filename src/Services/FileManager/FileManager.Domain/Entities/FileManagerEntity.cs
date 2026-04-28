@@ -13,4 +13,5 @@ public class FileManagerEntity : BaseEntity
     public FileType Type { get; set; }
     public bool Temp { get; set; }
     public int? UserId { get; set; }
+    public string? ExternalUrl { get; set; }
 }

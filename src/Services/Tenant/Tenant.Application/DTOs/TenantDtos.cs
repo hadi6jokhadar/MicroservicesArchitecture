@@ -18,6 +18,7 @@ public class TenantConfigDto : BaseDto
     public TenantConfiguration? Data { get; set; }
     public bool IsActive { get; set; }
     public bool IsExpired { get; set; }
+    public bool BlobConfigured => !string.IsNullOrWhiteSpace(Data?.BlobStorage?.Provider);
 
     /// <summary>
     /// Maps TenantSettings entity to TenantConfigDto
@@ -74,6 +75,11 @@ public class TenantDto : BaseDto
     public string ExpireDate { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public bool IsExpired { get; set; }
+    /// <summary>
+    /// True when the tenant has a blob storage provider configured (e.g. Cloudflare R2).
+    /// Safe to expose publicly — no credentials are included.
+    /// </summary>
+    public bool BlobConfigured { get; set; }
 
     /// <summary>
     /// Maps TenantSettings entity to TenantDto
@@ -92,7 +98,24 @@ public class TenantDto : BaseDto
             IsExpired = tenant.IsExpired,
             IsArchived = tenant.IsArchived,
             Created = tenant.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
-            LastModified = tenant.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture)
+            LastModified = tenant.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            BlobConfigured = IsBlobConfigured(tenant.Data)
         };
+    }
+
+    private static bool IsBlobConfigured(string? data)
+    {
+        if (string.IsNullOrWhiteSpace(data))
+            return false;
+        try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var config = JsonSerializer.Deserialize<TenantConfiguration>(data, options);
+            return !string.IsNullOrWhiteSpace(config?.BlobStorage?.Provider);
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

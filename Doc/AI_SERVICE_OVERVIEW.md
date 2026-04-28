@@ -15,7 +15,7 @@ Default local URL:
 
 ## What the Service Does
 
-1. Accepts chat requests and supports streaming or single-response model outputs.
+1. Accepts chat requests and supports streaming or single-response LLM outputs.
 2. Reads provider settings per tenant, with global fallback.
 3. Stores and retrieves system prompts.
 4. Logs token usage for auditing and cost tracking.
@@ -31,7 +31,7 @@ Default local URL:
 ### API Layer
 
 - `main.py`: FastAPI app startup, middleware, exception handlers, router registration.
-- `api/routes/chat.py`: Streaming and single-response chat endpoints with Pydantic request models and LangGraph orchestration pipeline.
+- `api/routes/chat.py`: Streaming and single-response **LLM chat** endpoints. Uses `core/ai/chat_workflow.py` LangGraph pipeline.
 - `api/routes/settings.py`: AI provider settings CRUD.
 - `api/routes/system_prompts.py`: System prompt CRUD.
 - `api/routes/chat_sessions.py`: Chat session listing with filtering and pagination.
@@ -40,6 +40,20 @@ Default local URL:
 - `api/routes/token_usage_logs.py`: Token usage log listing with filtering and pagination.
 - `api/dependencies.py`: Auth and tenant resolution helpers.
 - `api/attributes.py`: Optional tenant and bypass tenant decorators.
+
+### Core AI Layer (`core/ai/`)
+
+Shared logic extracted from route handlers to keep endpoints thin and stable:
+
+| File                       | Responsibility                                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `core/ai/schemas.py`       | Pydantic request/response models for chat                                                                               |
+| `core/ai/utils.py`         | `build_litellm_model`, `normalize_model_type`, `extract_user_id`, `estimate_tokens_if_missing`, `parse_response_format` |
+| `core/ai/db_queries.py`    | `get_settings_by_key`, `get_system_prompt_by_key`                                                                       |
+| `core/ai/sessions.py`      | `resolve_or_create_session` — create or validate chat sessions                                                          |
+| `core/ai/persistence.py`   | Background tasks for message persistence and token usage logging                                                        |
+| `core/ai/file_context.py`  | FileManager client singleton and file URL injection into messages                                                       |
+| `core/ai/chat_workflow.py` | LangGraph chat workflow, `ChatWorkflowState`, `ChatRuntimeContext`, `build_chat_runtime_context`                        |
 
 ## Framework, Orchestration, and Validation
 
@@ -50,8 +64,9 @@ Default local URL:
 
 ### LangGraph
 
-- Chat request orchestration uses a compiled LangGraph workflow in `api/routes/chat.py`.
-- Current workflow nodes prepare message payloads and resolve provider model identifiers before LiteLLM invocation.
+- Chat request orchestration uses `CHAT_WORKFLOW` (compiled graph) in `core/ai/chat_workflow.py`.
+- Chat workflow nodes: `prepare_messages` → `resolve_model`.
+- The workflow is compiled once at module import and reused across requests.
 
 ### Pydantic Validation
 
@@ -115,7 +130,8 @@ Authorization behavior for configuration endpoints:
 
 Authorization behavior for chat and observability endpoints:
 
-- `POST /api/v1/chat/stream` and `POST /api/v1/chat/single` accept authenticated user calls and internal service calls.
+- `POST /api/v1/chat/stream` and `POST /api/v1/chat/single` accept LLM chat requests from authenticated users and internal service calls.
+- `POST /api/v1/asr/transcribe` accepts audio transcription requests from authenticated users and internal service calls. Requires the `AiProviderSettings.ModelType` to be `Audio`.
 - `GET /api/v1/chat-sessions/`, `GET /api/v1/chat-messages/`, `GET /api/v1/chat-message-files/`, and `GET /api/v1/token-usage-logs/` require internal service authentication or `SuperAdmin`.
 
 ## Tenant Handling
@@ -159,8 +175,23 @@ Chat endpoint tenant behavior:
 
 ### Chat Response Modes
 
-- `POST /api/v1/chat/stream`: Server-Sent Events streaming mode that emits incremental `content` chunks and ends with `[DONE]`.
+- `POST /api/v1/chat/stream`: Server-Sent Events streaming mode that emits incremental `content` chunks, then emits a final completion metadata event, and finally ends with `[DONE]`.
 - `POST /api/v1/chat/single`: single-response mode that waits for completion and returns one JSON payload.
+
+Shared request fields for both chat endpoints include:
+
+- `settings_key`: AI provider settings key.
+- `messages`: ordered chat messages.
+- `system_prompt_key` (optional): resolved to `AiSystemPrompt`.
+- `file_ids` (optional): FileManager IDs injected as URL context.
+- `max_completion_tokens` (optional): explicit output token cap forwarded to LiteLLM as `max_tokens`.
+
+Streaming completion metadata payload fields:
+
+- `session_id`: chat session UUID.
+- `done`: always `true` for the completion metadata event.
+- `finish_reason`: provider finish reason when available (for example `stop`, `length`, `max_tokens`).
+- `is_truncated`: `true` when finish reason indicates truncation (`length` or `max_tokens`), otherwise `false`.
 
 Single-response payload fields:
 
@@ -218,14 +249,18 @@ Important sections:
 - `Cors`
 - `ServiceCommunication`
 - `FileManagerSettings`
-- `AiProviderRouting`
 
 Provider setting behavior for chat endpoints:
 
 - `Provider` is handled case-insensitively before calling LiteLLM.
 - Known aliases are normalized (example: `OpenAI` becomes `openai`, `AzureOpenAI` becomes `azure`, `QwenAI` becomes `openai`).
-- `QwenAI` and `Qwen` providers use `AiProviderRouting.QwenOpenAiCompatibleBaseUrl` as LiteLLM `api_base` so requests are sent to the Qwen-compatible endpoint instead of OpenAI.
+- `ApiBaseUrl` stored on the `AiProviderSettings` record is passed to LiteLLM as `api_base` (e.g. set this to the Qwen OpenAI-compatible URL for Qwen providers).
+- `MaxCompletionTokens` stored on `AiProviderSettings` is used as the default limit; the caller can override it per-request via the `max_completion_tokens` field.
+- `Temperature`, `TopP`, `FrequencyPenalty`, and `PresencePenalty` stored on `AiProviderSettings` are forwarded to LiteLLM when set.
 - If `ModelName` already includes a provider prefix (`provider/model`), the value is used as-is.
+- Chat endpoints automatically route by model type. `ModelType=Audio` uses transcription under the same `/api/v1/chat/*` endpoints, while non-audio types continue to use chat completions.
+- For `ModelType=Audio` with DashScope native ASR URL (`/api/v1/services/audio/asr/transcription`), the service calls DashScope directly instead of LiteLLM OpenAI transcription routing to avoid invalid URL composition like `/transcription/audio/transcriptions`.
+- DashScope ASR direct calls normalize `ModelName` by removing a provider prefix (such as `openai/`) and converting to lower-case before sending the request.
 
 FileManager context enrichment behavior for chat endpoints:
 
@@ -250,6 +285,12 @@ Tests:
 - `tests/test_settings.py` and `tests/test_system_prompts.py` cover CRUD and scoped lookup behavior.
 - `tests/test_chat_sessions.py`, `tests/test_chat_messages.py`, `tests/test_chat_message_files.py`, and `tests/test_token_usage_logs.py` cover list endpoints, filter validation, and pagination-bound validation.
 - `tests/conftest.py` uses dependency overrides to simulate authenticated SuperAdmin access and deterministic tenant context for route tests.
+
+## Troubleshooting Notes
+
+- For Qwen models routed through the OpenAI-compatible provider path (example: `openai/qwen3-omni-flash`), LiteLLM may emit debug logs saying the model is not mapped in `model_prices_and_context_window.json`.
+- These messages affect cost estimation metadata only and do not mean chat generation failed when the API response is `200 OK`.
+- AI.API startup logging suppresses verbose `litellm` and `LiteLLM` debug channels to reduce this noise in local logs.
 
 ## Related Docs
 

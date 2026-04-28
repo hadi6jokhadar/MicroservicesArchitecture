@@ -340,6 +340,119 @@ public static class FileManagerEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .AllowAnonymous(); // Allow public access to download files
 
+        // ============================================
+        // BLOB STORAGE ENDPOINTS (Tenant)
+        // ============================================
+
+        // Upload a file to the configured third-party blob provider (e.g. Cloudflare R2)
+        // Updates ExternalUrl on the file record with the public blob URL
+        group.MapPost("/files/{id:int}/upload-to-blob", async (
+            int id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var command = new UploadToBlobCommand(id);
+            var result = await mediator.Send(command, cancellationToken);
+            return Results.Ok(result);
+        })
+        .WithMetadata(new OptionalTenantAttribute())
+        .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
+        .WithName("UploadFileToBlob")
+        .Produces<FileManagerResponse>()
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status400BadRequest);
+
+        // Remove a file from the configured blob provider and clear ExternalUrl
+        group.MapDelete("/files/{id:int}/remove-from-blob", async (
+            int id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var command = new RemoveFromBlobCommand(id);
+            var result = await mediator.Send(command, cancellationToken);
+            return Results.Ok(result);
+        })
+        .WithMetadata(new OptionalTenantAttribute())
+        .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
+        .WithName("RemoveFileFromBlob")
+        .Produces<FileManagerResponse>()
+        .Produces(StatusCodes.Status404NotFound);
+
+        // ============================================
+        // BLOB STORAGE ENDPOINTS (Admin)
+        // ============================================
+
+        // Admin: Upload a file to blob (optionally from any tenant)
+        adminGroup.MapPost("/files/{id:int}/upload-to-blob", async (
+            int id,
+            [FromQuery] string? tenantId,
+            ITenantConfigurationProvider tenantConfigProvider,
+            ILocalizationService localizationService,
+            IServiceProvider serviceProvider,
+            CancellationToken cancellationToken) =>
+        {
+            var scopeResult = await CreateScopeWithTenantAsync(
+                serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
+
+            using var scope = scopeResult.scope;
+            var tenantContext = scopeResult.tenantContext;
+
+            if (!string.IsNullOrWhiteSpace(tenantId) && tenantContext?.CurrentTenant == null)
+            {
+                return Results.NotFound(new
+                {
+                    error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                    message = $"Tenant '{tenantId}' not found"
+                });
+            }
+
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+            var command = new UploadToBlobCommand(id);
+            var result = await mediator.Send(command, cancellationToken);
+            return Results.Ok(result);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
+        .WithName("UploadFileToBlobAdmin")
+        .WithMetadata(new BypassTenantAttribute())
+        .Produces<FileManagerResponse>()
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status400BadRequest);
+
+        // Admin: Remove a file from blob (optionally from any tenant)
+        adminGroup.MapDelete("/files/{id:int}/remove-from-blob", async (
+            int id,
+            [FromQuery] string? tenantId,
+            ITenantConfigurationProvider tenantConfigProvider,
+            ILocalizationService localizationService,
+            IServiceProvider serviceProvider,
+            CancellationToken cancellationToken) =>
+        {
+            var scopeResult = await CreateScopeWithTenantAsync(
+                serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
+
+            using var scope = scopeResult.scope;
+            var tenantContext = scopeResult.tenantContext;
+
+            if (!string.IsNullOrWhiteSpace(tenantId) && tenantContext?.CurrentTenant == null)
+            {
+                return Results.NotFound(new
+                {
+                    error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
+                    message = $"Tenant '{tenantId}' not found"
+                });
+            }
+
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+            var command = new RemoveFromBlobCommand(id);
+            var result = await mediator.Send(command, cancellationToken);
+            return Results.Ok(result);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
+        .WithName("RemoveFileFromBlobAdmin")
+        .WithMetadata(new BypassTenantAttribute())
+        .Produces<FileManagerResponse>()
+        .Produces(StatusCodes.Status404NotFound);
+
         return app;
     }
 

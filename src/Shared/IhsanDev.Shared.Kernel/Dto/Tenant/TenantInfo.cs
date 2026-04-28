@@ -40,6 +40,7 @@ public class TenantConfiguration
     public DatabaseSettings? DatabaseSettings { get; set; }
     public CorsSettings? Cors { get; set; }
     public OtpSettings? Otp { get; set; }
+    public BlobStorageSettings? BlobStorage { get; set; }
 }
 
 /// <summary>
@@ -116,4 +117,54 @@ public class OtpSettings
     /// Minimum length: 32 characters for production use
     /// </summary>
     public string? SecretKey { get; set; }
+}
+
+/// <summary>
+/// Blob storage settings for tenant — optional third-party blob provider (e.g. Cloudflare R2)
+/// Stored in tenant configuration the same way as Cors, so it can be per-tenant or global
+/// </summary>
+public class BlobStorageSettings
+{
+    /// <summary>
+    /// Provider name. Supported values: "CloudflareR2"
+    /// </summary>
+    public string? Provider { get; set; }
+
+    /// <summary>
+    /// Cloudflare R2 specific settings
+    /// </summary>
+    public CloudflareR2Settings? CloudflareR2 { get; set; }
+}
+
+/// <summary>
+/// Cloudflare R2 blob storage settings.
+/// R2 is S3-compatible; endpoint is https://{AccountId}.r2.cloudflarestorage.com
+/// </summary>
+public class CloudflareR2Settings
+{
+    /// <summary>
+    /// Cloudflare account ID (used to build the S3 endpoint URL)
+    /// </summary>
+    public string? AccountId { get; set; }
+
+    /// <summary>
+    /// R2 API token access key ID
+    /// </summary>
+    public string? AccessKeyId { get; set; }
+
+    /// <summary>
+    /// R2 API token secret access key
+    /// </summary>
+    public string? SecretAccessKey { get; set; }
+
+    /// <summary>
+    /// R2 bucket name
+    /// </summary>
+    public string? BucketName { get; set; }
+
+    /// <summary>
+    /// Public domain for the R2 bucket (e.g. https://pub-xxx.r2.dev or custom domain).
+    /// Used to build the public ExternalUrl returned after upload.
+    /// </summary>
+    public string? PublicDomain { get; set; }
 }
