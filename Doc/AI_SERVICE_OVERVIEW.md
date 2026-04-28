@@ -23,7 +23,7 @@ Default local URL:
 6. Supports end-user requests using JWT bearer tokens.
 7. Orchestrates chat request preparation using LangGraph before calling LiteLLM.
 8. Enforces request and payload validation using Pydantic models.
-9. Resolves attached FileManager file IDs into URL context before model invocation.
+9. Fetches attached FileManager file IDs, encodes them as Base64, and injects OpenAI-compatible multimodal content blocks into the chat payload before LLM invocation.
 10. Exposes read endpoints for sessions, messages, message files, and token usage logs.
 
 ## High-Level Architecture
@@ -45,15 +45,16 @@ Default local URL:
 
 Shared logic extracted from route handlers to keep endpoints thin and stable:
 
-| File                       | Responsibility                                                                                                                                                                                                                                                                                |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `core/ai/schemas.py`       | Pydantic request/response models for chat                                                                                                                                                                                                                                                     |
-| `core/ai/utils.py`         | `build_litellm_model`, `normalize_model_type`, `extract_user_id`, `estimate_tokens_if_missing`, `parse_response_format`, `map_litellm_exception_to_http`, provider strategy constants (`PROVIDERS_WITHOUT_RESPONSE_FORMAT`, `PROVIDERS_REQUIRING_MAX_TOKENS`, `ANTHROPIC_DEFAULT_MAX_TOKENS`) |
-| `core/ai/db_queries.py`    | `get_settings_by_key`, `get_system_prompt_by_key`                                                                                                                                                                                                                                             |
-| `core/ai/sessions.py`      | `resolve_or_create_session` — create or validate chat sessions                                                                                                                                                                                                                                |
-| `core/ai/persistence.py`   | Background tasks for message persistence and token usage logging                                                                                                                                                                                                                              |
-| `core/ai/file_context.py`  | FileManager client singleton and file URL injection into messages                                                                                                                                                                                                                             |
-| `core/ai/chat_workflow.py` | LangGraph chat workflow, `ChatWorkflowState`, `ChatRuntimeContext`, `build_chat_runtime_context`                                                                                                                                                                                              |
+| File                          | Responsibility                                                                                                                                                                                                                                                                                |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/ai/schemas.py`          | Pydantic request/response models for chat                                                                                                                                                                                                                                                     |
+| `core/ai/utils.py`            | `build_litellm_model`, `normalize_model_type`, `extract_user_id`, `estimate_tokens_if_missing`, `parse_response_format`, `map_litellm_exception_to_http`, provider strategy constants (`PROVIDERS_WITHOUT_RESPONSE_FORMAT`, `PROVIDERS_REQUIRING_MAX_TOKENS`, `ANTHROPIC_DEFAULT_MAX_TOKENS`) |
+| `core/ai/db_queries.py`       | `get_settings_by_key`, `get_system_prompt_by_key`                                                                                                                                                                                                                                             |
+| `core/ai/sessions.py`         | `resolve_or_create_session` — create or validate chat sessions                                                                                                                                                                                                                                |
+| `core/ai/persistence.py`      | Background tasks for message persistence and token usage logging                                                                                                                                                                                                                              |
+| `core/ai/file_context.py`     | FileManager client singleton (`file_manager_client`) used by the multimodal transform node                                                                                                                                                                                                    |
+| `core/ai/multimodal_utils.py` | MIME classification, raw-byte fetcher, Base64 encoder, OpenAI-compatible content block builders (`image_url`, `input_audio`, document text), provider capability sets (`PROVIDERS_SUPPORTING_VISION`, `PROVIDERS_SUPPORTING_AUDIO`), batch processor `build_media_content_blocks`             |
+| `core/ai/chat_workflow.py`    | LangGraph chat workflow, `ChatWorkflowState`, `ChatRuntimeContext`, `build_chat_runtime_context`                                                                                                                                                                                              |
 
 ## Framework, Orchestration, and Validation
 
@@ -65,9 +66,11 @@ Shared logic extracted from route handlers to keep endpoints thin and stable:
 ### LangGraph
 
 - Chat request orchestration uses `CHAT_WORKFLOW` (compiled graph) in `core/ai/chat_workflow.py`.
-- Chat workflow nodes: `normalize_provider` → `prepare_messages` → [conditional] → `preflight_validation` → `resolve_model`.
-- Anthropic requests are routed through an additional `anthropic_transform` node between `prepare_messages` and `preflight_validation` to enforce `max_tokens` and handle provider-specific constraints.
-- `preflight_validation` strips parameters unsupported by the resolved provider (e.g. `response_format` for Anthropic/Ollama).
+- Chat workflow nodes: `normalize_provider` → `prepare_messages` → `multimodal_transform` → [conditional] → `preflight_validation` → `resolve_model`.
+- `multimodal_transform` fetches FileManager file bytes, encodes them as Base64, and injects OpenAI-compatible `image_url` / `input_audio` / document-text content blocks into the last user message. LiteLLM's adapter layer translates these to provider-proprietary formats at call time.
+- Anthropic requests are routed through an additional `anthropic_transform` node between `multimodal_transform` and `preflight_validation` to enforce `max_tokens` and handle provider-specific constraints.
+- `preflight_validation` strips parameters unsupported by the resolved provider (e.g. `response_format` for Anthropic/Ollama) and raises HTTP 400 when a media type (audio or vision) is sent to a provider that does not support it.
+- `litellm_messages` carries `List[dict[str, Any]]` — content may be a plain string or a list of typed content blocks (multimodal).
 - The workflow is compiled once at module import and reused across requests.
 
 ### Pydantic Validation
@@ -75,6 +78,39 @@ Shared logic extracted from route handlers to keep endpoints thin and stable:
 - Request and response contracts are Pydantic models across chat, settings, and prompt routes.
 - Chat endpoint enforces message role values (`system`, `user`, `assistant`, `tool`) and non-empty content.
 - Empty message collections are rejected by validation and return standardized validation error responses.
+
+### Multimodal File Attachments
+
+When `file_ids` is provided in a chat request the `multimodal_transform` node handles the full encoding pipeline:
+
+1. **Metadata fetch** — `file_manager_client.get_files_by_ids` retrieves name, extension, MIME type, and URLs for every file ID.
+2. **Byte download** — `fetch_file_bytes_with_fallback` downloads raw bytes from `external_url` (CDN). If that request fails, it retries using the internal `url` field.
+3. **MIME classification** — `classify_media_type` groups each file into `image`, `audio`, `document`, or `unknown`.
+4. **Block encoding** (provider-aware):
+   - Images → `{"type": "image_url", "image_url": {"url": "data:<mime>;base64,..."}}`
+   - Audio (OpenAI / Gemini / Groq) → `{"type": "input_audio", "input_audio": {"data": "<base64>", "format": "mp3"}}` — file bytes downloaded and base64-encoded.
+   - Audio (Qwen omni / Dashscope) → `{"type": "input_audio", "input_audio": {"data": "<https-url>", "format": "mp3"}}` — CDN URL passed directly; Dashscope fetches the file server-side. The `data` field accepts a URL, avoiding an unnecessary download.
+   - Anthropic/Claude audio → text-context fallback (Claude has no native audio API).
+   - Documents → `{"type": "text", "text": "Attached document: name.pdf (https://...)"}` (URL-as-context fallback)
+   - Unknown MIME types are silently skipped.
+5. **Payload injection** — The last user message's `content` string is replaced with a typed list: `[{"type":"text","text":"<prompt>"}, <media blocks...>]`.
+6. **Qwen omni extra field** — When the final message list contains an `input_audio` block and the provider is Qwen, `extra_body={"modalities": ["text"]}` is added to the `acompletion` call. Dashscope's compatible-mode endpoint requires this field or returns HTTP 400.
+7. **Capability guard** — `preflight_validation` raises HTTP 400 when the resolved provider does not support the media type (e.g. audio sent to a provider with no audio capability).
+8. **LiteLLM adapter** — The standard OpenAI-format blocks are passed as-is to `acompletion`. LiteLLM translates them into the proprietary wire format for Claude (Anthropic), Gemini, or any other configured provider automatically.
+
+**Provider capability matrix:**
+
+| Provider (`provider_normalized`) | Vision (images) | Audio              |
+| -------------------------------- | --------------- | ------------------ |
+| `openai`                         | ✅              | ✅                 |
+| `azure`                          | ✅              | ❌                 |
+| `anthropic`                      | ✅              | ❌ (text fallback) |
+| `gemini`                         | ✅              | ✅                 |
+| `groq`                           | ✅              | ❌                 |
+| `mistral`                        | ✅              | ❌                 |
+| `ollama`                         | ✅              | ❌                 |
+
+> **Note for Qwen omni:** Qwen's raw provider strings (`qwen`, `qwenai`, `alibaba`, `dashscope`) are detected by `QWEN_RAW_PROVIDERS` in `multimodal_utils.py`. Audio is sent as `input_audio` with a CDN URL in the `data` field (Dashscope fetches the file server-side). The request also includes `extra_body={"modalities": ["text"]}`, which Dashscope requires when audio is present. Vision models (e.g. `qwen-vl-plus`) use standard `image_url` blocks.
 
 ### Core Layer
 
@@ -185,7 +221,7 @@ Shared request fields for both chat endpoints include:
 - `settings_key`: AI provider settings key.
 - `messages`: ordered chat messages.
 - `system_prompt_key` (optional): resolved to `AiSystemPrompt`.
-- `file_ids` (optional): FileManager IDs injected as URL context.
+- `file_ids` (optional): FileManager file IDs. The multimodal transform node fetches each file's raw bytes and encodes them as OpenAI-compatible content blocks (`image_url` for images, `input_audio` for audio, text-context for documents). External CDN URL is tried first; internal FileManager URL is used as fallback.
 - `max_completion_tokens` (optional): explicit output token cap forwarded to LiteLLM as `max_tokens`.
 
 Streaming completion metadata payload fields:

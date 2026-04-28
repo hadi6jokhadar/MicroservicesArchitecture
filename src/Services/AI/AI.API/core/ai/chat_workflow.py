@@ -1,13 +1,20 @@
 import uuid
-from typing import List, Optional, TypedDict
+from typing import Any, List, Optional, TypedDict
 
 from fastapi import HTTPException, status
 from langgraph.graph import END, START, StateGraph
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.ai.db_queries import get_settings_by_key, get_system_prompt_by_key
-from core.ai.file_context import inject_file_context_if_present
-from core.ai.schemas import ChatMessage, ChatRequest
+from core.ai.file_context import file_manager_client
+from core.ai.multimodal_utils import (
+    PROVIDERS_SUPPORTING_AUDIO,
+    PROVIDERS_SUPPORTING_VISION,
+    QWEN_RAW_PROVIDERS,
+    build_media_content_blocks,
+    resolve_audio_format,
+)
+from core.ai.schemas import ChatRequest
 from core.ai.sessions import resolve_or_create_session
 from core.ai.utils import (
     ANTHROPIC_DEFAULT_MAX_TOKENS,
@@ -19,7 +26,7 @@ from core.ai.utils import (
     normalize_model_type,
     parse_response_format,
 )
-from models import AiProviderSettings, ModelTypeEnum
+from models import AiProviderSettings, AudioDataModeEnum, ModelTypeEnum
 
 
 # ---------------------------------------------------------------------------
@@ -34,9 +41,17 @@ class ChatWorkflowState(TypedDict):
     api_key: str
     system_prompt: Optional[str]
     response_format: Optional[dict]
-    litellm_messages: List[dict[str, str]]
+    # Content elements may be str or a list of content blocks (multimodal).
+    litellm_messages: List[dict[str, Any]]
     litellm_model: str
     max_completion_tokens: Optional[int]
+    # Multimodal fields — populated by _multimodal_transform_node.
+    file_ids: List[int]
+    tenant_id: Optional[str]
+    has_vision_attachments: bool
+    has_audio_attachments: bool
+    # AudioDataMode from AiProviderSettings: None/Auto = auto-detect, Url = force URL, Base64 = force base64.
+    audio_data_mode: Optional[str]
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +61,8 @@ class ChatWorkflowState(TypedDict):
 class ChatRuntimeContext(TypedDict):
     user_id: Optional[int]
     session_id: uuid.UUID
-    litellm_messages: List[dict[str, str]]
+    # Content elements may be str or a list of content blocks (multimodal).
+    litellm_messages: List[dict[str, Any]]
     litellm_model: str
     provider_api_key: str
     provider_api_base: Optional[str]
@@ -76,8 +92,13 @@ def _normalize_provider_node(state: ChatWorkflowState) -> ChatWorkflowState:
 
 
 def _prepare_messages_node(state: ChatWorkflowState) -> ChatWorkflowState:
-    """Build the LiteLLM message list, prepending the system prompt when present."""
-    messages: List[dict[str, str]] = []
+    """Build the LiteLLM message list, prepending the system prompt when present.
+
+    Content is initially a plain string per message.  The multimodal_transform
+    node that follows may upgrade the last user message's content to a list of
+    typed content blocks when file attachments are present.
+    """
+    messages: List[dict[str, Any]] = []
     if state["system_prompt"]:
         messages.append({"role": "system", "content": state["system_prompt"]})
     messages.extend(
@@ -103,15 +124,38 @@ def _anthropic_transform_node(state: ChatWorkflowState) -> ChatWorkflowState:
 
 
 def _preflight_validation_node(state: ChatWorkflowState) -> ChatWorkflowState:
-    """Strip parameters unsupported by the resolved provider.
+    """Strip unsupported parameters and enforce provider media capability.
 
-    Providers in PROVIDERS_WITHOUT_RESPONSE_FORMAT (e.g. anthropic, ollama)
-    do not accept a response_format argument.  Passing it causes a provider-
-    side 400; we strip it here before the model identifier is built.
+    1. Strips response_format for providers that do not accept it.
+    2. Raises HTTP 400 when audio attachments are sent to a provider that does
+       not support audio input content blocks.
+    3. Raises HTTP 400 when image attachments are sent to a provider that does
+       not support vision input content blocks.
     """
     response_format = state["response_format"]
-    if state["provider_normalized"] in PROVIDERS_WITHOUT_RESPONSE_FORMAT:
+    provider = state["provider_normalized"]
+
+    if provider in PROVIDERS_WITHOUT_RESPONSE_FORMAT:
         response_format = None
+
+    if state.get("has_audio_attachments") and provider not in PROVIDERS_SUPPORTING_AUDIO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Provider '{provider}' does not support audio input. "
+                "Select a provider that supports audio (e.g. openai, gemini)."
+            ),
+        )
+
+    if state.get("has_vision_attachments") and provider not in PROVIDERS_SUPPORTING_VISION:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Provider '{provider}' does not support image input. "
+                "Select a vision-capable provider (e.g. openai, anthropic, gemini)."
+            ),
+        )
+
     return {**state, "response_format": response_format}
 
 
@@ -123,12 +167,88 @@ def _resolve_model_node(state: ChatWorkflowState) -> ChatWorkflowState:
     }
 
 
+async def _multimodal_transform_node(state: ChatWorkflowState) -> ChatWorkflowState:
+    """Fetch attached files and inject provider-specific content blocks into the
+    last user message.
+
+    When file_ids is empty this node is a no-op and returns state unchanged.
+    For each attached file the node:
+      - Resolves metadata via the FileManager client.
+      - Downloads raw bytes and determines the MIME type.
+      - Encodes image files as image_url blocks (Base64 data URL).
+      - Encodes audio files using the format appropriate for the provider:
+          • OpenAI / Azure / Groq / Gemini → input_audio block.
+          • Qwen omni (Dashscope)           → audio_url block.
+          • Anthropic / Claude              → text description fallback
+                                               (no native audio API).
+      - Represents document files as text context blocks (URL + filename).
+    The last user message’s content string is replaced with a typed content
+    list: [{"type": "text", "text": ...}, <media blocks…>].
+    LiteLLM’s adapter layer translates these blocks into each provider’s
+    proprietary wire format.
+    """
+    if not state["file_ids"]:
+        return state
+
+    files_metadata = await file_manager_client.get_files_by_ids(
+        state["file_ids"], state["tenant_id"]
+    )
+    if not files_metadata:
+        return state
+
+    raw_provider = str(state["provider"] or "").strip().lower()
+    audio_fmt = resolve_audio_format(raw_provider, state["provider_normalized"])
+
+    # Setting-level override: AudioDataMode.Url → "audio_url",
+    # AudioDataMode.Base64 → "input_audio" (except text_fallback providers like Claude).
+    setting_mode = (state.get("audio_data_mode") or "").strip().lower()
+    if setting_mode == "url" and audio_fmt != "text_fallback":
+        audio_fmt = "audio_url"
+    elif setting_mode == "base64" and audio_fmt != "text_fallback":
+        audio_fmt = "input_audio"
+
+    media_blocks, has_image, has_audio = await build_media_content_blocks(
+        files_metadata, audio_format=audio_fmt
+    )
+    if not media_blocks:
+        return state
+
+    messages: List[dict[str, Any]] = list(state["litellm_messages"])
+
+    last_user_idx: Optional[int] = None
+    for i in range(len(messages) - 1, -1, -1):
+        if messages[i].get("role") == "user":
+            last_user_idx = i
+            break
+
+    if last_user_idx is None:
+        return {**state, "has_vision_attachments": has_image, "has_audio_attachments": has_audio}
+
+    last_msg = messages[last_user_idx]
+    existing_text = last_msg.get("content", "")
+
+    content_list: List[dict[str, Any]] = []
+    if existing_text:
+        text_str = existing_text if isinstance(existing_text, str) else str(existing_text)
+        content_list.append({"type": "text", "text": text_str})
+    content_list.extend(media_blocks)
+
+    messages[last_user_idx] = {**last_msg, "content": content_list}
+
+    return {
+        **state,
+        "litellm_messages": messages,
+        "has_vision_attachments": has_image,
+        "has_audio_attachments": has_audio,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Conditional router
 # ---------------------------------------------------------------------------
 
 def _route_by_provider(state: ChatWorkflowState) -> str:
-    """Return the branch key for the conditional edge after prepare_messages."""
+    """Return the branch key for the conditional edge after multimodal_transform."""
     return "anthropic" if state["provider_normalized"] == "anthropic" else "default"
 
 
@@ -142,17 +262,19 @@ def _build_chat_workflow():
     # Register nodes
     workflow.add_node("normalize_provider", _normalize_provider_node)
     workflow.add_node("prepare_messages", _prepare_messages_node)
+    workflow.add_node("multimodal_transform", _multimodal_transform_node)
     workflow.add_node("anthropic_transform", _anthropic_transform_node)
     workflow.add_node("preflight_validation", _preflight_validation_node)
     workflow.add_node("resolve_model", _resolve_model_node)
 
-    # Linear entry: normalize first, then build message list
+    # Linear entry: normalize → build messages → inject multimodal blocks
     workflow.add_edge(START, "normalize_provider")
     workflow.add_edge("normalize_provider", "prepare_messages")
+    workflow.add_edge("prepare_messages", "multimodal_transform")
 
-    # Branch: Anthropic gets an extra transformation step
+    # Branch after multimodal_transform: Anthropic gets an extra transformation step
     workflow.add_conditional_edges(
-        "prepare_messages",
+        "multimodal_transform",
         _route_by_provider,
         {"anthropic": "anthropic_transform", "default": "preflight_validation"},
     )
@@ -160,7 +282,7 @@ def _build_chat_workflow():
     # Anthropic rejoins the main path after its transform
     workflow.add_edge("anthropic_transform", "preflight_validation")
 
-    # Final linear path: strip unsupported params → build model string
+    # Final linear path: capability guard + strip unsupported params → build model string
     workflow.add_edge("preflight_validation", "resolve_model")
     workflow.add_edge("resolve_model", END)
 
@@ -180,8 +302,14 @@ async def run_chat_orchestration(
     system_prompt: Optional[str] = None,
     response_format: Optional[dict] = None,
     max_completion_tokens: Optional[int] = None,
+    tenant_id: Optional[str] = None,
 ) -> ChatWorkflowState:
     """Run the LangGraph chat workflow and return the final state."""
+    audio_data_mode_value: Optional[str] = (
+        ai_settings.AudioDataMode.value
+        if ai_settings.AudioDataMode is not None
+        else None
+    )
     initial_state: ChatWorkflowState = {
         "request": request,
         "provider": str(ai_settings.Provider),
@@ -193,6 +321,11 @@ async def run_chat_orchestration(
         "litellm_messages": [],
         "litellm_model": "",
         "max_completion_tokens": max_completion_tokens,
+        "file_ids": list(request.file_ids),
+        "tenant_id": tenant_id,
+        "has_vision_attachments": False,
+        "has_audio_attachments": False,
+        "audio_data_mode": audio_data_mode_value,
     }
     return await CHAT_WORKFLOW.ainvoke(initial_state)  # type: ignore
 
@@ -206,15 +339,6 @@ async def build_chat_runtime_context(
     """Resolve all dependencies for a chat request and return a ready-to-use runtime context."""
     user_id = extract_user_id(auth)
     ai_settings = await get_settings_by_key(request.settings_key, tenant_id, db)
-
-    if normalize_model_type(ai_settings) == ModelTypeEnum.Audio.value.lower():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Provider setting '{request.settings_key}' is configured for audio transcription "
-                "(ModelType=Audio). Use POST /api/v1/asr/transcribe instead."
-            ),
-        )
 
     # Caller-supplied max_completion_tokens overrides the DB setting.
     max_completion_tokens: Optional[int] = (
@@ -237,18 +361,13 @@ async def build_chat_runtime_context(
     session_id = await resolve_or_create_session(request.session_id, tenant_id, user_id, db)
 
     orchestration_state = await run_chat_orchestration(
-        request, ai_settings, system_prompt, response_format, max_completion_tokens
-    )
-
-    litellm_messages: List[dict[str, str]] = list(orchestration_state["litellm_messages"])
-    litellm_messages = await inject_file_context_if_present(
-        litellm_messages, request.file_ids, tenant_id
+        request, ai_settings, system_prompt, response_format, max_completion_tokens, tenant_id
     )
 
     return {
         "user_id": user_id,
         "session_id": session_id,
-        "litellm_messages": litellm_messages,
+        "litellm_messages": list(orchestration_state["litellm_messages"]),
         "litellm_model": orchestration_state["litellm_model"],
         "provider_api_key": orchestration_state["api_key"],
         "provider_api_base": ai_settings.ApiBaseUrl,

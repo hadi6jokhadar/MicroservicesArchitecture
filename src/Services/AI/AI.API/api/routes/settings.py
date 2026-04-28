@@ -9,7 +9,7 @@ import uuid
 from core.database import get_db
 from api.dependencies import get_tenant_id, require_superadmin_or_service
 from api.attributes import optional_tenant
-from models import AiProviderSettings, ModelTypeEnum
+from models import AiProviderSettings, ModelTypeEnum, AudioDataModeEnum
 
 router = APIRouter()
 
@@ -28,6 +28,7 @@ class ProviderSettingsCreate(BaseModel):
     FrequencyPenalty: Optional[float] = None
     PresencePenalty: Optional[float] = None
     Description: Optional[str] = None
+    AudioDataMode: Optional[AudioDataModeEnum] = None
 
 class ProviderSettingsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -46,6 +47,7 @@ class ProviderSettingsResponse(BaseModel):
     FrequencyPenalty: Optional[float] = None
     PresencePenalty: Optional[float] = None
     Description: Optional[str] = None
+    AudioDataMode: Optional[AudioDataModeEnum] = None
 
 
 class SettingsScopeFilter(str):
@@ -159,6 +161,7 @@ async def create_setting(
         FrequencyPenalty=setting.FrequencyPenalty,
         PresencePenalty=setting.PresencePenalty,
         Description=setting.Description,
+        AudioDataMode=setting.AudioDataMode,
     )
     db.add(new_setting)
     await db.commit()
@@ -205,6 +208,7 @@ async def update_setting(
     existing_setting.FrequencyPenalty = setting.FrequencyPenalty
     existing_setting.PresencePenalty = setting.PresencePenalty
     existing_setting.Description = setting.Description
+    existing_setting.AudioDataMode = setting.AudioDataMode
 
     await db.commit()
     await db.refresh(existing_setting)

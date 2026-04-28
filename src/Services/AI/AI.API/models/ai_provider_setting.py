@@ -3,7 +3,7 @@ from sqlalchemy import String, Enum, UniqueConstraint, Float, Integer, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from core.database import Base
-from models.enums import ModelTypeEnum
+from models.enums import ModelTypeEnum, AudioDataModeEnum
 
 
 class AiProviderSettings(Base):
@@ -33,3 +33,10 @@ class AiProviderSettings(Base):
     PresencePenalty: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Description of the setting
     Description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # How audio file data is delivered to the model API.
+    # None / Auto — provider auto-detection (default).
+    # Url         — pass a real HTTP URL (audio_url block, required for Qwen omni).
+    # Base64      — download and encode bytes (input_audio block, required for OpenAI/Gemini).
+    AudioDataMode: Mapped[AudioDataModeEnum | None] = mapped_column(
+        Enum(AudioDataModeEnum, name="audiodatamodeEnum"), nullable=True, default=None
+    )

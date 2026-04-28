@@ -1,5 +1,6 @@
 from typing import Any, AsyncGenerator, List, Optional
 import json
+import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -14,7 +15,23 @@ from core.ai.schemas import ChatRequest, ChatSingleResponse
 from core.ai.utils import estimate_tokens_if_missing, map_litellm_exception_to_http
 from core.database import get_db
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+def _has_audio_url_blocks(messages: List[dict[str, Any]]) -> bool:
+    """Return True if any message contains an input_audio content block.
+
+    Qwen omni models (Dashscope compatible-mode) require the extra
+    ``modalities: [\"text\"]`` field in the request body when audio
+    blocks are present, otherwise Dashscope returns HTTP 400.
+    """
+    return any(
+        isinstance(msg.get("content"), list)
+        and any(block.get("type") == "input_audio" for block in msg["content"])
+        for msg in messages
+    )
 
 
 @router.post("/stream")
@@ -57,6 +74,9 @@ async def chat_stream(
                 completion_kwargs["frequency_penalty"] = ctx["frequency_penalty"]
             if ctx["presence_penalty"] is not None:
                 completion_kwargs["presence_penalty"] = ctx["presence_penalty"]
+            # Qwen omni (Dashscope) requires modalities when audio_url blocks are present.
+            if _has_audio_url_blocks(ctx["litellm_messages"]):
+                completion_kwargs["extra_body"] = {"modalities": ["text"]}
 
             response = await acompletion(**completion_kwargs)  # type: ignore[assignment]
 
@@ -97,6 +117,7 @@ async def chat_stream(
             yield "data: [DONE]\n\n"
 
         except Exception as e:
+            logger.error("Provider error during stream: %s", e, exc_info=True)
             http_exc = map_litellm_exception_to_http(e)
             yield f"data: {json.dumps({'error': str(e), 'status_code': http_exc.status_code})}\n\n"
 
@@ -153,9 +174,13 @@ async def chat_single_response(
             completion_kwargs["frequency_penalty"] = ctx["frequency_penalty"]
         if ctx["presence_penalty"] is not None:
             completion_kwargs["presence_penalty"] = ctx["presence_penalty"]
+        # Qwen omni (Dashscope) requires modalities when audio_url blocks are present.
+        if _has_audio_url_blocks(ctx["litellm_messages"]):
+            completion_kwargs["extra_body"] = {"modalities": ["text"]}
 
         response = await acompletion(**completion_kwargs)  # type: ignore[assignment]
     except Exception as e:
+        logger.error("Provider error during single response: %s", e, exc_info=True)
         raise map_litellm_exception_to_http(e)
 
     assistant_content = ""

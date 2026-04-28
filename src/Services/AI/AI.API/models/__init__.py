@@ -1,5 +1,5 @@
 # Expose models at package level
-from .enums import ModelTypeEnum
+from .enums import ModelTypeEnum, AudioDataModeEnum
 from .ai_provider_setting import AiProviderSettings
 from .ai_system_prompt import AiSystemPrompt
 from .ai_chat_session import AiChatSession
@@ -9,6 +9,7 @@ from .ai_token_usage_log import AiTokenUsageLog
 
 __all__ = [
     "ModelTypeEnum",
+    "AudioDataModeEnum",
     "AiProviderSettings",
     "AiSystemPrompt",
     "AiChatSession",
