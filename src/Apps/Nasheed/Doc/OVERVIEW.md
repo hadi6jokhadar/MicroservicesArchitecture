@@ -49,6 +49,7 @@ This means:
 ### 2. Database Strategy B — Per-Tenant DB
 
 ### 3. Startup Script
+
 A `run-development-instance.bat` is available in [Nasheed.API](Nasheed.API/run-development-instance.bat) for local development. It sets `ASPNETCORE_ENVIRONMENT=Development` and `ASPNETCORE_URLS=http://localhost:5009`.
 
 `NasheedDbContext` uses Strategy B. Connection resolution priority in `OnConfiguring`:
