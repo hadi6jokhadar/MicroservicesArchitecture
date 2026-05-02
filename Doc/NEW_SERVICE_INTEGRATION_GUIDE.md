@@ -6,7 +6,35 @@ This comprehensive guide explains how to integrate **Authentication** (via Ident
 
 ---
 
-## 📋 Table of Contents
+## � Where Does a New Project Live?
+
+The `src/` folder has two distinct sub-folders:
+
+| Folder          | Purpose                                                                                                                                                                                                                                 | Examples                                                     |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `src/Services/` | **Core platform microservices** — foundational services that other projects depend on. Each has its own database, handles a specific platform domain, and is consumed by Apps.                                                          | Identity, Tenant, FileManager, Notification, Translation, AI |
+| `src/Apps/`     | **Application-layer projects** — domain-specific apps that **consume** the platform Services above. They use Strategy B per-tenant DB driven by Tenant config, call AI/File/Notification services, and are scoped to a business domain. | Nasheed                                                      |
+
+**Rule:** If your new project calls existing Services (Identity, Tenant, AI, FileManager, etc.) and owns its own tenant-scoped data — place it in `src/Apps/{YourApp}/`.
+
+### 📄 Documentation for Apps projects
+
+Every project under `src/Apps/` **must** have its own `Doc/` folder inside the project root, following the same structure as the global `Doc/` folder. At minimum, create these files:
+
+| File                         | Contents                                                              |
+| ---------------------------- | --------------------------------------------------------------------- |
+| `OVERVIEW.md`                | Purpose, port, architecture decisions, key design patterns            |
+| `ENTITIES_AND_DATA_MODEL.md` | Domain entities, relationships, EF Core configuration notes           |
+| `API_ENDPOINTS.md`           | Full endpoint reference with request/response shapes                  |
+| `INGESTION_OR_WORKERS.md`    | Background workers, job queues, retry logic (if applicable)           |
+| `AI_INTEGRATION.md`          | AI service calls, prompt keys, settings keys (if applicable)          |
+| `DOCUMENTATION_INDEX.md`     | Index of all doc files in this project (mirrors global index pattern) |
+
+The project `Doc/` folder is the **single source of truth** for that app. Do not create temporary or summary docs — update in place.
+
+---
+
+## �📋 Table of Contents
 
 1. [Overview](#overview)
 2. [Prerequisites](#prerequisites)

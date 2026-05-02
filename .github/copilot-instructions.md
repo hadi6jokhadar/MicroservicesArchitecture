@@ -45,10 +45,25 @@
 
 ## Project Structure & Layer Responsibilities
 
-### Service Structure (Identity, Tenant, Notification)
+### src/ Folder Organization
 
 ```
-Services/{ServiceName}/
+src/
+├── Services/   # Core platform microservices (foundational — other projects depend on these)
+│               # Identity, Tenant, FileManager, Notification, Translation, AI
+└── Apps/       # Domain-specific application projects that consume platform Services
+                # Nasheed (src/Apps/Nasheed/)
+```
+
+**Place new projects in `src/Apps/`** when they consume existing Services and own tenant-scoped data.  
+**Place new projects in `src/Services/`** when they are foundational platform services consumed by others.
+
+Every `src/Apps/` project **must have its own `Doc/` folder** with: `DOCUMENTATION_INDEX.md`, `OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md`. See `Doc/NEW_SERVICE_INTEGRATION_GUIDE.md` for the full required list.
+
+### Service Structure (applies to both Services/ and Apps/)
+
+```
+{ServiceName}/
 ├── {ServiceName}.API/          # Minimal APIs, Program.cs, endpoint handlers
 ├── {ServiceName}.Application/  # CQRS handlers (Commands, Queries), DTOs, validators
 ├── {ServiceName}.Domain/       # Entities, repository interfaces, domain logic

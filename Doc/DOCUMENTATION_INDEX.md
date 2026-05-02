@@ -3,8 +3,21 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** April 28, 2026  
-**Total Files:** 33
+**Last Updated:** May 2, 2026  
+**Total Files:** 37
+
+---
+
+## 🗂️ Project Folder Structure
+
+The `src/` directory has two distinct sub-folders:
+
+| Folder          | Role                                                                   | Current projects                                             |
+| --------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `src/Services/` | Core platform microservices. Foundational — other Apps depend on them. | Identity, Tenant, FileManager, Notification, Translation, AI |
+| `src/Apps/`     | Domain-specific application projects that consume platform Services.   | Nasheed                                                      |
+
+**Every project in `src/Apps/` must have its own `Doc/` folder** with at minimum: `DOCUMENTATION_INDEX.md`, `OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md`. See `NEW_SERVICE_INTEGRATION_GUIDE.md` for the full required file list.
 
 ---
 
@@ -86,13 +99,41 @@ Files are organized by category. Each entry includes:
 
 ### NEW_SERVICE_INTEGRATION_GUIDE.md
 
-**Description:** Complete step-by-step guide to create a new microservice. Project structure, multi-tenancy setup, database context, DI registration.  
+**Description:** Complete step-by-step guide to create a new microservice. Project structure, multi-tenancy setup, database context, DI registration. Also explains the `src/Services/` vs `src/Apps/` folder distinction and the per-app `Doc/` folder requirement.  
 **Read When:**
 
-- Creating a brand new service
+- Creating a brand new service or app
 - Copying service structure
 - Setting up Clean Architecture layers
 - Need microservice boilerplate
+- Deciding where to put a new project (`Services/` vs `Apps/`)
+
+---
+
+## 🎵 Nasheed Library (`src/Apps/Nasheed/`)
+
+> Located at `src/Apps/Nasheed/` — a domain app that consumes platform Services (AI, FileManager, Tenant).  
+> Detailed implementation docs live in `src/Apps/Nasheed/Doc/` — see its own `DOCUMENTATION_INDEX.md`.
+
+### NASHEED_LIBRARY_BACKEND.md
+
+**Description:** Backend architecture and implementation plan for the proposed nasheed library service. Covers tenancy, service boundaries, data model, AI orchestration, vector search, endpoints, and delivery order.  
+**Read When:**
+
+- Planning the Nasheed backend service
+- Defining entities and ingestion jobs
+- Designing AI.API integration for nasheed processing
+- Implementing vector search and tenant database settings
+
+### NASHEED_LIBRARY_FRONTEND.md
+
+**Description:** Frontend architecture and implementation plan for the nasheed library experience in Angular. Covers upload, audio editing, playback, lyrics synchronization, real-time progress, and search UX.  
+**Read When:**
+
+- Planning the Nasheed frontend feature
+- Building upload or playback flows
+- Adding `WaveSurfer.js` integration
+- Implementing ingestion monitoring or lyric synchronization
 
 ---
 
@@ -444,6 +485,7 @@ Files are organized by category. Each entry includes:
 | Add notifications        | NOTIFICATION_SERVICE_README.md, FIREBASE_PUSH_NOTIFICATIONS_GUIDE.md                          |
 | Add caching              | CACHING_STRATEGY_COMPARISON.md                                                                |
 | Create admin endpoint    | BYPASS_TENANT_ENDPOINTS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                            |
+| Plan Nasheed feature     | NASHEED_LIBRARY_BACKEND.md, NASHEED_LIBRARY_FRONTEND.md                                       |
 | Work with roles          | ROLES_AND_CLAIMS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                                   |
 | Fix performance          | PERFORMANCE_OPTIMIZATION_GUIDE.md, USER_QUERY_OPTIMIZATION_IQUERYABLE.md                      |
 | Add translations         | TRANSLATION_SERVICE_GUIDE.md, LOCALIZATION_GUIDE.md                                           |
@@ -472,7 +514,7 @@ AI agents: Do NOT reference or create these files - they have been removed:
 
 ## 📊 Documentation Statistics
 
-- **Total Files:** 32
+- **Total Files:** 36
 
 **Average file size:** Comprehensive (each file contains complete information on its topic)
 
