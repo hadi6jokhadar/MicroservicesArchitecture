@@ -26,6 +26,7 @@ Default local URL:
 9. Fetches attached FileManager file IDs, encodes them as Base64, and injects OpenAI-compatible multimodal content blocks into the chat payload before LLM invocation.
 10. Exposes read endpoints for sessions, messages, message files, and token usage logs.
 11. Automatically generates and persists a session title after the first AI response in any untitled session, using the `Session-Title` system prompt and the `QwenAI-qwen3-vl-32b-instruct` provider settings key.
+12. Generates text embedding vectors via `POST /api/v1/embedding` and logs token usage after each call.
 
 ## High-Level Architecture
 
@@ -39,6 +40,7 @@ Default local URL:
 - `api/routes/chat_messages.py`: Chat message listing with filtering and pagination.
 - `api/routes/chat_message_files.py`: Chat message to file relation listing.
 - `api/routes/token_usage_logs.py`: Token usage log listing with filtering, pagination, and aggregate statistics (`GET /stats`).
+- `api/routes/embedding.py`: Text embedding endpoint (`POST /api/v1/embedding`). Resolves provider settings, validates `ModelType == Embedding`, calls LiteLLM `aembedding`, logs token usage.
 - `api/dependencies.py`: Auth and tenant resolution helpers.
 - `api/attributes.py`: Optional tenant and bypass tenant decorators.
 
@@ -48,7 +50,7 @@ Shared logic extracted from route handlers to keep endpoints thin and stable:
 
 | File                          | Responsibility                                                                                                                                                                                                                                                                                |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `core/ai/schemas.py`          | Pydantic request/response models for chat                                                                                                                                                                                                                                                     |
+| `core/ai/schemas.py`          | Pydantic request/response models for chat and embedding (`ChatRequest`, `ChatSingleResponse`, `EmbeddingRequest`, `EmbeddingResponse`)                                                                                                                                                        |
 | `core/ai/utils.py`            | `build_litellm_model`, `normalize_model_type`, `extract_user_id`, `estimate_tokens_if_missing`, `parse_response_format`, `map_litellm_exception_to_http`, provider strategy constants (`PROVIDERS_WITHOUT_RESPONSE_FORMAT`, `PROVIDERS_REQUIRING_MAX_TOKENS`, `ANTHROPIC_DEFAULT_MAX_TOKENS`) |
 | `core/ai/db_queries.py`       | `get_settings_by_key`, `get_system_prompt_by_key`                                                                                                                                                                                                                                             |
 | `core/ai/sessions.py`         | `resolve_or_create_session` — create or validate chat sessions                                                                                                                                                                                                                                |

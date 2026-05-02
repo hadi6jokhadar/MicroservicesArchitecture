@@ -105,6 +105,7 @@ from api.routes import chat_messages as chat_messages_router
 from api.routes import chat_messages as chat_messages_router
 from api.routes import chat_message_files as chat_message_files_router
 from api.routes import token_usage_logs as token_usage_logs_router
+from api.routes import embedding as embedding_router
 
 app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["Settings"])
 app.include_router(prompts_router.router, prefix="/api/v1/prompts", tags=["System Prompts"])
@@ -114,6 +115,7 @@ app.include_router(chat_messages_router.router, prefix="/api/v1/chat-messages", 
 app.include_router(chat_messages_router.router, prefix="/api/v1/chat-messages", tags=["Chat Messages"])
 app.include_router(chat_message_files_router.router, prefix="/api/v1/chat-message-files", tags=["Chat Message Files"])
 app.include_router(token_usage_logs_router.router, prefix="/api/v1/token-usage-logs", tags=["Token Usage Logs"])
+app.include_router(embedding_router.router, prefix="/api/v1/embedding", tags=["Embedding"])
 
 
 @app.get("/health")

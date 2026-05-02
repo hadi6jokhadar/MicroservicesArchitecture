@@ -26,3 +26,17 @@ class ChatSingleResponse(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+
+
+# ---------------------------------------------------------------------------
+# Embedding
+# ---------------------------------------------------------------------------
+
+class EmbeddingRequest(BaseModel):
+    settingsKey: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+
+
+class EmbeddingResponse(BaseModel):
+    embedding: List[float]
+    model: str

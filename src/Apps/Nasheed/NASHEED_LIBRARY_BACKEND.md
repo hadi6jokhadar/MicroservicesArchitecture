@@ -1,7 +1,7 @@
 # Nasheed Library Backend
 
 **Purpose:** Backend architecture and implementation plan for adding the nasheed library service to the current microservices platform.  
-**Last Updated:** May 2, 2026  
+**Last Updated:** May 28, 2026  
 **Status:** ⚠️ Proposed Design
 
 ---
@@ -400,6 +400,38 @@ Recommended pipeline for a newly uploaded song:
 12. Worker calls the new AI embedding endpoint with the required AI settings key
 13. Worker stores search document and vector data in the tenant vector database
 14. Worker marks the job complete and moves the song to `Done`
+
+---
+
+## Integration Tests
+
+**Project:** `src/Apps/Nasheed/Nasheed.API.Tests/`  
+**Pattern:** MediatR handler tests (bypasses HTTP layer, avoids .NET 9 PipeWriter bug)  
+**Database:** PostgreSQL (`nasheed_testdb`) — matches production FK/migration behaviour
+
+### What is tested
+
+| File                                | Coverage                                                                                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Endpoints/ArtistEndpointsTests.cs` | CreateArtist, GetArtistById, GetArtistList, UpdateArtist, DeleteArtist (happy path + validation + not-found)                                        |
+| `Endpoints/SongEndpointsTests.cs`   | CreateSong (with side-effects: artist count, ingestion job), GetSongById, GetSongList, UpdateSong, DeleteSong (happy path + validation + not-found) |
+
+### What is stubbed / excluded
+
+| Excluded component           | Why                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| `NasheedTenantLoaderService` | Calls TenantService which is not running in tests                         |
+| `NasheedIngestionWorker`     | Polls AI API which is not available in tests                              |
+| `IAiApiClient`               | Replaced with `Mock<IAiApiClient>` returning no-op responses              |
+| Search / lyric generation    | Require live AI service; add as a separate integration category if needed |
+
+### Running tests
+
+```powershell
+dotnet test src\Apps\Nasheed\Nasheed.API.Tests\Nasheed.API.Tests.csproj
+```
+
+See `src/Apps/Nasheed/Nasheed.API.Tests/README.md` for full testing documentation.
 
 ### Prompt Management
 

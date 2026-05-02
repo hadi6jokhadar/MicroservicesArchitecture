@@ -4,7 +4,7 @@
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
 **Last Updated:** May 2, 2026  
-**Total Files:** 37
+**Total Files:** 38
 
 ---
 
@@ -107,6 +107,16 @@ Files are organized by category. Each entry includes:
 - Setting up Clean Architecture layers
 - Need microservice boilerplate
 - Deciding where to put a new project (`Services/` vs `Apps/`)
+
+### SERVICE_INTEGRATION_TEST_GUIDE.md
+
+**Description:** Step-by-step recipe for creating integration tests for any service. Covers project creation, `CustomWebApplicationFactory` pattern, MediatR handler testing (why HTTP layer is bypassed), test file structure, all test patterns (happy path / not-found / validation / side-effects), adding to solution, and README requirements.  
+**Read When:**
+
+- Adding integration tests to a service for the first time
+- Following up on a "create tests" request
+- Deciding what to stub vs what to test
+- Looking for test code pattern examples
 
 ---
 
