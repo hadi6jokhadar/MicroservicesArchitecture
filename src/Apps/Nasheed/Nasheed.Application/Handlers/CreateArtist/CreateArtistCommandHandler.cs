@@ -1,5 +1,7 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
 using Nasheed.Application.DTOs;
@@ -11,11 +13,21 @@ namespace Nasheed.Application.Handlers.CreateArtist;
 public class CreateArtistCommandHandler : IRequestHandler<CreateArtistCommand, ArtistDto>
 {
     private readonly IArtistRepository _repository;
+    private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ILogger<CreateArtistCommandHandler> _logger;
+    private readonly string _tenantId;
 
-    public CreateArtistCommandHandler(IArtistRepository repository, ILogger<CreateArtistCommandHandler> logger)
+    public CreateArtistCommandHandler(
+        IArtistRepository repository, 
+        IFileManagerServiceClient fileManagerClient,
+        IConfiguration configuration,
+        ILogger<CreateArtistCommandHandler> logger)
     {
         _repository = repository;
+        _fileManagerClient = fileManagerClient;
+        _tenantId = configuration["MultiTenancy:TenantId"]
+            ?? throw new InvalidOperationException(
+                "MultiTenancy:TenantId is not configured. Nasheed must send tenantId when calling FileManager.");
         _logger = logger;
     }
 
@@ -24,6 +36,17 @@ public class CreateArtistCommandHandler : IRequestHandler<CreateArtistCommand, A
         var entity = ArtistEntity.Create(request.Name, request.ImageFileId);
         await _repository.AddAsync(entity, cancellationToken);
         _logger.LogInformation("Created Artist with Id {Id}", entity.Id);
+
+        // Mark the image file as not temporary (permanent) if provided
+        if (!string.IsNullOrWhiteSpace(request.ImageFileId) && int.TryParse(request.ImageFileId, out var fileId))
+        {
+            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, false, _tenantId, cancellationToken);
+            if (!success)
+            {
+                _logger.LogWarning("Failed to mark ImageFileId {FileId} as permanent for Artist {ArtistId}", fileId, entity.Id);
+            }
+        }
+
         return ArtistDto.MapFrom(entity);
     }
 }

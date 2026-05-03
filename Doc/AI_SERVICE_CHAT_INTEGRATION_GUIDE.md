@@ -43,6 +43,28 @@ Include these two headers in every request:
 The AI service validates these headers via `get_current_user_or_service` (built with `ihsandev_shared`).  
 Authenticated service requests receive `role = "Service"` and bypass user-level tenant requirement enforcement.
 
+### Allowed Service Names (Required)
+
+In AI.API, `ServiceCommunication:AllowedServices` acts as a whitelist for `X-Service-Name`.
+
+- If `X-Service-Name` is not listed, AI.API returns `403 Forbidden`.
+- The caller's `ServiceCommunication:ServiceName` value must exactly match one entry in AI.API's `AllowedServices`.
+
+Example for Nasheed integration in AI.API `appsettings.json`:
+
+```json
+"ServiceCommunication": {
+    "AllowedServices": [
+        "IdentityService",
+        "TenantService",
+        "FileManagerService",
+        "NotificationService",
+        "TranslationService",
+        "NasheedService"
+    ]
+}
+```
+
 ---
 
 ## Request Body
@@ -52,22 +74,28 @@ Both endpoints accept the same JSON body (`ChatRequest`):
 ```json
 {
   "settings_key": "string (required)",
-  "system_prompt_key": "string (required)",
+  "system_prompt_key": "string (optional)",
   "messages": [{ "role": "user", "content": "string (required, min 1 char)" }],
   "file_ids": [1, 2],
-  "session_id": "uuid (optional)"
+  "session_id": "uuid (optional)",
+  "max_completion_tokens": 2048,
+  "generate_session_title": false
 }
 ```
 
 ### Fields
 
-| Field               | Type            | Required | Description                                                                                         |
-| ------------------- | --------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `settings_key`      | `string`        | **Yes**  | Key of the AI provider settings record (e.g. `"OpenAI-gpt-4o"`). Defines the model and credentials. |
-| `system_prompt_key` | `string`        | **Yes**  | Key of the system prompt record that scopes behavior for this task.                                 |
-| `messages`          | `ChatMessage[]` | **Yes**  | At least one message with `role` and `content`. For simple tasks, one `user` message is enough.     |
-| `file_ids`          | `int[]`         | No       | FileManager file IDs to attach as multimodal context (images, audio, documents).                    |
-| `session_id`        | `UUID`          | No       | Existing session UUID to continue. Omit to auto-create a new session.                               |
+| Field                    | Type            | Required | Description                                                                                         |
+| ------------------------ | --------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `settings_key`           | `string`        | **Yes**  | Key of the AI provider settings record (e.g. `"OpenAI-gpt-4o"`). Defines the model and credentials. |
+| `system_prompt_key`      | `string`        | No       | Key of the system prompt record that scopes behavior for this task.                                 |
+| `messages`               | `ChatMessage[]` | No       | Optional message list. Each item must include `role` and non-empty `content`.                       |
+| `file_ids`               | `int[]`         | No       | FileManager file IDs to attach as multimodal context (images, audio, documents).                    |
+| `session_id`             | `UUID`          | No       | Existing session UUID to continue. Omit to auto-create a new session.                               |
+| `max_completion_tokens`  | `int`           | No       | Per-request override for output token cap. Forwarded to LiteLLM as `max_tokens`.                    |
+| `generate_session_title` | `bool`          | No       | Defaults to `false`. When `true`, schedules background generation of session title.                 |
+
+**Validation rule:** at least one of `messages` or `system_prompt_key` must be provided. If both are missing, AI.API returns `HTTP 400`.
 
 ### Message roles
 
@@ -80,10 +108,10 @@ For service-initiated tasks, always use `"user"` unless you are continuing an ex
 
 Tenant context is **optional** for service calls. Behavior:
 
-| Header present?     | Effect                                                                                                   |
-| ------------------- | -------------------------------------------------------------------------------------------------------- |
-| `x-tenant-id: <id>` | AI service resolves AI settings and system prompts **for that tenant first**, then falls back to global. |
-| Header absent       | AI service operates in **global scope** — uses global AI settings and system prompts only.               |
+| Header present?     | Effect                                                                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `x-tenant-id: <id>` | AI service resolves AI settings and system prompts **for that tenant first**, then falls back to global.                                |
+| Header absent       | AI service resolves settings by `settings_key` without tenant restriction, while `system_prompt_key` resolves from global prompts only. |
 
 Pass `x-tenant-id` only when the task is tenant-specific and you expect tenant-scoped settings or prompts.
 
@@ -165,10 +193,12 @@ public class AiChatMessage
 public class AiChatRequest
 {
     public string           SettingsKey      { get; set; } = string.Empty;
-    public string           SystemPromptKey  { get; set; } = string.Empty;
-    public List<AiChatMessage> Messages      { get; set; } = new();
+    public string?          SystemPromptKey  { get; set; }
+    public List<AiChatMessage>? Messages     { get; set; }
     public List<int>        FileIds          { get; set; } = new();
     public Guid?            SessionId        { get; set; }
+    public int?             MaxCompletionTokens { get; set; }
+    public bool             GenerateSessionTitle { get; set; }
 }
 
 public class AiChatResponse
@@ -268,13 +298,13 @@ The provider must support the media type — the AI service validates this and r
 
 ## Error Handling
 
-| Status | Meaning                                                                                            |
-| ------ | -------------------------------------------------------------------------------------------------- |
-| `400`  | Validation error — missing required field, unsupported media type for provider, or empty messages. |
-| `401`  | Missing or invalid `X-Service-Secret` header.                                                      |
-| `403`  | Service name not in allowed list (if whitelist is configured).                                     |
-| `404`  | `settings_key` or `system_prompt_key` not found for the given tenant scope.                        |
-| `500`  | Internal error or upstream LLM provider failure.                                                   |
+| Status | Meaning                                                                                                                                                      |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `400`  | Validation error — missing `settings_key`, unsupported media type for provider, invalid message payload, or both `messages` and `system_prompt_key` missing. |
+| `401`  | Missing or invalid `X-Service-Secret` header.                                                                                                                |
+| `403`  | Service name not in allowed list (if whitelist is configured).                                                                                               |
+| `404`  | `settings_key` or `system_prompt_key` not found for the given tenant scope.                                                                                  |
+| `500`  | Internal error or upstream LLM provider failure.                                                                                                             |
 
 Always check status before reading the response body. LLM provider errors are mapped to HTTP status codes by the AI service.
 
@@ -287,8 +317,8 @@ Before calling the endpoints, ensure these records exist in the AI service datab
 1. **AI Provider Settings** — a row in `AiProviderSettings` with the `Key` matching `settings_key`.  
    Created via `POST /api/v1/settings` (admin endpoint).
 
-2. **System Prompt** — a row in `AiSystemPrompts` with the `Key` matching `system_prompt_key`.  
-   Created via `POST /api/v1/system-prompts` (admin endpoint).
+2. **System Prompt** — a row in `AiSystemPrompt` with the `Name` matching `system_prompt_key`.  
+   Created via `POST /api/v1/prompts` (admin endpoint).
 
 These can be global (no tenant) or tenant-scoped. Tenant-scoped records are matched first; global records are the fallback.
 
@@ -305,9 +335,13 @@ Tenant      x-tenant-id: <tenant-id>   (optional)
 Body (snake_case JSON):
 {
   "settings_key":     "<required>",
-  "system_prompt_key": "<required>",
-  "messages": [{ "role": "user", "content": "<required>" }],
+    "system_prompt_key": "<optional>",
+    "messages": [{ "role": "user", "content": "<optional>" }],
   "file_ids": [],        // optional
-  "session_id": null     // optional
+    "session_id": null,    // optional
+    "max_completion_tokens": null, // optional
+    "generate_session_title": false // optional
 }
+
+Rule: at least one of `system_prompt_key` or `messages` must be present.
 ```

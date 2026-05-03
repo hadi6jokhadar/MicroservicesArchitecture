@@ -33,7 +33,7 @@ public static class InfrastructureServiceExtensions
         // AI API Client (HTTP)
         services.AddHttpClient<IAiApiClient, AiApiClientService>(client =>
         {
-            var baseUrl = configuration["ServiceCommunication:Services:AiService:BaseUrl"]
+            var baseUrl = configuration["Services:AiService:BaseUrl"]
                 ?? "http://localhost:5008";
             client.BaseAddress = new Uri(baseUrl);
         });

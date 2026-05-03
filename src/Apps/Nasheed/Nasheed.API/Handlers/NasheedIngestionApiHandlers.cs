@@ -31,8 +31,8 @@ public static class NasheedIngestionApiHandlers
 
     public static async Task<IResult> Remove(int id, IMediator mediator, CancellationToken ct)
     {
-        await mediator.Send(new RemoveIngestionJobCommand(id), ct);
-        return Results.NoContent();
+        var result = await mediator.Send(new RemoveIngestionJobCommand(id), ct);
+        return Results.Ok(result);
     }
 
     public static async Task<IResult> Reindex(int songId, IMediator mediator, CancellationToken ct)

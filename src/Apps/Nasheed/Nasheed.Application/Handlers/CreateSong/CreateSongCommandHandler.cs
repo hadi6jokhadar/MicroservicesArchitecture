@@ -1,5 +1,7 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
 using Nasheed.Application.DTOs;
@@ -14,17 +16,25 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
     private readonly ISongRepository _songRepository;
     private readonly IArtistRepository _artistRepository;
     private readonly ISongIngestionJobRepository _ingestionJobRepository;
+    private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ILogger<CreateSongCommandHandler> _logger;
+    private readonly string _tenantId;
 
     public CreateSongCommandHandler(
         ISongRepository songRepository,
         IArtistRepository artistRepository,
         ISongIngestionJobRepository ingestionJobRepository,
+        IFileManagerServiceClient fileManagerClient,
+        IConfiguration configuration,
         ILogger<CreateSongCommandHandler> logger)
     {
         _songRepository = songRepository;
         _artistRepository = artistRepository;
         _ingestionJobRepository = ingestionJobRepository;
+        _fileManagerClient = fileManagerClient;
+        _tenantId = configuration["MultiTenancy:TenantId"]
+            ?? throw new InvalidOperationException(
+                "MultiTenancy:TenantId is not configured. Nasheed must send tenantId when calling FileManager.");
         _logger = logger;
     }
 
@@ -48,6 +58,17 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
         await _artistRepository.UpdateAsync(artist, cancellationToken);
 
         _logger.LogInformation("Created Song Id {SongId} with ingestion job Id {JobId}", song.Id, job.Id);
+
+        // Mark the audio file as not temporary (permanent)
+        if (!string.IsNullOrWhiteSpace(request.FileId) && int.TryParse(request.FileId, out var fileId))
+        {
+            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, false, _tenantId, cancellationToken);
+            if (!success)
+            {
+                _logger.LogWarning("Failed to mark FileId {FileId} as permanent for Song {SongId}", fileId, song.Id);
+            }
+        }
+
         return SongDto.MapFrom(song);
     }
 }

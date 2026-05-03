@@ -29,12 +29,49 @@ public class SearchSongsQueryHandler : IRequestHandler<SearchSongsQuery, List<Se
 
     public async Task<List<SearchResultDto>> Handle(SearchSongsQuery request, CancellationToken cancellationToken)
     {
+        var normalizedQuery = request.Query?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+        {
+            _logger.LogDebug("Empty search query received; returning empty result set");
+            return new List<SearchResultDto>();
+        }
+
+        var topN = request.TopN > 0 ? request.TopN : 10;
+
+        var directMatchIds = await _searchDocRepository.SearchByTextAsync(normalizedQuery, topN, cancellationToken);
+        if (directMatchIds.Count > 0)
+        {
+            var directSongs = await _songRepository.GetByIdsAsync(directMatchIds, cancellationToken);
+            var directSongMap = directSongs.ToDictionary(s => s.Id);
+
+            var directResults = directMatchIds
+                .Where(directSongMap.ContainsKey)
+                .Select(id =>
+                {
+                    var song = directSongMap[id];
+                    return new SearchResultDto
+                    {
+                        SongId = song.Id,
+                        Title = song.Title,
+                        ArtistName = song.Artist?.Name,
+                        Summary = song.Summary,
+                        VocalStyle = song.VocalStyle,
+                        MoodTags = new List<string>(),
+                        Score = 1.0
+                    };
+                })
+                .ToList();
+
+            _logger.LogInformation("Search '{Query}' returned {Count} lexical matches without embedding", normalizedQuery, directResults.Count);
+            return directResults;
+        }
+
         var queryEmbedding = await _aiClient.EmbedAsync(
             NasheedAiKeys.EmbeddingSettings,
-            request.Query,
+            normalizedQuery,
             cancellationToken: cancellationToken);
 
-        var similarPairs = await _searchDocRepository.SearchSimilarAsync(queryEmbedding, request.TopN, cancellationToken);
+        var similarPairs = await _searchDocRepository.SearchSimilarAsync(queryEmbedding, topN, cancellationToken);
         if (similarPairs.Count == 0) return new List<SearchResultDto>();
 
         var songIds = similarPairs.Select(p => p.SongId).ToList();
@@ -59,7 +96,7 @@ public class SearchSongsQueryHandler : IRequestHandler<SearchSongsQuery, List<Se
             })
             .ToList();
 
-        _logger.LogInformation("Search '{Query}' returned {Count} results", request.Query, results.Count);
+        _logger.LogInformation("Search '{Query}' returned {Count} results", normalizedQuery, results.Count);
         return results;
     }
 }

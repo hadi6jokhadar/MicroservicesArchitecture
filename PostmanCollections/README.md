@@ -67,6 +67,16 @@ The workflow scans `src/Services/*/*.API/Endpoints/**/*.cs` and updates files in
   - Bulk import translations
   - Multi-language support (global and per-tenant customization)
 
+### 6. Nasheed Service (`Nasheed_Service.postman_collection.json`)
+
+- **Base URL**: `http://localhost:5009`
+- **Endpoints**:
+  - Artist and song management
+  - Ingestion job monitoring and reindex operations
+  - Semantic search and similar song retrieval
+  - Favorites, ratings, and play interactions
+  - Lyrics generation endpoint
+
 ## Setup Instructions
 
 1. **Import Collections**:
@@ -127,5 +137,6 @@ Make sure your services are running on the specified ports:
 - Notification: 5004
 - FileManager: 5005
 - Translation: 5006
+- Nasheed: 5009
 
 You can use the provided batch files in the services directories to start them.

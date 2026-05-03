@@ -1,8 +1,19 @@
 # Nasheed Library Frontend
 
-**Purpose:** Frontend architecture and implementation plan for the nasheed library experience in the Angular workspace.  
-**Last Updated:** May 2, 2026  
-**Status:** ⚠️ Proposed Design
+**Purpose:** Frontend architecture planning notes for the nasheed library experience in the Angular workspace.  
+**Last Updated:** May 4, 2026  
+**Status:** 📚 Planning Reference
+
+---
+
+## Contract Note
+
+This file is a frontend planning guide. Backend API contracts should always be validated against:
+
+- `src/Apps/Nasheed/Doc/API_ENDPOINTS.md`
+- `src/Apps/Nasheed/Doc/OVERVIEW.md`
+
+Some endpoint names shown in this planning file reflect earlier drafts and are not authoritative.
 
 ---
 
@@ -110,7 +121,7 @@ The LRC parser and synchronization logic do not currently exist in the frontend 
 
 The upload and management screens should show ingestion status clearly. The user should be able to distinguish between queued, running, failed, and complete states without refreshing the page.
 
-If live progress is available through SignalR, the UI should subscribe to it. If live delivery is temporarily unavailable, the same screens should still support status refresh using the analysis-status or ingestion endpoints.
+If live progress is available through SignalR, the UI should subscribe to it. If live delivery is temporarily unavailable, the same screens should still support status refresh using the song analysis endpoint or ingestion endpoints.
 
 ---
 
@@ -155,24 +166,24 @@ The frontend will depend on the following backend endpoint groups:
 
 ### Ingestion Endpoints
 
-- `GET /api/ingestion/jobs`
-- `GET /api/ingestion/jobs/{id}`
-- `POST /api/ingestion/jobs/{id}/retry`
-- `POST /api/ingestion/jobs/{id}/remove`
-- `POST /api/songs/{id}/reindex`
-- `GET /api/songs/{id}/analysis-status`
+- `GET /api/ingestion`
+- `GET /api/ingestion/{id}`
+- `POST /api/ingestion/{id}/retry`
+- `DELETE /api/ingestion/{id}`
+- `POST /api/ingestion/songs/{songId}/reindex`
+- `GET /api/songs/{id}/analysis`
 
 ### Interaction Endpoints
 
-- `POST /api/songs/{id}/favorite`
-- `DELETE /api/songs/{id}/favorite`
-- `POST /api/songs/{id}/rating`
-- `POST /api/songs/{id}/play-log`
+- `POST /api/songs/{songId}/favorites`
+- `DELETE /api/songs/{songId}/favorites`
+- `POST /api/songs/{songId}/ratings`
+- `POST /api/songs/{songId}/play`
 
 ### Search And Generation Endpoints
 
-- `GET /api/search?query=...`
-- `GET /api/search/similar/{songId}`
+- `GET /api/search?q=...` (supports `query` alias)
+- `GET /api/songs/{id}/similar?topN=10`
 - `POST /api/generation/lyrics`
 
 All business requests for this feature are tenant-scoped, so the frontend must continue supplying tenant context according to the platform's existing API conventions.

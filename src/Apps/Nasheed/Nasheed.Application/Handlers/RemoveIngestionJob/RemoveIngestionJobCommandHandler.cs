@@ -22,9 +22,8 @@ public class RemoveIngestionJobCommandHandler : IRequestHandler<RemoveIngestionJ
         var job = await _repository.GetByIdAsync(request.JobId, cancellationToken)
             ?? throw new NotFoundException($"Ingestion job with Id '{request.JobId}' not found.");
 
-        job.MarkRemoved();
-        await _repository.UpdateAsync(job, cancellationToken);
-        _logger.LogInformation("Marked ingestion job Id {JobId} as removed", job.Id);
+        await _repository.HardDeleteAsync(job, cancellationToken);
+        _logger.LogInformation("Hard deleted ingestion job Id {JobId}", job.Id);
         return true;
     }
 }

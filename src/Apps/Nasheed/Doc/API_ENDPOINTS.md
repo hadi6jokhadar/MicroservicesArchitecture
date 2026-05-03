@@ -1,8 +1,9 @@
 # Nasheed Service — API Endpoints
 
 **Base URL:** `http://localhost:5009`  
-**Auth:** All endpoints require `Authorization: Bearer <token>` and `x-tenant-id: <tenantId>` headers.  
-**Last Updated:** May 2, 2026
+**Auth:** All business endpoints require `Authorization: Bearer <token>`.  
+`x-tenant-id` should be sent by clients for tenant-aware routing, but this service also runs with configured single-tenant fallback (`MultiTenancy:TenantId`).  
+**Last Updated:** May 4, 2026
 
 ---
 
@@ -15,7 +16,7 @@ Create a new artist.
 **Request body:**
 
 ```json
-{ "name": "string", "imageFileId": 123 }
+{ "name": "string", "imageFileId": "file-123" }
 ```
 
 **Response:** `201 Created` → `ArtistDto`
@@ -30,7 +31,7 @@ Get a single artist by ID.
 
 ---
 
-### `GET /api/artists?page=1&pageSize=20&search=`
+### `GET /api/artists?textFilter=&pageNumber=1&pageSize=10`
 
 Get paginated list of artists.
 
@@ -40,7 +41,7 @@ Get paginated list of artists.
 {
   "items": [{ "id": 1, "name": "string", "imageFileId": null, "songCount": 0 }],
   "totalCount": 100,
-  "page": 1,
+  "pageNumber": 1,
   "pageSize": 20
 }
 ```
@@ -54,7 +55,7 @@ Update an artist.
 **Request body:**
 
 ```json
-{ "name": "string", "imageFileId": 123 }
+{ "name": "string", "imageFileId": "file-123" }
 ```
 
 **Response:** `200 OK` → `ArtistDto`
@@ -78,7 +79,7 @@ Create a new song (triggers ingestion pipeline).
 **Request body:**
 
 ```json
-{ "artistId": 1, "title": "string", "fileId": 456 }
+{ "artistId": 1, "title": "string", "fileId": "456" }
 ```
 
 **Response:** `201 Created` → `SongDto`
@@ -95,7 +96,7 @@ Get a single song by ID.
 
 ---
 
-### `GET /api/songs?page=1&pageSize=20&artistId=&state=`
+### `GET /api/songs?textFilter=&artistId=&state=&pageNumber=1&pageSize=10`
 
 Get paginated list of songs with optional filters.
 
@@ -105,15 +106,18 @@ Get paginated list of songs with optional filters.
 
 ### `PUT /api/songs/{id}`
 
-Update song title.
+Update song metadata allowed by command contract.
 
 **Request body:**
 
 ```json
-{ "title": "string" }
+{ "title": "string", "artistId": 1 }
 ```
 
 **Response:** `200 OK` → `SongDto`
+
+> If `title` changes, an `EmbeddingGeneration` job is queued automatically.
+> `artistId` change is rejected by handler logic.
 
 ---
 
@@ -156,7 +160,7 @@ Get a single ingestion job by ID.
 
 ---
 
-### `GET /api/ingestion?page=1&pageSize=20&status=&songId=`
+### `GET /api/ingestion?songId=&status=&pageNumber=1&pageSize=10`
 
 Get paginated ingestion job list with optional filters.
 
@@ -166,17 +170,19 @@ Get paginated ingestion job list with optional filters.
 
 ### `POST /api/ingestion/{id}/retry`
 
-Reset a failed job to `Pending` so the worker picks it up again.
+Reset a job to `Pending` so the worker can pick it up again.
 
 **Response:** `200 OK` → `IngestionJobDto`
+
+> `RetryCount` is not reset by retry; `ResetForRetry()` clears `LastError` and `NextRetryAt`.
 
 ---
 
 ### `DELETE /api/ingestion/{id}`
 
-Mark an ingestion job as `Removed`.
+Hard delete an ingestion job row.
 
-**Response:** `204 No Content`
+**Response:** `200 OK` → `true`
 
 ---
 
@@ -194,10 +200,10 @@ Queue a new `EmbeddingGeneration` job to re-embed a song.
 
 Search songs by natural language query using semantic similarity.
 
-**Query params:** `q` (required), `topN` (default 10)  
+**Query params:** `q` (preferred), `query` (legacy alias), `topN` (default 10)  
 **Response:** `200 OK` → `List<SearchResultDto>`
 
-The query is embedded using `nasheed:embedding:settings` and compared against stored embeddings using cosine similarity.
+The endpoint first performs a fast lexical match on stored search text. If direct text matches are found, results are returned immediately without an embedding call. Otherwise, the query is embedded using `nasheed:embedding:settings` and ranked with PostgreSQL `pgvector` similarity. If `q/query` is empty, the endpoint returns an empty list.
 
 ---
 
@@ -205,7 +211,13 @@ The query is embedded using `nasheed:embedding:settings` and compared against st
 
 ### `POST /api/songs/{songId}/favorites`
 
-Add a song to the current user's favorites.
+Add a song to a user's favorites.
+
+**Request body:**
+
+```json
+{ "userId": "user-123" }
+```
 
 **Response:** `200 OK` → `FavoriteDto`
 
@@ -213,7 +225,13 @@ Add a song to the current user's favorites.
 
 ### `DELETE /api/songs/{songId}/favorites`
 
-Remove a song from the current user's favorites.
+Remove a song from a user's favorites.
+
+**Request body:**
+
+```json
+{ "userId": "user-123" }
+```
 
 **Response:** `204 No Content`
 
@@ -226,7 +244,7 @@ Rate a song (1–5). Creates or updates the user's rating for that song.
 **Request body:**
 
 ```json
-{ "value": 4 }
+{ "userId": "user-123", "value": 4 }
 ```
 
 **Response:** `200 OK` → `RatingDto`
@@ -235,7 +253,13 @@ Rate a song (1–5). Creates or updates the user's rating for that song.
 
 ### `POST /api/songs/{songId}/play`
 
-Log a play event for the current user.
+Log a play event for a user.
+
+**Request body:**
+
+```json
+{ "userId": "user-123" }
+```
 
 **Response:** `204 No Content`
 
@@ -250,13 +274,13 @@ Generate new nasheed lyrics using AI based on a theme/prompt.
 **Request body:**
 
 ```json
-{ "theme": "string", "language": "ar", "style": "string" }
+{ "theme": "string", "languageCode": "ar", "style": "string" }
 ```
 
 **Response:** `200 OK` → `GenerateLyricsResponseDto`
 
 ```json
-{ "lyrics": "string" }
+{ "generatedLyrics": "string", "theme": "string", "style": "string" }
 ```
 
 ---
@@ -276,7 +300,7 @@ Generate new nasheed lyrics using AI based on a theme/prompt.
   "id": 1,
   "artistId": 1,
   "title": "string",
-  "fileId": 456,
+  "fileId": "456",
   "durationSeconds": 180,
   "languageCode": "ar",
   "lyricsRaw": null,
@@ -285,9 +309,11 @@ Generate new nasheed lyrics using AI based on a theme/prompt.
   "summary": null,
   "vocalStyle": null,
   "songState": "Done",
-  "searchIndexStatus": "Indexed",
+  "searchIndexStatus": "NotIndexed",
   "publishedAt": null,
-  "createdAt": "2026-05-02T10:00:00Z"
+  "moodTags": [],
+  "created": "2026-05-02T10:00:00Z",
+  "lastModified": null
 }
 ```
 
@@ -297,7 +323,7 @@ Generate new nasheed lyrics using AI based on a theme/prompt.
 {
   "id": 1,
   "songId": 1,
-  "fileId": 456,
+  "fileId": "456",
   "jobType": "FullPipeline",
   "jobStatus": "Completed",
   "retryCount": 0,
@@ -305,7 +331,10 @@ Generate new nasheed lyrics using AI based on a theme/prompt.
   "lastError": null,
   "nextRetryAt": null,
   "startedAt": "2026-05-02T10:00:00Z",
-  "completedAt": "2026-05-02T10:02:00Z"
+  "completedAt": "2026-05-02T10:02:00Z",
+  "removedAt": null,
+  "created": "2026-05-02T10:00:00Z",
+  "lastModified": "2026-05-02T10:02:00Z"
 }
 ```
 

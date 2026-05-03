@@ -41,22 +41,34 @@ public class AiApiClientService : IAiApiClient
     public async Task<string> ChatAsync(
         string settingsKey,
         string systemPromptKey,
-        string userMessage,
+        string? userMessage = null,
         string? tenantId = null,
+        IReadOnlyList<int>? fileIds = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new
+        tenantId ??= _configuration["MultiTenancy:TenantId"]
+            ?? throw new InvalidOperationException(
+                "MultiTenancy:TenantId is not configured. " +
+                "Nasheed is a single-tenant service - set MultiTenancy:TenantId in appsettings.json.");
+
+        var request = new Dictionary<string, object?>
         {
-            settings_key = settingsKey,
-            system_prompt_key = systemPromptKey,
-            messages = new[] { new { role = "user", content = userMessage } }
+            ["settings_key"] = settingsKey,
+            ["system_prompt_key"] = systemPromptKey
         };
+        if (!string.IsNullOrWhiteSpace(userMessage))
+        {
+            request["messages"] = new[] { new { role = "user", content = userMessage } };
+        }
+        if (fileIds is { Count: > 0 })
+        {
+            request["file_ids"] = fileIds;
+        }
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/chat/single");
         httpRequest.Content = JsonContent.Create(request, options: JsonOptions);
 
-        if (!string.IsNullOrEmpty(tenantId))
-            httpRequest.Headers.Add("x-tenant-id", tenantId);
+        httpRequest.Headers.Add("x-tenant-id", tenantId);
 
         var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -73,20 +85,36 @@ public class AiApiClientService : IAiApiClient
         string? tenantId = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new
+        tenantId ??= _configuration["MultiTenancy:TenantId"]
+            ?? throw new InvalidOperationException(
+                "MultiTenancy:TenantId is not configured. " +
+                "Nasheed is a single-tenant service - set MultiTenancy:TenantId in appsettings.json.");
+
+        // Embedding endpoint expects camelCase keys: settingsKey and text.
+        var request = new Dictionary<string, object?>
         {
-            settings_key = settingsKey,
-            input = inputText
+            ["settingsKey"] = settingsKey,
+            ["text"] = inputText,
         };
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/embed");
-        httpRequest.Content = JsonContent.Create(request, options: JsonOptions);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/embedding");
+        httpRequest.Content = JsonContent.Create(request);
 
-        if (!string.IsNullOrEmpty(tenantId))
-            httpRequest.Headers.Add("x-tenant-id", tenantId);
+        httpRequest.Headers.Add("x-tenant-id", tenantId);
 
         var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError(
+                "AI embedding request failed with status {StatusCode}. Body: {Body}",
+                (int)response.StatusCode,
+                errorBody);
+            throw new HttpRequestException(
+                $"AI embedding request failed with status {(int)response.StatusCode}: {errorBody}",
+                null,
+                response.StatusCode);
+        }
 
         var result = await response.Content.ReadFromJsonAsync<AiEmbedResponse>(JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException("AI service returned null embedding response.");

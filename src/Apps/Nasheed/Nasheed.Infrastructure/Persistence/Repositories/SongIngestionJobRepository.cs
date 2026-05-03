@@ -47,6 +47,19 @@ public class SongIngestionJobRepository : Repository<SongIngestionJobEntity>, IS
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<bool> HasActiveJobAsync(
+        int songId,
+        IngestionJobType jobType,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet.AnyAsync(
+            e => !e.IsArchived
+                && e.SongId == songId
+                && e.JobType == jobType
+                && (e.JobStatus == IngestionJobStatus.Pending || e.JobStatus == IngestionJobStatus.Running),
+            cancellationToken);
+    }
+
     public async Task<SongIngestionJobEntity?> GetBySongIdAsync(int songId, CancellationToken cancellationToken = default)
     {
         return await _dbSet

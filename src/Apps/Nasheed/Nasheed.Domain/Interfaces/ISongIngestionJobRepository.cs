@@ -16,5 +16,10 @@ public interface ISongIngestionJobRepository : IRepository<SongIngestionJobEntit
     /// <summary>Returns pending jobs that are due for processing (NextRetryAt is null or in the past).</summary>
     Task<List<SongIngestionJobEntity>> GetPendingJobsAsync(int batchSize, CancellationToken cancellationToken = default);
 
+    Task<bool> HasActiveJobAsync(
+        int songId,
+        IngestionJobType jobType,
+        CancellationToken cancellationToken = default);
+
     Task<SongIngestionJobEntity?> GetBySongIdAsync(int songId, CancellationToken cancellationToken = default);
 }

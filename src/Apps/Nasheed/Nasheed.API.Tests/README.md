@@ -171,6 +171,7 @@ public async Task CreateSong_ShouldIncrementArtistSongCount()
 
 ## Related Documentation
 
-- `Doc/NASHEED_LIBRARY_BACKEND.md` — full backend overview
+- `src/Apps/Nasheed/Doc/OVERVIEW.md` — implemented backend overview
+- `src/Apps/Nasheed/NASHEED_LIBRARY_BACKEND.md` — historical backend design notes
 - `Doc/SHARED_TESTING_FILES.md` — shared test base classes
 - `src/Shared/IhsanDev.Shared.Testing/README.md` — shared testing library guide

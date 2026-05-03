@@ -1,5 +1,7 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
 using Nasheed.Domain.Interfaces;
@@ -10,12 +12,23 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
 {
     private readonly ISongRepository _songRepository;
     private readonly IArtistRepository _artistRepository;
+    private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ILogger<DeleteSongCommandHandler> _logger;
+    private readonly string _tenantId;
 
-    public DeleteSongCommandHandler(ISongRepository songRepository, IArtistRepository artistRepository, ILogger<DeleteSongCommandHandler> logger)
+    public DeleteSongCommandHandler(
+        ISongRepository songRepository,
+        IArtistRepository artistRepository,
+        IFileManagerServiceClient fileManagerClient,
+        IConfiguration configuration,
+        ILogger<DeleteSongCommandHandler> logger)
     {
         _songRepository = songRepository;
         _artistRepository = artistRepository;
+        _fileManagerClient = fileManagerClient;
+        _tenantId = configuration["MultiTenancy:TenantId"]
+            ?? throw new InvalidOperationException(
+                "MultiTenancy:TenantId is not configured. Nasheed must send tenantId when calling FileManager.");
         _logger = logger;
     }
 
@@ -34,6 +47,17 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
         }
 
         _logger.LogInformation("Deleted Song Id {Id}", entity.Id);
+
+        // Mark the audio file as temporary (can be deleted by cleanup job)
+        if (!string.IsNullOrWhiteSpace(entity.FileId) && int.TryParse(entity.FileId, out var fileId))
+        {
+            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, true, _tenantId, cancellationToken);
+            if (!success)
+            {
+                _logger.LogWarning("Failed to mark FileId {FileId} as temporary after deleting Song {SongId}", fileId, entity.Id);
+            }
+        }
+
         return true;
     }
 }

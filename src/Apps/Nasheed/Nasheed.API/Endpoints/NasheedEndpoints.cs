@@ -95,7 +95,8 @@ public static class NasheedEndpoints
 
         ingestion.MapDelete("/{id:int}", NasheedIngestionApiHandlers.Remove)
             .WithName("RemoveIngestionJob")
-            .Produces(StatusCodes.Status204NoContent);
+            .Produces<bool>()
+            .Produces(StatusCodes.Status404NotFound);
 
         ingestion.MapPost("/songs/{songId:int}/reindex", NasheedIngestionApiHandlers.Reindex)
             .WithName("ReindexSong")

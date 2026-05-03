@@ -1,8 +1,22 @@
 # Nasheed Library Backend
 
-**Purpose:** Backend architecture and implementation plan for adding the nasheed library service to the current microservices platform.  
-**Last Updated:** May 28, 2026  
-**Status:** ⚠️ Proposed Design
+**Purpose:** Historical backend architecture plan captured during initial design.  
+**Last Updated:** May 4, 2026  
+**Status:** 📚 Historical Reference (Implemented service now exists)
+
+---
+
+## Current Source Of Truth
+
+This file is preserved for design history. For real implementation behavior, use:
+
+- `src/Apps/Nasheed/Doc/OVERVIEW.md`
+- `src/Apps/Nasheed/Doc/API_ENDPOINTS.md`
+- `src/Apps/Nasheed/Doc/ENTITIES_AND_DATA_MODEL.md`
+- `src/Apps/Nasheed/Doc/INGESTION_PIPELINE.md`
+- `src/Apps/Nasheed/Doc/AI_INTEGRATION.md`
+
+Important: several assumptions in this historical plan no longer match code (for example endpoint contracts, `FileId` type, and ingestion retry details).
 
 ---
 
@@ -18,10 +32,10 @@ The Nasheed service should own domain logic and orchestration for artists, songs
 
 ### Recommended Service Shape
 
-Create a new backend microservice, for example `Nasheed`, with the standard project layout:
+The implemented service uses this project layout:
 
 ```text
-src/Services/Nasheed/
+src/Apps/Nasheed/
 ├── Nasheed.API/
 ├── Nasheed.Application/
 ├── Nasheed.Domain/
@@ -511,24 +525,24 @@ If database portability matters more than implementation speed, abstract search 
 
 ### Ingestion Endpoints
 
-- `GET /api/ingestion/jobs`
-- `GET /api/ingestion/jobs/{id}`
-- `POST /api/ingestion/jobs/{id}/retry`
-- `POST /api/ingestion/jobs/{id}/remove`
-- `POST /api/songs/{id}/reindex`
-- `GET /api/songs/{id}/analysis-status`
+- `GET /api/ingestion`
+- `GET /api/ingestion/{id}`
+- `POST /api/ingestion/{id}/retry`
+- `DELETE /api/ingestion/{id}`
+- `POST /api/ingestion/songs/{songId}/reindex`
+- `GET /api/songs/{id}/analysis`
 
 ### Interaction Endpoints
 
-- `POST /api/songs/{id}/favorite`
-- `DELETE /api/songs/{id}/favorite`
-- `POST /api/songs/{id}/rating`
-- `POST /api/songs/{id}/play-log`
+- `POST /api/songs/{songId}/favorites`
+- `DELETE /api/songs/{songId}/favorites`
+- `POST /api/songs/{songId}/ratings`
+- `POST /api/songs/{songId}/play`
 
 ### Search Endpoints
 
-- `GET /api/search?query=...`
-- `GET /api/search/similar/{songId}`
+- `GET /api/search?q=...` (supports `query` alias)
+- `GET /api/songs/{id}/similar?topN=10`
 
 ### Generation Endpoints
 

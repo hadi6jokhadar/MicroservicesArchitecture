@@ -71,6 +71,8 @@ Important behavior:
 - Runs every startup.
 - Applies only pending revisions.
 - Does not reapply already applied revisions.
+- Startup resolves the Alembic executable relative to the current Python interpreter and falls back to `alembic` from PATH.
+- If migration execution fails, the error is logged and startup continues to schema bootstrap.
 
 ### 3) Schema bootstrap create-all
 

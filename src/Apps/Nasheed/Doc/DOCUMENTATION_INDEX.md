@@ -2,7 +2,7 @@
 
 **Purpose:** Entry point for all Nasheed service documentation. Read this first before any task.  
 **Location:** `src/Apps/Nasheed/`  
-**Last Updated:** May 2, 2026
+**Last Updated:** May 4, 2026
 
 ---
 
@@ -45,7 +45,7 @@
 
 ### INGESTION_PIPELINE.md
 
-**Description:** Background ingestion worker design — job types, processing stages (metadata extraction → lyrics verification → embedding generation), retry logic, and the `NasheedTenantLoaderService` startup sequence.  
+**Description:** Background ingestion worker design — single-request enrichment in `FullPipeline`, fixed-delay retry behavior, embedding reindex jobs, and the `NasheedTenantLoaderService` startup sequence.  
 **Read When:**
 
 - Working on the ingestion worker
@@ -54,7 +54,7 @@
 
 ### AI_INTEGRATION.md
 
-**Description:** How Nasheed calls AI.API — settings keys, prompt keys, required AI.API DB entries for each stage (extraction, verification, embedding, generation).  
+**Description:** How Nasheed calls AI.API — one shared chat key pair for enrichment, verification, and generation, plus embedding settings for indexing and troubleshooting notes for `file_ids` parsing.  
 **Read When:**
 
 - AI calls are failing (401/404)
@@ -65,7 +65,7 @@
 
 ## 🔗 Related Global Documentation
 
-- `Doc/NASHEED_LIBRARY_BACKEND.md` — original design plan
+- `src/Apps/Nasheed/NASHEED_LIBRARY_BACKEND.md` — historical design plan (superseded by implemented docs in this folder)
 - `Doc/AI_SERVICE_CHAT_INTEGRATION_GUIDE.md` — how to call AI.API from .NET
 - `Doc/NEW_SERVICE_INTEGRATION_GUIDE.md` — service creation guide (covers `src/Apps/` folder rules)
 - `Doc/DATABASE_PER_TENANT_ARCHITECTURE.md` — Strategy B per-tenant DB pattern

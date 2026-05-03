@@ -25,8 +25,9 @@ Default local URL:
 8. Enforces request and payload validation using Pydantic models.
 9. Fetches attached FileManager file IDs, encodes them as Base64, and injects OpenAI-compatible multimodal content blocks into the chat payload before LLM invocation.
 10. Exposes read endpoints for sessions, messages, message files, and token usage logs.
-11. Automatically generates and persists a session title after the first AI response in any untitled session, using the `Session-Title` system prompt and the `QwenAI-qwen3-vl-32b-instruct` provider settings key.
+11. Can generate and persist a session title in the background when `generate_session_title=true` is sent on chat requests, using the `Session-Title` system prompt and the `QwenAI-qwen3-vl-32b-instruct` provider settings key.
 12. Generates text embedding vectors via `POST /api/v1/embedding` and logs token usage after each call.
+13. Persists the exact model-input message list used in LiteLLM calls (system and request messages) for each chat turn, serializing structured JSON content blocks to strings for database debugging.
 
 ## High-Level Architecture
 
@@ -85,7 +86,7 @@ Shared logic extracted from route handlers to keep endpoints thin and stable:
 
 ### Automatic Session Title Generation
 
-After the first AI response in a session whose `Title` column is `NULL`, a background task is enqueued automatically from both `POST /api/v1/chat/stream` and `POST /api/v1/chat/single`.
+When `generate_session_title=true` is included in `POST /api/v1/chat/stream` or `POST /api/v1/chat/single`, a background task is enqueued after the response for sessions whose `Title` column is `NULL`.
 
 **Implementation file:** `core/ai/session_title.py`
 
@@ -125,6 +126,9 @@ When `file_ids` is provided in a chat request the `multimodal_transform` node ha
    - Documents → `{"type": "text", "text": "Attached document: name.pdf (https://...)"}` (URL-as-context fallback)
    - Unknown MIME types are silently skipped.
 5. **Payload injection** — The last user message's `content` string is replaced with a typed list: `[{"type":"text","text":"<prompt>"}, <media blocks...>]`.
+
+- If no user message exists (for example system prompt plus `file_ids` only), AI.API appends a new `user` message whose `content` is the generated media block list.
+
 6. **Qwen omni extra field** — When the final message list contains an `input_audio` block and the provider is Qwen, `extra_body={"modalities": ["text"]}` is added to the `acompletion` call. Dashscope's compatible-mode endpoint requires this field or returns HTTP 400.
 7. **Capability guard** — `preflight_validation` raises HTTP 400 when the resolved provider does not support the media type (e.g. audio sent to a provider with no audio capability).
 8. **LiteLLM adapter** — The standard OpenAI-format blocks are passed as-is to `acompletion`. LiteLLM translates them into the proprietary wire format for Claude (Anthropic), Gemini, or any other configured provider automatically.
@@ -193,14 +197,14 @@ JWT validation uses `Jwt` settings from `appsettings.json`.
 
 Authorization behavior for configuration endpoints:
 
-- `settings` and `system-prompts` endpoints require either:
+- `settings` and `prompts` endpoints require either:
   - an internal service-to-service request (`X-Service-Secret` and `X-Service-Name`), or
   - a user JWT containing the `SuperAdmin` role.
 
 Authorization behavior for chat and observability endpoints:
 
 - `POST /api/v1/chat/stream` and `POST /api/v1/chat/single` accept LLM chat requests from authenticated users and internal service calls.
-- `POST /api/v1/asr/transcribe` accepts audio transcription requests from authenticated users and internal service calls. Requires the `AiProviderSettings.ModelType` to be `Audio`.
+- `POST /api/v1/embedding` accepts embedding requests from authenticated users and internal service calls.
 - `GET /api/v1/chat-sessions/`, `GET /api/v1/chat-messages/`, `GET /api/v1/chat-message-files/`, `GET /api/v1/token-usage-logs/`, and `GET /api/v1/token-usage-logs/stats` require internal service authentication or `SuperAdmin`.
 
 ## Tenant Handling
@@ -238,10 +242,13 @@ Chat endpoint tenant behavior:
 - `PUT /api/v1/prompts/{prompt_id}`
 - `DELETE /api/v1/prompts/{prompt_id}`
 - `GET /api/v1/chat-sessions/`
+- `PATCH /api/v1/chat-sessions/{session_id}`
+- `DELETE /api/v1/chat-sessions/{session_id}`
 - `GET /api/v1/chat-messages/`
 - `GET /api/v1/chat-message-files/`
 - `GET /api/v1/token-usage-logs/`
 - `GET /api/v1/token-usage-logs/stats`
+- `POST /api/v1/embedding`
 
 ### Chat Response Modes
 
@@ -255,6 +262,7 @@ Shared request fields for both chat endpoints include:
 - `system_prompt_key` (optional): resolved to `AiSystemPrompt`.
 - `file_ids` (optional): FileManager file IDs. The multimodal transform node fetches each file's raw bytes and encodes them as OpenAI-compatible content blocks (`image_url` for images, `input_audio` for audio, text-context for documents). External CDN URL is tried first; internal FileManager URL is used as fallback.
 - `max_completion_tokens` (optional): explicit output token cap forwarded to LiteLLM as `max_tokens`.
+- `generate_session_title` (optional): defaults to `false`. When `true`, schedules background session title generation after a successful chat response.
 
 Streaming completion metadata payload fields:
 
@@ -270,6 +278,17 @@ Single-response payload fields:
 - `prompt_tokens`: prompt token count.
 - `completion_tokens`: completion token count.
 - `total_tokens`: total token count.
+
+### Chat Message Persistence (Debug Fidelity)
+
+For both `POST /api/v1/chat/stream` and `POST /api/v1/chat/single`, AI.API persists chat messages with debug-first fidelity:
+
+- Saves every message in the exact `litellm_messages` list that is sent to the model for that turn.
+- Preserves message roles (`system`, `user`, `assistant`, `tool`) from the model-input payload.
+- When a message `content` is structured (for example multimodal blocks such as `input_audio`, `audio_url`, `image_url`), it is serialized to a JSON string and stored in `AiChatMessage.Content`.
+- Saves the generated assistant output as a separate `assistant` row after the model-input rows.
+
+This makes database records match what the model received, which simplifies payload-level debugging for multimodal and transformed prompts.
 
 Filter and pagination support on list endpoints:
 
@@ -306,7 +325,7 @@ Settings and prompts use optional tenant behavior:
 - With `x-tenant-id` or a JWT `tenantId` claim, item lookups and mutations stay inside that tenant scope.
 - Without tenant context:
   - settings item lookups and mutations are not restricted by tenant when called as service or SuperAdmin.
-  - prompt item lookups and mutations are restricted to global prompts (`TenantId` is null).
+  - prompt item lookups and mutations are not restricted by tenant when called as service or SuperAdmin.
 
 List endpoint behavior for both `GET /api/v1/settings/` and `GET /api/v1/prompts/`:
 
@@ -325,6 +344,8 @@ At startup, the service:
 1. Ensures the target database exists.
 2. Runs Alembic `upgrade head`.
 3. Runs schema bootstrap with SQLAlchemy metadata create-all for missing tables.
+
+If Alembic upgrade fails, the failure is logged and startup continues to the schema bootstrap step.
 
 This combination prevents first-run failures when revision files are missing while still supporting migration-based updates.
 
@@ -351,15 +372,12 @@ Provider setting behavior for chat endpoints:
 - `MaxCompletionTokens` stored on `AiProviderSettings` is used as the default limit; the caller can override it per-request via the `max_completion_tokens` field.
 - `Temperature`, `TopP`, `FrequencyPenalty`, and `PresencePenalty` stored on `AiProviderSettings` are forwarded to LiteLLM when set.
 - If `ModelName` already includes a provider prefix (`provider/model`), the value is used as-is.
-- Chat endpoints automatically route by model type. `ModelType=Audio` uses transcription under the same `/api/v1/chat/*` endpoints, while non-audio types continue to use chat completions.
-- For `ModelType=Audio` with DashScope native ASR URL (`/api/v1/services/audio/asr/transcription`), the service calls DashScope directly instead of LiteLLM OpenAI transcription routing to avoid invalid URL composition like `/transcription/audio/transcriptions`.
-- DashScope ASR direct calls normalize `ModelName` by removing a provider prefix (such as `openai/`) and converting to lower-case before sending the request.
 
 FileManager context enrichment behavior for chat endpoints:
 
 - Request payload supports `file_ids` as integer FileManager IDs.
 - AI service calls shared `FileManagerServiceClient.get_files_by_ids()` with tenant forwarding.
-- Resolved file URLs are injected as an additional user context message immediately before the last user message.
+- Retrieved files are transformed into multimodal content blocks and injected into the last user message content payload.
 
 ## Development and Testing
 

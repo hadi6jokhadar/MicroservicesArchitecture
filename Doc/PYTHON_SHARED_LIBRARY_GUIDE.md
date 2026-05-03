@@ -171,7 +171,7 @@ Reason:
 
 ## AI Service Integration Note
 
-`AI.API` uses `FileManagerServiceClient` during `POST /api/v1/chat/stream` to resolve request `file_ids` into file URLs and inject them into model context.
+`AI.API` uses `FileManagerServiceClient` during chat orchestration (`POST /api/v1/chat/stream` and `POST /api/v1/chat/single`) to resolve `file_ids`, then builds multimodal content blocks (image, audio, document text context) before provider invocation.
 
 ## SQLAlchemy Model Instructions (AI Service)
 

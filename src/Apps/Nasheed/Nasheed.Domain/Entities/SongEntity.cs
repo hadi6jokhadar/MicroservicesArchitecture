@@ -44,7 +44,12 @@ public class SongEntity : BaseEntity
         int? durationSeconds)
     {
         if (languageCode != null) LanguageCode = languageCode;
-        if (lyricsRaw != null) LyricsRaw = lyricsRaw;
+        if (lyricsRaw != null)
+        {
+            LyricsRaw = lyricsRaw;
+            LyricsVerifiedLrc = null;
+            LyricsPlainText = null;
+        }
         if (summary != null) Summary = summary;
         if (vocalStyle != null) VocalStyle = vocalStyle;
         if (durationSeconds.HasValue) DurationSeconds = durationSeconds;

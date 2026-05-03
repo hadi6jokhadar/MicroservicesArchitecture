@@ -8,11 +8,14 @@ namespace Nasheed.API.Handlers;
 public static class NasheedSearchApiHandlers
 {
     public static async Task<IResult> Search(
-        [AsParameters] SearchSongsQuery query,
+        [FromQuery(Name = "q")] string? q,
+        [FromQuery(Name = "query")] string? query,
+        [FromQuery] int topN,
         IMediator mediator,
         CancellationToken ct)
     {
-        var result = await mediator.Send(query, ct);
+        var normalizedQuery = !string.IsNullOrWhiteSpace(q) ? q : query ?? string.Empty;
+        var result = await mediator.Send(new SearchSongsQuery(normalizedQuery, topN), ct);
         return Results.Ok(result);
     }
 

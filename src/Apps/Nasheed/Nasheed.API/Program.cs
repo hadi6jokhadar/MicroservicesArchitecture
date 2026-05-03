@@ -56,6 +56,11 @@ builder.Services.AddMultiTenancy(builder.Configuration);
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
 // ============================================
+// Service-to-Service HTTP Clients
+// ============================================
+builder.Services.AddFileManagerServiceClient(builder.Configuration, "NasheedService", builder.Environment.IsDevelopment());
+
+// ============================================
 // Automatic DB Migration
 // ============================================
 builder.Services.AddDatabaseMigration();

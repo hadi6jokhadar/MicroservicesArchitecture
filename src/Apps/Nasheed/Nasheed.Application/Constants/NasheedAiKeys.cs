@@ -8,9 +8,5 @@ public static class NasheedAiKeys
 {
     public const string ExtractionSettings    = "nasheed:extraction:settings";
     public const string ExtractionPrompt      = "nasheed:extraction:system-prompt";
-    public const string VerificationSettings  = "nasheed:verification:settings";
-    public const string VerificationPrompt    = "nasheed:verification:system-prompt";
-    public const string GenerationSettings    = "nasheed:generation:settings";
-    public const string GenerationPrompt      = "nasheed:generation:system-prompt";
     public const string EmbeddingSettings     = "nasheed:embedding:settings";
 }

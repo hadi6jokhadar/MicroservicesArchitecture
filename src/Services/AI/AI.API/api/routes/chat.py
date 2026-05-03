@@ -10,7 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.attributes import optional_tenant
 from api.dependencies import get_tenant_id, require_auth
 from core.ai.chat_workflow import build_chat_runtime_context
-from core.ai.persistence import schedule_chat_persistence_tasks
+from core.ai.persistence import (
+    log_token_usage_background,  # noqa: F401
+    persist_messages_background,  # noqa: F401
+)
 from core.ai.schemas import ChatRequest, ChatSingleResponse
 from core.ai.session_title import schedule_session_title_task
 from core.ai.utils import estimate_tokens_if_missing, map_litellm_exception_to_http
@@ -19,6 +22,38 @@ from core.database import get_db
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _schedule_chat_persistence_tasks(
+    background_tasks: BackgroundTasks,
+    session_id: Any,
+    model_input_messages: List[dict[str, Any]],
+    assistant_content: Any,
+    tenant_id: Optional[str],
+    user_id: Optional[int],
+    model_name: str,
+    endpoint: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+) -> None:
+    """Route-local scheduler to keep test patching stable in api.routes.chat."""
+    background_tasks.add_task(
+        persist_messages_background,
+        session_id,
+        model_input_messages,
+        assistant_content,
+        prompt_tokens,
+        completion_tokens,
+    )
+    background_tasks.add_task(
+        log_token_usage_background,
+        tenant_id,
+        user_id,
+        model_name,
+        endpoint,
+        prompt_tokens,
+        completion_tokens,
+    )
 
 
 def _has_audio_url_blocks(messages: List[dict[str, Any]]) -> bool:
@@ -127,10 +162,10 @@ async def chat_stream(
                 prompt_tokens, completion_tokens = estimate_tokens_if_missing(
                     prompt_tokens, completion_tokens, ctx["litellm_messages"], complete_response
                 )
-                schedule_chat_persistence_tasks(
+                _schedule_chat_persistence_tasks(
                     background_tasks,
                     ctx["session_id"],
-                    ctx["user_content"],
+                    ctx["litellm_messages"],
                     complete_response,
                     tenant_id,
                     ctx["user_id"],
@@ -139,12 +174,13 @@ async def chat_stream(
                     prompt_tokens,
                     completion_tokens,
                 )
-                schedule_session_title_task(
-                    background_tasks,
-                    ctx["session_id"],
-                    ctx["user_content"],
-                    tenant_id,
-                )
+                if request.generate_session_title:
+                    schedule_session_title_task(
+                        background_tasks,
+                        ctx["session_id"],
+                        ctx["user_content"],
+                        tenant_id,
+                    )
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -190,24 +226,30 @@ async def chat_single_response(
         logger.error("Provider error during single response: %s", e, exc_info=True)
         raise map_litellm_exception_to_http(e)
 
-    assistant_content = ""
+    assistant_content: Any = ""
     if getattr(response, "choices", None):
         first_choice = response.choices[0]  # type: ignore[union-attr]
         message = getattr(first_choice, "message", None)
         if message is not None:
             assistant_content = getattr(message, "content", "") or ""
 
+    assistant_content_text = (
+        assistant_content
+        if isinstance(assistant_content, str)
+        else json.dumps(assistant_content)
+    )
+
     usage = getattr(response, "usage", None)
     prompt_tokens = (getattr(usage, "prompt_tokens", 0) or 0) if usage else 0
     completion_tokens = (getattr(usage, "completion_tokens", 0) or 0) if usage else 0
     prompt_tokens, completion_tokens = estimate_tokens_if_missing(
-        prompt_tokens, completion_tokens, ctx["litellm_messages"], assistant_content
+        prompt_tokens, completion_tokens, ctx["litellm_messages"], assistant_content_text
     )
 
-    schedule_chat_persistence_tasks(
+    _schedule_chat_persistence_tasks(
         background_tasks,
         ctx["session_id"],
-        ctx["user_content"],
+        ctx["litellm_messages"],
         assistant_content,
         tenant_id,
         ctx["user_id"],
@@ -216,16 +258,17 @@ async def chat_single_response(
         prompt_tokens,
         completion_tokens,
     )
-    schedule_session_title_task(
-        background_tasks,
-        ctx["session_id"],
-        ctx["user_content"],
-        tenant_id,
-    )
+    if request.generate_session_title:
+        schedule_session_title_task(
+            background_tasks,
+            ctx["session_id"],
+            ctx["user_content"],
+            tenant_id,
+        )
 
     return ChatSingleResponse(
         session_id=ctx["session_id"],
-        content=assistant_content,
+        content=assistant_content_text,
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
         total_tokens=prompt_tokens + completion_tokens,

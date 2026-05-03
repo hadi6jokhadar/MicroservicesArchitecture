@@ -13,8 +13,9 @@ public interface IAiApiClient
     Task<string> ChatAsync(
         string settingsKey,
         string systemPromptKey,
-        string userMessage,
+        string? userMessage = null,
         string? tenantId = null,
+        IReadOnlyList<int>? fileIds = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

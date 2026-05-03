@@ -4,14 +4,14 @@
 **Port:** 5009 (`http://localhost:5009`)  
 **Path:** `src/Apps/Nasheed/`  
 **Category:** `src/Apps/` — domain app that consumes platform Services  
-**Last Updated:** May 2, 2026  
+**Last Updated:** May 4, 2026  
 **Status:** ✅ Implemented
 
 ---
 
 ## Purpose
 
-Nasheed is an Islamic audio library service. It manages artists, songs, AI-driven metadata extraction, semantic search, lyric verification and generation, user interactions (favorites, ratings, play logs), and a background ingestion pipeline that orchestrates all AI processing.
+Nasheed is an Islamic audio library service. It manages artists, songs, AI-driven enrichment, semantic search, lyric verification and generation, user interactions (favorites, ratings, play logs), and a background ingestion pipeline.
 
 It does not own raw file storage (that's FileManager), AI model execution (that's AI.API), or authentication (that's Identity). It orchestrates those platform services.
 
@@ -59,11 +59,11 @@ A `run-development-instance.bat` is available in [Nasheed.API](Nasheed.API/run-d
 3. **EF migration tooling** — `DatabaseSettings:ConnectionString` from config (design-time only)
 4. Throws if none of the above are available
 
-### 3. No Global Database — No `UseDefaultDatabaseMigration`
+### 4. No Global Database — No `UseDefaultDatabaseMigration`
 
 Unlike other services that have a global fallback DB, Nasheed has no global database at all. `UseDefaultDatabaseMigration<NasheedDbContext>()` is intentionally not called in `Program.cs`. Migration runs once at startup inside `NasheedTenantLoaderService`.
 
-### 4. Tenant-First Startup Sequence
+### 5. Tenant-First Startup Sequence
 
 ```
 App starts
@@ -71,29 +71,38 @@ App starts
       → reads MultiTenancy:TenantId from config
       → calls ITenantConfigurationProvider.GetTenantConfigurationAsync (retries up to 12×, 5s delay)
       → on success: INasheedTenantCache.SetTenant() + runs DB migration
+      → on repeated failure: logs error and returns (worker remains blocked waiting for tenant cache)
   → NasheedIngestionWorker (BackgroundService)
       → awaits INasheedTenantCache.WaitUntilReadyAsync() before starting poll loop
   → HTTP requests served normally (UseTenantResolution sets ITenantContext per request)
 ```
 
-### 5. AI Processing via AI.API
+### 6. AI Processing via AI.API
 
-All AI work (metadata extraction, lyrics verification, embedding generation, lyric generation) delegates to AI.API using `IAiApiClient`. AI.API keys are hardcoded in `NasheedAiKeys` and must exist in AI.API's database for the tenant.
+AI work delegates to AI.API using `IAiApiClient`. Nasheed uses one chat key pair for enrichment, verification, and generation flows, while embedding uses its own embedding settings key. AI.API keys are hardcoded in `NasheedAiKeys` and must exist in AI.API's database for the tenant.
 
-### 6. Semantic Search Without pgvector
+### 7. Semantic Search With pgvector
 
-Embeddings are stored as JSON-serialized `float[]` in a `text` column (`EmbeddingJson`). Cosine similarity is computed in-memory by loading candidate vectors from DB and ranking. This avoids the pgvector extension dependency.
+Embeddings are stored as vector-literal JSON text in `EmbeddingJson` and queried server-side using PostgreSQL `pgvector` distance operators. The search repository executes `ORDER BY EmbeddingJson::vector <=> queryVector::vector` and returns top-N ranked matches. If pgvector is unavailable or fails at runtime, the repository automatically falls back to in-memory cosine similarity.
+
+### 8. FileManager Calls Always Include Tenant Context
+
+Nasheed file lifecycle operations (mark file as temporary or permanent) call FileManager internal endpoints through `IFileManagerServiceClient`.
+
+For these calls, Nasheed always passes `tenantId` from `MultiTenancy:TenantId` as a query parameter (for example: `.../temp-status?temp=false&tenantId=anashid`).
+
+This is required because FileManager resolves database context from tenant information. If `tenantId` is omitted, FileManager may query the wrong database and return `FileNotFoundException` even when the file exists in the tenant database.
 
 ---
 
 ## Platform Services Consumed
 
-| Service                       | How used                                                                                                    |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **TenantService** (5002)      | Fetch DB connection string + JWT settings on startup via `ITenantConfigurationProvider`                     |
-| **AI.API** (5008)             | Chat (`/api/v1/chat/single`) for extraction/verification/generation; Embed (`/api/v1/embed`) for embeddings |
-| **FileManagerService** (5005) | Songs and artist images are stored as FileManager file IDs                                                  |
-| **IdentityService** (5001)    | JWT auth — tokens validated per-tenant using TenantService JWT config                                       |
+| Service                       | How used                                                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **TenantService** (5002)      | Fetch DB connection string + JWT settings on startup via `ITenantConfigurationProvider`                               |
+| **AI.API** (5008)             | Chat (`/api/v1/chat/single`) for enrichment, verification, and generation; Embed (`/api/v1/embedding`) for embeddings |
+| **FileManagerService** (5005) | Songs and artist images are stored as FileManager file IDs                                                            |
+| **IdentityService** (5001)    | JWT auth — tokens validated per-tenant using TenantService JWT config                                                 |
 
 ---
 
@@ -101,14 +110,21 @@ Embeddings are stored as JSON-serialized `float[]` in a `text` column (`Embeddin
 
 Key `appsettings.json` sections:
 
-| Section                             | Purpose                                                       |
-| ----------------------------------- | ------------------------------------------------------------- |
-| `MultiTenancy.TenantId`             | The single tenant this Nasheed instance serves                |
-| `MultiTenancy.TenantServiceUrl`     | URL of TenantService to fetch DB config from                  |
-| `MultiTenancy.JwtMode`              | `"PerTenant"` — JWT validated using tenant's own secret       |
-| `Jwt.*`                             | Bootstrap JWT key used as fallback before per-tenant override |
-| `Services.AiService.BaseUrl`        | AI.API URL for ingestion and generation calls                 |
-| `ServiceCommunication.SharedSecret` | Service-to-service auth secret                                |
+| Section                               | Purpose                                                       |
+| ------------------------------------- | ------------------------------------------------------------- |
+| `MultiTenancy.TenantId`               | The single tenant this Nasheed instance serves                |
+| `MultiTenancy.TenantServiceUrl`       | URL of TenantService to fetch DB config from                  |
+| `MultiTenancy.JwtMode`                | `"PerTenant"` — JWT validated using tenant's own secret       |
+| `Jwt.*`                               | Bootstrap JWT key used as fallback before per-tenant override |
+| `Services.AiService.BaseUrl`          | AI.API URL for ingestion and generation calls                 |
+| `Services.FileManagerService.BaseUrl` | FileManager URL for internal file lifecycle calls             |
+| `ServiceCommunication.SharedSecret`   | Service-to-service auth secret                                |
+
+Request contract notes:
+
+- `CreateSongCommand.FileId` is `string` (not integer)
+- `CreateArtistCommand.ImageFileId` is `string?`
+- interaction endpoints accept explicit `userId` in request body for favorites, ratings, and play logs
 
 ---
 

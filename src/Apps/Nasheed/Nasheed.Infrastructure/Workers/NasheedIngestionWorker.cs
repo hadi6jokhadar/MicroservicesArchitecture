@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Constants;
@@ -15,6 +16,7 @@ public class NasheedIngestionWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly INasheedTenantCache _tenantCache;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<NasheedIngestionWorker> _logger;
     private const int BatchSize = 5;
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
@@ -23,10 +25,12 @@ public class NasheedIngestionWorker : BackgroundService
     public NasheedIngestionWorker(
         IServiceScopeFactory scopeFactory,
         INasheedTenantCache tenantCache,
+        IConfiguration configuration,
         ILogger<NasheedIngestionWorker> logger)
     {
         _scopeFactory = scopeFactory;
         _tenantCache = tenantCache;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -98,7 +102,7 @@ public class NasheedIngestionWorker : BackgroundService
             switch (job.JobType)
             {
                 case IngestionJobType.FullPipeline:
-                    await RunFullPipelineAsync(job, song, moodTagRepo, searchDocRepo, aiClient, songRepo, jobRepo, cancellationToken);
+                    await RunFullPipelineAsync(job, song, moodTagRepo, aiClient, songRepo, jobRepo, cancellationToken);
                     break;
                 case IngestionJobType.MetadataExtraction:
                     await RunMetadataExtractionAsync(job, song, moodTagRepo, aiClient, songRepo, jobRepo, cancellationToken);
@@ -128,57 +132,28 @@ public class NasheedIngestionWorker : BackgroundService
         SongIngestionJobEntity job,
         SongEntity song,
         ISongMoodTagRepository moodTagRepo,
-        ISongSearchDocumentRepository searchDocRepo,
         IAiApiClient aiClient,
         ISongRepository songRepo,
         ISongIngestionJobRepository jobRepo,
         CancellationToken cancellationToken)
     {
-        // Step 1: Metadata Extraction
-        var metadataPrompt = BuildMetadataPrompt(song);
+        var tenantId = GetConfiguredTenantId();
+        var fileIds = BuildAiFileIds(song.FileId, song.Id);
+
         var metadataJson = await aiClient.ChatAsync(
             NasheedAiKeys.ExtractionSettings,
             NasheedAiKeys.ExtractionPrompt,
-            metadataPrompt,
+            "Analyze this audio and generate the JSON output.",
+            tenantId,
+            fileIds,
             cancellationToken: cancellationToken);
 
         await ApplyMetadataAsync(song, metadataJson, moodTagRepo, songRepo, cancellationToken);
 
-        // Step 2: Lyrics Verification (if raw lyrics exist)
-        if (!string.IsNullOrEmpty(song.LyricsRaw))
-        {
-            var verifiedLyrics = await aiClient.ChatAsync(
-                NasheedAiKeys.VerificationSettings,
-                NasheedAiKeys.VerificationPrompt,
-                song.LyricsRaw,
-                cancellationToken: cancellationToken);
-
-            song.SetVerifiedLyrics(verifiedLyrics, ExtractPlainText(verifiedLyrics));
-            await songRepo.UpdateAsync(song, cancellationToken);
-        }
-
-        // Step 3: Embedding Generation
-        var searchText = BuildSearchText(song);
-        var embedding = await aiClient.EmbedAsync(
-            NasheedAiKeys.EmbeddingSettings,
-            searchText,
-            cancellationToken: cancellationToken);
-
-        var embeddingJson = JsonSerializer.Serialize(embedding);
-        var doc = await searchDocRepo.GetBySongIdAsync(song.Id, cancellationToken);
-        if (doc == null)
-        {
-            doc = SongSearchDocumentEntity.Create(song.Id, searchText, embeddingJson, NasheedAiKeys.EmbeddingSettings);
-        }
-        else
-        {
-            doc.Update(searchText, embeddingJson, NasheedAiKeys.EmbeddingSettings);
-        }
-        await searchDocRepo.UpsertAsync(doc, cancellationToken);
-
-        song.SetSearchIndexStatus(SearchIndexStatus.Indexed);
         song.SetState(SongState.Done);
         await songRepo.UpdateAsync(song, cancellationToken);
+
+        await QueueEmbeddingGenerationAsync(song, jobRepo, songRepo, cancellationToken);
 
         job.MarkCompleted();
         await jobRepo.UpdateAsync(job, cancellationToken);
@@ -195,13 +170,20 @@ public class NasheedIngestionWorker : BackgroundService
         ISongIngestionJobRepository jobRepo,
         CancellationToken cancellationToken)
     {
+        var tenantId = GetConfiguredTenantId();
+        var fileIds = BuildAiFileIds(song.FileId, song.Id);
+
         var metadataJson = await aiClient.ChatAsync(
             NasheedAiKeys.ExtractionSettings,
             NasheedAiKeys.ExtractionPrompt,
-            BuildMetadataPrompt(song),
+            "Analyze this audio and generate the JSON output.",
+            tenantId,
+            fileIds,
             cancellationToken: cancellationToken);
 
         await ApplyMetadataAsync(song, metadataJson, moodTagRepo, songRepo, cancellationToken);
+
+        await QueueEmbeddingGenerationAsync(song, jobRepo, songRepo, cancellationToken);
 
         job.MarkCompleted();
         await jobRepo.UpdateAsync(job, cancellationToken);
@@ -217,18 +199,52 @@ public class NasheedIngestionWorker : BackgroundService
     {
         if (!string.IsNullOrEmpty(song.LyricsRaw))
         {
+            var tenantId = GetConfiguredTenantId();
+
             var verifiedLyrics = await aiClient.ChatAsync(
-                NasheedAiKeys.VerificationSettings,
-                NasheedAiKeys.VerificationPrompt,
+                NasheedAiKeys.ExtractionSettings,
+                NasheedAiKeys.ExtractionPrompt,
                 song.LyricsRaw,
+                tenantId,
                 cancellationToken: cancellationToken);
 
             song.SetVerifiedLyrics(verifiedLyrics, ExtractPlainText(verifiedLyrics));
             await songRepo.UpdateAsync(song, cancellationToken);
+
+            await QueueEmbeddingGenerationAsync(song, jobRepo, songRepo, cancellationToken);
         }
 
         job.MarkCompleted();
         await jobRepo.UpdateAsync(job, cancellationToken);
+    }
+
+    private string GetConfiguredTenantId()
+    {
+        return _configuration["MultiTenancy:TenantId"]
+            ?? throw new InvalidOperationException(
+                "MultiTenancy:TenantId is not configured. " +
+                "Nasheed is a single-tenant service - set MultiTenancy:TenantId in appsettings.json.");
+    }
+
+    private async Task QueueEmbeddingGenerationAsync(
+        SongEntity song,
+        ISongIngestionJobRepository jobRepo,
+        ISongRepository songRepo,
+        CancellationToken cancellationToken)
+    {
+        var hasActiveEmbeddingJob = await jobRepo.HasActiveJobAsync(song.Id, IngestionJobType.EmbeddingGeneration, cancellationToken);
+        if (hasActiveEmbeddingJob)
+        {
+            return;
+        }
+
+        var embeddingJob = SongIngestionJobEntity.Create(song.Id, song.FileId, IngestionJobType.EmbeddingGeneration);
+        await jobRepo.AddAsync(embeddingJob, cancellationToken);
+
+        song.SetSearchIndexStatus(SearchIndexStatus.Indexing);
+        await songRepo.UpdateAsync(song, cancellationToken);
+
+        _logger.LogInformation("Queued embedding job {JobId} for song {SongId} after song data update.", embeddingJob.Id, song.Id);
     }
 
     private async Task RunEmbeddingGenerationAsync(
@@ -240,10 +256,12 @@ public class NasheedIngestionWorker : BackgroundService
         ISongIngestionJobRepository jobRepo,
         CancellationToken cancellationToken)
     {
+        var tenantId = GetConfiguredTenantId();
         var searchText = BuildSearchText(song);
         var embedding = await aiClient.EmbedAsync(
             NasheedAiKeys.EmbeddingSettings,
             searchText,
+            tenantId,
             cancellationToken: cancellationToken);
 
         var embeddingJson = JsonSerializer.Serialize(embedding);
@@ -265,20 +283,6 @@ public class NasheedIngestionWorker : BackgroundService
         await jobRepo.UpdateAsync(job, cancellationToken);
     }
 
-    private static string BuildMetadataPrompt(SongEntity song)
-    {
-        return "Analyze the following nasheed song and extract metadata in JSON format.\n" +
-               $"Title: {song.Title}\n" +
-               $"Lyrics: {song.LyricsRaw ?? "Not available"}\n\n" +
-               "Return a JSON object with these fields:\n" +
-               "{\n" +
-               "  \"language_code\": \"...\",\n" +
-               "  \"summary\": \"...\",\n" +
-               "  \"vocal_style\": \"...\",\n" +
-               "  \"mood_tags\": [\"...\", \"...\"]\n" +
-               "}";
-    }
-
     private static async Task ApplyMetadataAsync(
         SongEntity song,
         string metadataJson,
@@ -286,36 +290,71 @@ public class NasheedIngestionWorker : BackgroundService
         ISongRepository songRepo,
         CancellationToken cancellationToken)
     {
-        try
+        using var doc = JsonDocument.Parse(ExtractJsonFromResponse(metadataJson));
+        var root = doc.RootElement;
+
+        var languageCode = ReadString(root, "language_code", "languageCode");
+        var summary = ReadString(root, "summary");
+        var vocalStyle = ReadString(root, "vocal_style", "vocalStyle");
+        var durationSeconds = ReadNullableInt(root, "duration_seconds", "durationSeconds");
+        var lyricsRawLrc = ReadString(root, "lyrics_raw_lrc", "lyricsRawLrc", "lyrics_raw", "lyricsRaw", "lrc");
+        if (string.IsNullOrWhiteSpace(lyricsRawLrc))
         {
-            using var doc = JsonDocument.Parse(ExtractJsonFromResponse(metadataJson));
-            var root = doc.RootElement;
+            throw new InvalidOperationException("AI response does not include lyrics_raw_lrc.");
+        }
 
-            var languageCode = root.TryGetProperty("language_code", out var lc) ? lc.GetString() : null;
-            var summary = root.TryGetProperty("summary", out var s) ? s.GetString() : null;
-            var vocalStyle = root.TryGetProperty("vocal_style", out var vs) ? vs.GetString() : null;
+        song.UpdateMetadata(languageCode, lyricsRawLrc, summary, vocalStyle, durationSeconds);
+        await songRepo.UpdateAsync(song, cancellationToken);
 
-            song.UpdateMetadata(languageCode, lyricsRaw: null, summary, vocalStyle, durationSeconds: null);
-            await songRepo.UpdateAsync(song, cancellationToken);
-
-            if (root.TryGetProperty("mood_tags", out var moodTagsEl) && moodTagsEl.ValueKind == JsonValueKind.Array)
+        if (root.TryGetProperty("mood_tags", out var moodTagsEl) && moodTagsEl.ValueKind == JsonValueKind.Array)
+        {
+            await moodTagRepo.DeleteBySongIdAsync(song.Id, cancellationToken);
+            foreach (var tagEl in moodTagsEl.EnumerateArray())
             {
-                await moodTagRepo.DeleteBySongIdAsync(song.Id, cancellationToken);
-                foreach (var tagEl in moodTagsEl.EnumerateArray())
+                var tag = tagEl.GetString();
+                if (!string.IsNullOrEmpty(tag))
                 {
-                    var tag = tagEl.GetString();
-                    if (!string.IsNullOrEmpty(tag))
-                    {
-                        var moodTag = SongMoodTagEntity.Create(song.Id, tag);
-                        await moodTagRepo.AddAsync(moodTag, cancellationToken);
-                    }
+                    var moodTag = SongMoodTagEntity.Create(song.Id, tag);
+                    await moodTagRepo.AddAsync(moodTag, cancellationToken);
                 }
             }
         }
-        catch
+    }
+
+    private static string? ReadString(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
         {
-            // Metadata parse failure should not fail the whole job — log and continue
+            if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+            {
+                return value.GetString();
+            }
         }
+
+        return null;
+    }
+
+    private static int? ReadNullableInt(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (!root.TryGetProperty(name, out var value))
+            {
+                continue;
+            }
+
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number))
+            {
+                return number;
+            }
+
+            if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out var parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
     }
 
     private static string BuildSearchText(SongEntity song)
@@ -344,5 +383,19 @@ public class NasheedIngestionWorker : BackgroundService
         if (start >= 0 && end > start)
             return response[start..(end + 1)];
         return response;
+    }
+
+    private List<int> BuildAiFileIds(string fileId, int songId)
+    {
+        if (int.TryParse(fileId, out var parsedFileId))
+        {
+            return [parsedFileId];
+        }
+
+        _logger.LogWarning(
+            "Song {SongId} has non-numeric FileId '{FileId}'. AI file attachment will be skipped because AI.API expects file_ids as int[].",
+            songId,
+            fileId);
+        return [];
     }
 }

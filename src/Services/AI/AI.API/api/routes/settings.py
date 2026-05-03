@@ -63,8 +63,11 @@ async def _get_scoped_setting(
 ) -> Optional[AiProviderSettings]:
     query = select(AiProviderSettings).where(AiProviderSettings.Id == setting_id)
     if tenant_id:
-        query = query.where(AiProviderSettings.TenantId == tenant_id)
-    # When tenant_id is None (superadmin/service), no TenantId restriction — access any setting
+        # If tenant_id is provided, allow both tenant-specific and global settings
+        query = query.where(or_(AiProviderSettings.TenantId == tenant_id, AiProviderSettings.TenantId.is_(None)))
+    else:
+        # If no tenant_id is extracted from headers (superadmin/service), allow ALL settings
+        pass
 
     result = await db.execute(query)
     return result.scalar_one_or_none()

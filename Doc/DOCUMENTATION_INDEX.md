@@ -3,7 +3,7 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** May 2, 2026  
+**Last Updated:** May 4, 2026  
 **Total Files:** 38
 
 ---
@@ -161,7 +161,7 @@ Files are organized by category. Each entry includes:
 
 ### AI_SERVICE_CHAT_INTEGRATION_GUIDE.md
 
-**Description:** How any .NET microservice can call the AI service chat endpoints (`/api/v1/chat/single` or `/api/v1/chat/stream`) using service-to-service authentication. Covers required request fields (`settings_key`, `system_prompt_key`, `messages`), optional tenant and file attachment support, HttpClient registration, snake_case serialization, and error handling.  
+**Description:** How any .NET microservice can call the AI service chat endpoints (`/api/v1/chat/single` or `/api/v1/chat/stream`) using service-to-service authentication. Covers required request field (`settings_key`), optional `system_prompt_key` and `messages` with at-least-one validation, optional `max_completion_tokens` and `generate_session_title`, optional tenant and file attachment support, HttpClient registration, snake_case serialization, and error handling.  
 **Read When:**
 
 - A .NET service needs to perform AI tasks internally (summarize, generate, classify)

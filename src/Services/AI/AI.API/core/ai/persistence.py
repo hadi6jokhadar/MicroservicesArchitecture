@@ -1,5 +1,6 @@
+import json
 import uuid
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import BackgroundTasks
 
@@ -36,24 +37,39 @@ async def log_token_usage_background(
 
 async def persist_messages_background(
     session_id: uuid.UUID,
-    user_content: str,
-    assistant_content: str,
+    model_input_messages: List[dict[str, Any]],
+    assistant_content: Any,
     prompt_tokens: int,
     completion_tokens: int,
 ) -> None:
-    """Persists user + assistant messages to AiChatMessage in its own DB session."""
+    """Persist exact model-input messages plus assistant output in its own DB session."""
+
+    def _serialize_content(content: Any) -> str:
+        if isinstance(content, str):
+            return content
+        try:
+            return json.dumps(content, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return str(content)
+
     async with AsyncSessionFactory() as db:
-        db.add(AiChatMessage(
-            SessionId=session_id,
-            Role="user",
-            Content=user_content,
-            PromptTokens=prompt_tokens,
-            CompletionTokens=0,
-        ))
+        for index, message in enumerate(model_input_messages):
+            role = str(message.get("role") or "user")
+            content = _serialize_content(message.get("content"))
+            db.add(
+                AiChatMessage(
+                    SessionId=session_id,
+                    Role=role,
+                    Content=content,
+                    PromptTokens=prompt_tokens if index == len(model_input_messages) - 1 else 0,
+                    CompletionTokens=0,
+                )
+            )
+
         db.add(AiChatMessage(
             SessionId=session_id,
             Role="assistant",
-            Content=assistant_content,
+            Content=_serialize_content(assistant_content),
             PromptTokens=0,
             CompletionTokens=completion_tokens,
         ))
@@ -67,7 +83,7 @@ async def persist_messages_background(
 def schedule_chat_persistence_tasks(
     background_tasks: BackgroundTasks,
     session_id: uuid.UUID,
-    user_content: str,
+    model_input_messages: List[dict[str, Any]],
     complete_response: str,
     tenant_id: Optional[str],
     user_id: Optional[int],
@@ -80,7 +96,7 @@ def schedule_chat_persistence_tasks(
     background_tasks.add_task(
         persist_messages_background,
         session_id,
-        user_content,
+        model_input_messages,
         complete_response,
         prompt_tokens,
         completion_tokens,

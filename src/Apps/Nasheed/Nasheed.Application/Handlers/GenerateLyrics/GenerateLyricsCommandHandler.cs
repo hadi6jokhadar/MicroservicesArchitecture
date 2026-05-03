@@ -24,8 +24,8 @@ public class GenerateLyricsCommandHandler : IRequestHandler<GenerateLyricsComman
         var userMessage = BuildUserMessage(request);
 
         var response = await _aiClient.ChatAsync(
-            NasheedAiKeys.GenerationSettings,
-            NasheedAiKeys.GenerationPrompt,
+            NasheedAiKeys.ExtractionSettings,
+            NasheedAiKeys.ExtractionPrompt,
             userMessage,
             cancellationToken: cancellationToken);
 

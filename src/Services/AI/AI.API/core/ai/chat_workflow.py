@@ -68,6 +68,7 @@ class ChatRuntimeContext(TypedDict):
     provider_api_base: Optional[str]
     model_name: str
     user_content: str
+    system_prompt: Optional[str]
     response_format: Optional[dict]
     max_completion_tokens: Optional[int]
     temperature: Optional[float]
@@ -103,7 +104,7 @@ def _prepare_messages_node(state: ChatWorkflowState) -> ChatWorkflowState:
         messages.append({"role": "system", "content": state["system_prompt"]})
     messages.extend(
         {"role": msg.role, "content": msg.content}
-        for msg in state["request"].messages
+        for msg in (state["request"].messages or [])
     )
     return {**state, "litellm_messages": messages}
 
@@ -222,7 +223,13 @@ async def _multimodal_transform_node(state: ChatWorkflowState) -> ChatWorkflowSt
             break
 
     if last_user_idx is None:
-        return {**state, "has_vision_attachments": has_image, "has_audio_attachments": has_audio}
+        messages.append({"role": "user", "content": media_blocks})
+        return {
+            **state,
+            "litellm_messages": messages,
+            "has_vision_attachments": has_image,
+            "has_audio_attachments": has_audio,
+        }
 
     last_msg = messages[last_user_idx]
     existing_text = last_msg.get("content", "")
@@ -372,7 +379,8 @@ async def build_chat_runtime_context(
         "provider_api_key": orchestration_state["api_key"],
         "provider_api_base": ai_settings.ApiBaseUrl,
         "model_name": str(ai_settings.ModelName),
-        "user_content": request.messages[-1].content,
+        "user_content": request.messages[-1].content if request.messages else "",
+        "system_prompt": system_prompt,
         "response_format": orchestration_state["response_format"],
         "max_completion_tokens": orchestration_state["max_completion_tokens"],
         "temperature": ai_settings.Temperature,

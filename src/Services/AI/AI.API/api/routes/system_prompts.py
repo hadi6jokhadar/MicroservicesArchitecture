@@ -37,9 +37,12 @@ async def _get_scoped_prompt(
 ) -> Optional[AiSystemPrompt]:
     query = select(AiSystemPrompt).where(AiSystemPrompt.Id == prompt_id)
     if tenant_id:
-        query = query.where(AiSystemPrompt.TenantId == tenant_id)
+        # If tenant_id is provided, allow both tenant-specific and global prompts
+        query = query.where(or_(AiSystemPrompt.TenantId == tenant_id, AiSystemPrompt.TenantId.is_(None)))
     else:
-        query = query.where(AiSystemPrompt.TenantId.is_(None))
+        # If no tenant_id is extracted from headers (superadmin/service), allow ALL prompts (global and any tenant)
+        # This fixes 404 when superadmins try to delete tenant-owned prompts
+        pass
 
     result = await db.execute(query)
     return result.scalar_one_or_none()
