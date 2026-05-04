@@ -28,6 +28,7 @@ public class FileManagerDbContext : BaseDbContext
     }
 
     public DbSet<FileManagerEntity> FileManager => Set<FileManagerEntity>();
+    public DbSet<FileManagerUsageEntity> FileManagerUsage => Set<FileManagerUsageEntity>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

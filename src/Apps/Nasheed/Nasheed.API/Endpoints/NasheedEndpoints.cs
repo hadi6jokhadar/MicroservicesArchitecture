@@ -35,7 +35,7 @@ public static class NasheedEndpoints
 
         artists.MapDelete("/{id:int}", NasheedArtistApiHandlers.Delete)
             .WithName("DeleteArtist")
-            .Produces(StatusCodes.Status204NoContent);
+            .Produces(StatusCodes.Status200OK);
 
         // ── SONGS ─────────────────────────────────────────────
         var songs = app.MapGroup("/api/songs")
@@ -63,7 +63,7 @@ public static class NasheedEndpoints
 
         songs.MapDelete("/{id:int}", NasheedSongApiHandlers.Delete)
             .WithName("DeleteSong")
-            .Produces(StatusCodes.Status204NoContent);
+            .Produces(StatusCodes.Status200OK);
 
         songs.MapGet("/{id:int}/analysis", NasheedSongApiHandlers.GetAnalysisStatus)
             .WithName("GetSongAnalysisStatus")
@@ -122,7 +122,7 @@ public static class NasheedEndpoints
 
         interactions.MapDelete("/{songId:int}/favorites", NasheedInteractionApiHandlers.RemoveFavorite)
             .WithName("RemoveFavorite")
-            .Produces(StatusCodes.Status204NoContent);
+            .Produces(StatusCodes.Status200OK);
 
         interactions.MapPost("/{songId:int}/ratings", NasheedInteractionApiHandlers.AddRating)
             .WithName("AddRating")
@@ -131,7 +131,7 @@ public static class NasheedEndpoints
 
         interactions.MapPost("/{songId:int}/play", NasheedInteractionApiHandlers.LogPlay)
             .WithName("LogPlay")
-            .Produces(StatusCodes.Status204NoContent);
+            .Produces(StatusCodes.Status200OK);
 
         // ── GENERATION ────────────────────────────────────────
         var generation = app.MapGroup("/api/generation")

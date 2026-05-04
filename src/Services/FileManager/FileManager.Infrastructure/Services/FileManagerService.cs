@@ -15,6 +15,7 @@ namespace FileManager.Infrastructure.Services;
 public class FileManagerService : IFileManagerService
 {
     private readonly IFileManagerRepository _repository;
+    private readonly IFileManagerUsageRepository _usageRepository;
     private readonly IFileStorage _fileStorage;
     private readonly BlobStorageFactory _blobStorageFactory;
     private readonly FileManagerOptions _options;
@@ -23,12 +24,14 @@ public class FileManagerService : IFileManagerService
 
     public FileManagerService(
         IFileManagerRepository repository,
+        IFileManagerUsageRepository usageRepository,
         IFileStorage fileStorage,
         BlobStorageFactory blobStorageFactory,
         IOptions<FileManagerOptions> options,
         ILogger<FileManagerService> logger)
     {
         _repository = repository;
+        _usageRepository = usageRepository;
         _fileStorage = fileStorage;
         _blobStorageFactory = blobStorageFactory;
         _options = options.Value;
@@ -186,6 +189,58 @@ public class FileManagerService : IFileManagerService
         await _repository.UpdateAsync(entity, cancellationToken);
 
         _logger.LogInformation("File updated successfully: ID={Id}", id);
+
+        return FileManagerResponse.MapFrom(entity, _urlPrefix);
+    }
+
+    public async Task<FileManagerResponse?> UpdateFileTempStatusAsync(
+        int fileId,
+        string usageArea,
+        string rowId,
+        bool isNew,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _repository.GetByIdAsync(fileId, cancellationToken);
+        if (entity == null)
+        {
+            _logger.LogWarning("File with ID {FileId} not found for temp status update", fileId);
+            return null;
+        }
+
+        var existingUsage = await _usageRepository.GetUsageAsync(fileId, usageArea, rowId, cancellationToken);
+
+        if (isNew)
+        {
+            // Add usage row if it doesn't already exist
+            if (existingUsage == null)
+            {
+                var usage = new FileManagerUsageEntity
+                {
+                    FileId = fileId,
+                    UsageArea = usageArea,
+                    RowId = rowId
+                };
+                await _usageRepository.AddAsync(usage, cancellationToken);
+                _logger.LogInformation("Added usage row for FileId={FileId} UsageArea={UsageArea} RowId={RowId}", fileId, usageArea, rowId);
+            }
+        }
+        else
+        {
+            // Remove usage row if it exists
+            if (existingUsage != null)
+            {
+                await _usageRepository.RemoveAsync(existingUsage, cancellationToken);
+                _logger.LogInformation("Removed usage row for FileId={FileId} UsageArea={UsageArea} RowId={RowId}", fileId, usageArea, rowId);
+            }
+        }
+
+        // Recalculate temp status based on remaining usages
+        var usageCount = await _usageRepository.CountUsagesAsync(fileId, cancellationToken);
+        entity.Temp = usageCount == 0;
+
+        await _repository.UpdateAsync(entity, cancellationToken);
+
+        _logger.LogInformation("File temp status updated: ID={FileId} Temp={Temp} (usages={Count})", fileId, entity.Temp, usageCount);
 
         return FileManagerResponse.MapFrom(entity, _urlPrefix);
     }

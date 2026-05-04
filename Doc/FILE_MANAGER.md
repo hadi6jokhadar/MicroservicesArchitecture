@@ -1,8 +1,8 @@
 # File Manager Service
 
 **Purpose:** Complete guide to the File Manager Service - handles file upload, storage, retrieval, and management with multi-tenancy support.  
-**Last Updated:** April 27, 2026  
-**Status:** ✅ Production Ready (v3.0.0)
+**Last Updated:** May 4, 2026  
+**Status:** ✅ Production Ready (v3.1.0)
 
 ---
 
@@ -24,6 +24,7 @@ The File Manager Service is a centralized file storage microservice using Clean 
 - ✅ **Background Jobs**: Automatic temp file cleanup
 - ✅ **Service-to-Service**: HTTP client for internal service calls
 - ✅ **Security**: File size limits, extension validation, access control
+- ✅ **Usage Tracking**: `FileManagerUsage` table prevents premature cleanup of shared files
 
 ---
 
@@ -340,25 +341,43 @@ Example: https://localhost:5005/ihsandev/123/personal/abc-123.jpg
 
 ### FileManager Table
 
-| Column         | Type           | Description                 | Indexed |
-| -------------- | -------------- | --------------------------- | ------- |
-| Id             | int            | Primary key                 | ✅ (PK) |
-| Name           | varchar(255)   | File name                   | ❌      |
-| Extension      | varchar(10)    | File extension (.pdf, .jpg) | ❌      |
-| Size           | bigint         | Size in bytes               | ❌      |
-| Path           | varchar(500)   | Storage path (relative)     | ❌      |
-| Group          | int            | FileGroup enum (1-6)        | ✅      |
-| Type           | int            | FileType enum (0-3)         | ✅      |
-| Temp           | bool           | Temporary flag              | ✅      |
-| UserId         | int (nullable) | Owner user ID               | ✅      |
-| IsArchived     | bool           | Soft delete flag            | ✅      |
-| Status         | bool           | Active/Inactive             | ✅      |
-| Created        | timestamptz    | Creation timestamp (UTC)    | ✅      |
-| CreatedBy      | varchar        | Creator identifier          | ❌      |
-| LastModified   | timestamptz    | Last update timestamp       | ❌      |
-| LastModifiedBy | varchar        | Last updater identifier     | ❌      |
+| Column         | Type           | Description                                     | Indexed |
+| -------------- | -------------- | ----------------------------------------------- | ------- |
+| Id             | int            | Primary key                                     | ✅ (PK) |
+| Name           | varchar(255)   | File name                                       | ❌      |
+| Extension      | varchar(10)    | File extension (.pdf, .jpg)                     | ❌      |
+| Size           | bigint         | Size in bytes                                   | ❌      |
+| Path           | varchar(500)   | Storage path (relative)                         | ❌      |
+| Group          | int            | FileGroup enum (1-6)                            | ✅      |
+| Type           | int            | FileType enum (0-3)                             | ✅      |
+| Temp           | bool           | Temporary flag (auto-managed by usage tracking) | ✅      |
+| UserId         | int (nullable) | Owner user ID                                   | ✅      |
+| IsArchived     | bool           | Soft delete flag                                | ✅      |
+| Status         | bool           | Active/Inactive                                 | ✅      |
+| Created        | timestamptz    | Creation timestamp (UTC)                        | ✅      |
+| CreatedBy      | varchar        | Creator identifier                              | ❌      |
+| LastModified   | timestamptz    | Last update timestamp                           | ❌      |
+| LastModifiedBy | varchar        | Last updater identifier                         | ❌      |
 
 **Indexes:** Id (PK), UserId, Group, Type, Temp, IsArchived, Status, Created
+
+### FileManagerUsage Table
+
+> **Added in v3.1.0** — Tracks which entities reference a file to prevent premature cleanup.
+
+| Column    | Type         | Description                                        | Indexed        |
+| --------- | ------------ | -------------------------------------------------- | -------------- |
+| Id        | int          | Primary key                                        | ✅ (PK)        |
+| FileId    | int          | Foreign key to FileManager.Id                      | ✅             |
+| UsageArea | varchar(100) | Entity type using the file (e.g. "User", "Artist") | ✅ (composite) |
+| RowId     | varchar(100) | Entity identifier as string (e.g. "42")            | ✅ (composite) |
+
+**Unique Index:** `(FileId, UsageArea, RowId)` — prevents duplicate usage rows.
+
+**Business Rule:** `FileManager.Temp` is automatically recalculated after every usage change:
+
+- `COUNT(*) == 0` → `Temp = true` (eligible for background cleanup)
+- `COUNT(*) > 0` → `Temp = false` (protected from cleanup)
 
 ### Enums
 
@@ -629,6 +648,62 @@ public class YourCommandHandler
     }
 }
 ```
+
+### File Usage Tracking (v3.1.0+)
+
+> **Important:** Do NOT manually set `Temp=true/false`. Use `ChangeTempStatusAsync` exclusively.
+
+The `ChangeTempStatusAsync` method toggles a usage row in `FileManagerUsage`, then auto-recalculates `Temp` on `FileManager`:
+
+| Action                        | Call                                                                             | Result                                                         |
+| ----------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Entity created with file      | `ChangeTempStatusAsync(fileId, "EntityType", entityId.ToString(), tenantId, ct)` | Adds usage row → sets `Temp=false`                             |
+| Entity deleted                | `ChangeTempStatusAsync(fileId, "EntityType", entityId.ToString(), tenantId, ct)` | Removes usage row → sets `Temp=true` if no other usages        |
+| Entity updated (file changed) | Call once for old file, once for new file                                        | Old file may become `Temp=true`; new file becomes `Temp=false` |
+
+**Why toggle instead of explicit true/false?**
+A file may be referenced by multiple entities (e.g. two artists sharing the same logo). The usage table tracks each reference separately so the file is only marked temporary when **all** references are removed.
+
+**Example — Create entity:**
+
+```csharp
+// After creating entity, add usage row → sets Temp=false
+await _fileManagerClient.ChangeTempStatusAsync(
+    fileId: request.ImageFileId,
+    usageArea: "Artist",
+    rowId: entity.Id.ToString(),
+    tenantId: _tenantId,
+    cancellationToken: ct);
+```
+
+**Example — Delete entity:**
+
+```csharp
+// Removing the usage row → sets Temp=true if no other usages remain
+await _fileManagerClient.ChangeTempStatusAsync(
+    fileId: entity.ImageFileId,
+    usageArea: "Artist",
+    rowId: entity.Id.ToString(),
+    tenantId: _tenantId,
+    cancellationToken: ct);
+```
+
+**Example — Update entity (file changed):**
+
+```csharp
+// Remove usage for old file
+await _fileManagerClient.ChangeTempStatusAsync(oldFileId, "Artist", entity.Id.ToString(), _tenantId, ct);
+// Add usage for new file
+await _fileManagerClient.ChangeTempStatusAsync(newFileId, "Artist", entity.Id.ToString(), _tenantId, ct);
+```
+
+**Supported usage areas (convention):**
+
+| UsageArea  | Entity type            |
+| ---------- | ---------------------- |
+| `"User"`   | Identity service users |
+| `"Artist"` | Nasheed artists        |
+| `"Song"`   | Nasheed songs          |
 
 **See:** `SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md` for shared .NET client registration patterns and `PYTHON_SHARED_LIBRARY_GUIDE.md` for Python shared client usage.
 

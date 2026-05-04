@@ -63,32 +63,33 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
 
             // Update temp status for old and new profile pictures
             var tenantId = _tenantContext.TenantId;
+            var userId = request.Id.ToString()!;
 
-            // Mark old file as temporary (eligible for cleanup) if it changed
+            // Remove usage row for old picture if it changed (may set Temp=true if no other usages)
             if (oldProfilePictureId.HasValue && oldProfilePictureId != request.ProfilePictureId)
             {
                 try
                 {
-                    await _fileManagerClient.ChangeTempStatusAsync(oldProfilePictureId.Value, true, tenantId, cancellationToken);
+                    await _fileManagerClient.ChangeTempStatusAsync(oldProfilePictureId.Value, "User", userId, false, tenantId, cancellationToken);
                 }
                 catch (Exception ex)
                 {
                     // Log warning but don't fail the operation
-                    _logger.LogWarning(ex, "Warning: Failed to mark old profile picture {OldProfilePictureId} as temporary", oldProfilePictureId);
+                    _logger.LogWarning(ex, "Warning: Failed to remove usage for old profile picture {OldProfilePictureId}", oldProfilePictureId);
                 }
             }
 
-            // Mark new file as permanent if provided
+            // Add usage row for new picture (sets Temp=false)
             if (request.ProfilePictureId.HasValue)
             {
                 try
                 {
-                    await _fileManagerClient.ChangeTempStatusAsync(request.ProfilePictureId.Value, false, tenantId, cancellationToken);
+                    await _fileManagerClient.ChangeTempStatusAsync(request.ProfilePictureId.Value, "User", userId, true, tenantId, cancellationToken);
                 }
                 catch (Exception ex)
                 {
                     // Log warning but don't fail the operation
-                    _logger.LogWarning(ex, "Warning: Failed to mark new profile picture {NewProfilePictureId} as permanent", request.ProfilePictureId);
+                    _logger.LogWarning(ex, "Warning: Failed to add usage for new profile picture {NewProfilePictureId}", request.ProfilePictureId);
                 }
             }
 

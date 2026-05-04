@@ -22,6 +22,13 @@ public record UpdateFileCommand(
 
 public record DeleteFileCommand(int Id) : IRequest<bool>;
 
+public record UpdateFileTempStatusCommand(
+    int FileId,
+    string UsageArea,
+    string RowId,
+    bool IsNew
+) : IRequest<FileManagerResponse?>;
+
 public record DeleteAllTempFilesCommand() : IRequest<int>;
 
 public record DeleteOldTempFilesCommand(int OlderThanDays, int AiOlderThanDays = 30) : IRequest<int>;

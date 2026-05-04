@@ -90,18 +90,27 @@ class FileManagerServiceClient(BaseServiceClient):
     async def change_temp_status(
         self,
         file_id: int,
-        temp: bool,
+        usage_area: str,
+        row_id: str,
+        is_new: bool,
         tenant_id: str | None = None,
     ) -> bool:
         """
-        Changes the temporary status of a file in FileManager.API.
+        Adds or removes a usage row in FileManagerUsage, then recalculates Temp on the file.
         Mirrors .NET ChangeTempStatusAsync.
+
+        is_new=True  → add usage row (marks file as in-use, Temp=false)
+        is_new=False → remove usage row (Temp=true when no usages remain)
 
         Returns True on success, False on failure.
         """
-        path = f"/api/filemanager/internal/files/{file_id}/temp-status?temp={str(temp).lower()}"
+        from urllib.parse import quote
+        path = (
+            f"/api/filemanager/internal/files/{file_id}/temp-status"
+            f"?usageArea={quote(usage_area)}&rowId={quote(row_id)}&isNew={str(is_new).lower()}"
+        )
         if tenant_id:
-            path += f"&tenantId={tenant_id}"
+            path += f"&tenantId={quote(tenant_id)}"
 
         try:
             await self.patch(path, tenant_id=tenant_id)

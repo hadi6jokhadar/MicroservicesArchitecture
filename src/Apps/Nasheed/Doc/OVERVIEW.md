@@ -87,11 +87,17 @@ Embeddings are stored as vector-literal JSON text in `EmbeddingJson` and queried
 
 ### 8. FileManager Calls Always Include Tenant Context
 
-Nasheed file lifecycle operations (mark file as temporary or permanent) call FileManager internal endpoints through `IFileManagerServiceClient`.
+Nasheed file lifecycle operations call FileManager internal endpoints through `IFileManagerServiceClient`.
 
-For these calls, Nasheed always passes `tenantId` from `MultiTenancy:TenantId` as a query parameter (for example: `.../temp-status?temp=false&tenantId=anashid`).
+For these calls, Nasheed always passes `tenantId` from `MultiTenancy:TenantId` as a query parameter.
 
-This is required because FileManager resolves database context from tenant information. If `tenantId` is omitted, FileManager may query the wrong database and return `FileNotFoundException` even when the file exists in the tenant database.
+This is required because FileManager resolves database context from tenant information. If `tenantId` is omitted, FileManager may query the wrong database.
+
+**Usage tracking (v3.1.0+):** `ChangeTempStatusAsync` now uses a `usageArea` + `rowId` toggle pattern instead of a boolean `temp` flag. The call adds or removes a usage row in `FileManagerUsage` and auto-recalculates `Temp` on the file:
+
+- `Artist` operations pass `usageArea: "Artist"`, `rowId: artistId.ToString()`
+- `Song` operations pass `usageArea: "Song"`, `rowId: songId.ToString()`
+- Adding a usage row → `Temp=false`; removing the last usage row → `Temp=true`
 
 ---
 

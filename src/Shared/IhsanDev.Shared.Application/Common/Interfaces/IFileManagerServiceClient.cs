@@ -27,15 +27,16 @@ public interface IFileManagerServiceClient
     Task<Dictionary<int, FileManagerDto>> GetFilesByIdsAsync(IEnumerable<int> fileIds, string? tenantId = null, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Change file temp status (mark as permanent or temporary)
-    /// Used when entity is created/updated/deleted with file references
+    /// Toggle file usage tracking (add usage row if not exists, remove if exists),
+    /// then recalculate Temp status: 0 usages → Temp=true, >0 usages → Temp=false.
     /// </summary>
     /// <param name="fileId">The ID of the file to update</param>
-    /// <param name="temp">True to mark as temporary, false to mark as permanent</param>
+    /// <param name="usageArea">The entity type using the file (e.g. "User", "Artist", "Song")</param>
+    /// <param name="rowId">The entity identifier as string (e.g. user id, artist id)</param>
     /// <param name="tenantId">Optional tenant ID for multi-tenant files</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if successful, false if file not found or on error</returns>
-    Task<bool> ChangeTempStatusAsync(int fileId, bool temp, string? tenantId = null, CancellationToken cancellationToken = default);
+    Task<bool> ChangeTempStatusAsync(int fileId, string usageArea, string rowId, bool isNew, string? tenantId = null, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -59,10 +59,10 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
 
         _logger.LogInformation("Created Song Id {SongId} with ingestion job Id {JobId}", song.Id, job.Id);
 
-        // Mark the audio file as not temporary (permanent)
+        // Mark the audio file as in-use (permanent)
         if (!string.IsNullOrWhiteSpace(request.FileId) && int.TryParse(request.FileId, out var fileId))
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, false, _tenantId, cancellationToken);
+            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, "Song", song.Id.ToString(), true, _tenantId, cancellationToken);
             if (!success)
             {
                 _logger.LogWarning("Failed to mark FileId {FileId} as permanent for Song {SongId}", fileId, song.Id);

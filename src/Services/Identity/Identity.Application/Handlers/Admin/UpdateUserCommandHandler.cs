@@ -75,31 +75,31 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             // Update temp status for old and new profile pictures
             var tenantId = _tenantContext.TenantId;
 
-            // Mark old file as temporary (eligible for cleanup) if it changed
+            // Remove usage row for old picture if it changed (may set Temp=true if no other usages)
             if (oldProfilePictureId.HasValue && oldProfilePictureId != request.ProfilePictureId)
             {
                 try
                 {
-                    await _fileManagerClient.ChangeTempStatusAsync(oldProfilePictureId.Value, true, tenantId, cancellationToken);
+                    await _fileManagerClient.ChangeTempStatusAsync(oldProfilePictureId.Value, "User", user.Id.ToString(), false, tenantId, cancellationToken);
                 }
                 catch (Exception ex)
                 {
                     // Log warning but don't fail the operation
-                    Console.WriteLine($"Warning: Failed to mark old profile picture {oldProfilePictureId} as temporary: {ex.Message}");
+                    Console.WriteLine($"Warning: Failed to remove usage for old profile picture {oldProfilePictureId}: {ex.Message}");
                 }
             }
 
-            // Mark new file as permanent if provided
+            // Add usage row for new picture (sets Temp=false)
             if (request.ProfilePictureId.HasValue)
             {
                 try
                 {
-                    await _fileManagerClient.ChangeTempStatusAsync(request.ProfilePictureId.Value, false, tenantId, cancellationToken);
+                    await _fileManagerClient.ChangeTempStatusAsync(request.ProfilePictureId.Value, "User", user.Id.ToString(), true, tenantId, cancellationToken);
                 }
                 catch (Exception ex)
                 {
                     // Log warning but don't fail the operation
-                    Console.WriteLine($"Warning: Failed to mark new profile picture {request.ProfilePictureId} as permanent: {ex.Message}");
+                    Console.WriteLine($"Warning: Failed to add usage for new profile picture {request.ProfilePictureId}: {ex.Message}");
                 }
             }
 

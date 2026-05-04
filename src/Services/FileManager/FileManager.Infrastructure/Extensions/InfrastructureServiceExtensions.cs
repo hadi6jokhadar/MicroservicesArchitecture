@@ -7,7 +7,6 @@ using FileManager.Infrastructure.Storage;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-
 namespace FileManager.Infrastructure.Extensions;
 
 public static class InfrastructureServiceExtensions
@@ -19,6 +18,7 @@ public static class InfrastructureServiceExtensions
             migrationAssembly: typeof(FileManagerDbContext).Assembly.GetName().Name);
 
         services.AddScoped<IFileManagerRepository, FileManagerRepository>();
+        services.AddScoped<IFileManagerUsageRepository, FileManagerUsageRepository>();
         services.AddScoped<IFileStorage, LocalFileStorage>();
         services.AddScoped<BlobStorageFactory>();
         services.AddScoped<IFileManagerService, FileManagerService>();

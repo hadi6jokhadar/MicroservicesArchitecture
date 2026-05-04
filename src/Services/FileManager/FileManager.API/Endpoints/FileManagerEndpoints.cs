@@ -1,8 +1,7 @@
 using FileManager.API.Handlers;
 using FileManager.Application.Commands;
 using FileManager.Application.DTOs;
-using FileManager.Application.Queries;
-using IhsanDev.Shared.Application.Localization;
+using FileManager.Application.Queries;using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Attributes;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
@@ -271,11 +270,14 @@ public static class FileManagerEndpoints
         .Produces<List<FileManagerResponse>>()
         .ExcludeFromDescription();
 
-        // Change file temp status - Internal endpoint for marking files as permanent/temp
-        // Used when entity (e.g., user) is created/updated/deleted with file references
+        // Change file temp status - Internal endpoint for managing file usage tracking
+        // isNew=true → adds usage row (marks file as in-use / Temp=false)
+        // isNew=false → removes usage row (file becomes Temp=true when no usages remain)
         internalGroup.MapPatch("/files/{id:int}/temp-status", async (
             int id,
-            [FromQuery] bool temp,
+            [FromQuery] string usageArea,
+            [FromQuery] string rowId,
+            [FromQuery] bool isNew,
             [FromQuery] string? tenantId,
             ITenantConfigurationProvider tenantConfigProvider,
             HttpContext httpContext,
@@ -291,6 +293,11 @@ public static class FileManagerEndpoints
                 return Results.Json(null, statusCode: StatusCodes.Status403Forbidden);
             }
 
+            if (string.IsNullOrWhiteSpace(usageArea) || string.IsNullOrWhiteSpace(rowId))
+            {
+                return Results.BadRequest(new { error = "usageArea and rowId are required" });
+            }
+
             // Create scope with tenant context set BEFORE DbContext resolution
             var scopeResult = await CreateScopeWithTenantAsync(
                 serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
@@ -298,7 +305,7 @@ public static class FileManagerEndpoints
             using var scope = scopeResult.scope;
             var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
             
-            var command = new UpdateFileCommand(id, Name: null, Group: null, Status: null, IsArchived: null, Temp: temp);
+            var command = new UpdateFileTempStatusCommand(id, usageArea, rowId, isNew);
             var result = await mediator.Send(command, cancellationToken);
             
             return Results.Ok(result);

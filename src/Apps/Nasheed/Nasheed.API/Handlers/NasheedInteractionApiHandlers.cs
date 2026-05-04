@@ -24,7 +24,7 @@ public static class NasheedInteractionApiHandlers
         CancellationToken ct)
     {
         await mediator.Send(new RemoveFavoriteCommand(songId, request.UserId), ct);
-        return Results.NoContent();
+        return Results.Ok();
     }
 
     public static async Task<IResult> AddRating(
@@ -44,7 +44,7 @@ public static class NasheedInteractionApiHandlers
         CancellationToken ct)
     {
         await mediator.Send(new AddPlayLogCommand(songId, request.UserId), ct);
-        return Results.NoContent();
+        return Results.Ok();
     }
 }
 

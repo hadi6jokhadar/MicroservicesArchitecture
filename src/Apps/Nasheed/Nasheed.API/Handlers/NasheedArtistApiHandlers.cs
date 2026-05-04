@@ -45,6 +45,6 @@ public static class NasheedArtistApiHandlers
     public static async Task<IResult> Delete(int id, IMediator mediator, CancellationToken ct)
     {
         await mediator.Send(new DeleteArtistCommand(id), ct);
-        return Results.NoContent();
+        return Results.Ok();
     }
 }

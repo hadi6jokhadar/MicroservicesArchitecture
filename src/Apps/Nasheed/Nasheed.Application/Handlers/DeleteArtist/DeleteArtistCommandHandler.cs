@@ -37,10 +37,10 @@ public class DeleteArtistCommandHandler : IRequestHandler<DeleteArtistCommand, b
         await _repository.DeleteAsync(entity, cancellationToken);
         _logger.LogInformation("Deleted Artist Id {Id}", entity.Id);
 
-        // Mark the image file as temporary (can be deleted by cleanup job)
+        // Remove file usage row (will set Temp=true if no other usages)
         if (!string.IsNullOrWhiteSpace(entity.ImageFileId) && int.TryParse(entity.ImageFileId, out var fileId))
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, true, _tenantId, cancellationToken);
+            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, "Artist", entity.Id.ToString(), false, _tenantId, cancellationToken);
             if (!success)
             {
                 _logger.LogWarning("Failed to mark ImageFileId {FileId} as temporary after deleting Artist {ArtistId}", fileId, entity.Id);

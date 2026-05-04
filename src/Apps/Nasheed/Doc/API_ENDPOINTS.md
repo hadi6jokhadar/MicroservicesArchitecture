@@ -66,7 +66,7 @@ Update an artist.
 
 Delete an artist.
 
-**Response:** `204 No Content`
+**Response:** `200 OK`
 
 ---
 
@@ -125,7 +125,7 @@ Update song metadata allowed by command contract.
 
 Delete a song.
 
-**Response:** `204 No Content`
+**Response:** `200 OK`
 
 ---
 
@@ -233,7 +233,7 @@ Remove a song from a user's favorites.
 { "userId": "user-123" }
 ```
 
-**Response:** `204 No Content`
+**Response:** `200 OK`
 
 ---
 
@@ -261,7 +261,7 @@ Log a play event for a user.
 { "userId": "user-123" }
 ```
 
-**Response:** `204 No Content`
+**Response:** `200 OK`
 
 ---
 

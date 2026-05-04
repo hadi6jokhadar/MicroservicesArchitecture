@@ -46,23 +46,23 @@ public class UpdateArtistCommandHandler : IRequestHandler<UpdateArtistCommand, A
         // If ImageFileId changed
         if (oldImageFileId != newImageFileId)
         {
-            // Mark the old image as temporary (if it existed)
+            // Remove usage row for old image (may set Temp=true if no other usages)
             if (!string.IsNullOrWhiteSpace(oldImageFileId) && int.TryParse(oldImageFileId, out var oldFileId))
             {
-                var success = await _fileManagerClient.ChangeTempStatusAsync(oldFileId, true, _tenantId, cancellationToken);
+                var success = await _fileManagerClient.ChangeTempStatusAsync(oldFileId, "Artist", entity.Id.ToString(), false, _tenantId, cancellationToken);
                 if (!success)
                 {
-                    _logger.LogWarning("Failed to mark old ImageFileId {FileId} as temporary for Artist {ArtistId}", oldFileId, entity.Id);
+                    _logger.LogWarning("Failed to remove usage for old ImageFileId {FileId} for Artist {ArtistId}", oldFileId, entity.Id);
                 }
             }
 
-            // Mark the new image as permanent (if provided)
+            // Add usage row for new image (sets Temp=false)
             if (!string.IsNullOrWhiteSpace(newImageFileId) && int.TryParse(newImageFileId, out var newFileId))
             {
-                var success = await _fileManagerClient.ChangeTempStatusAsync(newFileId, false, _tenantId, cancellationToken);
+                var success = await _fileManagerClient.ChangeTempStatusAsync(newFileId, "Artist", entity.Id.ToString(), true, _tenantId, cancellationToken);
                 if (!success)
                 {
-                    _logger.LogWarning("Failed to mark new ImageFileId {FileId} as permanent for Artist {ArtistId}", newFileId, entity.Id);
+                    _logger.LogWarning("Failed to add usage for new ImageFileId {FileId} for Artist {ArtistId}", newFileId, entity.Id);
                 }
             }
         }

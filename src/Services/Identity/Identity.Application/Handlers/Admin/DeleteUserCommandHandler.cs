@@ -57,7 +57,7 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, bool>
                 try
                 {
                     var tenantId = _tenantContext.TenantId;
-                    await _fileManagerClient.ChangeTempStatusAsync(user.ProfilePictureId.Value, true, tenantId, cancellationToken);
+                    await _fileManagerClient.ChangeTempStatusAsync(user.ProfilePictureId.Value, "User", user.Id.ToString(), false, tenantId, cancellationToken);
                 }
                 catch (Exception ex)
                 {

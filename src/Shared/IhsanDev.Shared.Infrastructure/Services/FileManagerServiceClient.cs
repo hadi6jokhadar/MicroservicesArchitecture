@@ -183,13 +183,15 @@ public class FileManagerServiceClient : IFileManagerServiceClient
 
     public async Task<bool> ChangeTempStatusAsync(
         int fileId, 
-        bool temp, 
+        string usageArea,
+        string rowId,
+        bool isNew,
         string? tenantId = null, 
         CancellationToken cancellationToken = default)
     {
         try
         {
-            var endpoint = $"/api/filemanager/internal/files/{fileId}/temp-status?temp={temp}";
+            var endpoint = $"/api/filemanager/internal/files/{fileId}/temp-status?usageArea={Uri.EscapeDataString(usageArea)}&rowId={Uri.EscapeDataString(rowId)}&isNew={isNew.ToString().ToLower()}";
             
             if (!string.IsNullOrWhiteSpace(tenantId))
             {

@@ -79,13 +79,13 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
             if (userWithRoles == null)
                 throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
 
-            // Mark profile picture as permanent if provided
+            // Mark profile picture as in-use (permanent) if provided
             if (request.ProfilePictureId.HasValue)
             {
                 try
                 {
                     var tenantId = _tenantContext.TenantId;
-                    await _fileManagerClient.ChangeTempStatusAsync(request.ProfilePictureId.Value, false, tenantId, cancellationToken);
+                    await _fileManagerClient.ChangeTempStatusAsync(request.ProfilePictureId.Value, "User", user.Id.ToString(), true, tenantId, cancellationToken);
                 }
                 catch (Exception ex)
                 {
