@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
@@ -28,7 +29,7 @@ public class ReindexSongCommandHandler : IRequestHandler<ReindexSongCommand, Ing
     public async Task<IngestionJobDto> Handle(ReindexSongCommand request, CancellationToken cancellationToken)
     {
         var song = await _songRepository.GetByIdAsync(request.SongId, cancellationToken)
-            ?? throw new NotFoundException($"Song with Id '{request.SongId}' not found.");
+            ?? throw new NotFoundException(LocalizationKeys.Exceptions.SongNotFound);
 
         var job = SongIngestionJobEntity.Create(song.Id, song.FileId, IngestionJobType.EmbeddingGeneration);
         await _jobRepository.AddAsync(job, cancellationToken);

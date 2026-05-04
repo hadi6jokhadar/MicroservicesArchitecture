@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
@@ -20,7 +21,7 @@ public class RemoveIngestionJobCommandHandler : IRequestHandler<RemoveIngestionJ
     public async Task<bool> Handle(RemoveIngestionJobCommand request, CancellationToken cancellationToken)
     {
         var job = await _repository.GetByIdAsync(request.JobId, cancellationToken)
-            ?? throw new NotFoundException($"Ingestion job with Id '{request.JobId}' not found.");
+            ?? throw new NotFoundException(LocalizationKeys.Exceptions.IngestionJobNotFound);
 
         await _repository.HardDeleteAsync(job, cancellationToken);
         _logger.LogInformation("Hard deleted ingestion job Id {JobId}", job.Id);

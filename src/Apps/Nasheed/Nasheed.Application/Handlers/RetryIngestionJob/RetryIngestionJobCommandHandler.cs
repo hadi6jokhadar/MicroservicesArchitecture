@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
@@ -21,7 +22,7 @@ public class RetryIngestionJobCommandHandler : IRequestHandler<RetryIngestionJob
     public async Task<IngestionJobDto> Handle(RetryIngestionJobCommand request, CancellationToken cancellationToken)
     {
         var job = await _repository.GetByIdAsync(request.JobId, cancellationToken)
-            ?? throw new NotFoundException($"Ingestion job with Id '{request.JobId}' not found.");
+            ?? throw new NotFoundException(LocalizationKeys.Exceptions.IngestionJobNotFound);
 
         job.ResetForRetry();
         await _repository.UpdateAsync(job, cancellationToken);

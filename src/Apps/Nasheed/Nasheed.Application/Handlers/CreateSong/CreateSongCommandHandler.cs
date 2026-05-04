@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Configuration;
@@ -41,7 +42,7 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
     public async Task<SongDto> Handle(CreateSongCommand request, CancellationToken cancellationToken)
     {
         var artist = await _artistRepository.GetByIdAsync(request.ArtistId, cancellationToken)
-            ?? throw new NotFoundException($"Artist with Id '{request.ArtistId}' not found.");
+            ?? throw new NotFoundException(LocalizationKeys.Exceptions.ArtistNotFound);
 
         var song = SongEntity.Create(request.ArtistId, request.Title, request.FileId);
         await _songRepository.AddAsync(song, cancellationToken);

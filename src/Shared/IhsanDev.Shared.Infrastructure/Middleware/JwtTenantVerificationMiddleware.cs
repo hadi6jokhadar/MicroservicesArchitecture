@@ -85,7 +85,7 @@ public class JwtTenantVerificationMiddleware
                 await context.Response.WriteAsJsonAsync(new
                 {
                     error = localizationService.GetString(LocalizationKeys.Tenant.MissingHeader),
-                    message = "Your authentication token is associated with a tenant, but no tenant header was provided."
+                    message = localizationService.GetString(LocalizationKeys.Exceptions.TokenTenantHeaderMissing)
                 });
                 return;
             }
@@ -102,7 +102,7 @@ public class JwtTenantVerificationMiddleware
                 await context.Response.WriteAsJsonAsync(new
                 {
                     error = localizationService.GetString(LocalizationKeys.Exceptions.Forbidden),
-                    message = $"Access denied. Your authentication token is for tenant '{jwtTenantIdClaim}', but you are trying to access tenant '{headerTenantId}'."
+                    message = localizationService.GetString(LocalizationKeys.Exceptions.TokenTenantMismatch, jwtTenantIdClaim, headerTenantId)
                 });
                 return;
             }

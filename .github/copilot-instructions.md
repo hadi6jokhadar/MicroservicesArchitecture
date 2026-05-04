@@ -21,6 +21,16 @@
 4. **Update** `Doc/DOCUMENTATION_INDEX.md` if you added/modified doc files
 5. **For Python service work**, use the project-local `venv\Scripts\python.exe` instead of system Python whenever a `venv` folder exists
 
+## 🚫 CRITICAL: No Hardcoded Text — EVER
+
+All user-facing strings in backend code **MUST** use `LocalizationKeys` and `ILocalizationService`. **Never** pass a raw string to an exception, validator, or response message.
+
+- Exceptions: `throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);`
+- Validators: `.WithMessage(L(LocalizationKeys.Validation.Required, "Email"))`
+- New keys: add to `LocalizationKeys.cs` + `en.json` + `ar.json`
+- Domain exceptions must inherit from `AppException` or the global middleware returns HTTP 500
+- See `Doc/LOCALIZATION_GUIDE.md` for full rules and key naming conventions
+
 ## Architecture Quick Reference
 
 ### Multi-Tenancy Modes

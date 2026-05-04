@@ -29,6 +29,13 @@
   "exception_translation_key_not_found": "Translation key not found",
   "exception_translation_key_already_exists": "Translation key '{0}' already exists",
   "exception_translation_value_not_found": "Translation value not found",
+  "exception_song_not_found": "Song not found",
+  "exception_artist_not_found": "Artist not found",
+  "exception_ingestion_job_not_found": "Ingestion job not found",
+  "exception_song_artist_change_not_supported": "Changing the artist on an existing song is not supported. Archive the song and create a new one.",
+  "exception_song_not_indexed": "Song has not been indexed yet. Search is unavailable for this song.",
+  "exception_token_tenant_header_missing": "Your authentication token is associated with a tenant, but no tenant header was provided.",
+  "exception_token_tenant_mismatch": "Access denied. Your authentication token is for tenant '{0}', but you are trying to access tenant '{1}'.",
 
   "validation_required": "{0} is required",
   "validation_email_invalid": "Invalid email address",

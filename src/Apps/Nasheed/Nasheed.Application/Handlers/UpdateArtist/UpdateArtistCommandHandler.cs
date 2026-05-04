@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Configuration;
@@ -33,7 +34,7 @@ public class UpdateArtistCommandHandler : IRequestHandler<UpdateArtistCommand, A
     public async Task<ArtistDto> Handle(UpdateArtistCommand request, CancellationToken cancellationToken)
     {
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
-            ?? throw new NotFoundException($"Artist with Id '{request.Id}' not found.");
+            ?? throw new NotFoundException(LocalizationKeys.Exceptions.ArtistNotFound);
 
         var oldImageFileId = entity.ImageFileId;
         entity.Update(request.Name, request.ImageFileId);

@@ -2,10 +2,11 @@ using FileManager.Application.DTOs;
 using FileManager.Application.Interfaces;
 using FileManager.Domain.Entities;
 using FileManager.Domain.Enums;
-using FileManager.Domain.Exceptions;
 using FileManager.Domain.Interfaces;
 using FileManager.Infrastructure.Options;
 using FileManager.Infrastructure.Storage;
+using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -49,20 +50,18 @@ public class FileManagerService : IFileManagerService
         // Validate file
         if (file == null || file.Length == 0)
         {
-            throw new FileValidationException("File is empty or null.");
+            throw new BadRequestException(LocalizationKeys.Exceptions.FileEmpty);
         }
 
         if (file.Length > _options.MaxFileSizeBytes)
         {
-            throw new FileValidationException(
-                $"File size ({file.Length} bytes) exceeds maximum allowed size ({_options.MaxFileSizeBytes} bytes).");
+            throw new BadRequestException(LocalizationKeys.Exceptions.FileSizeExceeded);
         }
 
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (string.IsNullOrEmpty(extension) || !_options.AllowedExtensions.Contains(extension))
         {
-            throw new FileValidationException(
-                $"File extension '{extension}' is not allowed. Allowed extensions: {string.Join(", ", _options.AllowedExtensions)}");
+            throw new BadRequestException(LocalizationKeys.Exceptions.InvalidFileType);
         }
 
         // Map extension to FileType

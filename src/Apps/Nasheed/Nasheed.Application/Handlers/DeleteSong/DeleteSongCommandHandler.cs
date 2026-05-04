@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Configuration;
@@ -53,7 +54,7 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
     public async Task<bool> Handle(DeleteSongCommand request, CancellationToken cancellationToken)
     {
         var entity = await _songRepository.GetByIdAsync(request.Id, cancellationToken)
-            ?? throw new NotFoundException($"Song with Id '{request.Id}' not found.");
+            ?? throw new NotFoundException(LocalizationKeys.Exceptions.SongNotFound);
 
         // Delete all related data before deleting the song
         await _songMoodTagRepository.DeleteBySongIdAsync(entity.Id, cancellationToken);

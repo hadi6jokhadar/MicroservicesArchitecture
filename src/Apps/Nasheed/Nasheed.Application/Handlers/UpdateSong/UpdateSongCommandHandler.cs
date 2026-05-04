@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
@@ -28,7 +29,7 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
     public async Task<SongDto> Handle(UpdateSongCommand request, CancellationToken cancellationToken)
     {
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
-            ?? throw new NotFoundException($"Song with Id '{request.Id}' not found.");
+            ?? throw new NotFoundException(LocalizationKeys.Exceptions.SongNotFound);
 
         var titleChanged = !string.IsNullOrWhiteSpace(request.Title) && !string.Equals(request.Title, entity.Title, StringComparison.Ordinal);
 
@@ -36,7 +37,7 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
 
         if (request.ArtistId.HasValue && request.ArtistId != entity.ArtistId)
         {
-            throw new InvalidOperationException("Changing artist on an existing song is not supported. Archive the song and create a new one.");
+            throw new BadRequestException(LocalizationKeys.Exceptions.SongArtistChangeNotSupported);
         }
 
         await _repository.UpdateAsync(entity, cancellationToken);

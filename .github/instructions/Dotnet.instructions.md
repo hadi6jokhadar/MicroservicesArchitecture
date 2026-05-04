@@ -69,6 +69,36 @@ Before modifying ANY backend code, you MUST:
 - **Injection:** Inject `INotificationServiceClient` (infrastructure layer).
 - **Authentication:** Service-to-service calls bypass JWT.
 
+## 🚫 CRITICAL: No Hardcoded Text — EVER
+
+Every user-facing string (exception messages, validation errors, response messages, notification text) **MUST** use `LocalizationKeys` and `ILocalizationService`. Hardcoded text is **PROHIBITED**.
+
+❌ **FORBIDDEN:**
+
+```csharp
+throw new NotFoundException("User not found");                     // hardcoded
+throw new BadRequestException("File is empty or null.");           // hardcoded
+.WithMessage("Email is required");                                  // hardcoded
+```
+
+✅ **REQUIRED:**
+
+```csharp
+throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
+throw new BadRequestException(LocalizationKeys.Exceptions.FileEmpty);
+.WithMessage(L(LocalizationKeys.Validation.Required, "Email"));
+```
+
+**Rules:**
+
+1. Always throw `AppException` subclasses (`NotFoundException`, `BadRequestException`, `UnauthorizedException`, `ForbiddenException`, `ConflictException`, `GeneralException`) — never plain `Exception` or `InvalidOperationException` for user-facing errors.
+2. Always pass a `LocalizationKeys.*` constant as the message — never a raw string.
+3. When adding a new key: add it to `LocalizationKeys.cs`, `en.json`, AND `ar.json`.
+4. Domain exceptions (e.g., custom `FileValidationException`) must inherit from `AppException` or they will NOT be handled by `GlobalExceptionHandlingMiddleware` and will return HTTP 500.
+5. Read `Doc/LOCALIZATION_GUIDE.md` for the full guide and key naming conventions.
+
+---
+
 ## ⚠️ Common Pitfalls to Avoid
 
 1. **Controllers:** Attempting to create `ExampleController.cs`. Instant failure.
@@ -76,6 +106,7 @@ Before modifying ANY backend code, you MUST:
 3. **Date Formats:** Returning raw DateTime objects instead of formatted strings.
 4. **Tenant Leak:** Accessing global data without checking `ITenantContext`.
 5. **Assuming AutoMapper:** Trying `_mapper.Map<UserDto>(user)`. It doesn't exist.
+6. **Hardcoded Text:** Passing raw strings to exceptions or validators. Always use `LocalizationKeys`.
 
 ## 📝 Documentation Protocol
 

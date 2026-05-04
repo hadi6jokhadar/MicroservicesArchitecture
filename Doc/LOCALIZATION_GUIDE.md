@@ -2,8 +2,8 @@
 
 **Complete Multi-Language Support for Microservices Architecture**
 
-**Last Updated:** November 2025  
-**Version:** 1.0  
+**Last Updated:** May 2026  
+**Version:** 1.1  
 **Status:** ✅ Production Ready
 
 ---
@@ -444,7 +444,41 @@ When adding a new key, **ALWAYS** update:
 - `ar.json` (Arabic)
 - Any other language files
 
-### **5. Handle Missing Translations Gracefully**
+### **5. Domain Exceptions Must Inherit from AppException**
+
+❌ **DON'T** create custom exception classes that extend `Exception` directly:
+
+```csharp
+// ❌ WRONG — GlobalExceptionHandlingMiddleware will NOT catch this
+public class FileValidationException : Exception
+{
+    public FileValidationException(string message) : base(message) { }
+}
+
+throw new FileValidationException("File is empty.");
+// Result: 500 Internal Server Error (unhelpful, not localized)
+```
+
+✅ **DO** use the `AppException` hierarchy with `LocalizationKeys`:
+
+```csharp
+// ✅ CORRECT — GlobalExceptionHandlingMiddleware handles this properly
+throw new BadRequestException(LocalizationKeys.Exceptions.FileEmpty);
+// Result: 400 Bad Request with localized message
+```
+
+**AppException subclasses available:**
+
+| Class                   | HTTP Status | Use For                              |
+| ----------------------- | ----------- | ------------------------------------ |
+| `BadRequestException`   | 400         | Invalid input, failed validation     |
+| `UnauthorizedException` | 401         | Not authenticated                    |
+| `ForbiddenException`    | 403         | Authenticated but not authorized     |
+| `NotFoundException`     | 404         | Resource not found                   |
+| `ConflictException`     | 409         | Duplicate resource or state conflict |
+| `GeneralException`      | 500         | Unexpected internal errors           |
+
+### **6. Handle Missing Translations Gracefully**
 
 The system automatically falls back to English if translation is missing, but log warnings:
 
@@ -594,13 +628,25 @@ throw new BadRequestException(
 
 | Category      | Keys   | English | Arabic | Status   |
 | ------------- | ------ | ------- | ------ | -------- |
-| Exceptions    | 15     | ✅      | ✅     | Complete |
+| Exceptions    | 22     | ✅      | ✅     | Complete |
 | Validation    | 12     | ✅      | ✅     | Complete |
 | Success       | 9      | ✅      | ✅     | Complete |
 | Common UI     | 14     | ✅      | ✅     | Complete |
 | Notifications | 6      | ✅      | ✅     | Complete |
 | OTP           | 6      | ✅      | ✅     | Complete |
-| **Total**     | **62** | **✅**  | **✅** | **100%** |
+| **Total**     | **69** | **✅**  | **✅** | **100%** |
+
+### **Exceptions — Key Reference**
+
+| Key Constant                   | JSON Key                                     | Added In |
+| ------------------------------ | -------------------------------------------- | -------- |
+| `SongNotFound`                 | `exception_song_not_found`                   | v1.1     |
+| `ArtistNotFound`               | `exception_artist_not_found`                 | v1.1     |
+| `IngestionJobNotFound`         | `exception_ingestion_job_not_found`          | v1.1     |
+| `SongArtistChangeNotSupported` | `exception_song_artist_change_not_supported` | v1.1     |
+| `SongNotIndexed`               | `exception_song_not_indexed`                 | v1.1     |
+| `TokenTenantHeaderMissing`     | `exception_token_tenant_header_missing`      | v1.1     |
+| `TokenTenantMismatch`          | `exception_token_tenant_mismatch`            | v1.1     |
 
 ---
 
@@ -616,7 +662,6 @@ throw new BadRequestException(
    ```
 
 2. **Add Localization Keys**
-
    - Add new keys to `LocalizationKeys.cs`
    - Add translations to `en.json` and `ar.json`
 

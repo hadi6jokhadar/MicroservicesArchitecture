@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.DTOs;
@@ -26,11 +27,11 @@ public class GetSimilarSongsQueryHandler : IRequestHandler<GetSimilarSongsQuery,
     public async Task<List<SearchResultDto>> Handle(GetSimilarSongsQuery request, CancellationToken cancellationToken)
     {
         var sourceDoc = await _searchDocRepository.GetBySongIdAsync(request.SongId, cancellationToken)
-            ?? throw new NotFoundException($"No search document found for Song Id '{request.SongId}'. The song may not have been indexed yet.");
+            ?? throw new NotFoundException(LocalizationKeys.Exceptions.SongNotIndexed);
 
         // Deserialize stored embedding
         var embedding = System.Text.Json.JsonSerializer.Deserialize<float[]>(sourceDoc.EmbeddingJson)
-            ?? throw new InvalidOperationException("Failed to deserialize stored embedding.");
+            ?? throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
 
         // Exclude the source song from results
         var similarPairs = await _searchDocRepository.SearchSimilarAsync(embedding, request.TopN + 1, cancellationToken);

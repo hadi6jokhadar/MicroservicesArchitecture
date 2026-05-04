@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Configuration;
@@ -38,7 +39,7 @@ public class DeleteArtistCommandHandler : IRequestHandler<DeleteArtistCommand, b
     public async Task<bool> Handle(DeleteArtistCommand request, CancellationToken cancellationToken)
     {
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
-            ?? throw new NotFoundException($"Artist with Id '{request.Id}' not found.");
+            ?? throw new NotFoundException(LocalizationKeys.Exceptions.ArtistNotFound);
 
         // Delete all songs belonging to this artist (cascades to relations and ingestion)
         var songs = await _songRepository.GetByArtistIdAsync(entity.Id, cancellationToken);
