@@ -653,25 +653,27 @@ public class YourCommandHandler
 
 > **Important:** Do NOT manually set `Temp=true/false`. Use `ChangeTempStatusAsync` exclusively.
 
-The `ChangeTempStatusAsync` method toggles a usage row in `FileManagerUsage`, then auto-recalculates `Temp` on `FileManager`:
+`ChangeTempStatusAsync` explicitly adds or removes a usage row in `FileManagerUsage` via the `isNew` flag, then auto-recalculates `Temp` on `FileManager`:
 
-| Action                        | Call                                                                             | Result                                                         |
-| ----------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Entity created with file      | `ChangeTempStatusAsync(fileId, "EntityType", entityId.ToString(), tenantId, ct)` | Adds usage row → sets `Temp=false`                             |
-| Entity deleted                | `ChangeTempStatusAsync(fileId, "EntityType", entityId.ToString(), tenantId, ct)` | Removes usage row → sets `Temp=true` if no other usages        |
-| Entity updated (file changed) | Call once for old file, once for new file                                        | Old file may become `Temp=true`; new file becomes `Temp=false` |
+| Scenario                      | `isNew` | Effect                                                         |
+| ----------------------------- | ------- | -------------------------------------------------------------- |
+| Entity created with file      | `true`  | Adds usage row → `Temp=false`                                  |
+| Entity deleted                | `false` | Removes usage row → `Temp=true` if no other usages remain      |
+| Update — remove old file      | `false` | Old file may become `Temp=true` if nothing else uses it        |
+| Update — add new file         | `true`  | New file becomes `Temp=false`                                  |
 
-**Why toggle instead of explicit true/false?**
-A file may be referenced by multiple entities (e.g. two artists sharing the same logo). The usage table tracks each reference separately so the file is only marked temporary when **all** references are removed.
+**Why explicit add/remove instead of a toggle?**  
+A toggle would go wrong if the same endpoint is called twice (e.g. retry logic). An explicit `isNew` flag makes each call idempotent and intent-clear.
 
 **Example — Create entity:**
 
 ```csharp
-// After creating entity, add usage row → sets Temp=false
+// isNew=true → add usage row, sets Temp=false
 await _fileManagerClient.ChangeTempStatusAsync(
     fileId: request.ImageFileId,
     usageArea: "Artist",
     rowId: entity.Id.ToString(),
+    isNew: true,
     tenantId: _tenantId,
     cancellationToken: ct);
 ```
@@ -679,11 +681,12 @@ await _fileManagerClient.ChangeTempStatusAsync(
 **Example — Delete entity:**
 
 ```csharp
-// Removing the usage row → sets Temp=true if no other usages remain
+// isNew=false → remove usage row, sets Temp=true if no other usages remain
 await _fileManagerClient.ChangeTempStatusAsync(
     fileId: entity.ImageFileId,
     usageArea: "Artist",
     rowId: entity.Id.ToString(),
+    isNew: false,
     tenantId: _tenantId,
     cancellationToken: ct);
 ```
@@ -692,9 +695,9 @@ await _fileManagerClient.ChangeTempStatusAsync(
 
 ```csharp
 // Remove usage for old file
-await _fileManagerClient.ChangeTempStatusAsync(oldFileId, "Artist", entity.Id.ToString(), _tenantId, ct);
+await _fileManagerClient.ChangeTempStatusAsync(oldFileId, "Artist", entity.Id.ToString(), isNew: false, _tenantId, ct);
 // Add usage for new file
-await _fileManagerClient.ChangeTempStatusAsync(newFileId, "Artist", entity.Id.ToString(), _tenantId, ct);
+await _fileManagerClient.ChangeTempStatusAsync(newFileId, "Artist", entity.Id.ToString(), isNew: true, _tenantId, ct);
 ```
 
 **Supported usage areas (convention):**

@@ -93,11 +93,11 @@ For these calls, Nasheed always passes `tenantId` from `MultiTenancy:TenantId` a
 
 This is required because FileManager resolves database context from tenant information. If `tenantId` is omitted, FileManager may query the wrong database.
 
-**Usage tracking (v3.1.0+):** `ChangeTempStatusAsync` now uses a `usageArea` + `rowId` toggle pattern instead of a boolean `temp` flag. The call adds or removes a usage row in `FileManagerUsage` and auto-recalculates `Temp` on the file:
+**Usage tracking (v3.2.0+):** `ChangeTempStatusAsync` uses `usageArea` + `rowId` + `isNew` flag to explicitly add or remove a usage row in `FileManagerUsage`, then auto-recalculates `Temp` on the file:
 
-- `Artist` operations pass `usageArea: "Artist"`, `rowId: artistId.ToString()`
-- `Song` operations pass `usageArea: "Song"`, `rowId: songId.ToString()`
-- Adding a usage row → `Temp=false`; removing the last usage row → `Temp=true`
+- `Artist` operations: `usageArea: "Artist"`, `rowId: artistId.ToString()`, `isNew: true` (create) / `isNew: false` (delete)
+- `Song` operations: `usageArea: "Song"`, `rowId: songId.ToString()`, `isNew: true` (create) / `isNew: false` (delete)
+- `isNew=true` → adds usage row → `Temp=false`; `isNew=false` → removes usage row → `Temp=true` when count reaches 0
 
 ---
 

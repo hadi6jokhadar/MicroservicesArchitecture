@@ -179,4 +179,16 @@ LIMIT @topN;";
 
         return results;
     }
+
+    public async Task DeleteBySongIdAsync(int songId, CancellationToken cancellationToken = default)
+    {
+        var document = await _context.SongSearchDocuments
+            .FirstOrDefaultAsync(d => d.SongId == songId, cancellationToken);
+
+        if (document != null)
+        {
+            _context.SongSearchDocuments.Remove(document);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
 }

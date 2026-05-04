@@ -49,4 +49,11 @@ public class SongRepository : Repository<SongEntity>, ISongRepository
             .Where(e => ids.Contains(e.Id) && !e.IsArchived)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<List<SongEntity>> GetByArtistIdAsync(int artistId, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(e => e.ArtistId == artistId && !e.IsArchived)
+            .ToListAsync(cancellationToken);
+    }
 }

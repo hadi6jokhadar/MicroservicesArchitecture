@@ -11,17 +11,23 @@ namespace Nasheed.Application.Handlers.DeleteArtist;
 public class DeleteArtistCommandHandler : IRequestHandler<DeleteArtistCommand, bool>
 {
     private readonly IArtistRepository _repository;
+    private readonly ISongRepository _songRepository;
+    private readonly IMediator _mediator;
     private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ILogger<DeleteArtistCommandHandler> _logger;
     private readonly string _tenantId;
 
     public DeleteArtistCommandHandler(
         IArtistRepository repository,
+        ISongRepository songRepository,
+        IMediator mediator,
         IFileManagerServiceClient fileManagerClient,
         IConfiguration configuration,
         ILogger<DeleteArtistCommandHandler> logger)
     {
         _repository = repository;
+        _songRepository = songRepository;
+        _mediator = mediator;
         _fileManagerClient = fileManagerClient;
         _tenantId = configuration["MultiTenancy:TenantId"]
             ?? throw new InvalidOperationException(
@@ -34,8 +40,15 @@ public class DeleteArtistCommandHandler : IRequestHandler<DeleteArtistCommand, b
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException($"Artist with Id '{request.Id}' not found.");
 
+        // Delete all songs belonging to this artist (cascades to relations and ingestion)
+        var songs = await _songRepository.GetByArtistIdAsync(entity.Id, cancellationToken);
+        foreach (var song in songs)
+        {
+            await _mediator.Send(new DeleteSongCommand(song.Id), cancellationToken);
+        }
+
         await _repository.DeleteAsync(entity, cancellationToken);
-        _logger.LogInformation("Deleted Artist Id {Id}", entity.Id);
+        _logger.LogInformation("Deleted Artist Id {Id} and {SongCount} songs", entity.Id, songs.Count);
 
         // Remove file usage row (will set Temp=true if no other usages)
         if (!string.IsNullOrWhiteSpace(entity.ImageFileId) && int.TryParse(entity.ImageFileId, out var fileId))

@@ -11,4 +11,5 @@ public interface IFavoriteRepository
     Task AddAsync(FavoriteEntity favorite, CancellationToken cancellationToken = default);
     Task RemoveAsync(FavoriteEntity favorite, CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(string userId, int songId, CancellationToken cancellationToken = default);
+    Task DeleteBySongIdAsync(int songId, CancellationToken cancellationToken = default);
 }

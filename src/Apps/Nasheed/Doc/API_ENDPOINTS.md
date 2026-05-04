@@ -64,7 +64,9 @@ Update an artist.
 
 ### `DELETE /api/artists/{id}`
 
-Delete an artist.
+Delete an artist and **all its songs** (cascade).
+
+For each song owned by the artist, the full song cascade runs first (see `DELETE /api/songs/{id}`).
 
 **Response:** `200 OK`
 
@@ -123,7 +125,18 @@ Update song metadata allowed by command contract.
 
 ### `DELETE /api/songs/{id}`
 
-Delete a song.
+Delete a song and **all related data** (cascade).
+
+The following are removed in order before the song row is deleted:
+
+1. `SongMoodTagEntity` rows for the song
+2. `SongIngestionJobEntity` rows for the song (all statuses)
+3. `SongSearchDocumentEntity` for the song
+4. `FavoriteEntity` rows for the song
+5. `RatingEntity` rows for the song
+6. `PlayLogEntity` rows for the song
+
+After deletion the parent artist's `SongCount` is decremented.
 
 **Response:** `200 OK`
 

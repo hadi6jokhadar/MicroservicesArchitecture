@@ -22,4 +22,5 @@ public interface ISongIngestionJobRepository : IRepository<SongIngestionJobEntit
         CancellationToken cancellationToken = default);
 
     Task<SongIngestionJobEntity?> GetBySongIdAsync(int songId, CancellationToken cancellationToken = default);
+    Task DeleteBySongIdAsync(int songId, CancellationToken cancellationToken = default);
 }

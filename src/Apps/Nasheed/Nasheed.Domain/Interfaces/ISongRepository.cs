@@ -15,4 +15,6 @@ public interface ISongRepository : IRepository<SongEntity>
         CancellationToken cancellationToken = default);
 
     Task<List<SongEntity>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
+
+    Task<List<SongEntity>> GetByArtistIdAsync(int artistId, CancellationToken cancellationToken = default);
 }

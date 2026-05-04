@@ -113,8 +113,9 @@ Key features:
 
 1. `get_file_by_id(file_id, tenant_id=None)` calls `GET /api/filemanager/internal/files/{file_id}`.
 2. `get_files_by_ids(file_ids, tenant_id=None)` calls `GET /api/filemanager/internal/files/batch` using repeated `fileIds` query params.
-3. `change_temp_status(file_id, usage_area, row_id, tenant_id=None)` calls `PATCH /api/filemanager/internal/files/{file_id}/temp-status?usageArea=...&rowId=...`.
-   - **Changed in v3.1.0**: replaced boolean `temp` with `usage_area` + `row_id` toggle pattern (see `FILE_MANAGER.md` § File Usage Tracking).
+3. `change_temp_status(file_id, usage_area, row_id, is_new, tenant_id=None)` calls `PATCH /api/filemanager/internal/files/{file_id}/temp-status?usageArea=...&rowId=...&isNew=...`.
+   - `is_new=True` → add usage row (file becomes permanent). `is_new=False` → remove usage row (file becomes temp when no usages remain).
+   - **Changed in v3.2.0**: added explicit `is_new` flag — replaces the old toggle pattern that caused incorrect results on retries (see `FILE_MANAGER.md` § File Usage Tracking).
 4. Mirrors the .NET `IFileManagerServiceClient` service-to-service contract used by backend services.
 
 ### **init**.py exports

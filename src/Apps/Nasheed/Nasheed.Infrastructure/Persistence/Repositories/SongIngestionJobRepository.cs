@@ -67,4 +67,17 @@ public class SongIngestionJobRepository : Repository<SongIngestionJobEntity>, IS
             .OrderByDescending(e => e.Id)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task DeleteBySongIdAsync(int songId, CancellationToken cancellationToken = default)
+    {
+        var jobs = await _dbSet
+            .Where(e => e.SongId == songId)
+            .ToListAsync(cancellationToken);
+
+        if (jobs.Count > 0)
+        {
+            _dbSet.RemoveRange(jobs);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
 }

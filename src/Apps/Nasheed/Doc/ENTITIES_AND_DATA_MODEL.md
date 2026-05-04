@@ -207,6 +207,15 @@ ArtistEntity
         └── SongSearchDocumentEntity (1:1, unique SongId)
 ```
 
+### Cascade Deletion (Application-Level)
+
+Cascade is enforced in the application layer (not via EF Core foreign-key cascade) to allow file-cleanup hooks and logging.
+
+| Trigger           | Cascades to                                                                                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Delete Artist** | Deletes all `SongEntity` rows via `GetByArtistIdAsync`, then runs the full song cascade for each                                                                                  |
+| **Delete Song**   | Deletes `SongMoodTagEntity`, `SongIngestionJobEntity`, `SongSearchDocumentEntity`, `FavoriteEntity`, `RatingEntity`, `PlayLogEntity` (in that order) before removing the song row |
+
 ---
 
 ## EF Core Configuration Notes

@@ -24,4 +24,5 @@ public interface ISongSearchDocumentRepository
         float[] queryEmbedding,
         int topN = 10,
         CancellationToken cancellationToken = default);
+    Task DeleteBySongIdAsync(int songId, CancellationToken cancellationToken = default);
 }

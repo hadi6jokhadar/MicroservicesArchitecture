@@ -28,4 +28,17 @@ public class RatingRepository : IRatingRepository
         _context.Ratings.Update(rating);
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task DeleteBySongIdAsync(int songId, CancellationToken cancellationToken = default)
+    {
+        var ratings = await _context.Ratings
+            .Where(r => r.SongId == songId)
+            .ToListAsync(cancellationToken);
+
+        if (ratings.Count > 0)
+        {
+            _context.Ratings.RemoveRange(ratings);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
 }

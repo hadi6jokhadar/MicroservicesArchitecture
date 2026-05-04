@@ -49,4 +49,17 @@ public class FavoriteRepository : IFavoriteRepository
     {
         return await _context.Favorites.AnyAsync(f => f.UserId == userId && f.SongId == songId, cancellationToken);
     }
+
+    public async Task DeleteBySongIdAsync(int songId, CancellationToken cancellationToken = default)
+    {
+        var favorites = await _context.Favorites
+            .Where(f => f.SongId == songId)
+            .ToListAsync(cancellationToken);
+
+        if (favorites.Count > 0)
+        {
+            _context.Favorites.RemoveRange(favorites);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
 }
