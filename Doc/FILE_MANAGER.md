@@ -655,12 +655,12 @@ public class YourCommandHandler
 
 `ChangeTempStatusAsync` explicitly adds or removes a usage row in `FileManagerUsage` via the `isNew` flag, then auto-recalculates `Temp` on `FileManager`:
 
-| Scenario                      | `isNew` | Effect                                                         |
-| ----------------------------- | ------- | -------------------------------------------------------------- |
-| Entity created with file      | `true`  | Adds usage row → `Temp=false`                                  |
-| Entity deleted                | `false` | Removes usage row → `Temp=true` if no other usages remain      |
-| Update — remove old file      | `false` | Old file may become `Temp=true` if nothing else uses it        |
-| Update — add new file         | `true`  | New file becomes `Temp=false`                                  |
+| Scenario                 | `isNew` | Effect                                                    |
+| ------------------------ | ------- | --------------------------------------------------------- |
+| Entity created with file | `true`  | Adds usage row → `Temp=false`                             |
+| Entity deleted           | `false` | Removes usage row → `Temp=true` if no other usages remain |
+| Update — remove old file | `false` | Old file may become `Temp=true` if nothing else uses it   |
+| Update — add new file    | `true`  | New file becomes `Temp=false`                             |
 
 **Why explicit add/remove instead of a toggle?**  
 A toggle would go wrong if the same endpoint is called twice (e.g. retry logic). An explicit `isNew` flag makes each call idempotent and intent-clear.
