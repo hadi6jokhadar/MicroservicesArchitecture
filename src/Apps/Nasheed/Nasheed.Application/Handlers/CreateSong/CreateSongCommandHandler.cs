@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
 using Nasheed.Application.DTOs;
+using Nasheed.Application.Helpers;
 using Nasheed.Domain.Entities;
 using Nasheed.Domain.Enums;
 using Nasheed.Domain.Interfaces;
@@ -18,6 +19,7 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
     private readonly IArtistRepository _artistRepository;
     private readonly ISongIngestionJobRepository _ingestionJobRepository;
     private readonly IFileManagerServiceClient _fileManagerClient;
+    private readonly NasheedFileManagerHelper _fileManagerHelper;
     private readonly ILogger<CreateSongCommandHandler> _logger;
     private readonly string _tenantId;
 
@@ -26,6 +28,7 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
         IArtistRepository artistRepository,
         ISongIngestionJobRepository ingestionJobRepository,
         IFileManagerServiceClient fileManagerClient,
+        NasheedFileManagerHelper fileManagerHelper,
         IConfiguration configuration,
         ILogger<CreateSongCommandHandler> logger)
     {
@@ -33,6 +36,7 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
         _artistRepository = artistRepository;
         _ingestionJobRepository = ingestionJobRepository;
         _fileManagerClient = fileManagerClient;
+        _fileManagerHelper = fileManagerHelper;
         _tenantId = configuration["MultiTenancy:TenantId"]
             ?? throw new InvalidOperationException(
                 "MultiTenancy:TenantId is not configured. Nasheed must send tenantId when calling FileManager.");
@@ -71,6 +75,8 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
             }
         }
 
-        return SongDto.MapFrom(song);
+        var dto = SongDto.MapFrom(song);
+        await _fileManagerHelper.EnrichSongWithFileAsync(dto, cancellationToken);
+        return dto;
     }
 }

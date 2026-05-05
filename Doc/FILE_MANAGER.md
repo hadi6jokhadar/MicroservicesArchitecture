@@ -712,6 +712,235 @@ await _fileManagerClient.ChangeTempStatusAsync(newFileId, "Artist", entity.Id.To
 
 ---
 
+## DTO Enrichment Pattern (Returning File Metadata in Responses)
+
+> **Standard pattern for ALL services.** Any time an entity has a `FileId` or `ImageFileId` foreign key that clients need to display, the handler must enrich the DTO with full file metadata from FileManager. Do NOT rely on separate frontend fetches.
+
+### What it means
+
+Entities store only a `FileId` (int) FK to FileManager. API responses must include the full `FileManagerDto` object (name, url, externalUrl, etc.) populated by calling FileManager before returning.
+
+**DTO before enrichment (not what clients want):**
+
+```json
+{ "fileId": 42, "file": null }
+```
+
+**DTO after enrichment (correct):**
+
+```json
+{
+  "fileId": 42,
+  "file": {
+    "id": 42,
+    "name": "song.mp3",
+    "url": "https://localhost:5005/ihsandev/1/music/abc.mp3",
+    "externalUrl": "https://pub-xxx.r2.dev/abc.mp3",
+    "extension": ".mp3",
+    "size": 5242880
+  }
+}
+```
+
+### Backend — Step-by-step
+
+#### 1. Add `FileManagerDto?` property to the DTO
+
+```csharp
+// In your XxxDto.cs
+using IhsanDev.Shared.Application.Common.Interfaces;
+
+public class SongDto : BaseDto
+{
+    public int FileId { get; set; }
+    public FileManagerDto? File { get; set; }  // ← add this
+    // ...
+}
+
+public class ArtistDto : BaseDto
+{
+    public int? ImageFileId { get; set; }
+    public FileManagerDto? ImageFile { get; set; }  // ← add this
+    // ...
+}
+```
+
+Set it to `null` in `MapFrom()` — the handler populates it:
+
+```csharp
+// In MapFrom():
+FileId = entity.FileId,
+File = null,  // Populated by handler via FileManager service
+```
+
+#### 2. Create a service-scoped Helper class
+
+Create a helper in `YourService.Application/Helpers/YourServiceFileManagerHelper.cs`:
+
+```csharp
+using IhsanDev.Shared.Application.Common.Interfaces;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+
+public class YourServiceFileManagerHelper
+{
+    private readonly IFileManagerServiceClient _fileManagerClient;
+    private readonly ILogger<YourServiceFileManagerHelper> _logger;
+    private readonly string _tenantId;
+
+    public YourServiceFileManagerHelper(
+        IFileManagerServiceClient fileManagerClient,
+        IConfiguration configuration,
+        ILogger<YourServiceFileManagerHelper> logger)
+    {
+        _fileManagerClient = fileManagerClient;
+        // Nasheed uses fixed tenantId from config — adjust if your service is multi-tenant
+        _tenantId = configuration["MultiTenancy:TenantId"]
+            ?? throw new InvalidOperationException("MultiTenancy:TenantId not configured.");
+        _logger = logger;
+    }
+
+    // Single entity enrichment
+    public async Task EnrichEntityWithFileAsync(YourDto dto, CancellationToken ct = default)
+    {
+        if (dto.FileId <= 0) return;
+        try
+        {
+            dto.File = await _fileManagerClient.GetFileByIdAsync(dto.FileId, _tenantId, ct);
+        }
+        catch (Exception ex) { _logger.LogError(ex, "..."); }
+    }
+
+    // Batch enrichment — prevents N+1 queries on list endpoints
+    public async Task EnrichEntitiesWithFilesAsync(IEnumerable<YourDto> dtos, CancellationToken ct = default)
+    {
+        var list = dtos.ToList();
+        var ids = list.Where(d => d.FileId > 0).Select(d => d.FileId).Distinct().ToList();
+        if (ids.Count == 0) return;
+        try
+        {
+            var dict = await _fileManagerClient.GetFilesByIdsAsync(ids, _tenantId, ct);
+            foreach (var dto in list.Where(d => d.FileId > 0))
+                dict.TryGetValue(dto.FileId, out dto.File!);
+        }
+        catch (Exception ex) { _logger.LogError(ex, "..."); }
+    }
+}
+```
+
+> **CRITICAL:** Always use `GetFilesByIdsAsync` (batch) on list handlers. Never call `GetFileByIdAsync` in a loop — that's an N+1 query.
+
+#### 3. Register the helper in Program.cs
+
+```csharp
+// After AddFileManagerServiceClient(...)
+builder.Services.AddFileManagerServiceClient(builder.Configuration, "YourService", ...);
+builder.Services.AddScoped<YourService.Application.Helpers.YourServiceFileManagerHelper>();
+```
+
+#### 4. Inject helper in every query/command handler that returns the DTO
+
+```csharp
+// GetByIdQueryHandler
+public async Task<YourDto?> Handle(GetByIdQuery request, CancellationToken ct)
+{
+    var entity = await _repository.GetByIdAsync(request.Id, ct);
+    if (entity == null) return null;
+
+    var dto = YourDto.MapFrom(entity);
+    await _helper.EnrichEntityWithFileAsync(dto, ct);  // ← single
+    return dto;
+}
+
+// GetListQueryHandler
+public async Task<PaginatedList<YourDto>> Handle(GetListQuery request, CancellationToken ct)
+{
+    var (items, total) = await _repository.GetAllAsync(..., ct);
+    var dtos = items.Select(YourDto.MapFrom).ToList();
+    await _helper.EnrichEntitiesWithFilesAsync(dtos, ct);  // ← batch
+    return new PaginatedList<YourDto> { Items = dtos, ... };
+}
+
+// CreateCommandHandler / UpdateCommandHandler
+public async Task<YourDto> Handle(CreateYourCommand request, CancellationToken ct)
+{
+    // ... create entity ...
+    var dto = YourDto.MapFrom(entity);
+    await _helper.EnrichEntityWithFileAsync(dto, ct);  // ← single
+    return dto;
+}
+```
+
+#### 5. Multi-tenant services (ITenantContext instead of fixed tenantId)
+
+For services where the tenant is resolved from the request (e.g. Identity), use `ITenantContext`:
+
+```csharp
+// Identity uses ProfilePictureHelper pattern:
+var tenantId = _tenantContext.CurrentTenant?.TenantId;  // nullable — null = global DB
+userDto.ProfilePicture = await _fileManagerClient.GetFileByIdAsync(id, tenantId, ct);
+```
+
+### Frontend (Angular)
+
+#### 1. Add the enriched field to the frontend model
+
+```typescript
+// In your-entity.model.ts
+import { IFileManagerResponse } from "@ihsan/core";
+
+export interface SongModel {
+  fileId: number;
+  file?: IFileManagerResponse | null; // ← add this
+  // ...
+}
+
+export interface ArtistModel {
+  imageFileId?: number;
+  imageFile?: IFileManagerResponse | null; // ← add this
+  // ...
+}
+```
+
+#### 2. Display the file in templates
+
+**For images (artist image, profile picture):**
+
+```html
+@if (artist.imageFile?.externalUrl || artist.imageFile?.url) {
+<img
+  [src]="artist.imageFile.externalUrl ?? artist.imageFile.url"
+  [alt]="artist.name"
+  class="artist-image"
+/>
+}
+```
+
+**For audio files (songs):**
+
+```html
+@if (song.file?.externalUrl || song.file?.url) {
+<audio controls>
+  <source [src]="song.file.externalUrl ?? song.file.url" />
+</audio>
+}
+```
+
+**URL priority:** Always prefer `externalUrl` (Cloudflare R2 / CDN) over `url` (direct server) when available:
+
+```html
+[src]="item.file.externalUrl ?? item.file.url"
+```
+
+### Real implementations in this codebase
+
+| Service  | Helper class               | Location                                                  |
+| -------- | -------------------------- | --------------------------------------------------------- |
+| Identity | `ProfilePictureHelper`     | `Identity.Application/Helpers/ProfilePictureHelper.cs`    |
+| Nasheed  | `NasheedFileManagerHelper` | `Nasheed.Application/Helpers/NasheedFileManagerHelper.cs` |
+
+---
+
 ## Security & Validation
 
 ### File Size Limits

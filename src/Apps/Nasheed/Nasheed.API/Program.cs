@@ -59,6 +59,7 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 // Service-to-Service HTTP Clients
 // ============================================
 builder.Services.AddFileManagerServiceClient(builder.Configuration, "NasheedService", builder.Environment.IsDevelopment());
+builder.Services.AddScoped<Nasheed.Application.Helpers.NasheedFileManagerHelper>();
 
 // ============================================
 // Automatic DB Migration

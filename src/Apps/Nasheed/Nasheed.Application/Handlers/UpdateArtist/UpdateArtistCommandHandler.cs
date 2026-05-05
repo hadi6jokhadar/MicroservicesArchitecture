@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
 using Nasheed.Application.DTOs;
+using Nasheed.Application.Helpers;
 using Nasheed.Domain.Interfaces;
 
 namespace Nasheed.Application.Handlers.UpdateArtist;
@@ -14,17 +15,20 @@ public class UpdateArtistCommandHandler : IRequestHandler<UpdateArtistCommand, A
 {
     private readonly IArtistRepository _repository;
     private readonly IFileManagerServiceClient _fileManagerClient;
+    private readonly NasheedFileManagerHelper _fileManagerHelper;
     private readonly ILogger<UpdateArtistCommandHandler> _logger;
     private readonly string _tenantId;
 
     public UpdateArtistCommandHandler(
         IArtistRepository repository,
         IFileManagerServiceClient fileManagerClient,
+        NasheedFileManagerHelper fileManagerHelper,
         IConfiguration configuration,
         ILogger<UpdateArtistCommandHandler> logger)
     {
         _repository = repository;
         _fileManagerClient = fileManagerClient;
+        _fileManagerHelper = fileManagerHelper;
         _tenantId = configuration["MultiTenancy:TenantId"]
             ?? throw new InvalidOperationException(
                 "MultiTenancy:TenantId is not configured. Nasheed must send tenantId when calling FileManager.");
@@ -68,6 +72,8 @@ public class UpdateArtistCommandHandler : IRequestHandler<UpdateArtistCommand, A
             }
         }
 
-        return ArtistDto.MapFrom(entity);
+        var dto = ArtistDto.MapFrom(entity);
+        await _fileManagerHelper.EnrichArtistWithImageAsync(dto, cancellationToken);
+        return dto;
     }
 }

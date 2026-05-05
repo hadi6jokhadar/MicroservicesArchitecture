@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
 using Nasheed.Application.DTOs;
+using Nasheed.Application.Helpers;
 using Nasheed.Domain.Entities;
 using Nasheed.Domain.Enums;
 using Nasheed.Domain.Interfaces;
@@ -14,15 +15,18 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
 {
     private readonly ISongRepository _repository;
     private readonly ISongIngestionJobRepository _jobRepository;
+    private readonly NasheedFileManagerHelper _fileManagerHelper;
     private readonly ILogger<UpdateSongCommandHandler> _logger;
 
     public UpdateSongCommandHandler(
         ISongRepository repository,
         ISongIngestionJobRepository jobRepository,
+        NasheedFileManagerHelper fileManagerHelper,
         ILogger<UpdateSongCommandHandler> logger)
     {
         _repository = repository;
         _jobRepository = jobRepository;
+        _fileManagerHelper = fileManagerHelper;
         _logger = logger;
     }
 
@@ -57,7 +61,9 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
         }
 
         _logger.LogInformation("Updated Song Id {Id}", entity.Id);
-        return SongDto.MapFrom(entity);
+        var dto = SongDto.MapFrom(entity);
+        await _fileManagerHelper.EnrichSongWithFileAsync(dto, cancellationToken);
+        return dto;
     }
 
     private async Task QueueEmbeddingGenerationAsync(SongEntity song, CancellationToken cancellationToken)
