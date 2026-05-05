@@ -5,7 +5,7 @@ namespace Nasheed.Domain.Entities;
 public class PlayLogEntity : BaseEntity
 {
     public int SongId { get; private set; }
-    public string UserId { get; private set; } = string.Empty;
+    public int UserId { get; private set; }
     public DateTime PlayedAt { get; private set; }
 
     // Navigation
@@ -13,7 +13,7 @@ public class PlayLogEntity : BaseEntity
 
     private PlayLogEntity() { }
 
-    public static PlayLogEntity Create(int songId, string userId)
+    public static PlayLogEntity Create(int songId, int userId)
     {
         return new PlayLogEntity
         {

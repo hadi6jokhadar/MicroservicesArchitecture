@@ -11,13 +11,13 @@ public class FavoriteRepository : IFavoriteRepository
 
     public FavoriteRepository(NasheedDbContext context) => _context = context;
 
-    public async Task<FavoriteEntity?> GetAsync(string userId, int songId, CancellationToken cancellationToken = default)
+    public async Task<FavoriteEntity?> GetAsync(int userId, int songId, CancellationToken cancellationToken = default)
     {
         return await _context.Favorites
             .FirstOrDefaultAsync(f => f.UserId == userId && f.SongId == songId, cancellationToken);
     }
 
-    public async Task<List<FavoriteEntity>> GetUserFavoritesAsync(string userId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<List<FavoriteEntity>> GetUserFavoritesAsync(int userId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         return await _context.Favorites
             .Include(f => f.Song)
@@ -28,7 +28,7 @@ public class FavoriteRepository : IFavoriteRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<int> CountUserFavoritesAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task<int> CountUserFavoritesAsync(int userId, CancellationToken cancellationToken = default)
     {
         return await _context.Favorites.CountAsync(f => f.UserId == userId, cancellationToken);
     }
@@ -45,7 +45,7 @@ public class FavoriteRepository : IFavoriteRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<bool> ExistsAsync(string userId, int songId, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsAsync(int userId, int songId, CancellationToken cancellationToken = default)
     {
         return await _context.Favorites.AnyAsync(f => f.UserId == userId && f.SongId == songId, cancellationToken);
     }

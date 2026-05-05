@@ -48,6 +48,6 @@ public static class NasheedInteractionApiHandlers
     }
 }
 
-public record AddFavoriteRequest(string UserId);
-public record RemoveFavoriteRequest(string UserId);
-public record AddPlayLogRequest(string UserId);
+public record AddFavoriteRequest(int UserId);
+public record RemoveFavoriteRequest(int UserId);
+public record AddPlayLogRequest(int UserId);

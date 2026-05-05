@@ -25,7 +25,7 @@ public abstract class IntegrationTestBase :
     /// Directly inserts an <see cref="ArtistEntity"/> into the test database,
     /// bypassing the application layer. Useful for setting up pre-conditions.
     /// </summary>
-    protected async Task<ArtistEntity> CreateTestArtistAsync(string? name = null, string? imageFileId = null)
+    protected async Task<ArtistEntity> CreateTestArtistAsync(string? name = null, int? imageFileId = null)
     {
         return await ExecuteDbContextAsync(async context =>
         {
@@ -39,7 +39,7 @@ public abstract class IntegrationTestBase :
     /// <summary>
     /// Creates an artist via MediatR (exercises the full application layer).
     /// </summary>
-    protected async Task<ArtistDto> CreateArtistViaCommandAsync(string? name = null, string? imageFileId = null)
+    protected async Task<ArtistDto> CreateArtistViaCommandAsync(string? name = null, int? imageFileId = null)
     {
         return await SendAsync(new CreateArtistCommand(
             Name: name ?? GenerateUniqueString("Artist"),
@@ -53,14 +53,14 @@ public abstract class IntegrationTestBase :
     /// bypassing the application layer. Useful for setting up pre-conditions
     /// without triggering ingestion jobs.
     /// </summary>
-    protected async Task<SongEntity> CreateTestSongAsync(int artistId, string? title = null, string? fileId = null)
+    protected async Task<SongEntity> CreateTestSongAsync(int artistId, string? title = null, int? fileId = null)
     {
         return await ExecuteDbContextAsync(async context =>
         {
             var song = SongEntity.Create(
                 artistId,
                 title ?? GenerateUniqueString("Song"),
-                fileId ?? $"file-{Guid.NewGuid():N}");
+                fileId ?? Random.Shared.Next(1, int.MaxValue));
             context.Songs.Add(song);
             await context.SaveChangesAsync();
             return song;
@@ -72,11 +72,11 @@ public abstract class IntegrationTestBase :
     /// ingestion job creation). The background worker is suppressed in tests, so the
     /// job remains in the <c>Queued</c> state.
     /// </summary>
-    protected async Task<SongDto> CreateSongViaCommandAsync(int artistId, string? title = null, string? fileId = null)
+    protected async Task<SongDto> CreateSongViaCommandAsync(int artistId, string? title = null, int? fileId = null)
     {
         return await SendAsync(new CreateSongCommand(
             ArtistId: artistId,
             Title: title ?? GenerateUniqueString("Song"),
-            FileId: fileId ?? $"file-{Guid.NewGuid():N}"));
+            FileId: fileId ?? Random.Shared.Next(1, int.MaxValue)));
     }
 }

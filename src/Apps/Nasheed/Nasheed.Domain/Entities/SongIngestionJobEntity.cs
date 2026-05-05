@@ -6,7 +6,7 @@ namespace Nasheed.Domain.Entities;
 public class SongIngestionJobEntity : BaseEntity
 {
     public int SongId { get; private set; }
-    public string FileId { get; private set; } = string.Empty;
+    public int FileId { get; private set; }
     public IngestionJobType JobType { get; private set; }
     public IngestionJobStatus JobStatus { get; private set; }
     public int RetryCount { get; private set; }
@@ -22,7 +22,7 @@ public class SongIngestionJobEntity : BaseEntity
 
     private SongIngestionJobEntity() { }
 
-    public static SongIngestionJobEntity Create(int songId, string fileId, IngestionJobType jobType, int maxRetries = 3)
+    public static SongIngestionJobEntity Create(int songId, int fileId, IngestionJobType jobType, int maxRetries = 3)
     {
         return new SongIngestionJobEntity
         {

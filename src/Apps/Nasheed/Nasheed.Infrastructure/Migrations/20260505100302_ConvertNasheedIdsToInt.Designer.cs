@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nasheed.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nasheed.Infrastructure.Migrations
 {
     [DbContext(typeof(NasheedDbContext))]
-    partial class NasheedDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260505100302_ConvertNasheedIdsToInt")]
+    partial class ConvertNasheedIdsToInt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -431,39 +434,7 @@ namespace Nasheed.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.OwnsOne("Nasheed.Domain.Entities.LegalComplianceEntity", "LegalCompliance", b1 =>
-                        {
-                            b1.Property<int>("SongEntityId")
-                                .HasColumnType("integer");
-
-                            b1.Property<string>("ContentSafetyFlag")
-                                .IsRequired()
-                                .HasMaxLength(10)
-                                .HasColumnType("character varying(10)")
-                                .HasColumnName("ContentSafetyFlag");
-
-                            b1.Property<string>("CopyrightRiskLevel")
-                                .IsRequired()
-                                .HasMaxLength(10)
-                                .HasColumnType("character varying(10)")
-                                .HasColumnName("CopyrightRiskLevel");
-
-                            b1.Property<string>("RiskReason")
-                                .HasMaxLength(1000)
-                                .HasColumnType("character varying(1000)")
-                                .HasColumnName("RiskReason");
-
-                            b1.HasKey("SongEntityId");
-
-                            b1.ToTable("Songs");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SongEntityId");
-                        });
-
                     b.Navigation("Artist");
-
-                    b.Navigation("LegalCompliance");
                 });
 
             modelBuilder.Entity("Nasheed.Domain.Entities.SongIngestionJobEntity", b =>

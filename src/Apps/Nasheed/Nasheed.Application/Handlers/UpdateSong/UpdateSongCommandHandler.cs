@@ -32,8 +32,12 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
             ?? throw new NotFoundException(LocalizationKeys.Exceptions.SongNotFound);
 
         var titleChanged = !string.IsNullOrWhiteSpace(request.Title) && !string.Equals(request.Title, entity.Title, StringComparison.Ordinal);
+        var existingRiskLevel = entity.LegalCompliance?.CopyrightRiskLevel;
+        var existingSafetyFlag = entity.LegalCompliance?.ContentSafetyFlag;
+        var existingRiskReason = entity.LegalCompliance?.RiskReason;
 
         entity.UpdateTitle(request.Title);
+        entity.UpdateLegalComplianceFromAi(request.CopyrightRiskLevel, request.ContentSafetyFlag, request.RiskReason);
 
         if (request.ArtistId.HasValue && request.ArtistId != entity.ArtistId)
         {
@@ -42,7 +46,12 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
 
         await _repository.UpdateAsync(entity, cancellationToken);
 
-        if (titleChanged)
+        var legalComplianceChanged =
+            !string.Equals(existingRiskLevel, entity.LegalCompliance?.CopyrightRiskLevel, StringComparison.Ordinal) ||
+            !string.Equals(existingSafetyFlag, entity.LegalCompliance?.ContentSafetyFlag, StringComparison.Ordinal) ||
+            !string.Equals(existingRiskReason, entity.LegalCompliance?.RiskReason, StringComparison.Ordinal);
+
+        if (titleChanged || legalComplianceChanged)
         {
             await QueueEmbeddingGenerationAsync(entity, cancellationToken);
         }

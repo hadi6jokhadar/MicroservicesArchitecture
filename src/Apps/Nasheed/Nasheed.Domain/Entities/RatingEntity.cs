@@ -6,7 +6,7 @@ namespace Nasheed.Domain.Entities;
 /// </summary>
 public class RatingEntity
 {
-    public string UserId { get; private set; } = string.Empty;
+    public int UserId { get; private set; }
     public int SongId { get; private set; }
 
     /// <summary>Rating value from 1 to 5.</summary>
@@ -20,7 +20,7 @@ public class RatingEntity
 
     private RatingEntity() { }
 
-    public static RatingEntity Create(string userId, int songId, int value)
+    public static RatingEntity Create(int userId, int songId, int value)
     {
         if (value < 1 || value > 5)
             throw new ArgumentOutOfRangeException(nameof(value), "Rating value must be between 1 and 5.");

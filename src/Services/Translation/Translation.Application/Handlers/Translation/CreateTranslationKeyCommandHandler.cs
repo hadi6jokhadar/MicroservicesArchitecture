@@ -29,8 +29,8 @@ public class CreateTranslationKeyCommandHandler : IRequestHandler<CreateTranslat
     {
         try
         {
-            // Check if key already exists
-            var exists = await _keyRepository.KeyExistsAsync(request.Key, cancellationToken);
+            // Check if key already exists (global scope — no tenantId for manually created keys)
+            var exists = await _keyRepository.KeyExistsAsync(request.Key, null, cancellationToken);
             if (exists)
             {
                 throw new ConflictException(LocalizationKeys.Exceptions.TranslationKeyAlreadyExists, _localizationService, request.Key);

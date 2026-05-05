@@ -3,7 +3,7 @@
 **Base URL:** `http://localhost:5009`  
 **Auth:** All business endpoints require `Authorization: Bearer <token>`.  
 `x-tenant-id` should be sent by clients for tenant-aware routing, but this service also runs with configured single-tenant fallback (`MultiTenancy:TenantId`).  
-**Last Updated:** May 4, 2026
+**Last Updated:** May 5, 2026
 
 ---
 
@@ -16,7 +16,7 @@ Create a new artist.
 **Request body:**
 
 ```json
-{ "name": "string", "imageFileId": "file-123" }
+{ "name": "string", "imageFileId": 123 }
 ```
 
 **Response:** `201 Created` → `ArtistDto`
@@ -55,7 +55,7 @@ Update an artist.
 **Request body:**
 
 ```json
-{ "name": "string", "imageFileId": "file-123" }
+{ "name": "string", "imageFileId": 123 }
 ```
 
 **Response:** `200 OK` → `ArtistDto`
@@ -81,7 +81,14 @@ Create a new song (triggers ingestion pipeline).
 **Request body:**
 
 ```json
-{ "artistId": 1, "title": "string", "fileId": "456" }
+{
+  "artistId": 1,
+  "title": "string",
+  "fileId": 456,
+  "copyrightRiskLevel": "low",
+  "contentSafetyFlag": "safe",
+  "riskReason": null
+}
 ```
 
 **Response:** `201 Created` → `SongDto`
@@ -98,7 +105,7 @@ Get a single song by ID.
 
 ---
 
-### `GET /api/songs?textFilter=&artistId=&state=&pageNumber=1&pageSize=10`
+### `GET /api/songs?textFilter=&artistId=&state=&copyrightRiskLevel=&contentSafetyFlag=&pageNumber=1&pageSize=10`
 
 Get paginated list of songs with optional filters.
 
@@ -113,12 +120,18 @@ Update song metadata allowed by command contract.
 **Request body:**
 
 ```json
-{ "title": "string", "artistId": 1 }
+{
+  "title": "string",
+  "artistId": 1,
+  "copyrightRiskLevel": "medium",
+  "contentSafetyFlag": "flagged",
+  "riskReason": "سبب التحقق"
+}
 ```
 
 **Response:** `200 OK` → `SongDto`
 
-> If `title` changes, an `EmbeddingGeneration` job is queued automatically.
+> If `title` or legal compliance values change, an `EmbeddingGeneration` job is queued automatically.
 > `artistId` change is rejected by handler logic.
 
 ---
@@ -229,7 +242,7 @@ Add a song to a user's favorites.
 **Request body:**
 
 ```json
-{ "userId": "user-123" }
+{ "userId": 123 }
 ```
 
 **Response:** `200 OK` → `FavoriteDto`
@@ -243,7 +256,7 @@ Remove a song from a user's favorites.
 **Request body:**
 
 ```json
-{ "userId": "user-123" }
+{ "userId": 123 }
 ```
 
 **Response:** `200 OK`
@@ -257,7 +270,7 @@ Rate a song (1–5). Creates or updates the user's rating for that song.
 **Request body:**
 
 ```json
-{ "userId": "user-123", "value": 4 }
+{ "userId": 123, "value": 4 }
 ```
 
 **Response:** `200 OK` → `RatingDto`
@@ -271,7 +284,7 @@ Log a play event for a user.
 **Request body:**
 
 ```json
-{ "userId": "user-123" }
+{ "userId": 123 }
 ```
 
 **Response:** `200 OK`
@@ -313,7 +326,7 @@ Generate new nasheed lyrics using AI based on a theme/prompt.
   "id": 1,
   "artistId": 1,
   "title": "string",
-  "fileId": "456",
+  "fileId": 456,
   "durationSeconds": 180,
   "languageCode": "ar",
   "lyricsRaw": null,
@@ -336,7 +349,7 @@ Generate new nasheed lyrics using AI based on a theme/prompt.
 {
   "id": 1,
   "songId": 1,
-  "fileId": "456",
+  "fileId": 456,
   "jobType": "FullPipeline",
   "jobStatus": "Completed",
   "retryCount": 0,

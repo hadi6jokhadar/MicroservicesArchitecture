@@ -41,7 +41,7 @@ public class ArtistEndpointsTests : IntegrationTestBase
     {
         // Arrange
         var name = GenerateUniqueString("Artist");
-        var imageFileId = $"img-{Guid.NewGuid():N}";
+        var imageFileId = Random.Shared.Next(1, int.MaxValue);
 
         // Act
         var result = await SendAsync(new CreateArtistCommand(Name: name, ImageFileId: imageFileId));

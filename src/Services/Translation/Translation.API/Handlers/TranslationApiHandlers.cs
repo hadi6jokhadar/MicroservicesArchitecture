@@ -11,8 +11,13 @@ public static class TranslationApiHandlers
         string language,
         string? category,
         string? tenantId,
+        HttpContext httpContext,
         IMediator mediator)
     {
+        // Allow tenantId from x-tenant-id header as well as from query string
+        tenantId = tenantId
+            ?? httpContext.Request.Headers["x-tenant-id"].FirstOrDefault();
+
         var query = new GetTranslationsQuery(language, tenantId, category);
         var result = await mediator.Send(query);
         return Results.Ok(result);
@@ -20,9 +25,15 @@ public static class TranslationApiHandlers
 
     public static async Task<IResult> GetTranslationKeysHandler(
         [AsParameters] GetTranslationKeysQuery query,
+        HttpContext httpContext,
         IMediator mediator)
     {
-        var result = await mediator.Send(query);
+        // Allow tenantId from x-tenant-id header as well as from query string
+        var tenantId = query.TenantId
+            ?? httpContext.Request.Headers["x-tenant-id"].FirstOrDefault();
+
+        var resolvedQuery = query with { TenantId = tenantId };
+        var result = await mediator.Send(resolvedQuery);
         return Results.Ok(result);
     }
 

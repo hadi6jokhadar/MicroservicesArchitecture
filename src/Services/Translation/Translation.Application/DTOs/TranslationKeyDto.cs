@@ -9,6 +9,7 @@ public class TranslationKeyDto : BaseDto
     public string Category { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool IsActive { get; set; }
+    public string? TenantId { get; set; }
     public List<TranslationValueDto> Values { get; set; } = new();
 
     public static TranslationKeyDto MapFrom(TranslationKey key)
@@ -20,6 +21,7 @@ public class TranslationKeyDto : BaseDto
             Category = key.Category,
             Description = key.Description,
             IsActive = key.IsActive,
+            TenantId = key.TenantId,
             Status = key.Status,
             IsArchived = key.IsArchived,
             Created = key.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),

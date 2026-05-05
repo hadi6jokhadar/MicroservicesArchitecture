@@ -4,7 +4,7 @@
 **Port:** 5009 (`http://localhost:5009`)  
 **Path:** `src/Apps/Nasheed/`  
 **Category:** `src/Apps/` — domain app that consumes platform Services  
-**Last Updated:** May 4, 2026  
+**Last Updated:** May 5, 2026  
 **Status:** ✅ Implemented
 
 ---
@@ -128,9 +128,9 @@ Key `appsettings.json` sections:
 
 Request contract notes:
 
-- `CreateSongCommand.FileId` is `string` (not integer)
-- `CreateArtistCommand.ImageFileId` is `string?`
-- interaction endpoints accept explicit `userId` in request body for favorites, ratings, and play logs
+- `CreateSongCommand.FileId` is `int`
+- `CreateArtistCommand.ImageFileId` is `int?`
+- interaction endpoints accept explicit numeric `userId` in request body for favorites, ratings, and play logs
 
 ---
 

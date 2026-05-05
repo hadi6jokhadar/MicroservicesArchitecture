@@ -138,7 +138,7 @@ public class NasheedIngestionWorker : BackgroundService
         CancellationToken cancellationToken)
     {
         var tenantId = GetConfiguredTenantId();
-        var fileIds = BuildAiFileIds(song.FileId, song.Id);
+        var fileIds = BuildAiFileIds(song.FileId);
 
         var metadataJson = await aiClient.ChatAsync(
             NasheedAiKeys.ExtractionSettings,
@@ -171,7 +171,7 @@ public class NasheedIngestionWorker : BackgroundService
         CancellationToken cancellationToken)
     {
         var tenantId = GetConfiguredTenantId();
-        var fileIds = BuildAiFileIds(song.FileId, song.Id);
+        var fileIds = BuildAiFileIds(song.FileId);
 
         var metadataJson = await aiClient.ChatAsync(
             NasheedAiKeys.ExtractionSettings,
@@ -298,12 +298,23 @@ public class NasheedIngestionWorker : BackgroundService
         var vocalStyle = ReadString(root, "vocal_style", "vocalStyle");
         var durationSeconds = ReadNullableInt(root, "duration_seconds", "durationSeconds");
         var lyricsRawLrc = ReadString(root, "lyrics_raw_lrc", "lyricsRawLrc", "lyrics_raw", "lyricsRaw", "lrc");
+        var legalCompliance = ReadObject(root, "legal_compliance", "legalCompliance");
         if (string.IsNullOrWhiteSpace(lyricsRawLrc))
         {
             throw new InvalidOperationException("AI response does not include lyrics_raw_lrc.");
         }
 
         song.UpdateMetadata(languageCode, lyricsRawLrc, summary, vocalStyle, durationSeconds);
+
+        if (legalCompliance.HasValue)
+        {
+            var copyrightRiskLevel = ReadString(legalCompliance.Value, "copyright_risk_level", "copyrightRiskLevel");
+            var contentSafetyFlag = ReadString(legalCompliance.Value, "content_safety_flag", "contentSafetyFlag");
+            var riskReason = ReadNullableString(legalCompliance.Value, "risk_reason", "riskReason");
+
+            song.UpdateLegalComplianceFromAi(copyrightRiskLevel, contentSafetyFlag, riskReason);
+        }
+
         await songRepo.UpdateAsync(song, cancellationToken);
 
         if (root.TryGetProperty("mood_tags", out var moodTagsEl) && moodTagsEl.ValueKind == JsonValueKind.Array)
@@ -328,6 +339,42 @@ public class NasheedIngestionWorker : BackgroundService
             if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
             {
                 return value.GetString();
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ReadNullableString(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (!root.TryGetProperty(name, out var value))
+            {
+                continue;
+            }
+
+            if (value.ValueKind == JsonValueKind.Null)
+            {
+                return null;
+            }
+
+            if (value.ValueKind == JsonValueKind.String)
+            {
+                return value.GetString();
+            }
+        }
+
+        return null;
+    }
+
+    private static JsonElement? ReadObject(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Object)
+            {
+                return value;
             }
         }
 
@@ -385,17 +432,8 @@ public class NasheedIngestionWorker : BackgroundService
         return response;
     }
 
-    private List<int> BuildAiFileIds(string fileId, int songId)
+    private static List<int> BuildAiFileIds(int fileId)
     {
-        if (int.TryParse(fileId, out var parsedFileId))
-        {
-            return [parsedFileId];
-        }
-
-        _logger.LogWarning(
-            "Song {SongId} has non-numeric FileId '{FileId}'. AI file attachment will be skipped because AI.API expects file_ids as int[].",
-            songId,
-            fileId);
-        return [];
+        return [fileId];
     }
 }

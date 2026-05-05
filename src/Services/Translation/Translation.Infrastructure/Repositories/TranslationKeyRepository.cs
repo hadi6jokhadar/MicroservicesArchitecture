@@ -23,11 +23,11 @@ public class TranslationKeyRepository : Repository<TranslationKey>, ITranslation
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
     }
 
-    public async Task<TranslationKey?> GetByKeyAsync(string key, CancellationToken cancellationToken = default)
+    public async Task<TranslationKey?> GetByKeyAsync(string key, string? tenantId = null, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Key == key, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Key == key && t.TenantId == tenantId, cancellationToken);
     }
 
     public async Task<IEnumerable<TranslationKey>> GetByCategoryAsync(string category, CancellationToken cancellationToken = default)
@@ -38,11 +38,11 @@ public class TranslationKeyRepository : Repository<TranslationKey>, ITranslation
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<bool> KeyExistsAsync(string key, CancellationToken cancellationToken = default)
+    public async Task<bool> KeyExistsAsync(string key, string? tenantId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .AsNoTracking()
-            .AnyAsync(t => t.Key == key && !t.IsArchived, cancellationToken);
+            .AnyAsync(t => t.Key == key && t.TenantId == tenantId && !t.IsArchived, cancellationToken);
     }
 
     public async Task<PaginatedList<TranslationKey>> GetPaginatedAsync(
@@ -51,11 +51,24 @@ public class TranslationKeyRepository : Repository<TranslationKey>, ITranslation
         string? category = null,
         string? searchTerm = null,
         bool isArchived = false,
+        string? tenantId = null,
         CancellationToken cancellationToken = default)
     {
         var query = _dbSet
             .AsNoTracking()
             .Where(t => t.IsArchived == isArchived);
+
+        // Tenant filtering:
+        // - If no tenantId provided: return only global keys (TenantId = null)
+        // - If tenantId provided: return global keys + tenant-specific keys
+        if (string.IsNullOrWhiteSpace(tenantId))
+        {
+            query = query.Where(t => t.TenantId == null);
+        }
+        else
+        {
+            query = query.Where(t => t.TenantId == null || t.TenantId == tenantId);
+        }
 
         // Apply category filter
         if (!string.IsNullOrWhiteSpace(category))
@@ -77,7 +90,8 @@ public class TranslationKeyRepository : Repository<TranslationKey>, ITranslation
 
         // Apply ordering and pagination
         var items = await query
-            .OrderBy(t => t.Category)
+            .OrderBy(t => t.TenantId == null ? 0 : 1)
+            .ThenBy(t => t.Category)
             .ThenBy(t => t.Key)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)

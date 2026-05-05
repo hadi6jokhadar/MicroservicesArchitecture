@@ -10,6 +10,8 @@ public record GetSongListQuery(
     string? TextFilter = null,
     int? ArtistId = null,
     SongState? State = null,
+    string? CopyrightRiskLevel = null,
+    string? ContentSafetyFlag = null,
     int PageNumber = 1,
     int PageSize = 10
 ) : IRequest<PaginatedList<SongDto>>;

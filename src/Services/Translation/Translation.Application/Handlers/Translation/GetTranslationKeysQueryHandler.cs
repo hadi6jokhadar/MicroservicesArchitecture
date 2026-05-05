@@ -32,6 +32,7 @@ public class GetTranslationKeysQueryHandler : IRequestHandler<GetTranslationKeys
                 request.Category,
                 request.SearchTerm,
                 request.IsArchived,
+                request.TenantId,
                 cancellationToken);
 
             var dtos = paginatedKeys.Items.Select(TranslationKeyDto.MapFrom).ToList();

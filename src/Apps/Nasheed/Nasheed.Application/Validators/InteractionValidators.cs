@@ -13,7 +13,7 @@ public class AddRatingCommandValidator : LocalizedValidator<AddRatingCommand>
             .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.Required, "SongId"));
 
         RuleFor(x => x.UserId)
-            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "UserId"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.Required, "UserId"));
 
         RuleFor(x => x.Value)
             .GreaterThanOrEqualTo(1).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThanOrEqual, "Value", 1))

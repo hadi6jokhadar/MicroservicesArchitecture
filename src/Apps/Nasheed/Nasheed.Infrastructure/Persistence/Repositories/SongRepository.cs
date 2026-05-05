@@ -15,6 +15,8 @@ public class SongRepository : Repository<SongEntity>, ISongRepository
         string? textFilter = null,
         int? artistId = null,
         SongState? state = null,
+        string? copyrightRiskLevel = null,
+        string? contentSafetyFlag = null,
         int pageNumber = 1,
         int pageSize = 10,
         CancellationToken cancellationToken = default)
@@ -31,6 +33,18 @@ public class SongRepository : Repository<SongEntity>, ISongRepository
 
         if (state.HasValue)
             query = query.Where(e => e.SongState == state.Value);
+
+        if (!string.IsNullOrWhiteSpace(copyrightRiskLevel))
+        {
+            var normalizedRiskLevel = copyrightRiskLevel.Trim().ToLowerInvariant();
+            query = query.Where(e => e.LegalCompliance != null && e.LegalCompliance.CopyrightRiskLevel == normalizedRiskLevel);
+        }
+
+        if (!string.IsNullOrWhiteSpace(contentSafetyFlag))
+        {
+            var normalizedSafetyFlag = contentSafetyFlag.Trim().ToLowerInvariant();
+            query = query.Where(e => e.LegalCompliance != null && e.LegalCompliance.ContentSafetyFlag == normalizedSafetyFlag);
+        }
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query

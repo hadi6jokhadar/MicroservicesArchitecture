@@ -38,12 +38,12 @@ public class CreateArtistCommandHandler : IRequestHandler<CreateArtistCommand, A
         _logger.LogInformation("Created Artist with Id {Id}", entity.Id);
 
         // Mark the image file as in-use (permanent) if provided
-        if (!string.IsNullOrWhiteSpace(request.ImageFileId) && int.TryParse(request.ImageFileId, out var fileId))
+        if (request.ImageFileId.HasValue)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, "Artist", entity.Id.ToString(), true, _tenantId, cancellationToken);
+            var success = await _fileManagerClient.ChangeTempStatusAsync(request.ImageFileId.Value, "Artist", entity.Id.ToString(), true, _tenantId, cancellationToken);
             if (!success)
             {
-                _logger.LogWarning("Failed to mark ImageFileId {FileId} as permanent for Artist {ArtistId}", fileId, entity.Id);
+                _logger.LogWarning("Failed to mark ImageFileId {FileId} as permanent for Artist {ArtistId}", request.ImageFileId.Value, entity.Id);
             }
         }
 

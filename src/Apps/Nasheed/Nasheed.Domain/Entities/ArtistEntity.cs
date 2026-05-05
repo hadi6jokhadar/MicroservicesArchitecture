@@ -5,12 +5,12 @@ namespace Nasheed.Domain.Entities;
 public class ArtistEntity : BaseEntity
 {
     public string Name { get; private set; } = string.Empty;
-    public string? ImageFileId { get; private set; }
+    public int? ImageFileId { get; private set; }
     public int SongCount { get; private set; }
 
     private ArtistEntity() { }
 
-    public static ArtistEntity Create(string name, string? imageFileId = null)
+    public static ArtistEntity Create(string name, int? imageFileId = null)
     {
         return new ArtistEntity
         {
@@ -20,10 +20,10 @@ public class ArtistEntity : BaseEntity
         };
     }
 
-    public void Update(string? name, string? imageFileId)
+    public void Update(string? name, int? imageFileId)
     {
         if (name != null) Name = name;
-        if (imageFileId != null) ImageFileId = imageFileId;
+        if (imageFileId.HasValue) ImageFileId = imageFileId.Value;
     }
 
     public void IncrementSongCount() => SongCount++;

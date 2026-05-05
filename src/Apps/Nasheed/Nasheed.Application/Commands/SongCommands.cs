@@ -6,13 +6,19 @@ namespace Nasheed.Application.Commands;
 public record CreateSongCommand(
     int ArtistId,
     string Title,
-    string FileId
+    int FileId,
+    string? CopyrightRiskLevel = null,
+    string? ContentSafetyFlag = null,
+    string? RiskReason = null
 ) : IRequest<SongDto>;
 
 public record UpdateSongCommand(
     int Id,
     string? Title,
-    int? ArtistId
+    int? ArtistId,
+    string? CopyrightRiskLevel = null,
+    string? ContentSafetyFlag = null,
+    string? RiskReason = null
 ) : IRequest<SongDto>;
 
 public record DeleteSongCommand(int Id) : IRequest<bool>;

@@ -7,7 +7,7 @@ namespace Nasheed.Application.DTOs;
 public class ArtistDto : BaseDto
 {
     public string Name { get; set; } = string.Empty;
-    public string? ImageFileId { get; set; }
+    public int? ImageFileId { get; set; }
     public int SongCount { get; set; }
 
     public static ArtistDto MapFrom(ArtistEntity entity) => new()

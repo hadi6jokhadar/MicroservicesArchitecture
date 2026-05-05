@@ -6,7 +6,7 @@ namespace Nasheed.Domain.Entities;
 /// </summary>
 public class FavoriteEntity
 {
-    public string UserId { get; private set; } = string.Empty;
+    public int UserId { get; private set; }
     public int SongId { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
@@ -15,7 +15,7 @@ public class FavoriteEntity
 
     private FavoriteEntity() { }
 
-    public static FavoriteEntity Create(string userId, int songId)
+    public static FavoriteEntity Create(int userId, int songId)
     {
         return new FavoriteEntity
         {

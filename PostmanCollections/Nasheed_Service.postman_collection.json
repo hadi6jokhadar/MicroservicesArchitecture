@@ -134,7 +134,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Maher Zain\",\n  \"imageFileId\": \"123\"\n}"
+              "raw": "{\n  \"name\": \"Maher Zain\",\n  \"imageFileId\": 123\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/artists",
@@ -190,7 +190,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Artist\",\n  \"imageFileId\": \"123\"\n}"
+              "raw": "{\n  \"name\": \"Updated Artist\",\n  \"imageFileId\": 123\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/artists/{{artistId}}",
@@ -496,7 +496,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"artistId\": 1,\n  \"title\": \"طريق النور\",\n  \"fileId\": \"123\"\n}"
+              "raw": "{\n  \"artistId\": 1,\n  \"title\": \"طريق النور\",\n  \"fileId\": 123\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/songs",
@@ -662,7 +662,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"user-123\"\n}"
+              "raw": "{\n  \"userId\": 123\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/songs/{{songId}}/favorites",
@@ -694,7 +694,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"user-123\"\n}"
+              "raw": "{\n  \"userId\": 123\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/songs/{{songId}}/favorites",
@@ -726,7 +726,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"user-123\"\n}"
+              "raw": "{\n  \"userId\": 123\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/songs/{{songId}}/play",
@@ -758,7 +758,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"user-123\",\n  \"value\": 4\n}"
+              "raw": "{\n  \"userId\": 123,\n  \"value\": 4\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/songs/{{songId}}/ratings",

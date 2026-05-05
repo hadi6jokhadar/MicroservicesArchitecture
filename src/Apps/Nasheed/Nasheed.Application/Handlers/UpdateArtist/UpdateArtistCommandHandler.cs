@@ -48,22 +48,22 @@ public class UpdateArtistCommandHandler : IRequestHandler<UpdateArtistCommand, A
         if (oldImageFileId != newImageFileId)
         {
             // Remove usage row for old image (may set Temp=true if no other usages)
-            if (!string.IsNullOrWhiteSpace(oldImageFileId) && int.TryParse(oldImageFileId, out var oldFileId))
+            if (oldImageFileId.HasValue)
             {
-                var success = await _fileManagerClient.ChangeTempStatusAsync(oldFileId, "Artist", entity.Id.ToString(), false, _tenantId, cancellationToken);
+                var success = await _fileManagerClient.ChangeTempStatusAsync(oldImageFileId.Value, "Artist", entity.Id.ToString(), false, _tenantId, cancellationToken);
                 if (!success)
                 {
-                    _logger.LogWarning("Failed to remove usage for old ImageFileId {FileId} for Artist {ArtistId}", oldFileId, entity.Id);
+                    _logger.LogWarning("Failed to remove usage for old ImageFileId {FileId} for Artist {ArtistId}", oldImageFileId.Value, entity.Id);
                 }
             }
 
             // Add usage row for new image (sets Temp=false)
-            if (!string.IsNullOrWhiteSpace(newImageFileId) && int.TryParse(newImageFileId, out var newFileId))
+            if (newImageFileId.HasValue)
             {
-                var success = await _fileManagerClient.ChangeTempStatusAsync(newFileId, "Artist", entity.Id.ToString(), true, _tenantId, cancellationToken);
+                var success = await _fileManagerClient.ChangeTempStatusAsync(newImageFileId.Value, "Artist", entity.Id.ToString(), true, _tenantId, cancellationToken);
                 if (!success)
                 {
-                    _logger.LogWarning("Failed to add usage for new ImageFileId {FileId} for Artist {ArtistId}", newFileId, entity.Id);
+                    _logger.LogWarning("Failed to add usage for new ImageFileId {FileId} for Artist {ArtistId}", newImageFileId.Value, entity.Id);
                 }
             }
         }

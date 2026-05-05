@@ -30,7 +30,7 @@ public class SongEndpointsTests : IntegrationTestBase
         var result = await SendAsync(new CreateSongCommand(
             ArtistId: artist.Id,
             Title: GenerateUniqueString("Song"),
-            FileId: $"file-{Guid.NewGuid():N}"));
+            FileId: Random.Shared.Next(1, int.MaxValue)));
 
         // Assert
         result.Should().NotBeNull();
@@ -49,7 +49,7 @@ public class SongEndpointsTests : IntegrationTestBase
         await SendAsync(new CreateSongCommand(
             ArtistId: artist.Id,
             Title: GenerateUniqueString("Song"),
-            FileId: $"file-{Guid.NewGuid():N}"));
+            FileId: Random.Shared.Next(1, int.MaxValue)));
 
         // Assert — query the artist to confirm count incremented
         var updatedArtist = await SendAsync(new GetArtistByIdQuery(artist.Id));
@@ -61,7 +61,7 @@ public class SongEndpointsTests : IntegrationTestBase
     {
         // Arrange
         var artist = await CreateTestArtistAsync();
-        var fileId = $"file-{Guid.NewGuid():N}";
+        var fileId = Random.Shared.Next(1, int.MaxValue);
 
         // Act
         await SendAsync(new CreateSongCommand(
@@ -85,7 +85,7 @@ public class SongEndpointsTests : IntegrationTestBase
             SendAsync(new CreateSongCommand(
                 ArtistId: int.MaxValue,
                 Title: "Orphan Song",
-                FileId: $"file-{Guid.NewGuid():N}")));
+                FileId: Random.Shared.Next(1, int.MaxValue))));
     }
 
     [Fact]
@@ -96,21 +96,21 @@ public class SongEndpointsTests : IntegrationTestBase
         var command = new CreateSongCommand(
             ArtistId: artist.Id,
             Title: string.Empty,
-            FileId: $"file-{Guid.NewGuid():N}");
+            FileId: Random.Shared.Next(1, int.MaxValue));
 
         // Act & Assert
         await Assert.ThrowsAnyAsync<Exception>(() => SendAsync(command));
     }
 
     [Fact]
-    public async Task CreateSong_WithEmptyFileId_ShouldThrowValidationException()
+    public async Task CreateSong_WithInvalidFileId_ShouldThrowValidationException()
     {
         // Arrange
         var artist = await CreateTestArtistAsync();
         var command = new CreateSongCommand(
             ArtistId: artist.Id,
             Title: GenerateUniqueString("Song"),
-            FileId: string.Empty);
+            FileId: 0);
 
         // Act & Assert
         await Assert.ThrowsAnyAsync<Exception>(() => SendAsync(command));
@@ -124,7 +124,7 @@ public class SongEndpointsTests : IntegrationTestBase
         var command = new CreateSongCommand(
             ArtistId: artist.Id,
             Title: new string('S', 501),
-            FileId: $"file-{Guid.NewGuid():N}");
+            FileId: Random.Shared.Next(1, int.MaxValue));
 
         // Act & Assert
         await Assert.ThrowsAnyAsync<Exception>(() => SendAsync(command));
@@ -239,7 +239,7 @@ public class SongEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task UpdateSong_ChangingArtistId_ShouldThrowInvalidOperationException()
+    public async Task UpdateSong_ChangingArtistId_ShouldThrowBadRequestException()
     {
         // Arrange
         var artistA = await CreateTestArtistAsync();
@@ -247,7 +247,7 @@ public class SongEndpointsTests : IntegrationTestBase
         var song = await CreateTestSongAsync(artistA.Id);
 
         // Act & Assert — moving songs between artists is not supported
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<BadRequestException>(() =>
             SendAsync(new UpdateSongCommand(Id: song.Id, Title: null, ArtistId: artistB.Id)));
     }
 

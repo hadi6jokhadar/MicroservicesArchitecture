@@ -10,7 +10,7 @@ public class PlayLogEntityConfiguration : IEntityTypeConfiguration<PlayLogEntity
     {
         builder.ToTable("PlayLogs");
         builder.HasKey(e => e.Id);
-        builder.Property(e => e.UserId).IsRequired().HasMaxLength(100);
+        builder.Property(e => e.UserId).IsRequired();
 
         builder.HasOne(e => e.Song)
             .WithMany()

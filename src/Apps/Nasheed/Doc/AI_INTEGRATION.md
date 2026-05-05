@@ -1,6 +1,6 @@
 # Nasheed Service — AI Integration
 
-**Last Updated:** May 4, 2026
+**Last Updated:** May 5, 2026
 
 ---
 
@@ -60,7 +60,7 @@ Nasheed always sends `x-tenant-id` on chat requests. The tenant id is resolved f
 
 Metadata extraction jobs now call AI.API with `settings_key`, `system_prompt_key`, a user message, and `file_ids` populated from the song `FileId`.
 
-`AI.API` requires `file_ids` as `int[]`. Nasheed stores `FileId` as `string`, so the worker parses it to `int` before sending. If the value is non-numeric, Nasheed logs a warning and sends the chat request without file attachment context.
+`AI.API` requires `file_ids` as `int[]`. Nasheed stores `FileId` as `int`, so worker calls pass file ids directly.
 
 ### Embed Call (for search indexing)
 
@@ -101,11 +101,21 @@ Nasheed resolves `x-tenant-id` from `MultiTenancy:TenantId` for embedding calls 
   "vocal_style": "Acapella, solo",
   "duration_seconds": 195,
   "lyrics_raw_lrc": "[00:00.00] Line one\n[00:05.00] Line two\n...",
+  "legal_compliance": {
+    "copyright_risk_level": "low",
+    "content_safety_flag": "safe",
+    "risk_reason": null
+  },
   "mood_tags": ["calm", "gratitude"]
 }
 ```
 
-**What gets saved:** `Song.UpdateMetadata(languageCode, lyricsRawLrc, summary, vocalStyle, durationSeconds)` and mood tags.
+**What gets saved:** `Song.UpdateMetadata(languageCode, lyricsRawLrc, summary, vocalStyle, durationSeconds)`, `Song.UpdateLegalComplianceFromAi(copyrightRiskLevel, contentSafetyFlag, riskReason)`, and mood tags.
+
+`legal_compliance` values are expected as strings from AI. The domain layer normalizes casing and only accepts:
+
+- `copyright_risk_level`: `low`, `medium`, `high`
+- `content_safety_flag`: `safe`, `flagged`
 
 `LyricsRaw` is expected to be LRC format from this response.
 
@@ -182,4 +192,4 @@ Refer to `Doc/AI_SERVICE_CHAT_INTEGRATION_GUIDE.md` for how AI.API stores and re
 
 Additional practical note:
 
-- If `Song.FileId` is non-numeric, worker logs a warning and omits `file_ids` in chat request because AI.API expects `int[]` for file attachments.
+- `Song.FileId` is numeric and passed directly into `file_ids` for AI.API chat requests.

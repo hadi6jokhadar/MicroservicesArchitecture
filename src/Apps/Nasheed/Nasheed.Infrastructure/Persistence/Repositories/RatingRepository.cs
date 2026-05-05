@@ -11,7 +11,7 @@ public class RatingRepository : IRatingRepository
 
     public RatingRepository(NasheedDbContext context) => _context = context;
 
-    public async Task<RatingEntity?> GetAsync(string userId, int songId, CancellationToken cancellationToken = default)
+    public async Task<RatingEntity?> GetAsync(int userId, int songId, CancellationToken cancellationToken = default)
     {
         return await _context.Ratings
             .FirstOrDefaultAsync(r => r.UserId == userId && r.SongId == songId, cancellationToken);

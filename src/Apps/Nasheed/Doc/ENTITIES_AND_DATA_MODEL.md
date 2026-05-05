@@ -1,6 +1,6 @@
 # Nasheed Service — Entities and Data Model
 
-**Last Updated:** May 4, 2026
+**Last Updated:** May 5, 2026
 
 ---
 
@@ -60,12 +60,12 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 
 ### `ArtistEntity`
 
-| Column        | Type    | Notes                        |
-| ------------- | ------- | ---------------------------- |
-| `Id`          | int     | PK                           |
-| `Name`        | string  | Required, max 200            |
-| `ImageFileId` | string? | FileManager file ID          |
-| `SongCount`   | int     | Maintained by domain methods |
+| Column        | Type   | Notes                        |
+| ------------- | ------ | ---------------------------- |
+| `Id`          | int    | PK                           |
+| `Name`        | string | Required, max 200            |
+| `ImageFileId` | int?   | FileManager file ID          |
+| `SongCount`   | int    | Maintained by domain methods |
 
 **Domain methods:** `Create(name, imageFileId?)`, `Update(name, imageFileId?)`, `IncrementSongCount()`, `DecrementSongCount()`
 
@@ -78,7 +78,7 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 | `Id`                | int                 | PK                                      |
 | `ArtistId`          | int                 | FK → ArtistEntity                       |
 | `Title`             | string              | Required, max 300                       |
-| `FileId`            | string              | FileManager file ID for the audio file  |
+| `FileId`            | int                 | FileManager file ID for the audio file  |
 | `DurationSeconds`   | int?                | Duration in seconds                     |
 | `LanguageCode`      | string?             | e.g. `"ar"`, `"en"`                     |
 | `LyricsRaw`         | string?             | Raw LRC lyrics from enrichment response |
@@ -86,13 +86,24 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 | `LyricsPlainText`   | string?             | Plain text version of verified lyrics   |
 | `Summary`           | string?             | AI-generated summary                    |
 | `VocalStyle`        | string?             | AI-extracted style description          |
+| `LegalCompliance`   | object?             | AI-seeded legal compliance metadata     |
 | `SongState`         | `SongState`         | Processing lifecycle state              |
 | `SearchIndexStatus` | `SearchIndexStatus` | Embedding/index state                   |
 | `PublishedAt`       | DateTime?           | When the song was published             |
 
-**Domain methods:** `Create(artistId, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateTitle(title)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`
+**Domain methods:** `Create(artistId, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `UpdateLegalComplianceFromAi(copyrightRiskLevel?, contentSafetyFlag?, riskReason?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateTitle(title)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`
 
 `UpdateMetadata` resets `LyricsVerifiedLrc` and `LyricsPlainText` when `LyricsRaw` is updated.
+
+`UpdateLegalComplianceFromAi` accepts AI string values, normalizes casing, validates allowed values, and ignores invalid combinations instead of failing the ingestion job.
+
+#### `LegalCompliance` fields
+
+| Column               | Type    | Notes                             |
+| -------------------- | ------- | --------------------------------- |
+| `CopyrightRiskLevel` | string? | Allowed: `low`, `medium`, `high`  |
+| `ContentSafetyFlag`  | string? | Allowed: `safe`, `flagged`        |
+| `RiskReason`         | string? | Nullable; can contain Arabic text |
 
 ---
 
@@ -112,7 +123,7 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 
 | Column      | Type     | Notes                                 |
 | ----------- | -------- | ------------------------------------- |
-| `UserId`    | string   | Part of composite PK                  |
+| `UserId`    | int      | Part of composite PK                  |
 | `SongId`    | int      | Part of composite PK, FK → SongEntity |
 | `CreatedAt` | DateTime | UTC                                   |
 
@@ -126,7 +137,7 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 
 | Column      | Type      | Notes                                 |
 | ----------- | --------- | ------------------------------------- |
-| `UserId`    | string    | Part of composite PK                  |
+| `UserId`    | int       | Part of composite PK                  |
 | `SongId`    | int       | Part of composite PK, FK → SongEntity |
 | `Value`     | int       | 1–5                                   |
 | `CreatedAt` | DateTime  | UTC                                   |
@@ -140,7 +151,7 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 | ---------- | -------- | --------------------------- |
 | `Id`       | int      | PK                          |
 | `SongId`   | int      | FK → SongEntity             |
-| `UserId`   | string   | The user who played         |
+| `UserId`   | int      | The user who played         |
 | `PlayedAt` | DateTime | UTC timestamp of play event |
 
 ---
@@ -153,7 +164,7 @@ Tracks each AI processing job with full retry state.
 | ------------- | -------------------- | ------------------------------------------ |
 | `Id`          | int                  | PK                                         |
 | `SongId`      | int                  | FK → SongEntity                            |
-| `FileId`      | string               | Audio file ID (from FileManager)           |
+| `FileId`      | int                  | Audio file ID (from FileManager)           |
 | `JobType`     | `IngestionJobType`   | Which stage to run                         |
 | `JobStatus`   | `IngestionJobStatus` | Current execution state                    |
 | `RetryCount`  | int                  | How many times this job has been attempted |
@@ -228,3 +239,4 @@ Cascade is enforced in the application layer (not via EF Core foreign-key cascad
   ```powershell
   dotnet ef migrations add <Name> --project src\Apps\Nasheed\Nasheed.Infrastructure --startup-project src\Apps\Nasheed\Nasheed.API
   ```
+- When changing a column type from `string` to `int` in PostgreSQL, use an explicit `USING` cast in the migration SQL (for example `USING "ColumnName"::integer`) because automatic casting is not applied for these schema changes.

@@ -76,12 +76,12 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
         _logger.LogInformation("Deleted Song Id {Id} and all related data", entity.Id);
 
         // Remove file usage row (will set Temp=true if no other usages)
-        if (!string.IsNullOrWhiteSpace(entity.FileId) && int.TryParse(entity.FileId, out var fileId))
+        if (entity.FileId > 0)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, "Song", entity.Id.ToString(), false, _tenantId, cancellationToken);
+            var success = await _fileManagerClient.ChangeTempStatusAsync(entity.FileId, "Song", entity.Id.ToString(), false, _tenantId, cancellationToken);
             if (!success)
             {
-                _logger.LogWarning("Failed to mark FileId {FileId} as temporary after deleting Song {SongId}", fileId, entity.Id);
+                _logger.LogWarning("Failed to mark FileId {FileId} as temporary after deleting Song {SongId}", entity.FileId, entity.Id);
             }
         }
 

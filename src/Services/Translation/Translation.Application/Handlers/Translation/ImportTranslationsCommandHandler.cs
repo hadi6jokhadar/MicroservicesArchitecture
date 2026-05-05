@@ -35,13 +35,30 @@ public class ImportTranslationsCommandHandler : IRequestHandler<ImportTranslatio
             int createdKeys = 0;
             int updatedValues = 0;
             
-            foreach (var (key, value) in request.Translations)
+            foreach (var (rawKey, value) in request.Translations)
             {
-                // Get or create translation key
-                var translationKey = await _keyRepository.GetByKeyAsync(key, cancellationToken);
+                // Detect tenant-specific key pattern: #tenantId#.some.key
+                // Extract tenantId from key, but keep the full key string as-is
+                string? keyTenantId = null;
+                if (rawKey.StartsWith('#'))
+                {
+                    var endHash = rawKey.IndexOf('#', 1);
+                    if (endHash > 1)
+                    {
+                        keyTenantId = rawKey.Substring(1, endHash - 1);
+                    }
+                }
+
+                // Fall back to the command-level tenantId if the key doesn't carry its own
+                var effectiveTenantId = keyTenantId ?? request.TenantId;
+
+                // Get or create translation key (scoped by tenantId)
+                var translationKey = await _keyRepository.GetByKeyAsync(rawKey, effectiveTenantId, cancellationToken);
                 if (translationKey == null)
                 {
-                    translationKey = TranslationKey.Create(key, request.Category, null);
+                    translationKey = effectiveTenantId == null
+                        ? TranslationKey.Create(rawKey, request.Category, null)
+                        : TranslationKey.CreateForTenant(rawKey, request.Category, effectiveTenantId, null);
                     await _keyRepository.AddAsync(translationKey, cancellationToken);
                     createdKeys++;
                 }
@@ -50,14 +67,14 @@ public class ImportTranslationsCommandHandler : IRequestHandler<ImportTranslatio
                 var translationValue = await _valueRepository.GetByKeyLanguageTenantAsync(
                     translationKey.Id,
                     request.Language,
-                    request.TenantId,
+                    effectiveTenantId,
                     cancellationToken);
                 
                 if (translationValue == null)
                 {
-                    translationValue = request.TenantId == null
+                    translationValue = effectiveTenantId == null
                         ? TranslationValue.CreateGlobal(translationKey.Id, request.Language, value)
-                        : TranslationValue.CreateTenantOverride(translationKey.Id, request.Language, value, request.TenantId);
+                        : TranslationValue.CreateTenantOverride(translationKey.Id, request.Language, value, effectiveTenantId);
                     
                     await _valueRepository.AddAsync(translationValue, cancellationToken);
                 }
@@ -70,9 +87,7 @@ public class ImportTranslationsCommandHandler : IRequestHandler<ImportTranslatio
                 updatedValues++;
             }
             
-            // Invalidate cache - Clear all translation caches for this language and tenant
-            // Since we don't know which categories exist, we need to clear the base cache keys
-            // Cache key pattern: translations:{language}:{tenantId}:{category}
+            // Invalidate cache
             var cacheKeys = new[]
             {
                 $"translations:{request.Language}:{request.TenantId ?? "global"}:all",

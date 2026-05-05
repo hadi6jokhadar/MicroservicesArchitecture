@@ -8,7 +8,7 @@ namespace Nasheed.Application.DTOs;
 public class IngestionJobDto : BaseDto
 {
     public int SongId { get; set; }
-    public string FileId { get; set; } = string.Empty;
+    public int FileId { get; set; }
     public IngestionJobType JobType { get; set; }
     public IngestionJobStatus JobStatus { get; set; }
     public int RetryCount { get; set; }

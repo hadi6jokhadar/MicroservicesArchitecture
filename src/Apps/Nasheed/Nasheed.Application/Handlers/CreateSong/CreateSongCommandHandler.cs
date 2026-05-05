@@ -45,6 +45,7 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
             ?? throw new NotFoundException(LocalizationKeys.Exceptions.ArtistNotFound);
 
         var song = SongEntity.Create(request.ArtistId, request.Title, request.FileId);
+        song.UpdateLegalComplianceFromAi(request.CopyrightRiskLevel, request.ContentSafetyFlag, request.RiskReason);
         await _songRepository.AddAsync(song, cancellationToken);
 
         // Enqueue ingestion job
@@ -61,12 +62,12 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
         _logger.LogInformation("Created Song Id {SongId} with ingestion job Id {JobId}", song.Id, job.Id);
 
         // Mark the audio file as in-use (permanent)
-        if (!string.IsNullOrWhiteSpace(request.FileId) && int.TryParse(request.FileId, out var fileId))
+        if (request.FileId > 0)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, "Song", song.Id.ToString(), true, _tenantId, cancellationToken);
+            var success = await _fileManagerClient.ChangeTempStatusAsync(request.FileId, "Song", song.Id.ToString(), true, _tenantId, cancellationToken);
             if (!success)
             {
-                _logger.LogWarning("Failed to mark FileId {FileId} as permanent for Song {SongId}", fileId, song.Id);
+                _logger.LogWarning("Failed to mark FileId {FileId} as permanent for Song {SongId}", request.FileId, song.Id);
             }
         }
 

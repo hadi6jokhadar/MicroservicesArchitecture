@@ -17,6 +17,8 @@ public class GetSongListQueryHandler : IRequestHandler<GetSongListQuery, Paginat
             request.TextFilter,
             request.ArtistId,
             request.State,
+            request.CopyrightRiskLevel,
+            request.ContentSafetyFlag,
             request.PageNumber,
             request.PageSize,
             cancellationToken);

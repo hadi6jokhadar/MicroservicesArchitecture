@@ -52,12 +52,12 @@ public class DeleteArtistCommandHandler : IRequestHandler<DeleteArtistCommand, b
         _logger.LogInformation("Deleted Artist Id {Id} and {SongCount} songs", entity.Id, songs.Count);
 
         // Remove file usage row (will set Temp=true if no other usages)
-        if (!string.IsNullOrWhiteSpace(entity.ImageFileId) && int.TryParse(entity.ImageFileId, out var fileId))
+        if (entity.ImageFileId.HasValue)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(fileId, "Artist", entity.Id.ToString(), false, _tenantId, cancellationToken);
+            var success = await _fileManagerClient.ChangeTempStatusAsync(entity.ImageFileId.Value, "Artist", entity.Id.ToString(), false, _tenantId, cancellationToken);
             if (!success)
             {
-                _logger.LogWarning("Failed to mark ImageFileId {FileId} as temporary after deleting Artist {ArtistId}", fileId, entity.Id);
+                _logger.LogWarning("Failed to mark ImageFileId {FileId} as temporary after deleting Artist {ArtistId}", entity.ImageFileId.Value, entity.Id);
             }
         }
 

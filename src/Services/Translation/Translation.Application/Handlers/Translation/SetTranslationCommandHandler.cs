@@ -34,7 +34,7 @@ public class SetTranslationCommandHandler : IRequestHandler<SetTranslationComman
         try
         {
             // Get or create translation key
-            var key = await _keyRepository.GetByKeyAsync(request.Key, cancellationToken);
+            var key = await _keyRepository.GetByKeyAsync(request.Key, null, cancellationToken);
             if (key == null)
             {
                 key = TranslationKey.Create(request.Key, request.Category, null);

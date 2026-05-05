@@ -10,7 +10,7 @@ public class FavoriteEntityConfiguration : IEntityTypeConfiguration<FavoriteEnti
     {
         builder.ToTable("Favorites");
         builder.HasKey(e => new { e.UserId, e.SongId });
-        builder.Property(e => e.UserId).IsRequired().HasMaxLength(100);
+        builder.Property(e => e.UserId).IsRequired();
 
         builder.HasOne(e => e.Song)
             .WithMany()

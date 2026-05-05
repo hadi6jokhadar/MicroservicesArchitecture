@@ -10,7 +10,7 @@ public class SongDto : BaseDto
     public int ArtistId { get; set; }
     public string? ArtistName { get; set; }
     public string Title { get; set; } = string.Empty;
-    public string FileId { get; set; } = string.Empty;
+    public int FileId { get; set; }
     public int? DurationSeconds { get; set; }
     public string? LanguageCode { get; set; }
     public string? LyricsRaw { get; set; }
@@ -18,6 +18,7 @@ public class SongDto : BaseDto
     public string? LyricsPlainText { get; set; }
     public string? Summary { get; set; }
     public string? VocalStyle { get; set; }
+    public SongLegalComplianceDto? LegalCompliance { get; set; }
     public SongState SongState { get; set; }
     public SearchIndexStatus SearchIndexStatus { get; set; }
     public string? PublishedAt { get; set; }
@@ -37,6 +38,7 @@ public class SongDto : BaseDto
         LyricsPlainText = entity.LyricsPlainText,
         Summary = entity.Summary,
         VocalStyle = entity.VocalStyle,
+        LegalCompliance = SongLegalComplianceDto.MapFrom(entity.LegalCompliance),
         SongState = entity.SongState,
         SearchIndexStatus = entity.SearchIndexStatus,
         PublishedAt = entity.PublishedAt?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
@@ -46,4 +48,26 @@ public class SongDto : BaseDto
         Created = entity.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
         LastModified = entity.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
     };
+}
+
+public class SongLegalComplianceDto
+{
+    public string CopyrightRiskLevel { get; set; } = string.Empty;
+    public string ContentSafetyFlag { get; set; } = string.Empty;
+    public string? RiskReason { get; set; }
+
+    public static SongLegalComplianceDto? MapFrom(LegalComplianceEntity? entity)
+    {
+        if (entity == null)
+        {
+            return null;
+        }
+
+        return new SongLegalComplianceDto
+        {
+            CopyrightRiskLevel = entity.CopyrightRiskLevel,
+            ContentSafetyFlag = entity.ContentSafetyFlag,
+            RiskReason = entity.RiskReason
+        };
+    }
 }

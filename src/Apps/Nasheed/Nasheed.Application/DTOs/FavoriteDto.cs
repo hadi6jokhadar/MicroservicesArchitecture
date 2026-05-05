@@ -4,7 +4,7 @@ namespace Nasheed.Application.DTOs;
 
 public class FavoriteDto
 {
-    public string UserId { get; set; } = string.Empty;
+    public int UserId { get; set; }
     public int SongId { get; set; }
     public string CreatedAt { get; set; } = string.Empty;
 

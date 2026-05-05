@@ -10,6 +10,8 @@ public interface ISongRepository : IRepository<SongEntity>
         string? textFilter = null,
         int? artistId = null,
         SongState? state = null,
+        string? copyrightRiskLevel = null,
+        string? contentSafetyFlag = null,
         int pageNumber = 1,
         int pageSize = 10,
         CancellationToken cancellationToken = default);

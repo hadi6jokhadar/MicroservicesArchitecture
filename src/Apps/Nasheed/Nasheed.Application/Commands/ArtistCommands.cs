@@ -5,13 +5,13 @@ namespace Nasheed.Application.Commands;
 
 public record CreateArtistCommand(
     string Name,
-    string? ImageFileId = null
+    int? ImageFileId = null
 ) : IRequest<ArtistDto>;
 
 public record UpdateArtistCommand(
     int Id,
     string? Name,
-    string? ImageFileId
+    int? ImageFileId
 ) : IRequest<ArtistDto>;
 
 public record DeleteArtistCommand(int Id) : IRequest<bool>;

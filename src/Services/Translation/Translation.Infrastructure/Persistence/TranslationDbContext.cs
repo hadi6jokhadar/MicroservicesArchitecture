@@ -98,10 +98,10 @@ public class TranslationDbContext : BaseDbContext
             entity.ToTable("TranslationKeys");
             entity.HasKey(e => e.Id);
             
-            // Unique constraint on Key (excluding archived records to allow re-creation after soft-delete)
-            entity.HasIndex(e => e.Key)
+            // Unique constraint on (Key, TenantId) — the same key string can exist once per tenant scope
+            entity.HasIndex(e => new { e.Key, e.TenantId })
                 .IsUnique()
-                .HasDatabaseName("IX_TranslationKeys_Key")
+                .HasDatabaseName("IX_TranslationKeys_Key_TenantId")
                 .HasFilter("\"IsArchived\" = false");
             
             // Index on Category for filtering
@@ -111,6 +111,10 @@ public class TranslationDbContext : BaseDbContext
             // Index on IsActive for filtering
             entity.HasIndex(e => e.IsActive)
                 .HasDatabaseName("IX_TranslationKeys_IsActive");
+
+            // Index on TenantId for filtering
+            entity.HasIndex(e => e.TenantId)
+                .HasDatabaseName("IX_TranslationKeys_TenantId");
             
             entity.Property(e => e.Key)
                 .HasMaxLength(200)
@@ -122,6 +126,9 @@ public class TranslationDbContext : BaseDbContext
             
             entity.Property(e => e.Description)
                 .HasMaxLength(500);
+
+            entity.Property(e => e.TenantId)
+                .HasMaxLength(450);
         });
         
         modelBuilder.Entity<TranslationValue>(entity =>
