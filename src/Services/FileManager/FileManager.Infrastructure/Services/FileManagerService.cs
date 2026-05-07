@@ -65,7 +65,7 @@ public class FileManagerService : IFileManagerService
         }
 
         // Map extension to FileType
-        var fileType = MapExtensionToFileType(extension);
+        var fileType = MapExtensionToFileType(extension, file.ContentType);
 
         // Generate unique filename
         var uniqueFileName = $"{Guid.NewGuid()}{extension}";
@@ -460,8 +460,21 @@ public class FileManagerService : IFileManagerService
         _ => "application/octet-stream"
     };
 
-    private FileType MapExtensionToFileType(string extension)
+    private FileType MapExtensionToFileType(string extension, string? contentType = null)
     {
+        if (extension == ".webm")
+        {
+            if (contentType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return FileType.Music;
+            }
+
+            if (contentType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return FileType.Video;
+            }
+        }
+
         if (_options.ExtensionToTypeMapping.TryGetValue(extension, out var typeName))
         {
             if (Enum.TryParse<FileType>(typeName, true, out var fileType))

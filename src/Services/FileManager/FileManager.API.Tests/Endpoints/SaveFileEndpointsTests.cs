@@ -91,11 +91,49 @@ public class SaveFileEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task SaveFile_WithAudioWebmContentType_ShouldAutoDetectMusicType()
+    {
+        // Arrange
+        using var fileStream = CreateTestFileStream("Fake webm audio content");
+        var formFile = CreateFormFile(fileStream, "song.webm", "audio/webm");
+        var command = new SaveFileCommand(
+            File: formFile,
+            Group: FileGroup.Personal,
+            UserId: 1
+        );
+
+        // Act
+        var result = await SendAsync(command);
+
+        // Assert
+        result.Type.Should().Be(FileType.Music);
+    }
+
+    [Fact]
     public async Task SaveFile_WithVideoExtension_ShouldAutoDetectVideoType()
     {
         // Arrange
         using var fileStream = CreateTestFileStream("Fake video content");
         var formFile = CreateFormFile(fileStream, "video.mp4", "video/mp4");
+        var command = new SaveFileCommand(
+            File: formFile,
+            Group: FileGroup.Personal,
+            UserId: 1
+        );
+
+        // Act
+        var result = await SendAsync(command);
+
+        // Assert
+        result.Type.Should().Be(FileType.Video);
+    }
+
+    [Fact]
+    public async Task SaveFile_WithVideoWebmContentType_ShouldAutoDetectVideoType()
+    {
+        // Arrange
+        using var fileStream = CreateTestFileStream("Fake webm video content");
+        var formFile = CreateFormFile(fileStream, "video.webm", "video/webm");
         var command = new SaveFileCommand(
             File: formFile,
             Group: FileGroup.Personal,

@@ -397,6 +397,8 @@ public enum FileGroup
 
 **FileType (Auto-detected from extension):**
 
+`.webm` is the one special case: the service uses the uploaded MIME type to distinguish `audio/webm` as `Music` and `video/webm` as `Video`.
+
 ```csharp
 public enum FileType
 {
