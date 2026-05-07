@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Constants;
@@ -8,7 +7,6 @@ using Nasheed.Application.Interfaces;
 using Nasheed.Domain.Entities;
 using Nasheed.Domain.Enums;
 using Nasheed.Domain.Interfaces;
-using Nasheed.Infrastructure.Services;
 
 namespace Nasheed.Infrastructure.Workers;
 
@@ -16,7 +14,6 @@ public class NasheedIngestionWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly INasheedTenantCache _tenantCache;
-    private readonly IConfiguration _configuration;
     private readonly ILogger<NasheedIngestionWorker> _logger;
     private const int BatchSize = 5;
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
@@ -25,12 +22,10 @@ public class NasheedIngestionWorker : BackgroundService
     public NasheedIngestionWorker(
         IServiceScopeFactory scopeFactory,
         INasheedTenantCache tenantCache,
-        IConfiguration configuration,
         ILogger<NasheedIngestionWorker> logger)
     {
         _scopeFactory = scopeFactory;
         _tenantCache = tenantCache;
-        _configuration = configuration;
         _logger = logger;
     }
 
@@ -137,7 +132,7 @@ public class NasheedIngestionWorker : BackgroundService
         ISongIngestionJobRepository jobRepo,
         CancellationToken cancellationToken)
     {
-        var tenantId = GetConfiguredTenantId();
+        var tenantId = GetTenantId();
         var fileIds = BuildAiFileIds(song.FileId);
 
         var metadataJson = await aiClient.ChatAsync(
@@ -170,7 +165,7 @@ public class NasheedIngestionWorker : BackgroundService
         ISongIngestionJobRepository jobRepo,
         CancellationToken cancellationToken)
     {
-        var tenantId = GetConfiguredTenantId();
+        var tenantId = GetTenantId();
         var fileIds = BuildAiFileIds(song.FileId);
 
         var metadataJson = await aiClient.ChatAsync(
@@ -199,7 +194,7 @@ public class NasheedIngestionWorker : BackgroundService
     {
         if (!string.IsNullOrEmpty(song.LyricsRaw))
         {
-            var tenantId = GetConfiguredTenantId();
+            var tenantId = GetTenantId();
 
             var verifiedLyrics = await aiClient.ChatAsync(
                 NasheedAiKeys.ExtractionSettings,
@@ -218,13 +213,7 @@ public class NasheedIngestionWorker : BackgroundService
         await jobRepo.UpdateAsync(job, cancellationToken);
     }
 
-    private string GetConfiguredTenantId()
-    {
-        return _configuration["MultiTenancy:TenantId"]
-            ?? throw new InvalidOperationException(
-                "MultiTenancy:TenantId is not configured. " +
-                "Nasheed is a single-tenant service - set MultiTenancy:TenantId in appsettings.json.");
-    }
+    private string GetTenantId() => _tenantCache.Tenant!.TenantId;
 
     private async Task QueueEmbeddingGenerationAsync(
         SongEntity song,
@@ -234,17 +223,22 @@ public class NasheedIngestionWorker : BackgroundService
     {
         var hasActiveEmbeddingJob = await jobRepo.HasActiveJobAsync(song.Id, IngestionJobType.EmbeddingGeneration, cancellationToken);
         if (hasActiveEmbeddingJob)
-        {
             return;
+
+        try
+        {
+            var embeddingJob = SongIngestionJobEntity.Create(song.Id, song.FileId, IngestionJobType.EmbeddingGeneration);
+            await jobRepo.AddAsync(embeddingJob, cancellationToken);
+
+            song.SetSearchIndexStatus(SearchIndexStatus.Indexing);
+            await songRepo.UpdateAsync(song, cancellationToken);
+
+            _logger.LogInformation("Queued embedding job {JobId} for song {SongId} after song data update.", embeddingJob.Id, song.Id);
         }
-
-        var embeddingJob = SongIngestionJobEntity.Create(song.Id, song.FileId, IngestionJobType.EmbeddingGeneration);
-        await jobRepo.AddAsync(embeddingJob, cancellationToken);
-
-        song.SetSearchIndexStatus(SearchIndexStatus.Indexing);
-        await songRepo.UpdateAsync(song, cancellationToken);
-
-        _logger.LogInformation("Queued embedding job {JobId} for song {SongId} after song data update.", embeddingJob.Id, song.Id);
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            // Another concurrent request created the same active job — safe to ignore.
+        }
     }
 
     private async Task RunEmbeddingGenerationAsync(
@@ -256,7 +250,7 @@ public class NasheedIngestionWorker : BackgroundService
         ISongIngestionJobRepository jobRepo,
         CancellationToken cancellationToken)
     {
-        var tenantId = GetConfiguredTenantId();
+        var tenantId = GetTenantId();
         var searchText = BuildSearchText(song);
         var embedding = await aiClient.EmbedAsync(
             NasheedAiKeys.EmbeddingSettings,
@@ -290,7 +284,23 @@ public class NasheedIngestionWorker : BackgroundService
         ISongRepository songRepo,
         CancellationToken cancellationToken)
     {
-        using var doc = JsonDocument.Parse(ExtractJsonFromResponse(metadataJson));
+        var rawJson = ExtractJsonFromResponse(metadataJson);
+
+        if (rawJson.Length > 102_400)
+            throw new InvalidOperationException("AI metadata response exceeds the 100 KB size limit.");
+
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(rawJson, new JsonDocumentOptions { MaxDepth = 8 });
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Failed to parse AI metadata JSON: {ex.Message}", ex);
+        }
+
+        using (doc)
+        {
         var root = doc.RootElement;
 
         var languageCode = ReadString(root, "language_code", "languageCode");
@@ -330,6 +340,7 @@ public class NasheedIngestionWorker : BackgroundService
                 }
             }
         }
+        } // end using (doc)
     }
 
     private static string? ReadString(JsonElement root, params string[] names)

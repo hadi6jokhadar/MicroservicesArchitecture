@@ -9,16 +9,13 @@ namespace Nasheed.Application.Handlers.GetSongById;
 public class GetSongByIdQueryHandler : IRequestHandler<GetSongByIdQuery, SongDto?>
 {
     private readonly ISongRepository _songRepository;
-    private readonly ISongMoodTagRepository _moodTagRepository;
     private readonly NasheedFileManagerHelper _fileManagerHelper;
 
     public GetSongByIdQueryHandler(
         ISongRepository songRepository,
-        ISongMoodTagRepository moodTagRepository,
         NasheedFileManagerHelper fileManagerHelper)
     {
         _songRepository = songRepository;
-        _moodTagRepository = moodTagRepository;
         _fileManagerHelper = fileManagerHelper;
     }
 
@@ -27,8 +24,8 @@ public class GetSongByIdQueryHandler : IRequestHandler<GetSongByIdQuery, SongDto
         var entity = await _songRepository.GetByIdAsync(request.Id, cancellationToken);
         if (entity == null) return null;
 
-        var tags = await _moodTagRepository.GetBySongIdAsync(entity.Id, cancellationToken);
-        var dto = SongDto.MapFrom(entity, tags.Select(t => t.Tag).ToList());
+        var tags = entity.MoodTags?.Select(t => t.Tag).ToList() ?? [];
+        var dto = SongDto.MapFrom(entity, tags);
         await _fileManagerHelper.EnrichSongWithFileAsync(dto, cancellationToken);
         return dto;
     }

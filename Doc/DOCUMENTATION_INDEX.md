@@ -127,13 +127,13 @@ Files are organized by category. Each entry includes:
 
 ### NASHEED_LIBRARY_BACKEND.md
 
-**Description:** Backend architecture and implementation plan for the proposed nasheed library service. Covers tenancy, service boundaries, data model, AI orchestration, vector search, endpoints, and delivery order.  
+**Description:** Historical design plan for the Nasheed backend service (superseded by the implemented docs in `src/Apps/Nasheed/Doc/`).  
 **Read When:**
 
-- Planning the Nasheed backend service
-- Defining entities and ingestion jobs
-- Designing AI.API integration for nasheed processing
-- Implementing vector search and tenant database settings
+- Reviewing original design intent
+- Cross-referencing design vs implementation
+
+> **For current implementation details**, use `src/Apps/Nasheed/Doc/OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md`, `INGESTION_PIPELINE.md`, and `AI_INTEGRATION.md`.
 
 ### NASHEED_LIBRARY_FRONTEND.md
 
@@ -495,7 +495,7 @@ Files are organized by category. Each entry includes:
 | Add notifications        | NOTIFICATION_SERVICE_README.md, FIREBASE_PUSH_NOTIFICATIONS_GUIDE.md                          |
 | Add caching              | CACHING_STRATEGY_COMPARISON.md                                                                |
 | Create admin endpoint    | BYPASS_TENANT_ENDPOINTS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                            |
-| Plan Nasheed feature     | NASHEED_LIBRARY_BACKEND.md, NASHEED_LIBRARY_FRONTEND.md                                       |
+| Work on Nasheed service  | src/Apps/Nasheed/Doc/OVERVIEW.md, ENTITIES_AND_DATA_MODEL.md, API_ENDPOINTS.md                |
 | Work with roles          | ROLES_AND_CLAIMS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                                   |
 | Fix performance          | PERFORMANCE_OPTIMIZATION_GUIDE.md, USER_QUERY_OPTIMIZATION_IQUERYABLE.md                      |
 | Add translations         | TRANSLATION_SERVICE_GUIDE.md, LOCALIZATION_GUIDE.md                                           |
@@ -577,5 +577,5 @@ cd Doc
 
 ---
 
-**Last Updated:** April 9, 2026  
+**Last Updated:** May 7, 2026  
 **Maintained By:** AI agents following DOCUMENTATION_GUIDELINES.md

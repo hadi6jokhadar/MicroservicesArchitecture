@@ -11,6 +11,12 @@ public class SongRepository : Repository<SongEntity>, ISongRepository
 {
     public SongRepository(NasheedDbContext context) : base(context) { }
 
+    public override async Task<SongEntity?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+        => await _dbSet
+            .Include(s => s.Artist)
+            .Include(s => s.MoodTags)
+            .FirstOrDefaultAsync(s => s.Id == id && !s.IsArchived, cancellationToken);
+
     public async Task<(List<SongEntity> Items, int TotalCount)> GetAllAsync(
         string? textFilter = null,
         int? artistId = null,
@@ -26,7 +32,10 @@ public class SongRepository : Repository<SongEntity>, ISongRepository
             .Where(e => !e.IsArchived);
 
         if (!string.IsNullOrWhiteSpace(textFilter))
-            query = query.Where(e => e.Title.Contains(textFilter));
+        {
+            var escaped = textFilter.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+            query = query.Where(e => EF.Functions.Like(e.Title, $"%{escaped}%", "\\"));
+        }
 
         if (artistId.HasValue)
             query = query.Where(e => e.ArtistId == artistId.Value);

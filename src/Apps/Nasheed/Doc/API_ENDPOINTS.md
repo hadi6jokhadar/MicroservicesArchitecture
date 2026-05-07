@@ -3,7 +3,7 @@
 **Base URL:** `http://localhost:5009`  
 **Auth:** All business endpoints require `Authorization: Bearer <token>`.  
 `x-tenant-id` should be sent by clients for tenant-aware routing, but this service also runs with configured single-tenant fallback (`MultiTenancy:TenantId`).  
-**Last Updated:** May 5, 2026
+**Last Updated:** May 7, 2026
 
 ---
 

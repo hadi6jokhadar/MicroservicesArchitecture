@@ -2,9 +2,9 @@ using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
+using Nasheed.Application.Interfaces;
 using Nasheed.Domain.Interfaces;
 
 namespace Nasheed.Application.Handlers.DeleteSong;
@@ -20,8 +20,8 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
     private readonly ISongIngestionJobRepository _songIngestionJobRepository;
     private readonly ISongSearchDocumentRepository _songSearchDocumentRepository;
     private readonly IFileManagerServiceClient _fileManagerClient;
+    private readonly INasheedTenantCache _tenantCache;
     private readonly ILogger<DeleteSongCommandHandler> _logger;
-    private readonly string _tenantId;
 
     public DeleteSongCommandHandler(
         ISongRepository songRepository,
@@ -33,7 +33,7 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
         ISongIngestionJobRepository songIngestionJobRepository,
         ISongSearchDocumentRepository songSearchDocumentRepository,
         IFileManagerServiceClient fileManagerClient,
-        IConfiguration configuration,
+        INasheedTenantCache tenantCache,
         ILogger<DeleteSongCommandHandler> logger)
     {
         _songRepository = songRepository;
@@ -45,9 +45,7 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
         _songIngestionJobRepository = songIngestionJobRepository;
         _songSearchDocumentRepository = songSearchDocumentRepository;
         _fileManagerClient = fileManagerClient;
-        _tenantId = configuration["MultiTenancy:TenantId"]
-            ?? throw new InvalidOperationException(
-                "MultiTenancy:TenantId is not configured. Nasheed must send tenantId when calling FileManager.");
+        _tenantCache = tenantCache;
         _logger = logger;
     }
 
@@ -78,7 +76,8 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
         // Remove file usage row (will set Temp=true if no other usages)
         if (entity.FileId > 0)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(entity.FileId, "Song", entity.Id.ToString(), false, _tenantId, cancellationToken);
+            var tenantId = _tenantCache.Tenant!.TenantId;
+            var success = await _fileManagerClient.ChangeTempStatusAsync(entity.FileId, "Song", entity.Id.ToString(), false, tenantId, cancellationToken);
             if (!success)
             {
                 _logger.LogWarning("Failed to mark FileId {FileId} as temporary after deleting Song {SongId}", entity.FileId, entity.Id);

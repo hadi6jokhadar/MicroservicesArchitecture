@@ -296,14 +296,18 @@ async def build_media_content_blocks(
                 blocks.append(build_document_text_block(meta))
             elif audio_format == "audio_url":
                 # Qwen omni: pass a real HTTP URL in an input_audio block.
-                # Dashscope accepts a URL in the 'data' field, so no download needed.
-                # Prefer external/CDN URL; fall back to internal URL.
-                audio_url = external_url or internal_url
-                if not audio_url:
-                    blocks.append(build_document_text_block(meta))
-                else:
-                    blocks.append(build_audio_url_block(audio_url, mime_type))
+                # Dashscope fetches the URL server-side, so it must be publicly
+                # reachable. Only use external_url; if unavailable (e.g. localhost
+                # internal URL), download and send as base64 instead.
+                if external_url:
+                    blocks.append(build_audio_url_block(external_url, mime_type))
                     has_audio = True
+                elif internal_url:
+                    raw = await fetch_file_bytes(internal_url)
+                    blocks.append(build_audio_block(raw, mime_type))
+                    has_audio = True
+                else:
+                    blocks.append(build_document_text_block(meta))
             else:  # "input_audio" — OpenAI, Gemini (LiteLLM → inline_data), Azure, Groq
                 raw = await fetch_file_bytes_with_fallback(primary_url, internal_url)
                 blocks.append(build_audio_block(raw, mime_type))

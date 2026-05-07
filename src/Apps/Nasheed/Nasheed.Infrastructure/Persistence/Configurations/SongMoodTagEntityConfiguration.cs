@@ -13,7 +13,7 @@ public class SongMoodTagEntityConfiguration : IEntityTypeConfiguration<SongMoodT
         builder.Property(e => e.Tag).IsRequired().HasMaxLength(100);
 
         builder.HasOne(e => e.Song)
-            .WithMany()
+            .WithMany(s => s.MoodTags)
             .HasForeignKey(e => e.SongId)
             .OnDelete(DeleteBehavior.Cascade);
     }

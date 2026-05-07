@@ -1,6 +1,7 @@
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Commands;
 using Nasheed.Application.DTOs;
@@ -70,16 +71,21 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
     {
         var hasActiveEmbeddingJob = await _jobRepository.HasActiveJobAsync(song.Id, IngestionJobType.EmbeddingGeneration, cancellationToken);
         if (hasActiveEmbeddingJob)
-        {
             return;
+
+        try
+        {
+            var embeddingJob = SongIngestionJobEntity.Create(song.Id, song.FileId, IngestionJobType.EmbeddingGeneration);
+            await _jobRepository.AddAsync(embeddingJob, cancellationToken);
+
+            song.SetSearchIndexStatus(SearchIndexStatus.Indexing);
+            await _repository.UpdateAsync(song, cancellationToken);
+
+            _logger.LogInformation("Queued embedding job {JobId} for updated song {SongId}.", embeddingJob.Id, song.Id);
         }
-
-        var embeddingJob = SongIngestionJobEntity.Create(song.Id, song.FileId, IngestionJobType.EmbeddingGeneration);
-        await _jobRepository.AddAsync(embeddingJob, cancellationToken);
-
-        song.SetSearchIndexStatus(SearchIndexStatus.Indexing);
-        await _repository.UpdateAsync(song, cancellationToken);
-
-        _logger.LogInformation("Queued embedding job {JobId} for updated song {SongId}.", embeddingJob.Id, song.Id);
+        catch (DbUpdateException)
+        {
+            // Another concurrent request created the same active job — safe to ignore.
+        }
     }
 }

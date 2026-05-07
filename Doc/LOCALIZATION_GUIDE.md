@@ -529,6 +529,8 @@ The system automatically falls back to English if translation is missing, but lo
 2. Inject `ILocalizationService` in constructor
 3. Use `L()` method or `LocalizationKeys`
 
+> ⚠️ **Common pitfall:** Query validators (e.g. `GetSongListQueryValidator`) are often written as `AbstractValidator<T>` with hardcoded strings because they seem "simple." They must still use `LocalizedValidator<T>`. There is no exception for query validators.
+
 ### **Issue: Cache Not Clearing**
 
 **Symptoms:** Translations not updating after JSON file changes

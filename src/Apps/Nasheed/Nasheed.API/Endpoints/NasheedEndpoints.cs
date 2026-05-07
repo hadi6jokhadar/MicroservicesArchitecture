@@ -35,7 +35,8 @@ public static class NasheedEndpoints
 
         artists.MapDelete("/{id:int}", NasheedArtistApiHandlers.Delete)
             .WithName("DeleteArtist")
-            .Produces(StatusCodes.Status200OK);
+            .Produces(StatusCodes.Status200OK)
+            .RequireAuthorization("AdminOnly");
 
         // ── SONGS ─────────────────────────────────────────────
         var songs = app.MapGroup("/api/songs")
@@ -63,7 +64,8 @@ public static class NasheedEndpoints
 
         songs.MapDelete("/{id:int}", NasheedSongApiHandlers.Delete)
             .WithName("DeleteSong")
-            .Produces(StatusCodes.Status200OK);
+            .Produces(StatusCodes.Status200OK)
+            .RequireAuthorization("AdminOnly");
 
         songs.MapGet("/{id:int}/analysis", NasheedSongApiHandlers.GetAnalysisStatus)
             .WithName("GetSongAnalysisStatus")
@@ -96,7 +98,8 @@ public static class NasheedEndpoints
         ingestion.MapDelete("/{id:int}", NasheedIngestionApiHandlers.Remove)
             .WithName("RemoveIngestionJob")
             .Produces<bool>()
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces(StatusCodes.Status404NotFound)
+            .RequireAuthorization("AdminOnly");
 
         ingestion.MapPost("/songs/{songId:int}/reindex", NasheedIngestionApiHandlers.Reindex)
             .WithName("ReindexSong")
@@ -141,7 +144,8 @@ public static class NasheedEndpoints
         generation.MapPost("/lyrics", NasheedGenerationApiHandlers.GenerateLyrics)
             .WithName("GenerateLyrics")
             .Produces<GenerateLyricsResponseDto>()
-            .AddEndpointFilter<ValidationFilter<GenerateLyricsCommand>>();
+            .AddEndpointFilter<ValidationFilter<GenerateLyricsCommand>>()
+            .RequireAuthorization("AdminOnly");
 
         return app;
     }

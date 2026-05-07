@@ -22,6 +22,7 @@ public class SongEntity : BaseEntity
 
     // Navigation
     public ArtistEntity? Artist { get; private set; }
+    public ICollection<SongMoodTagEntity>? MoodTags { get; private set; }
 
     private SongEntity() { }
 

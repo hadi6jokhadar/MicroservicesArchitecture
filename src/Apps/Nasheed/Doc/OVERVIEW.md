@@ -4,7 +4,7 @@
 **Port:** 5009 (`http://localhost:5009`)  
 **Path:** `src/Apps/Nasheed/`  
 **Category:** `src/Apps/` — domain app that consumes platform Services  
-**Last Updated:** May 5, 2026  
+**Last Updated:** May 7, 2026  
 **Status:** ✅ Implemented
 
 ---
@@ -24,11 +24,15 @@ Nasheed follows Clean Architecture with DDD and CQRS:
 ```
 src/Apps/Nasheed/
 ├── Nasheed.API/           # Minimal APIs only. No controllers.
-├── Nasheed.Application/   # MediatR commands/queries/handlers, DTOs, validators
+├── Nasheed.Application/   # MediatR commands/queries/handlers, DTOs, validators,
+│                          # interfaces (INasheedTenantCache, INasheedUnitOfWork)
 ├── Nasheed.Domain/        # Entities, enums, repository interfaces
 └── Nasheed.Infrastructure/ # EF Core DbContext, repository implementations,
-                             # AI HTTP client, background workers, tenant loader
+                             # NasheedUnitOfWork, AI HTTP client, background workers,
+                             # NasheedTenantCache, NasheedTenantLoaderService
 ```
+
+> **Interface placement rule:** `INasheedTenantCache` and `INasheedUnitOfWork` live in `Nasheed.Application/Interfaces/` (Application layer), not in Infrastructure. Implementations (`NasheedTenantCache`, `NasheedUnitOfWork`) are in Infrastructure and registered via DI.
 
 ---
 
@@ -85,7 +89,19 @@ AI work delegates to AI.API using `IAiApiClient`. Nasheed uses one chat key pair
 
 Embeddings are stored as vector-literal JSON text in `EmbeddingJson` and queried server-side using PostgreSQL `pgvector` distance operators. The search repository executes `ORDER BY EmbeddingJson::vector <=> queryVector::vector` and returns top-N ranked matches. If pgvector is unavailable or fails at runtime, the repository automatically falls back to in-memory cosine similarity.
 
-### 8. FileManager Calls Always Include Tenant Context
+### 8. Unit of Work for Transactional Deletes
+
+`INasheedUnitOfWork` (Application layer) wraps `NasheedDbContext.SaveChangesAsync()` behind a single `CommitAsync()` method. It is used in handlers that perform multi-step deletes (e.g. `DeleteArtistCommandHandler`) to ensure all related rows are removed atomically in a single transaction.
+
+- **Interface:** `Nasheed.Application/Interfaces/INasheedUnitOfWork.cs`
+- **Implementation:** `Nasheed.Infrastructure/Persistence/NasheedUnitOfWork.cs`
+- **Registered as:** scoped in `InfrastructureServiceExtensions`
+
+Handlers that delete a single entity and immediately persist can still call `_repository.DeleteAsync()` + `SaveChangesAsync()` directly. Only multi-step cascades require `INasheedUnitOfWork`.
+
+---
+
+### 9. FileManager Calls Always Include Tenant Context
 
 Nasheed file lifecycle operations call FileManager internal endpoints through `IFileManagerServiceClient`.
 

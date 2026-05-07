@@ -19,7 +19,10 @@ public class ArtistRepository : Repository<ArtistEntity>, IArtistRepository
         var query = _dbSet.Where(e => !e.IsArchived);
 
         if (!string.IsNullOrWhiteSpace(textFilter))
-            query = query.Where(e => e.Name.Contains(textFilter));
+        {
+            var escaped = textFilter.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+            query = query.Where(e => EF.Functions.Like(e.Name, $"%{escaped}%", "\\"));
+        }
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query

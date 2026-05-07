@@ -1,6 +1,7 @@
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Behaviors;
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Common.Interfaces;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -70,6 +71,14 @@ builder.Services.AddDatabaseMigration();
 // Authentication & Authorization
 // ============================================
 builder.Services.AddJwtAuthentication(builder.Configuration);
+
+builder.Services.AddAuthorization(options =>
+{
+    // SuperAdmin (internal service accounts) + Admin + Superadmin (user roles) can access destructive ops.
+    // ServiceAuthenticationMiddleware assigns role "SuperAdmin" (capital A) for S2S calls.
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireRole("Admin", "Superadmin", "SuperAdmin"));
+});
 
 // ============================================
 // CORS

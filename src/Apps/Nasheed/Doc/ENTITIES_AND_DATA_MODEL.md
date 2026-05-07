@@ -1,6 +1,6 @@
 # Nasheed Service — Entities and Data Model
 
-**Last Updated:** May 5, 2026
+**Last Updated:** May 7, 2026
 
 ---
 
@@ -86,7 +86,7 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 | `LyricsPlainText`   | string?             | Plain text version of verified lyrics   |
 | `Summary`           | string?             | AI-generated summary                    |
 | `VocalStyle`        | string?             | AI-extracted style description          |
-| `LegalCompliance`   | object?             | AI-seeded legal compliance metadata     |
+| `LegalCompliance`   | `LegalComplianceEntity` (owned) | AI-seeded legal compliance metadata (EF Core owned type) |
 | `SongState`         | `SongState`         | Processing lifecycle state              |
 | `SearchIndexStatus` | `SearchIndexStatus` | Embedding/index state                   |
 | `PublishedAt`       | DateTime?           | When the song was published             |
@@ -97,13 +97,17 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 
 `UpdateLegalComplianceFromAi` accepts AI string values, normalizes casing, validates allowed values, and ignores invalid combinations instead of failing the ingestion job.
 
-#### `LegalCompliance` fields
+#### `LegalCompliance` fields (EF Core Owned Type)
 
-| Column               | Type    | Notes                             |
-| -------------------- | ------- | --------------------------------- |
-| `CopyrightRiskLevel` | string? | Allowed: `low`, `medium`, `high`  |
-| `ContentSafetyFlag`  | string? | Allowed: `safe`, `flagged`        |
-| `RiskReason`         | string? | Nullable; can contain Arabic text |
+`LegalCompliance` is configured as an **EF Core owned type** (`OwnsOne<LegalComplianceEntity>`) on `SongEntity`. Its columns are stored inline in the `Songs` table with the prefix `LegalCompliance_`.
+
+| Column (in Songs table)            | Type    | Notes                             |
+| ---------------------------------- | ------- | --------------------------------- |
+| `LegalCompliance_CopyrightRiskLevel` | string? | Allowed: `low`, `medium`, `high`  |
+| `LegalCompliance_ContentSafetyFlag`  | string? | Allowed: `safe`, `flagged`        |
+| `LegalCompliance_RiskReason`         | string? | Nullable; can contain Arabic text |
+
+> **Migration:** `20260507085946_RefactorLegalComplianceOwnedType` applied this change.
 
 ---
 
@@ -112,8 +116,10 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 | Column   | Type   | Notes                                         |
 | -------- | ------ | --------------------------------------------- |
 | `Id`     | int    | PK                                            |
-| `SongId` | int    | FK → SongEntity                               |
+| `SongId` | int    | FK → SongEntity (cascade delete)              |
 | `Tag`    | string | Mood tag value (e.g. `"calm"`, `"uplifting"`) |
+
+> **EF config:** `DeleteBehavior.Cascade` is set on the `SongId` FK so mood tags are removed automatically when a song is deleted at the database level.
 
 ---
 
@@ -177,6 +183,8 @@ Tracks each AI processing job with full retry state.
 
 **Domain methods:** `Create(songId, fileId, jobType, maxRetries=3)`, `MarkRunning()`, `MarkCompleted()`, `MarkFailed(error, nextRetryAt)`, `MarkRemoved()`, `ResetForRetry()`
 
+> **Unique index:** `(SongId, JobType)` has a unique index guarding against duplicate concurrent jobs for the same song+type pair. The worker checks for an existing pending/running job before inserting a new one.
+
 `MarkFailed` behavior is important:
 
 - increments `RetryCount`
@@ -234,9 +242,18 @@ Cascade is enforced in the application layer (not via EF Core foreign-key cascad
 - All entity configurations are in `Nasheed.Infrastructure/Persistence/Configurations/`
 - `FavoriteEntity` and `RatingEntity` use `modelBuilder.Entity<T>().HasKey(e => new { e.UserId, e.SongId })`
 - `EmbeddingJson` is mapped as `text` and cast to `vector` in search SQL
+- `SongEntity.LegalCompliance` is configured as `OwnsOne<LegalComplianceEntity>()` — columns stored inline in the `Songs` table
+- `SongMoodTagEntity` FK has `DeleteBehavior.Cascade` — tags are removed at DB level when a song is deleted
+- `SongIngestionJobEntity` has a unique index on `(SongId, JobType)` — enforced at DB level to prevent duplicate concurrent jobs
 - Migrations assembly: `Nasheed.Infrastructure`
 - Migration command (from solution root):
   ```powershell
   dotnet ef migrations add <Name> --project src\Apps\Nasheed\Nasheed.Infrastructure --startup-project src\Apps\Nasheed\Nasheed.API
   ```
 - When changing a column type from `string` to `int` in PostgreSQL, use an explicit `USING` cast in the migration SQL (for example `USING "ColumnName"::integer`) because automatic casting is not applied for these schema changes.
+
+### Applied Migrations
+
+| Migration Name | Date | Description |
+|---|---|---|
+| `20260507085946_RefactorLegalComplianceOwnedType` | 2026-05-07 | Converts `LegalCompliance` fields on `SongEntity` to EF Core owned type |

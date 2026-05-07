@@ -1,6 +1,6 @@
 # Nasheed Service — AI Integration
 
-**Last Updated:** May 5, 2026
+**Last Updated:** May 7, 2026
 
 ---
 

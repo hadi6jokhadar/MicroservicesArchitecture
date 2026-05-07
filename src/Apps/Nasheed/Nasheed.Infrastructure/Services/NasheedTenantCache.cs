@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Kernel.Dto.Tenant;
+using Nasheed.Application.Interfaces;
 
 namespace Nasheed.Infrastructure.Services;
 

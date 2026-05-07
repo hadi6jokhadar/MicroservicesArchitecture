@@ -1,6 +1,6 @@
 # Nasheed Service — Ingestion Pipeline
 
-**Last Updated:** May 4, 2026
+**Last Updated:** May 7, 2026
 
 ---
 

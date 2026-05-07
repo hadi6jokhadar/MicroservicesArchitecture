@@ -1,28 +1,23 @@
 using IhsanDev.Shared.Application.Common.Interfaces;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.DTOs;
+using Nasheed.Application.Interfaces;
 
 namespace Nasheed.Application.Helpers;
 
-/// <summary>
-/// Helper for enriching Nasheed DTOs with file metadata from the FileManager service.
-/// </summary>
 public class NasheedFileManagerHelper
 {
     private readonly IFileManagerServiceClient _fileManagerClient;
+    private readonly INasheedTenantCache _tenantCache;
     private readonly ILogger<NasheedFileManagerHelper> _logger;
-    private readonly string _tenantId;
 
     public NasheedFileManagerHelper(
         IFileManagerServiceClient fileManagerClient,
-        IConfiguration configuration,
+        INasheedTenantCache tenantCache,
         ILogger<NasheedFileManagerHelper> logger)
     {
         _fileManagerClient = fileManagerClient;
-        _tenantId = configuration["MultiTenancy:TenantId"]
-            ?? throw new InvalidOperationException(
-                "MultiTenancy:TenantId is not configured. Nasheed must send tenantId when calling FileManager.");
+        _tenantCache = tenantCache;
         _logger = logger;
     }
 
@@ -35,7 +30,7 @@ public class NasheedFileManagerHelper
 
         try
         {
-            song.File = await _fileManagerClient.GetFileByIdAsync(song.FileId, _tenantId, cancellationToken);
+            song.File = await _fileManagerClient.GetFileByIdAsync(song.FileId, _tenantCache.Tenant!.TenantId, cancellationToken);
             if (song.File == null)
                 _logger.LogWarning("File {FileId} not found for Song {SongId}", song.FileId, song.Id);
         }
@@ -57,7 +52,7 @@ public class NasheedFileManagerHelper
 
         try
         {
-            var filesDict = await _fileManagerClient.GetFilesByIdsAsync(fileIds, _tenantId, cancellationToken);
+            var filesDict = await _fileManagerClient.GetFilesByIdsAsync(fileIds, _tenantCache.Tenant!.TenantId, cancellationToken);
 
             foreach (var song in songList.Where(s => s.FileId > 0))
             {
@@ -82,7 +77,7 @@ public class NasheedFileManagerHelper
 
         try
         {
-            artist.ImageFile = await _fileManagerClient.GetFileByIdAsync(artist.ImageFileId.Value, _tenantId, cancellationToken);
+            artist.ImageFile = await _fileManagerClient.GetFileByIdAsync(artist.ImageFileId.Value, _tenantCache.Tenant!.TenantId, cancellationToken);
             if (artist.ImageFile == null)
                 _logger.LogWarning("ImageFile {FileId} not found for Artist {ArtistId}", artist.ImageFileId.Value, artist.Id);
         }
@@ -104,7 +99,7 @@ public class NasheedFileManagerHelper
 
         try
         {
-            var filesDict = await _fileManagerClient.GetFilesByIdsAsync(fileIds, _tenantId, cancellationToken);
+            var filesDict = await _fileManagerClient.GetFilesByIdsAsync(fileIds, _tenantCache.Tenant!.TenantId, cancellationToken);
 
             foreach (var artist in artistList.Where(a => a.ImageFileId.HasValue))
             {

@@ -171,7 +171,7 @@ The frontend will depend on the following backend endpoint groups:
 - `POST /api/ingestion/{id}/retry`
 - `DELETE /api/ingestion/{id}`
 - `POST /api/ingestion/songs/{songId}/reindex`
-- `GET /api/songs/{id}/analysis`
+- `GET /api/songs/{id}/analysis` — implemented as `IngestionJobService.getAnalysisStatus(songId)`, used as a polling fallback when SignalR is unavailable
 
 ### Interaction Endpoints
 

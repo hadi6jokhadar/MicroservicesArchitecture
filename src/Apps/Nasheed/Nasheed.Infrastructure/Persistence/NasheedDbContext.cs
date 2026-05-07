@@ -4,8 +4,8 @@ using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Nasheed.Application.Interfaces;
 using Nasheed.Domain.Entities;
-using Nasheed.Infrastructure.Services;
 
 namespace Nasheed.Infrastructure.Persistence;
 
