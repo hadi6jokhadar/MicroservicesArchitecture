@@ -12,3 +12,4 @@ ihsandev_shared.egg-info/requires.txt
 ihsandev_shared.egg-info/top_level.txt
 ihsandev_shared/clients/__init__.py
 ihsandev_shared/clients/base_client.py
+ihsandev_shared/clients/file_manager_client.py

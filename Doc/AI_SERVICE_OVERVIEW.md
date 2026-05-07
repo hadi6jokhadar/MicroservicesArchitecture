@@ -27,7 +27,8 @@ Default local URL:
 10. Exposes read endpoints for sessions, messages, message files, and token usage logs.
 11. Can generate and persist a session title in the background when `generate_session_title=true` is sent on chat requests, using the `Session-Title` system prompt and the `QwenAI-qwen3-vl-32b-instruct` provider settings key.
 12. Generates text embedding vectors via `POST /api/v1/embedding` and logs token usage after each call.
-13. Persists the exact model-input message list used in LiteLLM calls (system and request messages) for each chat turn, serializing structured JSON content blocks to strings for database debugging.
+13. Supports local BAAI bge-m3 embedding inference for any provider settings record where `Provider = BAAI` and `ModelName` is `bge-m3` or `baai/bge-m3` (key-independent detection), while preserving the existing LiteLLM provider flow.
+14. Persists the exact model-input message list used in LiteLLM calls (system and request messages) for each chat turn, serializing structured JSON content blocks to strings for database debugging.
 
 ## High-Level Architecture
 
@@ -41,7 +42,7 @@ Default local URL:
 - `api/routes/chat_messages.py`: Chat message listing with filtering and pagination.
 - `api/routes/chat_message_files.py`: Chat message to file relation listing.
 - `api/routes/token_usage_logs.py`: Token usage log listing with filtering, pagination, and aggregate statistics (`GET /stats`).
-- `api/routes/embedding.py`: Text embedding endpoint (`POST /api/v1/embedding`). Resolves provider settings, validates `ModelType == Embedding`, calls LiteLLM `aembedding`, logs token usage.
+- `api/routes/embedding.py`: Text embedding endpoint (`POST /api/v1/embedding`). Resolves provider settings, validates `ModelType == Embedding`, uses local `BAAI/bge-m3` when configured, otherwise calls LiteLLM `aembedding`, then logs token usage.
 - `api/dependencies.py`: Auth and tenant resolution helpers.
 - `api/attributes.py`: Optional tenant and bypass tenant decorators.
 
@@ -58,6 +59,7 @@ Shared logic extracted from route handlers to keep endpoints thin and stable:
 | `core/ai/persistence.py`      | Background tasks for message persistence and token usage logging                                                                                                                                                                                                                              |
 | `core/ai/file_context.py`     | FileManager client singleton (`file_manager_client`) used by the multimodal transform node                                                                                                                                                                                                    |
 | `core/ai/multimodal_utils.py` | MIME classification, raw-byte fetcher, Base64 encoder, OpenAI-compatible content block builders (`image_url`, `input_audio`, document text), provider capability sets (`PROVIDERS_SUPPORTING_VISION`, `PROVIDERS_SUPPORTING_AUDIO`), batch processor `build_media_content_blocks`             |
+| `core/ai/local_embeddings.py` | Local embedding helpers for BAAI bge-m3, including settings detection and lazy-loaded model caching for in-process inference                                                                                                                                                                  |
 | `core/ai/chat_workflow.py`    | LangGraph chat workflow, `ChatWorkflowState`, `ChatRuntimeContext`, `build_chat_runtime_context`                                                                                                                                                                                              |
 | `core/ai/session_title.py`    | Session title auto-generation: `generate_session_title_background`, `schedule_session_title_task`, constants `SESSION_TITLE_PROMPT_NAME`, `SESSION_TITLE_SETTINGS_KEY`                                                                                                                        |
 
@@ -384,6 +386,7 @@ FileManager context enrichment behavior for chat endpoints:
 Run script:
 
 - `run-development-instance.bat`
+- `run-development-instance.mjs`
 
 Virtual environment setup:
 
