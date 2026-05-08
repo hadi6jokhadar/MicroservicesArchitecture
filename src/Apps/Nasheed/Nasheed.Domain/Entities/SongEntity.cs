@@ -48,9 +48,14 @@ public class SongEntity : BaseEntity
         if (languageCode != null) LanguageCode = languageCode;
         if (lyricsRaw != null)
         {
+            var rawChanged = !string.Equals(LyricsRaw, lyricsRaw, StringComparison.Ordinal);
             LyricsRaw = lyricsRaw;
-            LyricsVerifiedLrc = null;
-            LyricsPlainText = null;
+
+            if (rawChanged)
+            {
+                LyricsVerifiedLrc = null;
+                LyricsPlainText = null;
+            }
         }
         if (summary != null) Summary = summary;
         if (vocalStyle != null) VocalStyle = vocalStyle;
@@ -61,6 +66,19 @@ public class SongEntity : BaseEntity
     {
         LyricsVerifiedLrc = lyricsVerifiedLrc;
         LyricsPlainText = lyricsPlainText;
+    }
+
+    public void UpdateVerifiedLyrics(string? lyricsVerifiedLrc, string? lyricsPlainText)
+    {
+        if (lyricsVerifiedLrc != null)
+        {
+            LyricsVerifiedLrc = lyricsVerifiedLrc;
+        }
+
+        if (lyricsPlainText != null)
+        {
+            LyricsPlainText = lyricsPlainText;
+        }
     }
 
     public void UpdateTitle(string? title)

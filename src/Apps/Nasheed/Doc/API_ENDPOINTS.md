@@ -125,6 +125,13 @@ Update song metadata allowed by command contract.
 {
   "title": "string",
   "artistId": 1,
+  "durationSeconds": 240,
+  "languageCode": "ar",
+  "lyricsRaw": "[00:01.00]Raw line",
+  "lyricsVerifiedLrc": "[00:01.00]Verified line\\n[00:02.00]Next",
+  "lyricsPlainText": "Verified line\\nNext",
+  "summary": "string",
+  "vocalStyle": "string",
   "copyrightRiskLevel": "medium",
   "contentSafetyFlag": "flagged",
   "riskReason": "سبب التحقق"
@@ -133,7 +140,7 @@ Update song metadata allowed by command contract.
 
 **Response:** `200 OK` → `SongDto`
 
-> If `title` or legal compliance values change, an `EmbeddingGeneration` job is queued automatically.
+> If title, lyrics, summary, language, vocal style, duration, or legal compliance values change, an `EmbeddingGeneration` job is queued automatically.
 > `artistId` change is rejected by handler logic.
 
 ---

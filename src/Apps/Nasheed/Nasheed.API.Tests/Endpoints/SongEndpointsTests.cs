@@ -247,6 +247,33 @@ public class SongEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task UpdateSong_WithVerifiedAndPlainLyrics_ShouldPersistBothFields()
+    {
+        // Arrange
+        var artist = await CreateTestArtistAsync();
+        var song = await CreateTestSongAsync(artist.Id);
+        const string verifiedLrc = "[00:01.00]Line one\\n[00:02.00]Line two";
+        const string plainText = "Line one\\nLine two";
+
+        // Act
+        var result = await SendAsync(new UpdateSongCommand(
+            Id: song.Id,
+            Title: null,
+            ArtistId: null,
+            LyricsVerifiedLrc: verifiedLrc,
+            LyricsPlainText: plainText));
+
+        // Assert
+        result.LyricsVerifiedLrc.Should().Be(verifiedLrc);
+        result.LyricsPlainText.Should().Be(plainText);
+
+        var persistedSong = await SendAsync(new GetSongByIdQuery(song.Id));
+        persistedSong.Should().NotBeNull();
+        persistedSong!.LyricsVerifiedLrc.Should().Be(verifiedLrc);
+        persistedSong.LyricsPlainText.Should().Be(plainText);
+    }
+
+    [Fact]
     public async Task UpdateSong_WhenSongDoesNotExist_ShouldThrowNotFoundException()
     {
         // Act & Assert

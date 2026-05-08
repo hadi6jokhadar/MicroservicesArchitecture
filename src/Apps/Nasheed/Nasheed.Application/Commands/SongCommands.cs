@@ -16,6 +16,13 @@ public record UpdateSongCommand(
     int Id,
     string? Title,
     int? ArtistId,
+    int? DurationSeconds = null,
+    string? LanguageCode = null,
+    string? LyricsRaw = null,
+    string? LyricsVerifiedLrc = null,
+    string? LyricsPlainText = null,
+    string? Summary = null,
+    string? VocalStyle = null,
     string? CopyrightRiskLevel = null,
     string? ContentSafetyFlag = null,
     string? RiskReason = null

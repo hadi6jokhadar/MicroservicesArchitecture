@@ -37,11 +37,20 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
             ?? throw new NotFoundException(LocalizationKeys.Exceptions.SongNotFound);
 
         var titleChanged = !string.IsNullOrWhiteSpace(request.Title) && !string.Equals(request.Title, entity.Title, StringComparison.Ordinal);
+        var languageChanged = request.LanguageCode != null && !string.Equals(request.LanguageCode, entity.LanguageCode, StringComparison.Ordinal);
+        var lyricsRawChanged = request.LyricsRaw != null && !string.Equals(request.LyricsRaw, entity.LyricsRaw, StringComparison.Ordinal);
+        var lyricsVerifiedChanged = request.LyricsVerifiedLrc != null && !string.Equals(request.LyricsVerifiedLrc, entity.LyricsVerifiedLrc, StringComparison.Ordinal);
+        var lyricsPlainTextChanged = request.LyricsPlainText != null && !string.Equals(request.LyricsPlainText, entity.LyricsPlainText, StringComparison.Ordinal);
+        var summaryChanged = request.Summary != null && !string.Equals(request.Summary, entity.Summary, StringComparison.Ordinal);
+        var vocalStyleChanged = request.VocalStyle != null && !string.Equals(request.VocalStyle, entity.VocalStyle, StringComparison.Ordinal);
+        var durationChanged = request.DurationSeconds.HasValue && request.DurationSeconds != entity.DurationSeconds;
         var existingRiskLevel = entity.LegalCompliance?.CopyrightRiskLevel;
         var existingSafetyFlag = entity.LegalCompliance?.ContentSafetyFlag;
         var existingRiskReason = entity.LegalCompliance?.RiskReason;
 
         entity.UpdateTitle(request.Title);
+        entity.UpdateMetadata(request.LanguageCode, request.LyricsRaw, request.Summary, request.VocalStyle, request.DurationSeconds);
+        entity.UpdateVerifiedLyrics(request.LyricsVerifiedLrc, request.LyricsPlainText);
         entity.UpdateLegalComplianceFromAi(request.CopyrightRiskLevel, request.ContentSafetyFlag, request.RiskReason);
 
         if (request.ArtistId.HasValue && request.ArtistId != entity.ArtistId)
@@ -56,7 +65,7 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
             !string.Equals(existingSafetyFlag, entity.LegalCompliance?.ContentSafetyFlag, StringComparison.Ordinal) ||
             !string.Equals(existingRiskReason, entity.LegalCompliance?.RiskReason, StringComparison.Ordinal);
 
-        if (titleChanged || legalComplianceChanged)
+        if (titleChanged || languageChanged || lyricsRawChanged || lyricsVerifiedChanged || lyricsPlainTextChanged || summaryChanged || vocalStyleChanged || durationChanged || legalComplianceChanged)
         {
             await QueueEmbeddingGenerationAsync(entity, cancellationToken);
         }

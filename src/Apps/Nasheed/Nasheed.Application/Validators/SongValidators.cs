@@ -79,6 +79,18 @@ public class UpdateSongCommandValidator : LocalizedValidator<UpdateSongCommand>
             .MaximumLength(500).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Title", 500))
             .When(x => x.Title != null);
 
+        RuleFor(x => x.LanguageCode)
+            .MaximumLength(10).WithMessage(L(LocalizationKeys.Validation.MaxLength, "LanguageCode", 10))
+            .When(x => x.LanguageCode != null);
+
+        RuleFor(x => x.VocalStyle)
+            .MaximumLength(100).WithMessage(L(LocalizationKeys.Validation.MaxLength, "VocalStyle", 100))
+            .When(x => x.VocalStyle != null);
+
+        RuleFor(x => x.Summary)
+            .MaximumLength(5000).WithMessage(L(LocalizationKeys.Validation.MaxLength, "Summary", 5000))
+            .When(x => x.Summary != null);
+
         RuleFor(x => x.CopyrightRiskLevel)
             .Must(BeValidRiskLevel)
             .WithMessage(L(LocalizationKeys.Validation.InvalidFormat, "CopyrightRiskLevel"))
