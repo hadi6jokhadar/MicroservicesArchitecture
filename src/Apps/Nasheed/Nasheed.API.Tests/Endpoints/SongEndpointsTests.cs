@@ -40,6 +40,22 @@ public class SongEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task CreateSong_WithNullArtistId_ShouldCreateSongWithoutArtist()
+    {
+        // Act
+        var result = await SendAsync(new CreateSongCommand(
+            ArtistId: null,
+            Title: GenerateUniqueString("Song"),
+            FileId: Random.Shared.Next(1, int.MaxValue)));
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Id.Should().BeGreaterThan(0);
+        result.ArtistId.Should().BeNull();
+        result.SongState.Should().Be(SongState.InQueue);
+    }
+
+    [Fact]
     public async Task CreateSong_ShouldIncrementArtistSongCount()
     {
         // Arrange

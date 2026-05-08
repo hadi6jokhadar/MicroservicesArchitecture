@@ -4,7 +4,7 @@ using Nasheed.Application.DTOs;
 namespace Nasheed.Application.Commands;
 
 public record CreateSongCommand(
-    int ArtistId,
+    int? ArtistId,
     string Title,
     int FileId,
     string? CopyrightRiskLevel = null,

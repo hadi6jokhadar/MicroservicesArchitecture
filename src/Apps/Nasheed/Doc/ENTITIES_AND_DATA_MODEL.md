@@ -73,25 +73,27 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 
 ### `SongEntity`
 
-| Column              | Type                | Notes                                   |
-| ------------------- | ------------------- | --------------------------------------- |
-| `Id`                | int                 | PK                                      |
-| `ArtistId`          | int                 | FK → ArtistEntity                       |
-| `Title`             | string              | Required, max 300                       |
-| `FileId`            | int                 | FileManager file ID for the audio file  |
-| `DurationSeconds`   | int?                | Duration in seconds                     |
-| `LanguageCode`      | string?             | e.g. `"ar"`, `"en"`                     |
-| `LyricsRaw`         | string?             | Raw LRC lyrics from enrichment response |
-| `LyricsVerifiedLrc` | string?             | LRC-formatted verified lyrics           |
-| `LyricsPlainText`   | string?             | Plain text version of verified lyrics   |
-| `Summary`           | string?             | AI-generated summary                    |
-| `VocalStyle`        | string?             | AI-extracted style description          |
+| Column              | Type                            | Notes                                                    |
+| ------------------- | ------------------------------- | -------------------------------------------------------- |
+| `Id`                | int                             | PK                                                       |
+| `ArtistId`          | int?                            | Optional FK → ArtistEntity                               |
+| `Title`             | string                          | Required, max 300                                        |
+| `FileId`            | int                             | FileManager file ID for the audio file                   |
+| `DurationSeconds`   | int?                            | Duration in seconds                                      |
+| `LanguageCode`      | string?                         | e.g. `"ar"`, `"en"`                                      |
+| `LyricsRaw`         | string?                         | Raw LRC lyrics from enrichment response                  |
+| `LyricsVerifiedLrc` | string?                         | LRC-formatted verified lyrics                            |
+| `LyricsPlainText`   | string?                         | Plain text version of verified lyrics                    |
+| `Summary`           | string?                         | AI-generated summary                                     |
+| `VocalStyle`        | string?                         | AI-extracted style description                           |
 | `LegalCompliance`   | `LegalComplianceEntity` (owned) | AI-seeded legal compliance metadata (EF Core owned type) |
-| `SongState`         | `SongState`         | Processing lifecycle state              |
-| `SearchIndexStatus` | `SearchIndexStatus` | Embedding/index state                   |
-| `PublishedAt`       | DateTime?           | When the song was published             |
+| `SongState`         | `SongState`                     | Processing lifecycle state                               |
+| `SearchIndexStatus` | `SearchIndexStatus`             | Embedding/index state                                    |
+| `PublishedAt`       | DateTime?                       | When the song was published                              |
 
-**Domain methods:** `Create(artistId, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `UpdateLegalComplianceFromAi(copyrightRiskLevel?, contentSafetyFlag?, riskReason?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateTitle(title)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`
+**Domain methods:** `Create(artistId?, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `UpdateLegalComplianceFromAi(copyrightRiskLevel?, contentSafetyFlag?, riskReason?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateTitle(title)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`
+
+`ArtistId` is optional. Songs can be created without linking an artist.
 
 `UpdateMetadata` resets `LyricsVerifiedLrc` and `LyricsPlainText` when `LyricsRaw` is updated.
 
@@ -101,8 +103,8 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 
 `LegalCompliance` is configured as an **EF Core owned type** (`OwnsOne<LegalComplianceEntity>`) on `SongEntity`. Its columns are stored inline in the `Songs` table with the prefix `LegalCompliance_`.
 
-| Column (in Songs table)            | Type    | Notes                             |
-| ---------------------------------- | ------- | --------------------------------- |
+| Column (in Songs table)              | Type    | Notes                             |
+| ------------------------------------ | ------- | --------------------------------- |
 | `LegalCompliance_CopyrightRiskLevel` | string? | Allowed: `low`, `medium`, `high`  |
 | `LegalCompliance_ContentSafetyFlag`  | string? | Allowed: `safe`, `flagged`        |
 | `LegalCompliance_RiskReason`         | string? | Nullable; can contain Arabic text |
@@ -217,7 +219,7 @@ Stores the text + embedding used for semantic search.
 
 ```
 ArtistEntity
-  └── SongEntity (1:N, FK: ArtistId)
+  └── SongEntity (0..N, FK: ArtistId nullable)
         ├── SongMoodTagEntity (1:N)
         ├── PlayLogEntity (1:N)
         ├── FavoriteEntity (1:N, composite PK)
@@ -230,10 +232,10 @@ ArtistEntity
 
 Cascade is enforced in the application layer (not via EF Core foreign-key cascade) to allow file-cleanup hooks and logging.
 
-| Trigger           | Cascades to                                                                                                                                                                       |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Delete Artist** | Deletes all `SongEntity` rows via `GetByArtistIdAsync`, then runs the full song cascade for each                                                                                  |
-| **Delete Song**   | Deletes `SongMoodTagEntity`, `SongIngestionJobEntity`, `SongSearchDocumentEntity`, `FavoriteEntity`, `RatingEntity`, `PlayLogEntity` (in that order) before removing the song row |
+| Trigger           | Cascades to                                                                                                                                                                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Delete Artist** | Deletes all `SongEntity` rows via `GetByArtistIdAsync`, then runs the full song cascade for each                                                                                                                                              |
+| **Delete Song**   | Deletes `SongMoodTagEntity`, `SongIngestionJobEntity`, `SongSearchDocumentEntity`, `FavoriteEntity`, `RatingEntity`, `PlayLogEntity` (in that order) before removing the song row. If `ArtistId` is null, artist song-count update is skipped |
 
 ---
 
@@ -243,6 +245,7 @@ Cascade is enforced in the application layer (not via EF Core foreign-key cascad
 - `FavoriteEntity` and `RatingEntity` use `modelBuilder.Entity<T>().HasKey(e => new { e.UserId, e.SongId })`
 - `EmbeddingJson` is mapped as `text` and cast to `vector` in search SQL
 - `SongEntity.LegalCompliance` is configured as `OwnsOne<LegalComplianceEntity>()` — columns stored inline in the `Songs` table
+- `SongEntity.ArtistId` is nullable (`IsRequired(false)`) with `DeleteBehavior.Restrict`
 - `SongMoodTagEntity` FK has `DeleteBehavior.Cascade` — tags are removed at DB level when a song is deleted
 - `SongIngestionJobEntity` has a unique index on `(SongId, JobType)` — enforced at DB level to prevent duplicate concurrent jobs
 - Migrations assembly: `Nasheed.Infrastructure`
@@ -254,6 +257,7 @@ Cascade is enforced in the application layer (not via EF Core foreign-key cascad
 
 ### Applied Migrations
 
-| Migration Name | Date | Description |
-|---|---|---|
+| Migration Name                                    | Date       | Description                                                             |
+| ------------------------------------------------- | ---------- | ----------------------------------------------------------------------- |
+| `20260508153633_MakeSongArtistOptional`           | 2026-05-08 | Makes `Songs.ArtistId` nullable and keeps artist relation optional      |
 | `20260507085946_RefactorLegalComplianceOwnedType` | 2026-05-07 | Converts `LegalCompliance` fields on `SongEntity` to EF Core owned type |

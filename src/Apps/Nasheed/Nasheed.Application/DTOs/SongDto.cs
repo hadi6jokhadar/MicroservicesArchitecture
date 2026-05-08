@@ -8,7 +8,7 @@ namespace Nasheed.Application.DTOs;
 
 public class SongDto : BaseDto
 {
-    public int ArtistId { get; set; }
+    public int? ArtistId { get; set; }
     public string? ArtistName { get; set; }
     public string Title { get; set; } = string.Empty;
     public int FileId { get; set; }

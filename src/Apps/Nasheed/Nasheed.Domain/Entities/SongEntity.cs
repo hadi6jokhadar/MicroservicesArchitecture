@@ -5,7 +5,7 @@ namespace Nasheed.Domain.Entities;
 
 public class SongEntity : BaseEntity
 {
-    public int ArtistId { get; private set; }
+    public int? ArtistId { get; private set; }
     public string Title { get; private set; } = string.Empty;
     public int FileId { get; private set; }
     public int? DurationSeconds { get; private set; }
@@ -26,7 +26,7 @@ public class SongEntity : BaseEntity
 
     private SongEntity() { }
 
-    public static SongEntity Create(int artistId, string title, int fileId)
+    public static SongEntity Create(int? artistId, string title, int fileId)
     {
         return new SongEntity
         {

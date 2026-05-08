@@ -64,11 +64,19 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
 
         await _songRepository.DeleteAsync(entity, cancellationToken);
 
-        var artist = await _artistRepository.GetByIdAsync(entity.ArtistId, cancellationToken);
-        if (artist != null)
+        if (entity.ArtistId.HasValue)
         {
-            artist.DecrementSongCount();
-            await _artistRepository.UpdateAsync(artist, cancellationToken);
+            var artist = entity.Artist;
+            if (artist == null)
+            {
+                artist = await _artistRepository.GetByIdAsync(entity.ArtistId.Value, cancellationToken);
+            }
+
+            if (artist != null)
+            {
+                artist.DecrementSongCount();
+                await _artistRepository.UpdateAsync(artist, cancellationToken);
+            }
         }
 
         _logger.LogInformation("Deleted Song Id {Id} and all related data", entity.Id);
@@ -76,11 +84,18 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
         // Remove file usage row (will set Temp=true if no other usages)
         if (entity.FileId > 0)
         {
-            var tenantId = _tenantCache.Tenant!.TenantId;
-            var success = await _fileManagerClient.ChangeTempStatusAsync(entity.FileId, "Song", entity.Id.ToString(), false, tenantId, cancellationToken);
-            if (!success)
+            var tenantId = _tenantCache.Tenant?.TenantId;
+            if (string.IsNullOrWhiteSpace(tenantId))
             {
-                _logger.LogWarning("Failed to mark FileId {FileId} as temporary after deleting Song {SongId}", entity.FileId, entity.Id);
+                _logger.LogWarning("Skipping file usage update for Song {SongId} because tenant context is unavailable.", entity.Id);
+            }
+            else
+            {
+                var success = await _fileManagerClient.ChangeTempStatusAsync(entity.FileId, "Song", entity.Id.ToString(), false, tenantId, cancellationToken);
+                if (!success)
+                {
+                    _logger.LogWarning("Failed to mark FileId {FileId} as temporary after deleting Song {SongId}", entity.FileId, entity.Id);
+                }
             }
         }
 

@@ -91,6 +91,8 @@ Create a new song (triggers ingestion pipeline).
 }
 ```
 
+`artistId` is optional. Omit it or set it to `null` to create a song without an artist.
+
 **Response:** `201 Created` → `SongDto`
 
 > Creating a song automatically queues a `FullPipeline` ingestion job.
@@ -149,7 +151,7 @@ The following are removed in order before the song row is deleted:
 5. `RatingEntity` rows for the song
 6. `PlayLogEntity` rows for the song
 
-After deletion the parent artist's `SongCount` is decremented.
+After deletion the parent artist's `SongCount` is decremented when `artistId` exists; if `artistId` is null, artist update is skipped.
 
 **Response:** `200 OK`
 
@@ -342,6 +344,8 @@ Generate new nasheed lyrics using AI based on a theme/prompt.
   "lastModified": null
 }
 ```
+
+`artistId` may be `null` for songs without an artist.
 
 ### `IngestionJobDto`
 

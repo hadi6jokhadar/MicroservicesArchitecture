@@ -32,6 +32,7 @@ public class SongEntityConfiguration : IEntityTypeConfiguration<SongEntity>
         builder.HasOne(e => e.Artist)
             .WithMany()
             .HasForeignKey(e => e.ArtistId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -45,8 +45,12 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
 
     public async Task<SongDto> Handle(CreateSongCommand request, CancellationToken cancellationToken)
     {
-        var artist = await _artistRepository.GetByIdAsync(request.ArtistId, cancellationToken)
-            ?? throw new NotFoundException(LocalizationKeys.Exceptions.ArtistNotFound);
+        ArtistEntity? artist = null;
+        if (request.ArtistId.HasValue)
+        {
+            artist = await _artistRepository.GetByIdAsync(request.ArtistId.Value, cancellationToken)
+                ?? throw new NotFoundException(LocalizationKeys.Exceptions.ArtistNotFound);
+        }
 
         var song = SongEntity.Create(request.ArtistId, request.Title, request.FileId);
         song.UpdateLegalComplianceFromAi(request.CopyrightRiskLevel, request.ContentSafetyFlag, request.RiskReason);
@@ -59,9 +63,12 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
         var job = SongIngestionJobEntity.Create(song.Id, request.FileId, IngestionJobType.FullPipeline);
         await _ingestionJobRepository.AddAsync(job, cancellationToken);
 
-        // Increment artist song count
-        artist.IncrementSongCount();
-        await _artistRepository.UpdateAsync(artist, cancellationToken);
+        // Increment artist song count only when song is linked to an artist.
+        if (artist != null)
+        {
+            artist.IncrementSongCount();
+            await _artistRepository.UpdateAsync(artist, cancellationToken);
+        }
 
         _logger.LogInformation("Created Song Id {SongId} with ingestion job Id {JobId}", song.Id, job.Id);
 

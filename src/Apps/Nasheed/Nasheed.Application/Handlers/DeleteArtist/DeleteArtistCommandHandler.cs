@@ -79,7 +79,12 @@ public class DeleteArtistCommandHandler : IRequestHandler<DeleteArtistCommand, b
         _logger.LogInformation("Deleted Artist Id {Id} and {SongCount} songs", entity.Id, songs.Count);
 
         // FileManager cleanup runs after successful commit — fire-and-warn only.
-        var tenantId = _tenantCache.Tenant!.TenantId;
+        var tenantId = _tenantCache.Tenant?.TenantId;
+        if (string.IsNullOrWhiteSpace(tenantId))
+        {
+            _logger.LogWarning("Skipping FileManager cleanup for Artist {ArtistId} because tenant context is unavailable.", entity.Id);
+            return true;
+        }
 
         foreach (var song in songs.Where(s => s.FileId > 0))
         {

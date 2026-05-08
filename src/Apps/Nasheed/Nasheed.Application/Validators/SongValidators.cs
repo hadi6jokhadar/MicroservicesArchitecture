@@ -12,7 +12,8 @@ public class CreateSongCommandValidator : LocalizedValidator<CreateSongCommand>
     public CreateSongCommandValidator(ILocalizationService localizationService) : base(localizationService)
     {
         RuleFor(x => x.ArtistId)
-            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.Required, "ArtistId"));
+            .GreaterThan(0).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, "ArtistId", 0))
+            .When(x => x.ArtistId.HasValue);
 
         RuleFor(x => x.Title)
             .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, "Title"))
