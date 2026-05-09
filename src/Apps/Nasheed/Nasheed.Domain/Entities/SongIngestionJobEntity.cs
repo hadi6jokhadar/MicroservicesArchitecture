@@ -48,12 +48,20 @@ public class SongIngestionJobEntity : BaseEntity
         LastError = null;
     }
 
-    public void MarkFailed(string error, DateTime? nextRetryAt = null)
+    public void MarkFailed(string error, DateTime? nextRetryAt = null, bool retryable = true)
     {
         RetryCount++;
         LastError = error;
-        NextRetryAt = nextRetryAt;
-        JobStatus = RetryCount >= MaxRetries ? IngestionJobStatus.Failed : IngestionJobStatus.Pending;
+
+        if (retryable && RetryCount < MaxRetries)
+        {
+            NextRetryAt = nextRetryAt;
+            JobStatus = IngestionJobStatus.Pending;
+            return;
+        }
+
+        NextRetryAt = null;
+        JobStatus = IngestionJobStatus.Failed;
     }
 
     public void MarkRemoved()

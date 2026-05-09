@@ -29,6 +29,7 @@ public class SongRepository : Repository<SongEntity>, ISongRepository
     {
         var query = _dbSet
             .Include(s => s.Artist)
+            .Include(s => s.MoodTags)
             .Where(e => !e.IsArchived);
 
         if (!string.IsNullOrWhiteSpace(textFilter))

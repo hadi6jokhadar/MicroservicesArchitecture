@@ -112,6 +112,11 @@ Nasheed resolves `x-tenant-id` from `MultiTenancy:TenantId` for embedding calls 
 
 **What gets saved:** `Song.UpdateMetadata(languageCode, lyricsRawLrc, summary, vocalStyle, durationSeconds)`, `Song.UpdateLegalComplianceFromAi(copyrightRiskLevel, contentSafetyFlag, riskReason)`, and mood tags.
 
+Mood tags key compatibility:
+
+- Preferred AI output key is `mood_tags`.
+- Worker also accepts `moodTags` for compatibility.
+
 `legal_compliance` values are expected as strings from AI. The domain layer normalizes casing and only accepts:
 
 - `copyright_risk_level`: `low`, `medium`, `high`

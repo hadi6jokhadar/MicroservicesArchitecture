@@ -67,6 +67,11 @@ Extracts:
 
 Uses AI keys: `nasheed:extraction:settings` + `nasheed:extraction:system-prompt`
 
+`mood_tags` parsing note:
+
+- Worker accepts both `mood_tags` and `moodTags` keys.
+- Values are trimmed, empty entries are ignored, and duplicate values are de-duplicated before persistence.
+
 ### `LyricsVerification`
 
 Optional/manual stage. Takes `LyricsRaw` and produces:
@@ -112,6 +117,7 @@ It currently does not append mood tags or vocal style.
     └──────────────────────────────────────────▼
                  Pending                    Completed
 
+  Running --(MarkFailed(retryable: false))-----------> Failed
   Running --(MarkFailed + RetryCount >= MaxRetries)--> Failed
 
   Any state ──► HardDeleted  (via DELETE /api/ingestion/{id})
@@ -121,8 +127,9 @@ It currently does not append mood tags or vocal style.
 
 - `Pending → Running`: `MarkRunning()` — sets `StartedAt`, `JobStatus = Running`
 - `Running → Completed`: `MarkCompleted()` — sets `CompletedAt`, `JobStatus = Completed`
-- `Running → Pending`: `MarkFailed(error, nextRetryAt)` when `RetryCount < MaxRetries`
-- `Running → Failed`: `MarkFailed(error, nextRetryAt)` when `RetryCount >= MaxRetries`
+- `Running → Pending`: `MarkFailed(error, nextRetryAt, retryable: true)` when `RetryCount < MaxRetries`
+- `Running → Failed`: `MarkFailed(error, nextRetryAt, retryable: true)` when `RetryCount >= MaxRetries`
+- `Running → Failed`: `MarkFailed(error, nextRetryAt, retryable: false)` for non-retryable failures (for example HTTP 400 from AI API)
 - `Failed/Pending → Pending`: `ResetForRetry()` clears `LastError` and `NextRetryAt`
 - `Any → HardDeleted`: row is physically deleted from `SongIngestionJobs`
 
@@ -133,6 +140,7 @@ It currently does not append mood tags or vocal style.
 - Max retries: **3** (configurable via `MaxRetries` on the entity, default 3)
 - Retry delay: fixed 5 minutes (`RetryDelay = TimeSpan.FromMinutes(5)`) when retry is still allowed
 - The worker only picks up `Pending` jobs where `NextRetryAt` is null or in the past
+- Non-retryable failures are marked `Failed` immediately and are not auto-retried
 - A failed job with `RetryCount >= MaxRetries` stays in `Failed` indefinitely
 - Manual retry: `POST /api/ingestion/{id}/retry` calls `ResetForRetry()` and does not reset `RetryCount`
 

@@ -1,7 +1,7 @@
 # File Manager Service
 
 **Purpose:** Complete guide to the File Manager Service - handles file upload, storage, retrieval, and management with multi-tenancy support.  
-**Last Updated:** May 4, 2026  
+**Last Updated:** May 9, 2026  
 **Status:** ✅ Production Ready (v3.1.0)
 
 ---
@@ -24,6 +24,7 @@ The File Manager Service is a centralized file storage microservice using Clean 
 - ✅ **Background Jobs**: Automatic temp file cleanup
 - ✅ **Service-to-Service**: HTTP client for internal service calls
 - ✅ **Security**: File size limits, extension validation, access control
+- ✅ **Audio Normalization**: `.webm` uploads are converted to `.mp3` before persistence
 - ✅ **Usage Tracking**: `FileManagerUsage` table prevents premature cleanup of shared files
 
 ---
@@ -135,6 +136,7 @@ FileManager/
   "FileManagerOptions": {
     "RootStoragePath": "C:\\FileStorage",
     "FilesSavePath": "uploads",
+    "FfmpegPath": "ffmpeg",
     "MaxFileSizeInMB": 50,
     "AllowedExtensions": [".jpg", ".png", ".pdf", ".docx", ".xlsx", ".zip"],
     "TempFileRetentionDays": 30
@@ -276,6 +278,66 @@ Form Data:
   "created": "2026-01-27T10:30:00Z"
 }
 ```
+
+### WebM Upload Conversion
+
+When an uploaded file extension is `.webm`, FileManager converts it to `.mp3` before saving metadata and storage content.
+
+- Conversion flow: write `IFormFile` to a temporary `.webm` file, run FFmpeg, load converted `.mp3`, then delete temp files in `finally`.
+- Stored metadata uses `.mp3` extension and `audio/mpeg` content type after conversion.
+- Non-WebM uploads skip conversion and follow the standard save pipeline.
+- FFmpeg executable resolution order: `FileManagerOptions:FfmpegPath` → system `PATH` → common Windows install paths.
+
+> Runtime dependency: `ffmpeg` must be installed and available in `PATH` on environments running FileManager.
+> Optional override: set `FileManagerOptions:FfmpegPath` to a full executable path, for example `C:/ffmpeg/bin/ffmpeg.exe`.
+
+### FFmpeg Installation (Windows)
+
+Install FFmpeg locally before using `.webm` uploads.
+
+1. Install with `winget`:
+
+```powershell
+winget install --id Gyan.FFmpeg -e
+```
+
+2. Verify installation:
+
+```powershell
+ffmpeg -version
+```
+
+3. Configure FileManager if `ffmpeg` is not on `PATH`:
+
+```json
+"FileManagerOptions": {
+  "FfmpegPath": "C:/ffmpeg/bin/ffmpeg.exe"
+}
+```
+
+4. Restart `FileManager.API` after changing configuration.
+
+### FFmpeg in Docker
+
+When running FileManager in Docker, FFmpeg must be installed inside the container image, then `FfmpegPath` should point to the Linux binary path.
+
+Example Dockerfile snippet:
+
+```dockerfile
+RUN apt-get update \
+    && apt-get install -y ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+Example container configuration:
+
+```json
+"FileManagerOptions": {
+  "FfmpegPath": "/usr/bin/ffmpeg"
+}
+```
+
+If FFmpeg is missing in the container, `.webm` upload conversion will fail.
 
 ### Admin Endpoints (`/api/filemanager/admin/*`)
 

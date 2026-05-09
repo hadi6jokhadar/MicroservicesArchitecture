@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -89,7 +90,7 @@ public class NasheedIngestionWorker : BackgroundService
             var song = await songRepo.GetByIdAsync(job.SongId, cancellationToken);
             if (song == null)
             {
-                job.MarkFailed("Song not found.", null);
+                job.MarkFailed("Song not found.", null, retryable: false);
                 await jobRepo.UpdateAsync(job, cancellationToken);
                 return;
             }
@@ -109,7 +110,7 @@ public class NasheedIngestionWorker : BackgroundService
                     await RunEmbeddingGenerationAsync(job, song, searchDocRepo, aiClient, songRepo, jobRepo, cancellationToken);
                     break;
                 default:
-                    job.MarkFailed($"Unknown job type: {job.JobType}", null);
+                    job.MarkFailed($"Unknown job type: {job.JobType}", null, retryable: false);
                     await jobRepo.UpdateAsync(job, cancellationToken);
                     break;
             }
@@ -117,10 +118,27 @@ public class NasheedIngestionWorker : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Job {JobId} failed.", job.Id);
-            var nextRetry = job.RetryCount < job.MaxRetries ? DateTime.UtcNow.Add(RetryDelay) : (DateTime?)null;
-            job.MarkFailed(ex.Message.Length > 2000 ? ex.Message[..2000] : ex.Message, nextRetry);
+            var retryable = IsRetryableFailure(ex);
+            var nextRetry = retryable && job.RetryCount < job.MaxRetries
+                ? DateTime.UtcNow.Add(RetryDelay)
+                : (DateTime?)null;
+
+            var errorMessage = ex.Message.Length > 2000 ? ex.Message[..2000] : ex.Message;
+            job.MarkFailed(errorMessage, nextRetry, retryable);
             await jobRepo.UpdateAsync(job, cancellationToken);
         }
+    }
+
+    private static bool IsRetryableFailure(Exception exception)
+    {
+        if (exception is HttpRequestException { StatusCode: HttpStatusCode statusCode })
+        {
+            return statusCode == HttpStatusCode.RequestTimeout
+                || statusCode == HttpStatusCode.TooManyRequests
+                || (int)statusCode >= 500;
+        }
+
+        return true;
     }
 
     private async Task RunFullPipelineAsync(
@@ -327,17 +345,21 @@ public class NasheedIngestionWorker : BackgroundService
 
         await songRepo.UpdateAsync(song, cancellationToken);
 
-        if (root.TryGetProperty("mood_tags", out var moodTagsEl) && moodTagsEl.ValueKind == JsonValueKind.Array)
+        var moodTagsEl = ReadArray(root, "mood_tags", "moodTags");
+        if (moodTagsEl.HasValue && moodTagsEl.Value.ValueKind == JsonValueKind.Array)
         {
             await moodTagRepo.DeleteBySongIdAsync(song.Id, cancellationToken);
-            foreach (var tagEl in moodTagsEl.EnumerateArray())
+            var normalizedTags = moodTagsEl.Value
+                .EnumerateArray()
+                .Select(tagEl => tagEl.ValueKind == JsonValueKind.String ? tagEl.GetString()?.Trim() : null)
+                .Where(tag => !string.IsNullOrWhiteSpace(tag))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            foreach (var tag in normalizedTags)
             {
-                var tag = tagEl.GetString();
-                if (!string.IsNullOrEmpty(tag))
-                {
-                    var moodTag = SongMoodTagEntity.Create(song.Id, tag);
-                    await moodTagRepo.AddAsync(moodTag, cancellationToken);
-                }
+                var moodTag = SongMoodTagEntity.Create(song.Id, tag!);
+                await moodTagRepo.AddAsync(moodTag, cancellationToken);
             }
         }
         } // end using (doc)
@@ -384,6 +406,19 @@ public class NasheedIngestionWorker : BackgroundService
         foreach (var name in names)
         {
             if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Object)
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static JsonElement? ReadArray(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array)
             {
                 return value;
             }

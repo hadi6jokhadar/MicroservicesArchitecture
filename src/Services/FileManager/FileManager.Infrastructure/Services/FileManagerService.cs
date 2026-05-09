@@ -10,6 +10,7 @@ using IhsanDev.Shared.Application.Localization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 
 namespace FileManager.Infrastructure.Services;
 
@@ -58,49 +59,222 @@ public class FileManagerService : IFileManagerService
             throw new BadRequestException(LocalizationKeys.Exceptions.FileSizeExceeded);
         }
 
+        var fileToSave = file;
+        var convertedStream = (MemoryStream?)null;
+
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (string.IsNullOrEmpty(extension) || !_options.AllowedExtensions.Contains(extension))
         {
             throw new BadRequestException(LocalizationKeys.Exceptions.InvalidFileType);
         }
 
-        // Map extension to FileType
-        var fileType = MapExtensionToFileType(extension, file.ContentType);
-
-        // Generate unique filename
-        var uniqueFileName = $"{Guid.NewGuid()}{extension}";
-
-        // Build path: {userId}/{category}/{filename} or system/{category}/{filename}
-        var category = fileType.ToString().ToLowerInvariant();
-        var relativePath = userId.HasValue
-            ? Path.Combine(userId.Value.ToString(), category, uniqueFileName)
-            : Path.Combine("system", category, uniqueFileName);
-
-        // Save file to storage
-        var savedPath = await _fileStorage.SaveAsync(file, relativePath, cancellationToken);
-
-        // Create entity
-        var entity = new FileManagerEntity
+        // Convert WebM uploads to MP3 before save.
+        if (string.Equals(extension, ".webm", StringComparison.OrdinalIgnoreCase))
         {
-            Name = Path.GetFileNameWithoutExtension(file.FileName),
-            Extension = extension,
-            Size = file.Length,
-            Path = savedPath,
-            Group = group,
-            Type = fileType,
-            Temp = true,
-            Status = true,
-            IsArchived = false,
-            UserId = userId,
-            Created = DateTime.UtcNow
+            var convertedResult = await ConvertWebMFormFileToMp3Async(file, cancellationToken);
+            fileToSave = convertedResult.ConvertedFile;
+            convertedStream = convertedResult.ConvertedStream;
+            extension = ".mp3";
+        }
+
+        try
+        {
+            // Map extension to FileType
+            var fileType = MapExtensionToFileType(extension, fileToSave.ContentType);
+
+            // Generate unique filename
+            var uniqueFileName = $"{Guid.NewGuid()}{extension}";
+
+            // Build path: {userId}/{category}/{filename} or system/{category}/{filename}
+            var category = fileType.ToString().ToLowerInvariant();
+            var relativePath = userId.HasValue
+                ? Path.Combine(userId.Value.ToString(), category, uniqueFileName)
+                : Path.Combine("system", category, uniqueFileName);
+
+            // Save file to storage
+            var savedPath = await _fileStorage.SaveAsync(fileToSave, relativePath, cancellationToken);
+
+            // Create entity
+            var entity = new FileManagerEntity
+            {
+                Name = Path.GetFileNameWithoutExtension(fileToSave.FileName),
+                Extension = extension,
+                Size = fileToSave.Length,
+                Path = savedPath,
+                Group = group,
+                Type = fileType,
+                Temp = true,
+                Status = true,
+                IsArchived = false,
+                UserId = userId,
+                Created = DateTime.UtcNow
+            };
+
+            var savedEntity = await _repository.AddAsync(entity, cancellationToken);
+
+            _logger.LogInformation("File saved successfully: ID={Id}, Name={Name}, Path={Path}",
+                savedEntity.Id, savedEntity.Name, savedEntity.Path);
+
+            return FileManagerResponse.MapFrom(savedEntity, _urlPrefix);
+        }
+        finally
+        {
+            convertedStream?.Dispose();
+        }
+    }
+
+    private async Task<(IFormFile ConvertedFile, MemoryStream ConvertedStream)> ConvertWebMFormFileToMp3Async(
+        IFormFile webmFile,
+        CancellationToken cancellationToken)
+    {
+        var tempInputPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.webm");
+        var tempOutputPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.mp3");
+
+        try
+        {
+            await using (var tempInputStream = new FileStream(tempInputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await webmFile.CopyToAsync(tempInputStream, cancellationToken);
+            }
+
+            var ffmpegExecutable = ResolveFfmpegExecutablePath();
+
+            if (string.IsNullOrWhiteSpace(ffmpegExecutable))
+            {
+                _logger.LogError("FFmpeg executable was not found. Configure FileManagerOptions:FfmpegPath or install ffmpeg and ensure it is available in PATH.");
+                throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+            }
+
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = ffmpegExecutable,
+                Arguments = $"-y -i \"{tempInputPath}\" -vn -acodec libmp3lame \"{tempOutputPath}\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = new Process { StartInfo = processStartInfo };
+            process.Start();
+
+            var stdOut = await process.StandardOutput.ReadToEndAsync();
+            var stdErr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync(cancellationToken);
+
+            if (process.ExitCode != 0 || !File.Exists(tempOutputPath))
+            {
+                _logger.LogError(
+                    "FFmpeg conversion failed for file {FileName}. ExitCode={ExitCode}, StdOut={StdOut}, StdErr={StdErr}",
+                    webmFile.FileName,
+                    process.ExitCode,
+                    stdOut,
+                    stdErr);
+
+                throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+            }
+
+            var convertedBytes = await File.ReadAllBytesAsync(tempOutputPath, cancellationToken);
+            var convertedStream = new MemoryStream(convertedBytes);
+            var convertedFileName = $"{Path.GetFileNameWithoutExtension(webmFile.FileName)}.mp3";
+
+            var convertedFile = new FormFile(convertedStream, 0, convertedStream.Length, "file", convertedFileName)
+            {
+                Headers = new HeaderDictionary(),
+                ContentType = "audio/mpeg"
+            };
+
+            return (convertedFile, convertedStream);
+        }
+        catch (Exception ex) when (ex is not AppException)
+        {
+            _logger.LogError(ex, "Failed to convert webm file {FileName} to mp3", webmFile.FileName);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempInputPath))
+                {
+                    File.Delete(tempInputPath);
+                }
+
+                if (File.Exists(tempOutputPath))
+                {
+                    File.Delete(tempOutputPath);
+                }
+            }
+            catch (Exception cleanupEx)
+            {
+                _logger.LogWarning(cleanupEx, "Failed to cleanup temporary conversion files for {FileName}", webmFile.FileName);
+            }
+        }
+    }
+
+    private string? ResolveFfmpegExecutablePath()
+    {
+        if (!string.IsNullOrWhiteSpace(_options.FfmpegPath))
+        {
+            var configuredPath = _options.FfmpegPath.Trim();
+
+            if (File.Exists(configuredPath))
+            {
+                return configuredPath;
+            }
+
+            if (string.Equals(configuredPath, "ffmpeg", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(configuredPath, "ffmpeg.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                var fromPath = FindExecutableInPath("ffmpeg.exe") ?? FindExecutableInPath("ffmpeg");
+                if (!string.IsNullOrWhiteSpace(fromPath))
+                {
+                    return fromPath;
+                }
+            }
+        }
+
+        var executableFromPath = FindExecutableInPath("ffmpeg.exe") ?? FindExecutableInPath("ffmpeg");
+        if (!string.IsNullOrWhiteSpace(executableFromPath))
+        {
+            return executableFromPath;
+        }
+
+        var commonWindowsCandidates = new[]
+        {
+            @"C:\ffmpeg\bin\ffmpeg.exe",
+            @"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+            @"C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe"
         };
 
-        var savedEntity = await _repository.AddAsync(entity, cancellationToken);
+        return commonWindowsCandidates.FirstOrDefault(File.Exists);
+    }
 
-        _logger.LogInformation("File saved successfully: ID={Id}, Name={Name}, Path={Path}",
-            savedEntity.Id, savedEntity.Name, savedEntity.Path);
+    private static string? FindExecutableInPath(string executableName)
+    {
+        var pathValue = Environment.GetEnvironmentVariable("PATH");
+        if (string.IsNullOrWhiteSpace(pathValue))
+        {
+            return null;
+        }
 
-        return FileManagerResponse.MapFrom(savedEntity, _urlPrefix);
+        foreach (var pathEntry in pathValue.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            try
+            {
+                var candidate = Path.Combine(pathEntry.Trim(), executableName);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+            catch
+            {
+                // Ignore malformed PATH entries.
+            }
+        }
+
+        return null;
     }
 
     public async Task<FileManagerResponse?> GetFileByIdAsync(int id, CancellationToken cancellationToken = default)

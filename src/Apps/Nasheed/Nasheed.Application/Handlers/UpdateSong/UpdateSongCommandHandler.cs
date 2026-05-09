@@ -71,7 +71,7 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
         }
 
         _logger.LogInformation("Updated Song Id {Id}", entity.Id);
-        var dto = SongDto.MapFrom(entity);
+        var dto = SongDto.MapFrom(entity, entity.MoodTags?.Select(t => t.Tag).ToList() ?? []);
         await _fileManagerHelper.EnrichSongWithFileAsync(dto, cancellationToken);
         return dto;
     }

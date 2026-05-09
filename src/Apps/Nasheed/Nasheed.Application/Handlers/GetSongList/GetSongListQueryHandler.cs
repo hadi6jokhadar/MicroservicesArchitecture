@@ -29,7 +29,9 @@ public class GetSongListQueryHandler : IRequestHandler<GetSongListQuery, Paginat
             request.PageSize,
             cancellationToken);
 
-        var dtos = items.Select(s => SongDto.MapFrom(s)).ToList();
+        var dtos = items
+            .Select(s => SongDto.MapFrom(s, s.MoodTags?.Select(t => t.Tag).ToList() ?? []))
+            .ToList();
         await _fileManagerHelper.EnrichSongsWithFilesAsync(dtos, cancellationToken);
 
         return new PaginatedList<SongDto>

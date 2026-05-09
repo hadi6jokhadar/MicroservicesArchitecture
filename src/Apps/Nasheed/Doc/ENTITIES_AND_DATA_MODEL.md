@@ -183,15 +183,16 @@ Tracks each AI processing job with full retry state.
 | `CompletedAt` | DateTime?            | When successfully completed                |
 | `RemovedAt`   | DateTime?            | When manually removed                      |
 
-**Domain methods:** `Create(songId, fileId, jobType, maxRetries=3)`, `MarkRunning()`, `MarkCompleted()`, `MarkFailed(error, nextRetryAt)`, `MarkRemoved()`, `ResetForRetry()`
+**Domain methods:** `Create(songId, fileId, jobType, maxRetries=3)`, `MarkRunning()`, `MarkCompleted()`, `MarkFailed(error, nextRetryAt, retryable=true)`, `MarkRemoved()`, `ResetForRetry()`
 
 > **Unique index:** `(SongId, JobType)` has a unique index guarding against duplicate concurrent jobs for the same song+type pair. The worker checks for an existing pending/running job before inserting a new one.
 
 `MarkFailed` behavior is important:
 
 - increments `RetryCount`
-- sets `JobStatus = Pending` while `RetryCount < MaxRetries`
-- sets `JobStatus = Failed` when `RetryCount >= MaxRetries`
+- sets `JobStatus = Pending` while `retryable=true` and `RetryCount < MaxRetries`
+- sets `JobStatus = Failed` when `retryable=false`
+- sets `JobStatus = Failed` when `retryable=true` and `RetryCount >= MaxRetries`
 
 ---
 

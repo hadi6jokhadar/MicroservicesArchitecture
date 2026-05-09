@@ -82,7 +82,7 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
             }
         }
 
-        var dto = SongDto.MapFrom(song);
+        var dto = SongDto.MapFrom(song, song.MoodTags?.Select(t => t.Tag).ToList() ?? []);
         await _fileManagerHelper.EnrichSongWithFileAsync(dto, cancellationToken);
         return dto;
     }
