@@ -99,7 +99,7 @@ async def list_token_usage_logs(
     if created_to is not None:
         query = query.where(AiTokenUsageLog.CreatedAt <= created_to)
 
-    query = query.order_by(AiTokenUsageLog.CreatedAt.desc()).offset(skip).limit(limit)
+    query = query.order_by(AiTokenUsageLog.CreatedAt.desc(), AiTokenUsageLog.Id.desc()).offset(skip).limit(limit)
 
     result = await db.execute(query)
     return result.scalars().all()

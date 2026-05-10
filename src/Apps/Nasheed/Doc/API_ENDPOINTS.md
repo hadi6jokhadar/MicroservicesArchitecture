@@ -144,8 +144,8 @@ Update song metadata allowed by command contract.
 
 Update response uses the same `SongDto` shape as `GET /api/songs/{id}` and list items from `GET /api/songs`, including `moodTags` and file metadata when available.
 
-> If title, lyrics, summary, language, vocal style, duration, or legal compliance values change, an `EmbeddingGeneration` job is queued automatically.
-> `artistId` change is rejected by handler logic.
+> If title, artist, lyrics, summary, language, vocal style, duration, or legal compliance values change, an `EmbeddingGeneration` job is queued automatically.
+> `artistId` can be changed to another artist ID or set to `null` to unassign the artist from the song.
 
 ---
 

@@ -86,6 +86,11 @@ public class SongEntity : BaseEntity
         if (title != null) Title = title;
     }
 
+    public void UpdateArtist(int? artistId)
+    {
+        ArtistId = artistId;
+    }
+
     public void UpdateLegalComplianceFromAi(string? copyrightRiskLevel, string? contentSafetyFlag, string? riskReason)
     {
         var normalizedRiskLevel = Normalize(copyrightRiskLevel);

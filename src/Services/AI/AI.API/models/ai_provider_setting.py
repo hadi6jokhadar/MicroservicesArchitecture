@@ -1,5 +1,7 @@
 import uuid
-from sqlalchemy import String, Enum, UniqueConstraint, Float, Integer, Boolean
+from datetime import datetime
+from sqlalchemy import String, Enum, UniqueConstraint, Float, Integer, Boolean, DateTime
+from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from core.database import Base
@@ -40,3 +42,4 @@ class AiProviderSettings(Base):
     AudioDataMode: Mapped[AudioDataModeEnum | None] = mapped_column(
         Enum(AudioDataModeEnum, name="audiodatamodeEnum"), nullable=True, default=None
     )
+    CreatedAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

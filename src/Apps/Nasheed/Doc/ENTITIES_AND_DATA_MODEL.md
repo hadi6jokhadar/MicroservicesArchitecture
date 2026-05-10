@@ -91,7 +91,7 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 | `SearchIndexStatus` | `SearchIndexStatus`             | Embedding/index state                                    |
 | `PublishedAt`       | DateTime?                       | When the song was published                              |
 
-**Domain methods:** `Create(artistId?, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `UpdateLegalComplianceFromAi(copyrightRiskLevel?, contentSafetyFlag?, riskReason?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateTitle(title)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`
+**Domain methods:** `Create(artistId?, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `UpdateLegalComplianceFromAi(copyrightRiskLevel?, contentSafetyFlag?, riskReason?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateTitle(title)`, `UpdateArtist(artistId?)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`
 
 `ArtistId` is optional. Songs can be created without linking an artist.
 

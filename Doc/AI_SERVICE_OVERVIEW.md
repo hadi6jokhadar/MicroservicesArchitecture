@@ -338,6 +338,7 @@ List endpoint behavior for both `GET /api/v1/settings/` and `GET /api/v1/prompts
   - With tenant context: returns only rows for the resolved tenant.
   - Without tenant context: returns all rows where `TenantId` is not null.
 - `scope=global`: returns only rows where `TenantId` is null.
+- Ordering for list endpoints that sort by creation time is newest rows first by `CreatedAt` descending, with `Id` descending as a deterministic tie-breaker.
 
 ## Runtime and Startup
 

@@ -100,6 +100,7 @@ async def get_settings(
         if tenant_id:
             query = query.where(or_(AiProviderSettings.TenantId == tenant_id, AiProviderSettings.TenantId.is_(None)))
 
+    query = query.order_by(AiProviderSettings.CreatedAt.desc(), AiProviderSettings.Id.desc())
     result = await db.execute(query)
     return result.scalars().all()
 

@@ -15,17 +15,20 @@ namespace Nasheed.Application.Handlers.UpdateSong;
 public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongDto>
 {
     private readonly ISongRepository _repository;
+    private readonly IArtistRepository _artistRepository;
     private readonly ISongIngestionJobRepository _jobRepository;
     private readonly NasheedFileManagerHelper _fileManagerHelper;
     private readonly ILogger<UpdateSongCommandHandler> _logger;
 
     public UpdateSongCommandHandler(
         ISongRepository repository,
+        IArtistRepository artistRepository,
         ISongIngestionJobRepository jobRepository,
         NasheedFileManagerHelper fileManagerHelper,
         ILogger<UpdateSongCommandHandler> logger)
     {
         _repository = repository;
+        _artistRepository = artistRepository;
         _jobRepository = jobRepository;
         _fileManagerHelper = fileManagerHelper;
         _logger = logger;
@@ -44,6 +47,7 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
         var summaryChanged = request.Summary != null && !string.Equals(request.Summary, entity.Summary, StringComparison.Ordinal);
         var vocalStyleChanged = request.VocalStyle != null && !string.Equals(request.VocalStyle, entity.VocalStyle, StringComparison.Ordinal);
         var durationChanged = request.DurationSeconds.HasValue && request.DurationSeconds != entity.DurationSeconds;
+        var artistChanged = request.ArtistId != entity.ArtistId;
         var existingRiskLevel = entity.LegalCompliance?.CopyrightRiskLevel;
         var existingSafetyFlag = entity.LegalCompliance?.ContentSafetyFlag;
         var existingRiskReason = entity.LegalCompliance?.RiskReason;
@@ -53,9 +57,37 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
         entity.UpdateVerifiedLyrics(request.LyricsVerifiedLrc, request.LyricsPlainText);
         entity.UpdateLegalComplianceFromAi(request.CopyrightRiskLevel, request.ContentSafetyFlag, request.RiskReason);
 
-        if (request.ArtistId.HasValue && request.ArtistId != entity.ArtistId)
+        if (artistChanged)
         {
-            throw new BadRequestException(LocalizationKeys.Exceptions.SongArtistChangeNotSupported);
+            ArtistEntity? newArtist = null;
+            if (request.ArtistId.HasValue)
+            {
+                newArtist = await _artistRepository.GetByIdAsync(request.ArtistId.Value, cancellationToken)
+                    ?? throw new NotFoundException(LocalizationKeys.Exceptions.ArtistNotFound);
+            }
+
+            if (entity.ArtistId.HasValue)
+            {
+                var oldArtist = entity.Artist;
+                if (oldArtist == null)
+                {
+                    oldArtist = await _artistRepository.GetByIdAsync(entity.ArtistId.Value, cancellationToken);
+                }
+
+                if (oldArtist != null)
+                {
+                    oldArtist.DecrementSongCount();
+                    await _artistRepository.UpdateAsync(oldArtist, cancellationToken);
+                }
+            }
+
+            entity.UpdateArtist(request.ArtistId);
+
+            if (newArtist != null)
+            {
+                newArtist.IncrementSongCount();
+                await _artistRepository.UpdateAsync(newArtist, cancellationToken);
+            }
         }
 
         await _repository.UpdateAsync(entity, cancellationToken);
@@ -65,7 +97,7 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
             !string.Equals(existingSafetyFlag, entity.LegalCompliance?.ContentSafetyFlag, StringComparison.Ordinal) ||
             !string.Equals(existingRiskReason, entity.LegalCompliance?.RiskReason, StringComparison.Ordinal);
 
-        if (titleChanged || languageChanged || lyricsRawChanged || lyricsVerifiedChanged || lyricsPlainTextChanged || summaryChanged || vocalStyleChanged || durationChanged || legalComplianceChanged)
+        if (titleChanged || languageChanged || lyricsRawChanged || lyricsVerifiedChanged || lyricsPlainTextChanged || summaryChanged || vocalStyleChanged || durationChanged || legalComplianceChanged || artistChanged)
         {
             await QueueEmbeddingGenerationAsync(entity, cancellationToken);
         }

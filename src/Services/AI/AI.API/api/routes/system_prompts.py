@@ -75,6 +75,7 @@ async def get_system_prompts(
         if tenant_id:
             query = query.where(or_(AiSystemPrompt.TenantId == tenant_id, AiSystemPrompt.TenantId.is_(None)))
 
+    query = query.order_by(AiSystemPrompt.CreatedAt.desc(), AiSystemPrompt.Id.desc())
     result = await db.execute(query)
     return result.scalars().all()
 

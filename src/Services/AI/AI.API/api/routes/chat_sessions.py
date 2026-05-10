@@ -58,7 +58,7 @@ async def list_chat_sessions(
     if created_to is not None:
         query = query.where(AiChatSession.CreatedAt <= created_to)
 
-    query = query.order_by(AiChatSession.CreatedAt.desc()).offset(skip).limit(limit)
+    query = query.order_by(AiChatSession.CreatedAt.desc(), AiChatSession.Id.desc()).offset(skip).limit(limit)
 
     result = await db.execute(query)
     return result.scalars().all()
