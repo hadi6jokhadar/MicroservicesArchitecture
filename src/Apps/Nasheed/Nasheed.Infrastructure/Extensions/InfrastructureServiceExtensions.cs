@@ -1,7 +1,6 @@
 using IhsanDev.Shared.Infrastructure.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Http.Resilience;
 using Nasheed.Application.Interfaces;
 using Nasheed.Domain.Interfaces;
 using Nasheed.Infrastructure.Persistence;
@@ -34,13 +33,14 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<ISongMoodTagRepository, SongMoodTagRepository>();
         services.AddScoped<ISongSearchDocumentRepository, SongSearchDocumentRepository>();
 
-        // AI API Client (HTTP) with standard resilience (3 retries + circuit breaker)
+        // AI API Client (HTTP) without framework timeout policies.
+        // Long-running model calls must not be canceled by a fixed request timeout.
         services.AddHttpClient<IAiApiClient, AiApiClientService>(client =>
         {
             var baseUrl = configuration["Services:AiService:BaseUrl"]
                 ?? "http://localhost:5008";
             client.BaseAddress = new Uri(baseUrl);
-        }).AddStandardResilienceHandler();
+        });
 
         // Tenant cache singleton — holds the single tenant's DB config at runtime
         services.AddSingleton<INasheedTenantCache, NasheedTenantCache>();

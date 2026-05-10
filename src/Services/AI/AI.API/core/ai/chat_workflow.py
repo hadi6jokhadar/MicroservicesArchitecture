@@ -75,6 +75,7 @@ class ChatRuntimeContext(TypedDict):
     top_p: Optional[float]
     frequency_penalty: Optional[float]
     presence_penalty: Optional[float]
+    seed: Optional[int]
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +372,8 @@ async def build_chat_runtime_context(
         request, ai_settings, system_prompt, response_format, max_completion_tokens, tenant_id
     )
 
-    return {
+    # Build base context
+    ctx = {
         "user_id": user_id,
         "session_id": session_id,
         "litellm_messages": list(orchestration_state["litellm_messages"]),
@@ -388,3 +390,17 @@ async def build_chat_runtime_context(
         "frequency_penalty": ai_settings.FrequencyPenalty,
         "presence_penalty": ai_settings.PresencePenalty,
     }
+
+    # Qwen/seed logic: If provider is Qwen and temperature is set, set seed=42
+    from core.ai.multimodal_utils import QWEN_RAW_PROVIDERS
+    provider_raw = str(getattr(ai_settings, "Provider", "")).strip().lower()
+    if not provider_raw and "model_name" in ctx:
+        model_name = str(ctx["model_name"]).lower()
+        for qwen_key in QWEN_RAW_PROVIDERS:
+            if qwen_key in model_name:
+                provider_raw = qwen_key
+                break
+    if provider_raw in QWEN_RAW_PROVIDERS and ai_settings.Temperature is not None:
+        ctx["seed"] = 42
+
+    return ctx

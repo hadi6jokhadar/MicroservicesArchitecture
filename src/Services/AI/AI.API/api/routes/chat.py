@@ -104,6 +104,8 @@ async def chat_stream(
                 completion_kwargs["max_tokens"] = ctx["max_completion_tokens"]
             if ctx["temperature"] is not None:
                 completion_kwargs["temperature"] = ctx["temperature"]
+            if "seed" in ctx:
+                completion_kwargs["seed"] = ctx["seed"]
             if ctx["top_p"] is not None:
                 completion_kwargs["top_p"] = ctx["top_p"]
             if ctx["frequency_penalty"] is not None:
@@ -211,6 +213,8 @@ async def chat_single_response(
             completion_kwargs["max_tokens"] = ctx["max_completion_tokens"]
         if ctx["temperature"] is not None:
             completion_kwargs["temperature"] = ctx["temperature"]
+        if "seed" in ctx:
+            completion_kwargs["seed"] = ctx["seed"]
         if ctx["top_p"] is not None:
             completion_kwargs["top_p"] = ctx["top_p"]
         if ctx["frequency_penalty"] is not None:

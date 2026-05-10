@@ -1,6 +1,6 @@
 # Nasheed Service — AI Integration
 
-**Last Updated:** May 7, 2026
+**Last Updated:** May 10, 2026
 
 ---
 
@@ -59,6 +59,8 @@ Response:
 Nasheed always sends `x-tenant-id` on chat requests. The tenant id is resolved from `MultiTenancy:TenantId` (single-tenant configuration). If it is missing, Nasheed throws an `InvalidOperationException` before calling AI.API.
 
 Metadata extraction jobs now call AI.API with `settings_key`, `system_prompt_key`, a user message, and `file_ids` populated from the song `FileId`.
+
+Nasheed AI chat requests do not use framework default HTTP resilience timeout policies. This prevents long-running model operations from being canceled by a fixed 30-second client-side timeout.
 
 `AI.API` requires `file_ids` as `int[]`. Nasheed stores `FileId` as `int`, so worker calls pass file ids directly.
 
@@ -185,15 +187,16 @@ Refer to `Doc/AI_SERVICE_CHAT_INTEGRATION_GUIDE.md` for how AI.API stores and re
 
 ## Troubleshooting
 
-| Error                                      | Likely Cause                                                                   |
-| ------------------------------------------ | ------------------------------------------------------------------------------ |
-| `404` from AI.API during ingestion         | Key not found in AI.API DB for this tenant                                     |
-| `401` from AI.API                          | `X-Service-Secret` does not match AI.API's configured secret                   |
-| `403` from AI.API                          | `X-Service-Name` is not in AI.API `ServiceCommunication:AllowedServices` list  |
-| `InvalidOperationException` before AI call | `MultiTenancy:TenantId` is missing in Nasheed configuration                    |
-| Ingestion job stays `Pending`              | `NasheedIngestionWorker` not started — check if `INasheedTenantCache` is ready |
-| Empty embedding / zero scores              | Embedding model key misconfigured or empty response from AI.API                |
-| Generation endpoint returns 500            | Check that extraction chat keys exist and AI.API is running                    |
+| Error                                      | Likely Cause                                                                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `404` from AI.API during ingestion         | Key not found in AI.API DB for this tenant                                                                         |
+| `401` from AI.API                          | `X-Service-Secret` does not match AI.API's configured secret                                                       |
+| `403` from AI.API                          | `X-Service-Name` is not in AI.API `ServiceCommunication:AllowedServices` list                                      |
+| `InvalidOperationException` before AI call | `MultiTenancy:TenantId` is missing in Nasheed configuration                                                        |
+| Ingestion job stays `Pending`              | `NasheedIngestionWorker` not started — check if `INasheedTenantCache` is ready                                     |
+| `TimeoutRejectedException` with `00:00:30` | Old timeout policy behavior. Nasheed now sends AI requests without the default 30-second framework timeout policy. |
+| Empty embedding / zero scores              | Embedding model key misconfigured or empty response from AI.API                                                    |
+| Generation endpoint returns 500            | Check that extraction chat keys exist and AI.API is running                                                        |
 
 Additional practical note:
 
