@@ -239,6 +239,7 @@ app.UseAuthorization();
 // Endpoints
 // ============================================
 app.MapCategoryEndpoints();
+app.MapCategoryInternalEndpoints();
 
 app.MapGet("/", () => new
 {

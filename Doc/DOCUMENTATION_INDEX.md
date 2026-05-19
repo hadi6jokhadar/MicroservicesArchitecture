@@ -40,6 +40,20 @@ Files are organized by category. Each entry includes:
 
 ---
 
+## 🔄 Architecture Patterns
+
+### EVENT_DRIVEN_PUBLISHER_PATTERN.md
+
+**Description:** Generic step-by-step guide for adding Redis Pub/Sub event publishing to **any** service. Covers: event message record, publisher interface, Redis implementation, no-op fallback, DI registration, and handler wiring. Use `{ServiceName}` placeholders throughout. Reference implementation is the Category service.  
+**Read When:**
+
+- Adding event publishing to a new or existing service
+- A service needs to broadcast state changes for other services to consume
+- Following up on `CATEGORY_EVENT_DRIVEN_CONSUMER_GUIDE.md` to implement the publisher side
+- Replicating the Category service pub/sub pattern in another service
+
+---
+
 ## 🏗️ Core Architecture (READ FIRST FOR NEW AI AGENTS)
 
 ### DATABASE_PER_TENANT_ARCHITECTURE.md
@@ -159,6 +173,16 @@ Files are organized by category. Each entry includes:
 - Implementing the move-category operation
 - Debugging stale cache or missing file enrichment
 - Adding or consuming category admin endpoints
+
+### CATEGORY_EVENT_DRIVEN_CONSUMER_GUIDE.md
+
+**Description:** Step-by-step guide for any service that needs categories without calling the Category service at runtime. Covers: Redis Pub/Sub event format, `CategorySnapshotEntity` setup, EF migration, background subscriber service, first-deployment backfill, and handling Move events.  
+**Read When:**
+
+- Building a new service (e.g. Item, Product, Song) that needs categories
+- Implementing the event-driven local snapshot pattern
+- Understanding what events the Category service publishes and on which Redis channels
+- Debugging stale category snapshots in a consumer service
 
 ---
 

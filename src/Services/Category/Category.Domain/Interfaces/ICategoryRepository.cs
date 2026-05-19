@@ -11,6 +11,9 @@ public interface ICategoryRepository : IRepository<CategoryEntity>
         int pageSize = 10,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Returns all non-archived categories without pagination. Used for startup snapshot sync.</summary>
+    Task<List<CategoryEntity>> GetAllFlatAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Returns all root nodes (parentId == null) with their full subtree loaded.</summary>
     Task<List<CategoryEntity>> GetFullTreeAsync(CancellationToken cancellationToken = default);
 

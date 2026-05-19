@@ -5,6 +5,7 @@ using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Category.Application.Commands;
+using Category.Application.Events;
 using Category.Domain.Interfaces;
 
 namespace Category.Application.Handlers.DeleteCategory;
@@ -15,6 +16,7 @@ public class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategoryComman
     private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ITenantContext _tenantContext;
     private readonly ICacheService _cache;
+    private readonly ICategoryEventPublisher _eventPublisher;
     private readonly ILogger<DeleteCategoryCommandHandler> _logger;
 
     public DeleteCategoryCommandHandler(
@@ -22,12 +24,14 @@ public class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategoryComman
         IFileManagerServiceClient fileManagerClient,
         ITenantContext tenantContext,
         ICacheService cache,
+        ICategoryEventPublisher eventPublisher,
         ILogger<DeleteCategoryCommandHandler> logger)
     {
         _repository = repository;
         _fileManagerClient = fileManagerClient;
         _tenantContext = tenantContext;
         _cache = cache;
+        _eventPublisher = eventPublisher;
         _logger = logger;
     }
 
@@ -36,6 +40,9 @@ public class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategoryComman
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException($"Category with Id '{request.Id}' not found.");
 
+        // Queue the outbox event BEFORE DeleteAsync so both the soft-delete and the
+        // outbox row are committed in the same SaveChangesAsync call — true atomicity.
+        await _eventPublisher.PublishAsync(entity, CategoryEventType.Deleted, _tenantContext.TenantId, cancellationToken);
         await _repository.DeleteAsync(entity, cancellationToken);
 
         _logger.LogInformation("Deleted Category Id {Id}", entity.Id);

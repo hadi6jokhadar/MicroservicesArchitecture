@@ -6,6 +6,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Category.Application.Commands;
 using Category.Application.DTOs;
+using Category.Application.Events;
 using Category.Application.Helpers;
 using Category.Domain.Entities;
 using Category.Domain.Interfaces;
@@ -20,6 +21,7 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
     private readonly CategoryFileManagerHelper _fileManagerHelper;
     private readonly ITenantContext _tenantContext;
     private readonly ICacheService _cache;
+    private readonly ICategoryEventPublisher _eventPublisher;
     private readonly ILogger<CreateCategoryCommandHandler> _logger;
 
     public CreateCategoryCommandHandler(
@@ -28,6 +30,7 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
         CategoryFileManagerHelper fileManagerHelper,
         ITenantContext tenantContext,
         ICacheService cache,
+        ICategoryEventPublisher eventPublisher,
         ILogger<CreateCategoryCommandHandler> logger)
     {
         _repository = repository;
@@ -35,6 +38,7 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
         _fileManagerHelper = fileManagerHelper;
         _tenantContext = tenantContext;
         _cache = cache;
+        _eventPublisher = eventPublisher;
         _logger = logger;
     }
 
@@ -76,6 +80,10 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
 
         // Recalculate path using Uri after entity is persisted
         entity.RecalculatePath(parentPath);
+
+        // Queue the outbox event BEFORE UpdateAsync so both the path update and the
+        // outbox row are committed in the same SaveChangesAsync call — true atomicity.
+        await _eventPublisher.PublishAsync(entity, CategoryEventType.Created, _tenantContext.TenantId, cancellationToken);
         await _repository.UpdateAsync(entity, cancellationToken);
 
         _logger.LogInformation("Created Category Id {Id}, Slug {Slug}, Uri {Uri}", entity.Id, entity.Slug, entity.Uri);

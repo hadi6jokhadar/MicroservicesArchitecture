@@ -29,6 +29,12 @@ public class CategoryDbContext : BaseDbContext
 
     public DbSet<CategoryEntity> Categories => Set<CategoryEntity>();
 
+    /// <summary>
+    /// Transactional outbox — pending Redis Pub/Sub events waiting to be delivered.
+    /// Written by <c>OutboxCategoryEventPublisher</c>; consumed by <c>OutboxEventProcessorService</c>.
+    /// </summary>
+    public DbSet<OutboxEventEntity> OutboxEvents => Set<OutboxEventEntity>();
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if (optionsBuilder.IsConfigured)

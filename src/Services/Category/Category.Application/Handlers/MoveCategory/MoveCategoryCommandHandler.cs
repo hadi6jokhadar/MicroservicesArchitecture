@@ -1,9 +1,11 @@
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
+using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Category.Application.Commands;
 using Category.Application.DTOs;
+using Category.Application.Events;
 using Category.Domain.Interfaces;
 
 namespace Category.Application.Handlers.MoveCategory;
@@ -16,15 +18,21 @@ public class MoveCategoryCommandHandler : IRequestHandler<MoveCategoryCommand, C
 {
     private readonly ICategoryRepository _repository;
     private readonly ICacheService _cache;
+    private readonly ICategoryEventPublisher _eventPublisher;
+    private readonly ITenantContext _tenantContext;
     private readonly ILogger<MoveCategoryCommandHandler> _logger;
 
     public MoveCategoryCommandHandler(
         ICategoryRepository repository,
         ICacheService cache,
+        ICategoryEventPublisher eventPublisher,
+        ITenantContext tenantContext,
         ILogger<MoveCategoryCommandHandler> logger)
     {
         _repository = repository;
         _cache = cache;
+        _eventPublisher = eventPublisher;
+        _tenantContext = tenantContext;
         _logger = logger;
     }
 
@@ -54,6 +62,9 @@ public class MoveCategoryCommandHandler : IRequestHandler<MoveCategoryCommand, C
         entity.MoveTo(request.NewParentId, newParentPath, newParentDepth);
         entity.RecalculatePath(newParentPath);
 
+        // Queue the outbox event BEFORE UpdateAsync so both the entity change and the
+        // outbox row are committed in the same SaveChangesAsync call — true atomicity.
+        await _eventPublisher.PublishAsync(entity, CategoryEventType.Updated, _tenantContext.TenantId, cancellationToken);
         await _repository.UpdateAsync(entity, cancellationToken);
 
         // Propagate path/depth changes to all descendants

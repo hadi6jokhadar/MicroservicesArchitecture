@@ -7,6 +7,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Category.Application.Commands;
 using Category.Application.DTOs;
+using Category.Application.Events;
 using Category.Application.Helpers;
 using Category.Domain.Interfaces;
 
@@ -19,6 +20,7 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
     private readonly CategoryFileManagerHelper _fileManagerHelper;
     private readonly ITenantContext _tenantContext;
     private readonly ICacheService _cache;
+    private readonly ICategoryEventPublisher _eventPublisher;
     private readonly ILogger<UpdateCategoryCommandHandler> _logger;
 
     public UpdateCategoryCommandHandler(
@@ -27,6 +29,7 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
         CategoryFileManagerHelper fileManagerHelper,
         ITenantContext tenantContext,
         ICacheService cache,
+        ICategoryEventPublisher eventPublisher,
         ILogger<UpdateCategoryCommandHandler> logger)
     {
         _repository = repository;
@@ -34,6 +37,7 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
         _fileManagerHelper = fileManagerHelper;
         _tenantContext = tenantContext;
         _cache = cache;
+        _eventPublisher = eventPublisher;
         _logger = logger;
     }
 
@@ -75,12 +79,15 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
             entity.RecalculatePath(parentPath);
         }
 
+        // Queue the outbox event BEFORE UpdateAsync so both the entity change and the
+        // outbox row are committed in the same SaveChangesAsync call — true atomicity.
+        var tenantId = _tenantContext.TenantId;
+        await _eventPublisher.PublishAsync(entity, CategoryEventType.Updated, tenantId, cancellationToken);
         await _repository.UpdateAsync(entity, cancellationToken);
 
         _logger.LogInformation("Updated Category Id {Id}", entity.Id);
 
         // Handle file usage tracking changes
-        var tenantId = _tenantContext.TenantId;
 
         if (request.IconFileId.HasValue && oldIconFileId != request.IconFileId)
         {

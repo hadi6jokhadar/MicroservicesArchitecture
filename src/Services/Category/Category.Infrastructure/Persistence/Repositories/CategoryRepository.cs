@@ -42,6 +42,16 @@ public class CategoryRepository : Repository<CategoryEntity>, ICategoryRepositor
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<CategoryEntity>> GetAllFlatAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .Where(e => !e.IsArchived)
+            .OrderBy(e => e.Depth)
+            .ThenBy(e => e.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<List<CategoryEntity>> GetSubtreeAsync(int rootId, CancellationToken cancellationToken = default)
     {
         // First get the root to know its path
