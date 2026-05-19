@@ -1,6 +1,7 @@
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using StackExchange.Redis;
 
 namespace IhsanDev.Shared.Infrastructure.Extensions;
 
@@ -27,6 +28,9 @@ public static class RedisCacheExtensions
                 "Redis connection string not found in configuration. " +
                 "Please add 'Redis:ConnectionString' to appsettings.json");
         }
+
+        // Add IConnectionMultiplexer for pattern-based cache removal
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnection));
 
         // Add Redis distributed cache
         services.AddStackExchangeRedisCache(options =>

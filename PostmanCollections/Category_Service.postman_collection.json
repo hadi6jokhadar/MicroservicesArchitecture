@@ -1,0 +1,406 @@
+{
+  "info": {
+    "name": "Category Service API",
+    "description": "Postman collection for Category microservice — hierarchical category management with per-tenant database isolation. Port: 5007.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5007",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "your-tenant-id",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "your-jwt-token",
+      "type": "string"
+    },
+    {
+      "key": "serviceSecret",
+      "value": "CHANGE_ME_SHARED_SECRET",
+      "type": "string"
+    },
+    {
+      "key": "categoryId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Get Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authenticated",
+      "item": [
+        {
+          "name": "Get Category Tree",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/tree",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", "tree"]
+            }
+          }
+        },
+        {
+          "name": "Get Category List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories?PageNumber=1&PageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"],
+              "query": [
+                {
+                  "key": "PageNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "PageSize",
+                  "value": "20"
+                },
+                {
+                  "key": "TextFilter",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Category By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", "{{categoryId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slug\": \"electronics\",\n  \"nameTranslations\": {\n    \"en\": \"Electronics\",\n    \"ar\": \"إلكترونيات\"\n  },\n  \"parentId\": null,\n  \"iconUrl\": null,\n  \"imageUrl\": null,\n  \"attributes\": {\n    \"featured\": true,\n    \"sortOrder\": 1\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Create Child Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slug\": \"smartphones\",\n  \"nameTranslations\": {\n    \"en\": \"Smartphones\",\n    \"ar\": \"الهواتف الذكية\"\n  },\n  \"parentId\": 1,\n  \"iconUrl\": null,\n  \"imageUrl\": null,\n  \"attributes\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slug\": \"electronics-updated\",\n  \"nameTranslations\": {\n    \"en\": \"Electronics & Tech\",\n    \"ar\": \"الإلكترونيات والتقنية\"\n  },\n  \"iconUrl\": \"/icons/electronics.svg\",\n  \"imageUrl\": \"/images/electronics.jpg\",\n  \"attributes\": {\n    \"featured\": true,\n    \"sortOrder\": 1\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", "{{categoryId}}"]
+            }
+          }
+        },
+        {
+          "name": "Move Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newParentId\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}/move",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", "{{categoryId}}", "move"]
+            }
+          }
+        },
+        {
+          "name": "Move Category to Root",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newParentId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}/move",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", "{{categoryId}}", "move"]
+            }
+          }
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", "{{categoryId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Admin - Get Category Tree (All Tenants)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/categories/tree",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "categories", "tree"]
+            }
+          }
+        },
+        {
+          "name": "Admin - Get Category List (All Tenants)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/categories?PageNumber=1&PageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "categories"],
+              "query": [
+                {
+                  "key": "PageNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "PageSize",
+                  "value": "20"
+                },
+                {
+                  "key": "TextFilter",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

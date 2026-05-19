@@ -48,8 +48,14 @@ public class DefaultDatabaseMigrationMiddleware<TContext> where TContext : DbCon
                     _logger.LogDebug(
                         "First request using default database, checking migration status...");
 
-                    // Get the DbContext for the default database
-                    var dbContext = context.RequestServices.GetRequiredService<TContext>();
+                    // Use a child scope so the request-scope DbContext is NOT pre-created here.
+                    // If we resolved TContext from context.RequestServices directly, the scoped
+                    // DbContext would be constructed before tenant resolution (using the global DB
+                    // connection string). DatabaseMigrationMiddleware would then receive that same
+                    // scoped instance and incorrectly mark the tenant as migrated against the global
+                    // DB instead of the actual tenant DB.
+                    using var migrationScope = context.RequestServices.CreateScope();
+                    var dbContext = migrationScope.ServiceProvider.GetRequiredService<TContext>();
 
                     // Ensure database exists and is migrated
                     var success = await migrationService.EnsureDatabaseExistsAsync(

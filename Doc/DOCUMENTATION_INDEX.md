@@ -147,6 +147,21 @@ Files are organized by category. Each entry includes:
 
 ---
 
+## 🗂️ Category Service
+
+### CATEGORY_SERVICE_GUIDE.md
+
+**Description:** Complete reference for the Category microservice. Hierarchical tree (materialized path), CRUD + move operation, localized names (JSONB), optional icon/banner images via File Manager, Redis caching, database-per-tenant with optional tenant context, and admin bypass endpoints.  
+**Read When:**
+
+- Working on or consuming the Category service
+- Understanding the materialized-path tree model
+- Implementing the move-category operation
+- Debugging stale cache or missing file enrichment
+- Adding or consuming category admin endpoints
+
+---
+
 ## AI Service (Python)
 
 ### AI_SERVICE_OVERVIEW.md
@@ -496,6 +511,7 @@ Files are organized by category. Each entry includes:
 | Add caching              | CACHING_STRATEGY_COMPARISON.md                                                                |
 | Create admin endpoint    | BYPASS_TENANT_ENDPOINTS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                            |
 | Work on Nasheed service  | src/Apps/Nasheed/Doc/OVERVIEW.md, ENTITIES_AND_DATA_MODEL.md, API_ENDPOINTS.md                |
+| Work on Category service | CATEGORY_SERVICE_GUIDE.md                                                                     |
 | Work with roles          | ROLES_AND_CLAIMS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                                   |
 | Fix performance          | PERFORMANCE_OPTIMIZATION_GUIDE.md, USER_QUERY_OPTIMIZATION_IQUERYABLE.md                      |
 | Add translations         | TRANSLATION_SERVICE_GUIDE.md, LOCALIZATION_GUIDE.md                                           |
@@ -524,7 +540,7 @@ AI agents: Do NOT reference or create these files - they have been removed:
 
 ## 📊 Documentation Statistics
 
-- **Total Files:** 36
+- **Total Files:** 37
 
 **Average file size:** Comprehensive (each file contains complete information on its topic)
 
@@ -577,5 +593,5 @@ cd Doc
 
 ---
 
-**Last Updated:** May 7, 2026  
+**Last Updated:** May 19, 2026  
 **Maintained By:** AI agents following DOCUMENTATION_GUIDELINES.md

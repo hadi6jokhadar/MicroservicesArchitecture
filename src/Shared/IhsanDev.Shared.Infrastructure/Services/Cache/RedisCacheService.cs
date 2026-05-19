@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 using System.Text.Json;
 
 namespace IhsanDev.Shared.Infrastructure.Services.Cache;
@@ -10,13 +11,16 @@ namespace IhsanDev.Shared.Infrastructure.Services.Cache;
 public class RedisCacheService : ICacheService
 {
     private readonly IDistributedCache _cache;
+    private readonly IConnectionMultiplexer? _multiplexer;
     private readonly ILogger<RedisCacheService> _logger;
 
     public RedisCacheService(
         IDistributedCache cache,
-        ILogger<RedisCacheService> logger)
+        ILogger<RedisCacheService> logger,
+        IConnectionMultiplexer? multiplexer = null)
     {
         _cache = cache;
+        _multiplexer = multiplexer;
         _logger = logger;
     }
 
@@ -91,13 +95,39 @@ public class RedisCacheService : ICacheService
         }
     }
 
-    public Task RemoveByPatternAsync(string pattern, CancellationToken cancellationToken = default)
+    public async Task RemoveByPatternAsync(string pattern, CancellationToken cancellationToken = default)
     {
-        // Note: Pattern-based deletion requires direct access to StackExchange.Redis
-        // For now, this is a placeholder that logs a warning
-        // This would need to be enhanced with IConnectionMultiplexer for full pattern support
-        _logger.LogWarning("RemoveByPatternAsync is not fully implemented for distributed cache. Pattern: {Pattern}. Consider implementing with IConnectionMultiplexer for full support.", pattern);
-        
-        return Task.CompletedTask;
+        if (_multiplexer == null)
+        {
+            _logger.LogWarning("RemoveByPatternAsync: IConnectionMultiplexer is not registered. Pattern: {Pattern}", pattern);
+            return;
+        }
+
+        try
+        {
+            // Convert glob pattern (e.g. "categories:tree*") to Redis SCAN pattern
+            // IDistributedCache uses an instance name prefix — read it from the first endpoint
+            var server = _multiplexer.GetServers().FirstOrDefault(s => s.IsConnected);
+            if (server == null)
+            {
+                _logger.LogWarning("RemoveByPatternAsync: No connected Redis server found for pattern: {Pattern}", pattern);
+                return;
+            }
+
+            var keys = server.Keys(pattern: $"*{pattern}").ToArray();
+            if (keys.Length == 0)
+            {
+                _logger.LogDebug("RemoveByPatternAsync: No keys found for pattern: {Pattern}", pattern);
+                return;
+            }
+
+            var db = _multiplexer.GetDatabase();
+            await db.KeyDeleteAsync(keys);
+            _logger.LogDebug("RemoveByPatternAsync: Deleted {Count} keys for pattern: {Pattern}", keys.Length, pattern);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing keys by pattern: {Pattern}", pattern);
+        }
     }
 }
