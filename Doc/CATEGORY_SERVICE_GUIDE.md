@@ -18,10 +18,11 @@
 7. [Validation Rules](#-validation-rules)
 8. [Caching Strategy](#-caching-strategy)
 9. [File Manager Integration](#-file-manager-integration)
-10. [Multi-Tenancy](#-multi-tenancy)
-11. [Configuration Reference](#-configuration-reference)
-12. [Integration Tests](#-integration-tests)
-13. [Troubleshooting](#-troubleshooting)
+10. [Event Publishing](#-event-publishing)
+11. [Multi-Tenancy](#-multi-tenancy)
+12. [Configuration Reference](#-configuration-reference)
+13. [Integration Tests](#-integration-tests)
+14. [Troubleshooting](#-troubleshooting)
 
 ---
 
@@ -45,18 +46,23 @@ The Category Service is a platform microservice that provides a **hierarchical c
 ```
 src/Services/Category/
 ├── Category.API/
-│   ├── Program.cs                      # Service bootstrap
-│   ├── Endpoints/CategoryEndpoints.cs  # Minimal API route registration
-│   ├── Handlers/CategoryApiHandlers.cs # Request → MediatR dispatch
-│   └── Filters/ValidationFilter.cs     # FluentValidation endpoint filter
+│   ├── Program.cs                                  # Service bootstrap
+│   ├── Endpoints/
+│   │   ├── CategoryEndpoints.cs                    # Minimal API route registration
+│   │   └── CategoryInternalEndpoints.cs            # Service-to-service snapshot endpoint
+│   ├── Handlers/CategoryApiHandlers.cs             # Request → MediatR dispatch
+│   └── Filters/ValidationFilter.cs                 # FluentValidation endpoint filter
 │
 ├── Category.Application/
-│   ├── Commands/CategoryCommands.cs    # MediatR command records
-│   ├── Queries/CategoryQueries.cs      # MediatR query records
-│   ├── DTOs/CategoryDto.cs             # Response DTO + tree builder
-│   ├── DTOs/PaginatedList.cs           # Generic pagination wrapper
+│   ├── Commands/CategoryCommands.cs                # MediatR command records
+│   ├── Queries/CategoryQueries.cs                  # MediatR query records
+│   ├── DTOs/CategoryDto.cs                         # Response DTO + tree builder
+│   ├── DTOs/PaginatedList.cs                       # Generic pagination wrapper
+│   ├── Events/
+│   │   ├── CategoryEventMessage.cs                 # Pub/Sub payload record
+│   │   └── ICategoryEventPublisher.cs              # Publisher interface
 │   ├── Validators/CategoryValidators.cs
-│   ├── Helpers/CategoryFileManagerHelper.cs  # Batch file enrichment
+│   ├── Helpers/CategoryFileManagerHelper.cs        # Batch file enrichment
 │   └── Handlers/
 │       ├── CreateCategory/
 │       ├── UpdateCategory/
@@ -64,19 +70,40 @@ src/Services/Category/
 │       ├── MoveCategory/
 │       ├── GetCategoryById/
 │       ├── GetCategoryList/
-│       └── GetCategoryTree/
+│       ├── GetCategoryTree/
+│       └── GetCategorySnapshot/                    # Internal snapshot handler
 │
 ├── Category.Domain/
-│   ├── Entities/CategoryEntity.cs
+│   ├── Entities/
+│   │   ├── CategoryEntity.cs
+│   │   └── OutboxEventEntity.cs                    # Transactional outbox row
 │   └── Interfaces/ICategoryRepository.cs
 │
-└── Category.Infrastructure/
-    ├── Extensions/InfrastructureServiceExtensions.cs
-    └── Persistence/
-        ├── CategoryDbContext.cs
-        ├── CategoryDbContextFactory.cs
-        ├── Configurations/CategoryEntityConfiguration.cs
-        └── Repositories/CategoryRepository.cs
+├── Category.Infrastructure/
+│   ├── BackgroundServices/
+│   │   └── OutboxEventProcessorService.cs          # Polls outbox table, publishes to Redis
+│   ├── Extensions/InfrastructureServiceExtensions.cs
+│   ├── Services/
+│   │   ├── OutboxCategoryEventPublisher.cs         # ✅ Active: writes to EF outbox
+│   │   ├── NoOpCategoryEventPublisher.cs           # Used when Redis:Enabled = false
+│   │   └── RedisCategoryEventPublisher.cs          # Legacy direct-publish reference
+│   └── Persistence/
+│       ├── CategoryDbContext.cs
+│       ├── CategoryDbContextFactory.cs
+│       ├── Configurations/
+│       │   ├── CategoryEntityConfiguration.cs
+│       │   └── OutboxEventEntityConfiguration.cs
+│       └── Repositories/CategoryRepository.cs
+│
+└── Category.API.Tests/
+    ├── Endpoints/CategoryEndpointsTests.cs         # HTTP endpoint happy-path and error cases
+    ├── Events/
+    │   ├── OutboxPublisherUnitTests.cs              # Unit tests for OutboxCategoryEventPublisher
+    │   └── OutboxEventIntegrationTests.cs          # MediatR pipeline atomicity tests
+    └── Infrastructure/
+        ├── CustomWebApplicationFactory.cs
+        ├── IntegrationTestBase.cs
+        └── SequentialCollectionDefinition.cs
 ```
 
 ---
@@ -131,6 +158,20 @@ src/Services/Category/
 ```
 
 `children` is only populated in tree responses. In list/single responses it is always `[]`.
+
+### `OutboxEventEntity` (table: `category_outbox_events`)
+
+Persisted record of a pending category event. Written atomically alongside the entity mutation by `OutboxCategoryEventPublisher`. The background `OutboxEventProcessorService` reads unprocessed rows and delivers them to Redis Pub/Sub.
+
+| Column         | Type           | Description                                                                       |
+| -------------- | -------------- | --------------------------------------------------------------------------------- |
+| `id`           | `bigint`       | Auto-generated surrogate PK                                                       |
+| `channel`      | `text`         | Full Redis channel, e.g. `category:events:tenant-abc` or `category:events:global` |
+| `payload`      | `text`         | Serialized `CategoryEventMessage` JSON (camelCase)                                |
+| `created_at`   | `timestamptz`  | UTC time the event was written to the outbox                                      |
+| `processed_at` | `timestamptz?` | UTC time of successful Redis publish — `null` means pending                       |
+| `retry_count`  | `int`          | Number of failed publish attempts; rows are dead-lettered after 5 failures        |
+| `last_error`   | `text?`        | Message from the most recent failed publish attempt                               |
 
 ### `PaginatedList<CategoryDto>` (list response shape)
 
@@ -346,6 +387,22 @@ Admin endpoints bypass tenant context (`BypassTenantAttribute`) and always use t
 
 ---
 
+### Internal Endpoints — `/internal/categories`
+
+Service-to-service endpoints. Not exposed in public Swagger. Protected by `InternalServiceKeyFilter` which checks the `x-internal-service-key` header.
+
+**Required header:** `x-internal-service-key: {InternalServices:ApiKey}` (configured in `appsettings.json` of the Category service)
+
+| Method | Path                            | Description                                                                                                                               |
+| ------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/internal/categories/snapshot` | All non-archived categories serialized as `List<CategoryEventMessage>`; used by consumer services to seed their local snapshot on startup |
+
+The `x-tenant-id` header is optional — omit for global categories, include for tenant-scoped ones.
+
+See `CATEGORY_EVENT_DRIVEN_CONSUMER_GUIDE.md` for the consumer-side implementation of the startup seeder that calls this endpoint.
+
+---
+
 ## 📬 Commands and Queries (CQRS)
 
 ### Commands
@@ -359,11 +416,12 @@ Admin endpoints bypass tenant context (`BypassTenantAttribute`) and always use t
 
 ### Queries
 
-| Query                          | Handler                       | Description                                                       |
-| ------------------------------ | ----------------------------- | ----------------------------------------------------------------- |
-| `GetCategoryByIdQuery(int Id)` | `GetCategoryByIdQueryHandler` | Single category with file enrichment; cached 10 min               |
-| `GetCategoryListQuery`         | `GetCategoryListQueryHandler` | Paginated flat list with file enrichment; cached 10 min           |
-| `GetCategoryTreeQuery`         | `GetCategoryTreeQueryHandler` | Full tree with nested children and file enrichment; cached 30 min |
+| Query                          | Handler                           | Description                                                                                             |
+| ------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `GetCategoryByIdQuery(int Id)` | `GetCategoryByIdQueryHandler`     | Single category with file enrichment; cached 10 min                                                     |
+| `GetCategoryListQuery`         | `GetCategoryListQueryHandler`     | Paginated flat list with file enrichment; cached 10 min                                                 |
+| `GetCategoryTreeQuery`         | `GetCategoryTreeQueryHandler`     | Full tree with nested children and file enrichment; cached 30 min                                       |
+| `GetCategorySnapshotQuery`     | `GetCategorySnapshotQueryHandler` | All non-archived categories as `List<CategoryEventMessage>` — used by consumers to seed local snapshots |
 
 ---
 
@@ -455,6 +513,70 @@ services.AddScoped<CategoryFileManagerHelper>();
 
 ---
 
+## 📡 Event Publishing
+
+The Category service publishes a `CategoryEventMessage` to Redis Pub/Sub after every mutation (Create, Update, Delete, Move). Consumer services subscribe to the channel and maintain a local read-only snapshot — see `CATEGORY_EVENT_DRIVEN_CONSUMER_GUIDE.md` for the consumer-side implementation.
+
+### Publisher Implementations
+
+Three implementations of `ICategoryEventPublisher` exist in `Category.Infrastructure/Services/`. Only one is registered in DI at a time:
+
+| Class                          | Registered when           | Behaviour                                                                          |
+| ------------------------------ | ------------------------- | ---------------------------------------------------------------------------------- |
+| `OutboxCategoryEventPublisher` | `Redis:Enabled = true` ✅ | Queues an `OutboxEventEntity` in the EF change tracker — no direct Redis call      |
+| `NoOpCategoryEventPublisher`   | `Redis:Enabled = false`   | Logs the event and discards it — no pub/sub infrastructure required (local dev)    |
+| `RedisCategoryEventPublisher`  | Not registered (legacy)   | Publishes directly to Redis; kept as a reference implementation, not wired into DI |
+
+### Transactional Outbox Flow
+
+```
+Handler:
+  1. _eventPublisher.PublishAsync(entity, eventType, tenantId)
+       └─ queues OutboxEventEntity in EF change tracker (NO SaveChanges)
+  2. _repository.UpdateAsync / DeleteAsync / UpdateAsync
+       └─ SaveChangesAsync commits entity mutation + outbox row atomically
+
+                    ▼  committed to DB
+          category_outbox_events  (processed_at = null)
+
+                    ▼  every ~5 s
+     OutboxEventProcessorService (BackgroundService)
+
+                    ▼  on success
+          Redis Pub/Sub channel  (category:events:{tenantId|global})
+```
+
+> **Ordering rule:** `PublishAsync` must always be called **before** the final repository save so both writes share the same transaction. Exception: for `CreateCategory`, `PublishAsync` is called after the first save (which generates the `Id`) but before the second save that writes the final path.
+
+### `OutboxEventProcessorService` (background worker)
+
+| Setting       | Value                                                               |
+| ------------- | ------------------------------------------------------------------- |
+| Poll interval | 5 seconds                                                           |
+| Batch size    | 100 events per cycle                                                |
+| Max retries   | 5 attempts                                                          |
+| Dead-letter   | `processed_at = now()`, `LogError` emitted for manual investigation |
+| Registered as | `HostedService` — only when `Redis:Enabled = true`                  |
+
+### Redis Channel Pattern
+
+| Tenant context                      | Channel                  |
+| ----------------------------------- | ------------------------ |
+| Request includes `x-tenant-id: abc` | `category:events:abc`    |
+| No `x-tenant-id` header (global)    | `category:events:global` |
+
+### Event Types
+
+`CategoryEventType` enum values published:
+
+| Event type | Triggered by                                      |
+| ---------- | ------------------------------------------------- |
+| `Created`  | `CreateCategoryCommand`                           |
+| `Updated`  | `UpdateCategoryCommand` and `MoveCategoryCommand` |
+| `Deleted`  | `DeleteCategoryCommand`                           |
+
+---
+
 ## 🏢 Multi-Tenancy
 
 The Category service uses **optional tenant context** (`OptionalTenantAttribute`):
@@ -532,13 +654,19 @@ Tests are in `Category.API.Tests/`. They follow the standard `CustomWebApplicati
 
 See `SERVICE_INTEGRATION_TEST_GUIDE.md` for the full recipe.
 
-Key test file: `Endpoints/CategoryEndpointsTests.cs`
+### Test Infrastructure
 
-Test infrastructure:
-
-- `CustomWebApplicationFactory.cs` — replaces DB with SQLite in-memory and replaces file manager client with a stub
-- `IntegrationTestBase.cs` — shared setup/teardown
+- `CustomWebApplicationFactory.cs` — uses a **real PostgreSQL** database (`UsePostgreSQL = true`; JSONB columns require it); Redis and distributed-cache registrations are removed; multi-tenancy and rate limiting are disabled
+- `IntegrationTestBase.cs` — shared setup helpers (`CreateTestCategoryAsync`, `SendAsync`, `ExecuteDbContextAsync`)
 - `SequentialCollectionDefinition.cs` — ensures tests run sequentially within a collection
+
+### Test Files
+
+| File                                    | Type        | Tests                                                                 | Coverage                                                                             |
+| --------------------------------------- | ----------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `Endpoints/CategoryEndpointsTests.cs`   | Integration | HTTP happy-path and error cases for all endpoints                     | CRUD, Move, validation, conflict, not-found                                          |
+| `Events/OutboxPublisherUnitTests.cs`    | Unit        | 9 tests for `OutboxCategoryEventPublisher` using in-memory EF context | Row queuing, change-tracker state, channel naming, payload fields, timestamp         |
+| `Events/OutboxEventIntegrationTests.cs` | Integration | 5 tests through the full MediatR pipeline                             | Entity + outbox row committed atomically, unprocessed state, event types per handler |
 
 ---
 

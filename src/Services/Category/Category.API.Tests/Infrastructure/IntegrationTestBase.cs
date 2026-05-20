@@ -36,6 +36,7 @@ public abstract class IntegrationTestBase :
 
             var entity = CategoryEntity.Create(
                 slug: slug ?? $"test-cat-{Guid.NewGuid():N}",
+                uri: slug ?? $"test-cat-{Guid.NewGuid():N}",
                 nameTranslations: LocalizedMapping.From(translations),
                 parentId: parentId
             );

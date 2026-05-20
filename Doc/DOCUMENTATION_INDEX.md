@@ -3,7 +3,7 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** May 4, 2026  
+**Last Updated:** May 19, 2026  
 **Total Files:** 38
 
 ---
@@ -165,7 +165,7 @@ Files are organized by category. Each entry includes:
 
 ### CATEGORY_SERVICE_GUIDE.md
 
-**Description:** Complete reference for the Category microservice. Hierarchical tree (materialized path), CRUD + move operation, localized names (JSONB), optional icon/banner images via File Manager, Redis caching, database-per-tenant with optional tenant context, and admin bypass endpoints.  
+**Description:** Complete reference for the Category microservice. Hierarchical tree (materialized path), CRUD + move operation, localized names (JSONB), optional icon/banner images via File Manager, Redis caching, database-per-tenant with optional tenant context, admin bypass endpoints, event publishing via Transactional Outbox pattern (`OutboxCategoryEventPublisher` + `OutboxEventProcessorService`), and unit/integration tests.  
 **Read When:**
 
 - Working on or consuming the Category service
@@ -173,6 +173,7 @@ Files are organized by category. Each entry includes:
 - Implementing the move-category operation
 - Debugging stale cache or missing file enrichment
 - Adding or consuming category admin endpoints
+- Understanding how category events are published to Redis (Outbox pattern)
 
 ### CATEGORY_EVENT_DRIVEN_CONSUMER_GUIDE.md
 

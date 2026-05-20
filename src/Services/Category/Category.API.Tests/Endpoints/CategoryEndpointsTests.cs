@@ -23,8 +23,10 @@ public class CategoryEndpointsTests : IntegrationTestBase
     public async Task Create_WithValidData_ReturnsCreatedCategory()
     {
         // Arrange
+        var slug0 = UniqueSlug();
         var command = new CreateCategoryCommand(
-            Slug: UniqueSlug(),
+            Slug: slug0,
+            Uri: slug0,
             NameTranslations: new Dictionary<string, string>
             {
                 ["en"] = "Electronics",
@@ -50,8 +52,10 @@ public class CategoryEndpointsTests : IntegrationTestBase
         // Arrange
         var parent = await CreateTestCategoryAsync(slug: UniqueSlug("parent"));
 
+        var childSlug2 = UniqueSlug("child");
         var command = new CreateCategoryCommand(
-            Slug: UniqueSlug("child"),
+            Slug: childSlug2,
+            Uri: childSlug2,
             NameTranslations: new Dictionary<string, string> { ["en"] = "Child Category" },
             ParentId: parent.Id
         );
@@ -74,6 +78,7 @@ public class CategoryEndpointsTests : IntegrationTestBase
 
         var command = new CreateCategoryCommand(
             Slug: slug,
+            Uri: slug,
             NameTranslations: new Dictionary<string, string> { ["en"] = "Duplicate" }
         );
 
@@ -87,8 +92,10 @@ public class CategoryEndpointsTests : IntegrationTestBase
     public async Task Create_WithInvalidParentId_ThrowsNotFoundException()
     {
         // Arrange
+        var orphanSlug = UniqueSlug();
         var command = new CreateCategoryCommand(
-            Slug: UniqueSlug(),
+            Slug: orphanSlug,
+            Uri: orphanSlug,
             NameTranslations: new Dictionary<string, string> { ["en"] = "Orphan" },
             ParentId: 999999
         );
@@ -103,11 +110,13 @@ public class CategoryEndpointsTests : IntegrationTestBase
     public async Task Create_WithOptionalFields_PersistsAllData()
     {
         // Arrange
+        var slug = UniqueSlug("full");
         var command = new CreateCategoryCommand(
-            Slug: UniqueSlug("full"),
+            Slug: slug,
+            Uri: slug,
             NameTranslations: new Dictionary<string, string> { ["en"] = "Full Category" },
-            IconUrl: "https://example.com/icon.png",
-            ImageUrl: "https://example.com/image.png",
+            IconFileId: null,
+            ImageFileId: null,
             Attributes: new Dictionary<string, object> { ["color"] = "blue", ["featured"] = true }
         );
 
@@ -115,8 +124,6 @@ public class CategoryEndpointsTests : IntegrationTestBase
         var result = await SendAsync(command);
 
         // Assert
-        result.IconUrl.Should().Be(command.IconUrl);
-        result.ImageUrl.Should().Be(command.ImageUrl);
         result.Attributes.Should().ContainKey("color");
     }
 
@@ -186,8 +193,10 @@ public class CategoryEndpointsTests : IntegrationTestBase
     {
         // Arrange
         var root = await CreateTestCategoryAsync(slug: UniqueSlug("tree-root"));
+        var childSlug = UniqueSlug("tree-child");
         var child = new CreateCategoryCommand(
-            Slug: UniqueSlug("tree-child"),
+            Slug: childSlug,
+            Uri: childSlug,
             NameTranslations: new Dictionary<string, string> { ["en"] = "Tree Child" },
             ParentId: root.Id
         );
@@ -214,9 +223,11 @@ public class CategoryEndpointsTests : IntegrationTestBase
         var command = new UpdateCategoryCommand(
             Id: seeded.Id,
             Slug: UniqueSlug("upd-new"),
+            Uri: null,
             NameTranslations: new Dictionary<string, string> { ["en"] = "Updated Name" },
-            IconUrl: null,
-            ImageUrl: null,
+            IconFileId: null,
+            ImageFileId: null,
+            IconName: null,
             Attributes: null
         );
 
@@ -235,9 +246,11 @@ public class CategoryEndpointsTests : IntegrationTestBase
         var command = new UpdateCategoryCommand(
             Id: 999999,
             Slug: UniqueSlug(),
+            Uri: null,
             NameTranslations: null,
-            IconUrl: null,
-            ImageUrl: null,
+            IconFileId: null,
+            ImageFileId: null,
+            IconName: null,
             Attributes: null
         );
 
@@ -258,9 +271,11 @@ public class CategoryEndpointsTests : IntegrationTestBase
         var command = new UpdateCategoryCommand(
             Id: target.Id,
             Slug: existingSlug,
+            Uri: null,
             NameTranslations: null,
-            IconUrl: null,
-            ImageUrl: null,
+            IconFileId: null,
+            ImageFileId: null,
+            IconName: null,
             Attributes: null
         );
 
@@ -278,8 +293,10 @@ public class CategoryEndpointsTests : IntegrationTestBase
         // Arrange
         var parentA = await CreateTestCategoryAsync(slug: UniqueSlug("move-pa"));
         var parentB = await CreateTestCategoryAsync(slug: UniqueSlug("move-pb"));
+        var moveChildSlug = UniqueSlug("move-child");
         var child = await SendAsync(new CreateCategoryCommand(
-            Slug: UniqueSlug("move-child"),
+            Slug: moveChildSlug,
+            Uri: moveChildSlug,
             NameTranslations: new Dictionary<string, string> { ["en"] = "Move Child" },
             ParentId: parentA.Id
         ));
@@ -297,8 +314,10 @@ public class CategoryEndpointsTests : IntegrationTestBase
     {
         // Arrange
         var parent = await CreateTestCategoryAsync(slug: UniqueSlug("move-root-p"));
+        var rootChildSlug = UniqueSlug("move-root-c");
         var child = await SendAsync(new CreateCategoryCommand(
-            Slug: UniqueSlug("move-root-c"),
+            Slug: rootChildSlug,
+            Uri: rootChildSlug,
             NameTranslations: new Dictionary<string, string> { ["en"] = "Root Child" },
             ParentId: parent.Id
         ));
