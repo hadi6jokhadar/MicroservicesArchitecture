@@ -12,12 +12,13 @@ This guide explains how to implement endpoints that work **without tenant contex
 ## 📋 Table of Contents
 
 1. [Overview](#overview)
-2. [Critical Concepts](#critical-concepts)
-3. [Common Pitfalls](#common-pitfalls)
-4. [Implementation Patterns](#implementation-patterns)
-5. [Complete Example](#complete-example)
-6. [Database Migration Strategy](#database-migration-strategy)
-7. [Testing](#testing)
+2. [Authorization on BypassTenant Endpoints](#authorization-on-bypasstenant-endpoints)
+3. [Critical Concepts](#critical-concepts)
+4. [Common Pitfalls](#common-pitfalls)
+5. [Implementation Patterns](#implementation-patterns)
+6. [Complete Example](#complete-example)
+7. [Database Migration Strategy](#database-migration-strategy)
+8. [Testing](#testing)
 
 ---
 
@@ -47,6 +48,65 @@ Use `BypassTenantAttribute` when:
 ❌ **Regular user operations**: Users accessing their own tenant data  
 ❌ **Tenant-specific business logic**: Operations that should be isolated per tenant  
 ❌ **Public endpoints**: Use `.AllowAnonymous()` instead
+
+---
+
+## Authorization on BypassTenant Endpoints
+
+> **Critical rule: BypassTenant ≠ Anonymous.** Bypassing tenant resolution never removes the authorization requirement. Every `[BypassTenant]` endpoint in this system is protected — the bypass only removes the `x-tenant-id` header requirement, not the security layer.
+
+### Two Authorization Patterns Used in This System
+
+#### Pattern A — Role-Based (Admin / SuperAdmin)
+
+Used for human admin operations (Category admin tree, FileManager admin delete, Notification send). The caller must present a **global JWT** (issued without a tenant scope) with the appropriate role.
+
+```csharp
+app.MapGet("/api/admin/categories/tree", handler)
+    .WithMetadata(new BypassTenantAttribute())
+    .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"));
+```
+
+The global JWT is issued by Identity Service at a non-tenant endpoint (no `x-tenant-id` header). It contains a `Role` claim of `SuperAdmin` or `Admin` and **no** `tenant_id` claim.
+
+#### Pattern B — Service-to-Service (X-Service-Secret)
+
+Used for internal microservice calls (FileManager internal batch endpoints). No user JWT is involved — authentication is done by `ServiceAuthenticationMiddleware` checking the `X-Service-Secret` header and an `IsInternalService` claim.
+
+```csharp
+// Internal S2S endpoint — no user auth, uses service secret
+app.MapGet("/api/filemanager/internal/files/{id}", handler)
+    .WithMetadata(new BypassTenantAttribute())
+    .AllowAnonymous();  // JWT bypassed; ServiceAuthenticationMiddleware validates the secret instead
+```
+
+The calling service must include the shared secret header:
+```http
+GET /api/filemanager/internal/files/123
+X-Service-Secret: <shared-secret-from-config>
+X-Service-Name: IdentityService
+```
+
+### Quick Reference: Which Pattern to Use
+
+| Endpoint type | Who calls it | Authorization pattern |
+|---|---|---|
+| Admin cross-tenant data management | Human SuperAdmin via frontend | Pattern A — `RequireRole("SuperAdmin")` + global JWT |
+| System-wide operations (send notification, cleanup) | Human SuperAdmin or service | Pattern A — `RequireRole("Service", "SuperAdmin")` |
+| Internal service calls (file lookup, batch fetch) | Other microservice | Pattern B — `AllowAnonymous()` + `X-Service-Secret` header |
+
+### Common Mistake: Leaving BypassTenant Endpoints Unprotected
+
+```csharp
+// ❌ WRONG — Bypass without any authorization
+app.MapDelete("/api/admin/cleanup", handler)
+    .WithMetadata(new BypassTenantAttribute());
+
+// ✅ CORRECT — Always add role requirement or rely on ServiceAuthenticationMiddleware
+app.MapDelete("/api/admin/cleanup", handler)
+    .WithMetadata(new BypassTenantAttribute())
+    .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"));
+```
 
 ---
 
@@ -910,10 +970,11 @@ Use this checklist when implementing admin/global endpoints:
 
 ## Related Documentation
 
-- [Multi-Tenancy Guide](MULTI_TENANCY_GUIDE.md) - Overview of multi-tenant system
+- [Multi-Tenancy Guide](MULTI_TENANCY_GUIDE.md) - Overview of multi-tenant system, JWT modes, and middleware pipeline
 - [New Service Integration Guide](NEW_SERVICE_INTEGRATION_GUIDE.md) - Creating new services
-- [JWT Tenant Verification Guide](JWT_TENANT_VERIFICATION_GUIDE.md) - Security patterns
+- [Shared Identity Service Guide](SHARED_IDENTITY_SERVICE_GUIDE.md) - JWT authentication, roles, and how global tokens are issued
 - [Database Per Tenant Architecture](DATABASE_PER_TENANT_ARCHITECTURE.md) - Database isolation
+- [Service-to-Service Authentication Guide](SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md) - X-Service-Secret pattern for internal endpoints
 
 ---
 

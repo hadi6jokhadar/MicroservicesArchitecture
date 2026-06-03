@@ -78,7 +78,7 @@ For better performance with multiple service instances, enable Redis distributed
 - ✅ 80% reduction in Tenant Service API calls
 - ✅ SignalR horizontal scaling support
 
-**See:** [REDIS_CACHE_QUICK_REFERENCE.md](REDIS_CACHE_QUICK_REFERENCE.md) for setup guide.
+**See:** [CACHING_STRATEGY_COMPARISON.md](CACHING_STRATEGY_COMPARISON.md) for a full Redis vs MemoryCache decision guide.
 
 ### In-Memory Caching (Fallback)
 
@@ -142,7 +142,7 @@ Update `appsettings.json` in services (e.g., Identity.API):
 
 **Note:** In PerTenant mode, each tenant must have their own JWT secret configured in the Tenant Service.
 
-### Disable Multi-Tenancy (Default)
+### Disable Multi-Tenancy (Development / Single-Instance Only)
 
 ```json
 {
@@ -164,6 +164,8 @@ Update `appsettings.json` in services (e.g., Identity.API):
 ```
 
 When disabled, the system behaves as single-tenant with no tenant resolution and uses static configuration from appsettings.json. The `x-tenant-id` header is not required or used. **Note:** Automatic database migration still works - the database will be auto-created on the first request even when multi-tenancy is disabled.
+
+> **Important:** All production services in this system run with `MultiTenancy:Enabled = true`. Disabling is only appropriate for local development or single-instance deployments that do not need tenant isolation.
 
 ---
 
@@ -625,12 +627,13 @@ public class MyDbContext : BaseDbContext
 
 ### Test Cases
 
-- ✅ Request without tenant header (should work)
-- ✅ Request with valid tenant header (should use tenant config)
-- ✅ Request with invalid tenant ID (should return 404)
-- ✅ Request with inactive tenant (should return 403)
+- ✅ Request without tenant header when multi-tenancy **disabled** → uses appsettings.json config
+- ✅ Request without tenant header when multi-tenancy **enabled** → returns `400 Bad Request`
+- ✅ Request with valid tenant header → uses tenant-specific config from Tenant Service
+- ✅ Request with invalid tenant ID → returns `404 Not Found`
+- ✅ Request with inactive tenant → returns `403 Forbidden`
 - ✅ JWT tokens contain `tenant_id` claim when tenant present
-- ✅ Configuration caching works correctly
+- ✅ Configuration caching works correctly (Redis or MemoryCache fallback)
 
 ---
 
@@ -712,8 +715,6 @@ Error fetching tenant configuration for 'tenant-id'
 
 ## Future Enhancements
 
-- [ ] Distributed cache (Redis) for multi-instance deployments
-- [ ] Tenant-specific database connections per request
 - [ ] Tenant usage analytics and billing
 - [ ] Automatic tenant provisioning
 - [ ] Tenant-specific feature flags

@@ -7,6 +7,40 @@
 
 ---
 
+## Why Event-Driven Architecture?
+
+Microservices often need data owned by another service. The naive solution — an HTTP call at request time — creates runtime coupling: if Service B is slow or down, Service A's response also fails.
+
+Event-driven architecture breaks that coupling by letting services **react to changes asynchronously**. Instead of asking "what does Service B look like right now?", Service A listens for "what happened in Service B?" and keeps its own local copy.
+
+### The Three Integration Strategies
+
+| Strategy | How it works | Best when | Trade-off |
+|---|---|---|---|
+| **1 — Direct HTTP call** | Service A calls Service B synchronously per request | Data must be real-time; Service B is always available | Tight coupling; A fails when B fails |
+| **2 — Event-Driven Local Copy** *(this guide)* | Service B publishes Redis events; A stores a local snapshot table | Data can tolerate seconds of lag; B's availability must not block A | Eventual consistency; snapshot can be stale |
+| **3 — Shared Cache** | A shared Redis key stores B's data; both services read/write it | Lightweight config-like data shared across many services | Cache invalidation complexity; no event history |
+
+### When to Choose Event-Driven (Strategy 2)
+
+Use this pattern when **all** of these are true:
+
+- ✅ Another service owns the data (you cannot own the source table)
+- ✅ You need to query/filter by that data in your own queries (e.g. `WHERE category_id = ?`)
+- ✅ A few seconds of staleness is acceptable (eventual consistency)
+- ✅ You cannot afford to block on a runtime HTTP call (latency or availability concern)
+
+**Examples in this system:** Any service that needs Category data (to show category names in a product listing, to filter songs by genre) should consume Category events rather than calling the Category service per request.
+
+### When NOT to Use Event-Driven
+
+- ❌ The data must be perfectly current (use direct HTTP call)
+- ❌ You need to write to the other service's data (events are read-only snapshots)
+- ❌ The data is your own (own the table directly)
+- ❌ Simple config data shared across services (use Strategy 3 — shared cache key)
+
+---
+
 ## Overview
 
 This guide documents the **publisher side** of Strategy 2 (Event-Driven Local Copy). When any service mutates data that other services care about, it publishes a slim Redis Pub/Sub event. Consumer services subscribe, maintain a local snapshot table, and query it directly — zero runtime coupling.
@@ -589,5 +623,5 @@ Expected output: `Build succeeded. 0 Error(s). 0 Warning(s)`
 | File                                      | Purpose                                                                                  |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `CATEGORY_EVENT_DRIVEN_CONSUMER_GUIDE.md` | How a **consumer** service subscribes to these events and stores local snapshots         |
-| `CACHING_STRATEGY_COMPARISON.md`          | Full comparison of all three strategies (HTTP call, event-driven snapshot, shared cache) |
-| `CATEGORY_SERVICE_GUIDE.md`               | Reference implementation of this pattern in production                                   |
+| `CACHING_STRATEGY_COMPARISON.md`          | Redis vs MemoryCache decision guide; which services require Redis vs support fallback    |
+| `CATEGORY_SERVICE_GUIDE.md`               | Reference implementation of this pattern in production (Outbox + Redis Pub/Sub)          |

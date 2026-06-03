@@ -80,18 +80,20 @@ This guide compares the two supported caching modes—**Redis distributed cache*
 2. **Cache Keys & Namespacing**
    - Tenant configs follow `tenant_config_{tenantId}`.
    - Device tokens and notification payloads use `tenant:{id}:device:{hash}` for sharding.
-   - **NEW:** Claims and roles use grouped namespaces: `admin:claims:*` and `admin:roles:*` (see [GROUPED_CACHE_NAMESPACE_STRATEGY.md](GROUPED_CACHE_NAMESPACE_STRATEGY.md))
+   - Claims and roles use grouped namespaces: `admin:claims:*` and `admin:roles:*`
 3. **Warmup Strategy**
    - Preload critical tenants via `TenantConfigurationProvider` during deployment to avoid cold-start latency.
 4. **Fallback Behavior**
-   - If Redis becomes unavailable, the cache layer automatically fails over to in-memory cache for that process while retrying Redis connections.
+   - **Not all services automatically fall back to MemoryCache.** Fallback behavior depends on each service's DI registration:
+     - **Translation & Notification**: register `AddDistributedMemoryCache()` when `Redis:Enabled = false` — automatic per-instance fallback.
+     - **Category, Identity, FileManager, Tenant, Nasheed**: require Redis and will fail to start or behave incorrectly without it — no automatic fallback.
+   - When Redis becomes unavailable at runtime (after startup), services that registered Redis will encounter cache misses and elevated Tenant Service calls; they will NOT silently switch to MemoryCache.
    - Log warnings and alert DevOps; horizontal scaling will be limited until Redis recovers.
 
 ---
 
 ## Related Documentation
 
-- [GROUPED_CACHE_NAMESPACE_STRATEGY.md](GROUPED_CACHE_NAMESPACE_STRATEGY.md) - **NEW:** Hierarchical cache key organization
-- [REDIS_ENABLED_VS_DISABLED_GUIDE.md](REDIS_ENABLED_VS_DISABLED_GUIDE.md)
-- [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
-- [DATABASE_PER_TENANT_ARCHITECTURE.md](DATABASE_PER_TENANT_ARCHITECTURE.md)
+- [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md) - SignalR Redis backplane requirements
+- [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md) - How tenant configs are cached (Redis vs MemoryCache per service)
+- [DATABASE_PER_TENANT_ARCHITECTURE.md](DATABASE_PER_TENANT_ARCHITECTURE.md) - Per-tenant database isolation

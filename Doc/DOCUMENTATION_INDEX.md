@@ -3,8 +3,8 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** May 19, 2026  
-**Total Files:** 38
+**Last Updated:** June 3, 2026  
+**Total Files:** 37
 
 ---
 
@@ -137,27 +137,23 @@ Files are organized by category. Each entry includes:
 ## 🎵 Nasheed Library (`src/Apps/Nasheed/`)
 
 > Located at `src/Apps/Nasheed/` — a domain app that consumes platform Services (AI, FileManager, Tenant).  
-> Detailed implementation docs live in `src/Apps/Nasheed/Doc/` — see its own `DOCUMENTATION_INDEX.md`.
+> **All Nasheed documentation lives in `src/Apps/Nasheed/Doc/`** — see its own `DOCUMENTATION_INDEX.md`.  
+> Files: `OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md`, `INGESTION_PIPELINE.md`, `AI_INTEGRATION.md`.
 
-### NASHEED_LIBRARY_BACKEND.md
+> ⚠️ `NASHEED_LIBRARY_BACKEND.md` and `NASHEED_LIBRARY_FRONTEND.md` **no longer exist** in this Doc folder. Those were design-phase documents that have been superseded by the implemented docs in `src/Apps/Nasheed/Doc/`.
 
-**Description:** Historical design plan for the Nasheed backend service (superseded by the implemented docs in `src/Apps/Nasheed/Doc/`).  
+---
+
+## 🗛 Platform Roadmap
+
+### PLATFORM_CAPABILITIES_ROADMAP.md
+
+**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway, Distributed Tracing, Secrets Management, Circuit Breaker, Audit Logging), Tier 2 (Background Jobs, API Versioning, Feature Flags, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
 **Read When:**
 
-- Reviewing original design intent
-- Cross-referencing design vs implementation
-
-> **For current implementation details**, use `src/Apps/Nasheed/Doc/OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md`, `INGESTION_PIPELINE.md`, and `AI_INTEGRATION.md`.
-
-### NASHEED_LIBRARY_FRONTEND.md
-
-**Description:** Frontend architecture and implementation plan for the nasheed library experience in Angular. Covers upload, audio editing, playback, lyrics synchronization, real-time progress, and search UX.  
-**Read When:**
-
-- Planning the Nasheed frontend feature
-- Building upload or playback flows
-- Adding `WaveSurfer.js` integration
-- Implementing ingestion monitoring or lyric synchronization
+- Planning new infrastructure work
+- Deciding what to build next for production readiness
+- Starting implementation of any of the 12 capabilities listed
 
 ---
 
@@ -277,15 +273,7 @@ Files are organized by category. Each entry includes:
 - File lifecycle management
 - Redis caching for tenant configs
 
-### SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md
-
-**Description:** Reusable .NET HTTP client extension methods for inter-service communication, including FileManager client registration and service-secret header setup.  
-**Read When:**
-
-- Integrating FileManager into a .NET service
-- Registering typed service clients through shared extensions
-- Verifying service-to-service header configuration
-- Aligning timeout and SSL behavior in dev environments
+> For HTTP client extensions used alongside FileManager, see `SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md` under **🔧 Development Patterns** below.
 
 ---
 
@@ -558,6 +546,11 @@ AI agents: Do NOT reference or create these files - they have been removed:
 - ❌ No "\*\_MIGRATION.md" files (migration logs removed)
 - ❌ No "\*\_STAGE_1/2/3.md" files (multi-part guides consolidated)
 - ❌ No "00_START_HERE.md" (replaced by this file)
+- ❌ No "NASHEED_LIBRARY_BACKEND.md" (superseded — use `src/Apps/Nasheed/Doc/OVERVIEW.md`)
+- ❌ No "NASHEED_LIBRARY_FRONTEND.md" (superseded — use `src/Apps/Nasheed/Doc/`)
+- ❌ No "GROUPED_CACHE_NAMESPACE_STRATEGY.md" (removed)
+- ❌ No "REDIS_ENABLED_VS_DISABLED_GUIDE.md" (content merged into CACHING_STRATEGY_COMPARISON.md)
+- ❌ No "JWT_TENANT_VERIFICATION_GUIDE.md" (content in BYPASS_TENANT_ENDPOINTS_GUIDE.md and MULTI_TENANCY_GUIDE.md)
 
 **If you need quick reference info:** It's in the main guide file as a section.
 
@@ -565,7 +558,7 @@ AI agents: Do NOT reference or create these files - they have been removed:
 
 ## 📊 Documentation Statistics
 
-- **Total Files:** 37
+- **Total Files:** 37 (all in `MicroservicesArchitecture/Doc/`)
 
 **Average file size:** Comprehensive (each file contains complete information on its topic)
 
@@ -618,5 +611,5 @@ cd Doc
 
 ---
 
-**Last Updated:** May 19, 2026  
+**Last Updated:** June 3, 2026  
 **Maintained By:** AI agents following DOCUMENTATION_GUIDELINES.md
