@@ -56,8 +56,17 @@ Before modifying ANY backend code, you MUST:
   - C: Dual DB — global queue context + per-tenant history context (Notification pattern)
   - D: Global DB + `TenantId` discriminator column (Translation pattern)
 - **Context:** Tenant is resolved via `ITenantContext` (middleware), injected into DbContext `OnConfiguring()`.
-- **Database:** Auto-migrations enabled. `app.UseDefaultDatabaseMigration` always first; `app.UseTenantDatabaseMigration` in addition for Strategy B/C.
-- **Pipeline order (Strategies B/C):** `UseTenantResolution` → `UseTenantAwareCors` → `UseJwtTenantVerification` → `UseTenantDatabaseMigration` → `UseAuthentication` → `UseAuthorization`
+- **Database:** Two-layer migration pattern — both layers are required:
+  1. **`await app.Services.InitializeDatabaseAsync<TContext>(applyMigrations: true)` before `app.Run()`** — migrates the global DB at startup before hosted services start. Never guard with `IsDevelopment()` or `!MultiTenancy:Enabled`. Has built-in retry with jitter for concurrent-startup locking scenarios.
+  2. **`UseTenantDatabaseMigration`** — migrates per-tenant DBs lazily on each tenant's first request. Only viable approach since tenants are provisioned dynamically.
+  - `UseDefaultDatabaseMigration` remains as a safety-net fallback in the middleware pipeline.
+- **Pipeline order (Strategies B/C) — ORDER IS CRITICAL:**
+  `InitializeDatabaseAsync` (before app.Run) →
+  `UseDefaultDatabaseMigration` →
+  `UseTenantResolution` → `UseTenantAwareCors` → `UseJwtTenantVerification` →
+  `UseTenantDatabaseMigration` (if multi-tenancy enabled) →
+  `UseAuthentication` → `UseAuthorization`
+- **Why `UseDefaultDatabaseMigration` must precede `UseTenantResolution`:** When multi-tenancy is on, `AddDatabaseContext` leaves `IsConfigured=false` so `OnConfiguring` uses `ITenantContext` at resolution time. Running after tenant resolution causes the static `_isMigrated` flag to fire against the tenant DB, permanently skipping the global fallback DB.
 - **BypassTenant:**
   - Use `[BypassTenant]` attribute sparingly.
   - MUST ensure `UseDefaultDatabaseMigration` is registered so the fallback global DB is available.

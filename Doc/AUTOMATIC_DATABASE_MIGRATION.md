@@ -2,23 +2,28 @@
 
 ## Overview
 
-The system now **automatically creates and migrates databases** on the first request, eliminating the need for manual database provisioning. The approach depends on your `MultiTenancy:Enabled` configuration:
+The system uses a **two-layer migration approach** that handles global DBs at startup and per-tenant DBs lazily on first request. The approach is NOT conditional on `MultiTenancy:Enabled` — both layers always apply.
 
-### When MultiTenancy is Enabled (`"Enabled": true`)
+### Layer 1 — Startup Migration (`InitializeDatabaseAsync`)
 
-- **`UseTenantDatabaseMigration()`** is used
-- **`x-tenant-id` header is REQUIRED**
-- ✅ Auto-creates **tenant-specific database** from Tenant Service configuration
-- ❌ No fallback to default database - tenant header must be provided
-- All configuration comes from the Tenant Service database
+- Runs **before `app.Run()`**, before hosted services start
+- Migrates the **global / fallback DB** using `DatabaseSettings:ConnectionString`
+- **Always called unconditionally** — never guard with `IsDevelopment()` or `!MultiTenancy:Enabled`
+- Has built-in **retry with jitter** (`maxAttempts=3`, `retryDelaySeconds=5`) to handle concurrent-startup DB locking when multiple instances deploy simultaneously
+- Required for services with background workers (`BackgroundService`) that query the DB before the first HTTP request arrives
 
-### When MultiTenancy is Disabled (`"Enabled": false`)
+### Layer 2 — Per-Tenant Migration (`UseTenantDatabaseMigration` middleware)
 
-- **`UseDefaultDatabaseMigration()`** is used
-- ✅ Auto-creates **default database** from `appsettings.json`
-- All configuration comes from appsettings.json
+- Runs on **each tenant's first HTTP request**
+- Migrates the **tenant-specific DB** using that tenant's connection string from the Tenant Service
+- Only viable approach because tenant DBs are provisioned dynamically
+- Only registered when `MultiTenancy:Enabled` is `true`
 
-This **if-else approach** ensures the right middleware is used based on your configuration, keeping your database always ready.
+### `UseDefaultDatabaseMigration` — Safety Net Only
+
+- Remains in the middleware pipeline as a fallback
+- **Must be registered BEFORE `UseTenantResolution`** — see ordering rules below
+- NOT the primary migration mechanism for global DBs (that is `InitializeDatabaseAsync`)
 
 ---
 
@@ -152,44 +157,60 @@ builder.Services.AddDatabaseMigration();
 
 ### Middleware Registration (Already Done)
 
-**In `Program.cs` (Identity.API):**
+**In `Program.cs` (Strategy B example — Identity, FileManager, Category):**
 
 ```csharp
-// Multi-tenancy middleware (resolves tenant) - only if MultiTenancy is enabled
-app.UseTenantResolution(builder.Configuration);
+var app = builder.Build();
 
-// Automatic database migration - use EITHER tenant or default based on configuration
+// ── LAYER 1: Startup migration (before app.Run) ───────────────────────────────
+// Migrates the global/fallback DB before hosted services start.
+// Never guard with IsDevelopment() or !MultiTenancy:Enabled.
+await app.Services.InitializeDatabaseAsync<IdentityDbContext>(applyMigrations: true, seedData: true);
+
+// ── LAYER 2: Middleware pipeline (ORDER IS CRITICAL) ──────────────────────────
+// UseDefaultDatabaseMigration MUST come before UseTenantResolution.
+// When multi-tenancy is enabled, AddDatabaseContext leaves IsConfigured=false so
+// OnConfiguring picks the connection string using ITenantContext at resolution time.
+// Running UseDefaultDatabaseMigration after UseTenantResolution causes its static
+// _isMigrated flag to fire against the tenant DB, permanently skipping the global DB.
+app.UseDefaultDatabaseMigration<IdentityDbContext>();      // safety net — global DB
+
+app.UseTenantResolution(builder.Configuration);            // sets ITenantContext
+app.UseTenantAwareCors();
+app.UseJwtTenantVerification(builder.Configuration);
+
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
 if (multiTenancyEnabled)
 {
-    // Multi-tenancy enabled: Use tenant database migration
-    // This handles BOTH: tenant-specific DBs (with header) AND default DB (without header)
+    // Migrates each tenant's DB on their first request
     app.UseTenantDatabaseMigration<IdentityDbContext>(builder.Configuration);
 }
-else
-{
-    // Multi-tenancy disabled: Use default database migration
-    // This ensures the default database from appsettings.json is created and migrated
-    app.UseDefaultDatabaseMigration<IdentityDbContext>();
-}
 
-// Authentication must come after tenant resolution and database migration
 app.UseAuthentication();
+app.UseAuthorization();
 ```
 
-**⚠️ Important Order:**
+**✅ Correct full order:**
 
-1. `UseTenantResolution()` - First (resolves tenant if multi-tenancy enabled)
-2. **IF** multi-tenancy enabled: `UseTenantDatabaseMigration<T>()` - Migrates tenant or default DB
-3. **ELSE**: `UseDefaultDatabaseMigration<T>()` - Migrates default DB only
-4. `UseAuthentication()` - Last (validates JWT)
+| Step | Where | What | Why |
+|---|---|---|---|
+| 1 | Before `app.Run()` | `InitializeDatabaseAsync` | Global DB migrated before background services start |
+| 2 | Middleware | `UseDefaultDatabaseMigration` | Safety net; must be before tenant resolution |
+| 3 | Middleware | `UseTenantResolution` | Sets `ITenantContext` on each request |
+| 4 | Middleware | `UseTenantAwareCors` + `UseJwtTenantVerification` | Tenant-aware CORS and JWT validation |
+| 5 | Middleware | `UseTenantDatabaseMigration` (if enabled) | Per-tenant DB migration on first request |
+| 6 | Middleware | `UseAuthentication` / `UseAuthorization` | JWT validation |
 
-**✨ Key Points:**
+**❌ Old pattern (wrong — do not use):**
 
-- ✅ **If-Else approach** - Only ONE middleware runs based on `MultiTenancy:Enabled`
-- ✅ When multi-tenancy enabled: `UseTenantDatabaseMigration` handles both tenant and default DBs
-- ✅ When multi-tenancy disabled: `UseDefaultDatabaseMigration` handles only default DB
-- ✅ Clean separation - no redundant middleware execution
+```csharp
+// WRONG: if-else approach left global DB unmigrated when multi-tenancy was on
+var multiTenancyEnabled = ...;
+if (multiTenancyEnabled)
+    app.UseTenantDatabaseMigration<MyDbContext>(...);
+else
+    app.UseDefaultDatabaseMigration<MyDbContext>();
+```
 
 ---
 
@@ -653,13 +674,20 @@ Now Orders service automatically creates tenant databases too!
 - Only runs when `MultiTenancy:Enabled` is `true`
 - Used in **if** branch of middleware registration
 
+**`InitializeDatabaseAsync<TContext>(applyMigrations, seedData, maxAttempts, retryDelaySeconds)`** (`DatabaseExtensions`)
+
+- Called on `app.Services` **before `app.Run()`** — not middleware
+- Migrates the global/fallback DB at startup, before hosted services start
+- Built-in retry loop with per-instance jitter to handle concurrent-startup DB locking
+- Defaults: `maxAttempts=3`, `retryDelaySeconds=5` (actual delay = retryDelaySeconds + random jitter)
+- Each retry creates a fresh `IServiceScope` so the `DbContext` is never reused after a failure
+
 **`UseDefaultDatabaseMigration<TContext>()`** (`DatabaseExtensions`)
 
-- Registers default database migration middleware
-- Generic method (works with any DbContext)
-- **Only handles default database** from appsettings.json
-- Only runs when `MultiTenancy:Enabled` is `false`
-- Used in **else** branch of middleware registration
+- Safety-net middleware — handles edge cases where startup migration was skipped
+- **Must be registered BEFORE `UseTenantResolution`** in the middleware pipeline
+- Runs once per application lifetime (static `_isMigrated` flag + semaphore lock)
+- Migrates the global/fallback DB using `DatabaseSettings:ConnectionString`
 
 ---
 
@@ -794,22 +822,27 @@ DatabaseMigrationMiddleware<IdentityDbContext>.ClearMigrationCache("tenant-123")
 
 ### Configuration Checklist
 
-**For All Scenarios:**
+**For All Services (global DB):**
 
-- [ ] `AddDatabaseMigration()` called in service registration
-- [ ] `UseDefaultDatabaseMigration<TContext>()` called in Program.cs
-- [ ] Middleware order is correct (after tenant resolution, before authentication)
+- [ ] `await app.Services.InitializeDatabaseAsync<TContext>(applyMigrations: true)` called before `app.Run()` — no environment guard
+- [ ] `UseDefaultDatabaseMigration<TContext>()` registered in middleware pipeline
+- [ ] `UseDefaultDatabaseMigration` is placed **before** `UseTenantResolution` in the pipeline
 - [ ] Database credentials valid in `appsettings.json`
 - [ ] Database server accessible from service
-- [ ] EF Core migrations exist in project
+- [ ] EF Core migrations exist in the Infrastructure project
 
-**For Multi-Tenancy Scenarios (Additional):**
+**For Multi-Tenancy Scenarios (Strategies B/C — additional):**
 
 - [ ] `MultiTenancy:Enabled` set to `true`
-- [ ] `UseTenantResolution()` called before database migration middleware
-- [ ] `UseTenantDatabaseMigration<TContext>()` called after tenant resolution
+- [ ] `UseTenantResolution()` registered after `UseDefaultDatabaseMigration`
+- [ ] `UseTenantDatabaseMigration<TContext>()` registered after `UseTenantResolution`
 - [ ] Tenant Service is running and accessible
 - [ ] Tenant configurations include valid database connection strings
+
+**For Services with Background Workers (additional):**
+
+- [ ] `InitializeDatabaseAsync` for the global queue context is confirmed unconditional (not dev-only)
+- [ ] Background service is registered **after** database contexts in DI (hosted services start in registration order)
 
 ---
 
@@ -821,14 +854,16 @@ DatabaseMigrationMiddleware<IdentityDbContext>.ClearMigrationCache("tenant-123")
 
 ---
 
-**Last Updated:** January 12, 2026  
-**Version:** 1.1.0  
+**Last Updated:** June 3, 2026  
+**Version:** 2.0.0  
 **Status:** ✅ Implemented and Production Ready
 
-**Recent Updates (Jan 12, 2026):**
+**Recent Updates (June 3, 2026 — v2.0.0):**
 
-- Fixed DbContext registration for multi-tenant mode to allow OnConfiguring to run
-- Database migration now works correctly for global database (no x-tenant-id header)
-- See [IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md](IDENTITY_SERVICE_IMPROVEMENTS_JANUARY_2026.md) for details
+- **Two-layer migration architecture**: replaced the old if-else approach with `InitializeDatabaseAsync` (startup) + `UseTenantDatabaseMigration` (per-request)
+- **`InitializeDatabaseAsync` is now unconditional** — removed `IsDevelopment()` and `!MultiTenancy:Enabled` guards that prevented global DB migration in production and when multi-tenancy was on
+- **Retry logic added to `InitializeDatabaseAsync`** — built-in retry with jitter handles concurrent-startup DB locking when multiple instances deploy simultaneously
+- **Middleware ordering bug fixed across all services** — `UseDefaultDatabaseMigration` now correctly placed before `UseTenantResolution` in Identity, FileManager, and Notification
+- **Background service race condition resolved** — `InitializeDatabaseAsync` running before `app.Run()` ensures schema exists before `OutboxEventProcessorService`, `NotificationProcessor`, and `CleanupService` start polling
 
 **Built with ❤️ for seamless tenant onboarding**

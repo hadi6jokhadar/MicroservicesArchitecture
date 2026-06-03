@@ -189,13 +189,12 @@ builder.Services.AddHostedService<Tenant.Infrastructure.BackgroundJobs.TenantCac
 // ============================================
 var app = builder.Build();
 
-// Initialize database (Development only)
+await app.Services.InitializeDatabaseAsync<TenantDbContext>(
+    applyMigrations: true,
+    seedData: false);
+
 if (app.Environment.IsDevelopment())
 {
-    await app.Services.InitializeDatabaseAsync<TenantDbContext>(
-        applyMigrations: true,
-        seedData: false); // No seed data for tenant service
-    
     app.UseSwagger();
     app.UseSwaggerUI();
 }

@@ -61,11 +61,16 @@ builder.Services.AddDatabaseContext<MyServiceDbContext>(
     builder.Configuration,
     typeof(MyServiceDbContext).Assembly.GetName().Name!);
 
+// ── Before app.Run() ─────────────────────────────────
+// Migrate the global DB at startup (before background services start).
+// InitializeDatabaseAsync has built-in retry logic for concurrent-startup locking.
+await app.Services.InitializeDatabaseAsync<MyServiceDbContext>(applyMigrations: true);
+
 // ── Pipeline ─────────────────────────────────────────
 // NO UseTenantResolution()  — not needed
 // NO UseTenantDatabaseMigration()
 
-app.UseDefaultDatabaseMigration<MyServiceDbContext>();  // single global migration
+app.UseDefaultDatabaseMigration<MyServiceDbContext>();  // safety net for edge cases
 app.UseAuthentication();
 app.UseAuthorization();
 ```
@@ -177,13 +182,22 @@ builder.Services.AddDatabaseContext<MyServiceDbContext>(
     builder.Configuration,
     typeof(MyServiceDbContext).Assembly.GetName().Name!);
 
+// ── Before app.Run() ─────────────────────────────────
+// Migrate the global fallback DB at startup. When multi-tenancy is enabled,
+// AddDatabaseContext leaves IsConfigured=false so OnConfiguring uses ITenantContext at
+// resolution time. If UseDefaultDatabaseMigration runs AFTER UseTenantResolution, the
+// first request already has tenant context and migrates the tenant DB instead — the
+// static _isMigrated flag then prevents the global DB from ever being migrated.
+// InitializeDatabaseAsync runs before app.Run() so no tenant context exists yet.
+await app.Services.InitializeDatabaseAsync<MyServiceDbContext>(applyMigrations: true);
+
 // ── Pipeline (ORDER IS CRITICAL) ─────────────────────
+// UseDefaultDatabaseMigration MUST be before UseTenantResolution (see note above)
+app.UseDefaultDatabaseMigration<MyServiceDbContext>();      // safety net for global DB
+
 app.UseTenantResolution(builder.Configuration);        // 1. reads x-tenant-id, calls Tenant Service, sets ITenantContext
 app.UseTenantAwareCors();                              // 2. CORS based on tenant config (BEFORE JWT verification)
 app.UseJwtTenantVerification(builder.Configuration);   // 3. verifies JWT tenant_id claim == x-tenant-id header
-
-// ALWAYS migrate the global DB first (fallback / BypassTenant endpoints)
-app.UseDefaultDatabaseMigration<MyServiceDbContext>();
 
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
 if (multiTenancyEnabled)
@@ -308,7 +322,17 @@ builder.Services.AddDatabaseContext<MyServiceTenantDbContext>(
     builder.Configuration,
     typeof(MyServiceTenantDbContext).Assembly.GetName().Name!);
 
+// ── Before app.Run() ─────────────────────────────────
+// Migrate the global queue DB at startup. Background services (queue processors) start
+// at the same time as the HTTP server and query this DB before any request triggers
+// UseDefaultDatabaseMigration. Must run before app.Run() so no tenant context exists yet.
+await app.Services.InitializeDatabaseAsync<MyServiceGlobalDbContext>(applyMigrations: true);
+
 // ── Pipeline ─────────────────────────────────────────
+// Both UseDefaultDatabaseMigration calls BEFORE UseTenantResolution (same reason as Strategy B)
+app.UseDefaultDatabaseMigration<MyServiceGlobalDbContext>();  // safety net for global queue DB
+app.UseDefaultDatabaseMigration<MyServiceTenantDbContext>();  // safety net for global fallback (BypassTenant)
+
 app.UseTenantResolution(builder.Configuration);
 app.UseTenantAwareCors();
 app.UseJwtTenantVerification(builder.Configuration);
@@ -316,13 +340,8 @@ app.UseJwtTenantVerification(builder.Configuration);
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
 if (multiTenancyEnabled)
 {
-    app.UseTenantDatabaseMigration<MyServiceGlobalDbContext>(builder.Configuration);   // global migrated per-tenant too (safe, idempotent)
-    app.UseTenantDatabaseMigration<MyServiceTenantDbContext>(builder.Configuration);   // tenant DB
-}
-else
-{
-    app.UseDefaultDatabaseMigration<MyServiceGlobalDbContext>();
-    app.UseDefaultDatabaseMigration<MyServiceTenantDbContext>();
+    app.UseTenantDatabaseMigration<MyServiceGlobalDbContext>(builder.Configuration);   // idempotent for global ctx
+    app.UseTenantDatabaseMigration<MyServiceTenantDbContext>(builder.Configuration);   // per-tenant history
 }
 
 app.UseAuthentication();
@@ -423,11 +442,14 @@ builder.Services.AddDatabaseContext<MyServiceDbContext>(
     builder.Configuration,
     typeof(MyServiceDbContext).Assembly.GetName().Name!);
 
+// ── Before app.Run() ─────────────────────────────────
+await app.Services.InitializeDatabaseAsync<MyServiceDbContext>(applyMigrations: true);
+
 // ── Pipeline ─────────────────────────────────────────
 // NO UseTenantResolution()
 // NO UseTenantDatabaseMigration()
 app.UseCors();  // standard CORS (no tenant-aware CORS needed)
-app.UseDefaultDatabaseMigration<MyServiceDbContext>();
+app.UseDefaultDatabaseMigration<MyServiceDbContext>();  // safety net
 app.UseAuthentication();
 app.UseAuthorization();
 ```
@@ -437,8 +459,22 @@ app.UseAuthorization();
 ## ⚠️ Critical Rules
 
 1. **Never call `UseTenantResolution` without `AddMultiTenancy`** — they are paired.
-2. **Never call `UseTenantDatabaseMigration` without `UseDefaultDatabaseMigration`** — always migrate the global DB first as fallback for `[BypassTenant]` endpoints.
-3. **`UseTenantAwareCors()` replaces `UseCors()`** — never call both; `TenantAwareCorsMiddleware` handles OPTIONS preflight too.
-4. **Middleware order is fixed**: `UseTenantResolution` → `UseTenantAwareCors` → `UseJwtTenantVerification` → `UseTenantDatabaseMigration` → `UseAuthentication` → `UseAuthorization`.
-5. **`[BypassTenant]` endpoints** must never depend on `ITenantContext.CurrentTenant` — the DbContext will use the global fallback connection.
-6. **Strategy B/C DbContexts** must handle `optionsBuilder.IsConfigured` early — DI configuration from tests and `Program.cs` takes priority over `OnConfiguring`.
+
+2. **`UseDefaultDatabaseMigration` MUST be called BEFORE `UseTenantResolution`** — when multi-tenancy is enabled, `AddDatabaseContext` leaves `IsConfigured=false` so `OnConfiguring` picks the connection string dynamically using `ITenantContext`. If `UseDefaultDatabaseMigration` runs after `UseTenantResolution`, the static `_isMigrated` flag fires against the first tenant's DB, leaving the global fallback DB permanently unmigrated.
+
+3. **Always call `InitializeDatabaseAsync` before `app.Run()` for every global DB** — hosted services (`BackgroundService`) start at the same time as the HTTP server, before any HTTP request triggers middleware migration. `InitializeDatabaseAsync` has built-in retry with jitter (`maxAttempts=3`, `retryDelaySeconds=5`) to handle concurrent-startup locking when multiple instances deploy simultaneously. Do NOT guard it with `IsDevelopment()` or `!MultiTenancy:Enabled`.
+
+4. **`UseTenantAwareCors()` replaces `UseCors()`** — never call both; `TenantAwareCorsMiddleware` handles OPTIONS preflight too.
+
+5. **Correct full middleware order (Strategies B/C)**:
+   `InitializeDatabaseAsync` (before app.Run) →
+   `UseDefaultDatabaseMigration` →
+   `UseTenantResolution` → `UseTenantAwareCors` → `UseJwtTenantVerification` →
+   `UseTenantDatabaseMigration` (if multi-tenancy enabled) →
+   `UseAuthentication` → `UseAuthorization`
+
+6. **`[BypassTenant]` endpoints** must never depend on `ITenantContext.CurrentTenant` — the DbContext will use the global fallback connection.
+
+7. **Strategy B/C DbContexts** must handle `optionsBuilder.IsConfigured` early — DI configuration from tests and `Program.cs` takes priority over `OnConfiguring`.
+
+8. **Strategy C: `InitializeDatabaseAsync` is only needed for the global context** — the tenant history context is only accessed per-request with tenant context; `UseTenantDatabaseMigration` handles it lazily.

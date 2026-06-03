@@ -195,6 +195,10 @@ app.MapGet("/", () => "Translation Service API - Running")
 
 app.MapTranslationEndpoints();
 
+await app.Services.InitializeDatabaseAsync<TranslationDbContext>(
+    applyMigrations: true,
+    seedData: false);
+
 app.Run();
 
 // Make Program class accessible for testing

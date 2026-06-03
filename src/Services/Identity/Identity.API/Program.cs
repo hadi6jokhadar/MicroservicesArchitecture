@@ -238,12 +238,9 @@ logger.LogInformation("========================================");
 
 // Initialize database (Development only)
 // Skip if multi-tenancy is enabled - tenant databases will be initialized automatically per-request
-if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false))
-{
-    await app.Services.InitializeDatabaseAsync<IdentityDbContext>(
-        applyMigrations: true,
-        seedData: true);
-}
+await app.Services.InitializeDatabaseAsync<IdentityDbContext>(
+    applyMigrations: true,
+    seedData: true);
 
 // Enable Swagger in all environments (for debugging)
 // TODO: Restrict to Development only in production
@@ -257,6 +254,14 @@ app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance
 app.UseRateLimiter(); // Rate limiting middleware (before authentication)
 app.UseHttpsRedirection();
+
+// Migrate global/default DB BEFORE tenant resolution. When multi-tenancy is enabled,
+// AddDatabaseContext leaves IsConfigured=false so OnConfiguring uses ITenantContext to
+// pick a connection string. If UseDefaultDatabaseMigration runs after UseTenantResolution,
+// the first request already has a tenant context, so the static _isMigrated flag fires
+// against the tenant DB — leaving the global fallback DB permanently un-migrated.
+var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+app.UseDefaultDatabaseMigration<IdentityDbContext>();
 
 // Multi-tenancy middleware (must be before CORS and authentication)
 // Only runs if MultiTenancy:Enabled is true
@@ -274,12 +279,6 @@ app.UseJwtTenantVerification(builder.Configuration);
 
 // Note: Standard UseCors() is NOT needed because TenantAwareCors handles everything
 // DO NOT call app.UseCors() - it will conflict with TenantAwareCorsMiddleware
-
-// Automatic database migration - use BOTH global and tenant-based migrations
-var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
-
-// CRITICAL: Always migrate global database first (used when x-tenant-id is not provided)
-app.UseDefaultDatabaseMigration<IdentityDbContext>();
 
 if (multiTenancyEnabled)
 {

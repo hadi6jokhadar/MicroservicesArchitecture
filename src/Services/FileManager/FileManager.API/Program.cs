@@ -277,6 +277,14 @@ app.UseLocalization();
 // Global exception handling
 app.UseGlobalExceptionHandler();
 
+// Migrate global/default DB BEFORE tenant resolution. When multi-tenancy is enabled,
+// AddDatabaseContext leaves IsConfigured=false so OnConfiguring uses ITenantContext to
+// pick a connection string. If UseDefaultDatabaseMigration runs after UseTenantResolution,
+// the first request already has a tenant context, so the static _isMigrated flag fires
+// against the tenant DB — leaving the global fallback DB permanently un-migrated.
+var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled");
+app.UseDefaultDatabaseMigration<FileManagerDbContext>();
+
 // Multi-tenancy middleware (must be before CORS and authentication)
 app.UseTenantResolution(builder.Configuration);
 
@@ -288,12 +296,6 @@ app.UseTenantAwareCors();
 // JWT tenant verification (AFTER tenant resolution and CORS, BEFORE authentication)
 // Prevents users from accessing other tenants by changing x-tenant-id header
 app.UseJwtTenantVerification(builder.Configuration);
-
-// Multi-tenancy configuration
-var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled");
-
-// Always migrate global database first (ensures it exists for admin endpoints without tenantId)
-app.UseDefaultDatabaseMigration<FileManagerDbContext>();
 
 if (multiTenancyEnabled)
 {
@@ -319,6 +321,10 @@ app.MapGet("/", () => new
     status = "Running",
     timestamp = DateTime.UtcNow
 }).WithTags("Health");
+
+await app.Services.InitializeDatabaseAsync<FileManagerDbContext>(
+    applyMigrations: true,
+    seedData: false);
 
 app.Run();
 

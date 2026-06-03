@@ -231,6 +231,10 @@ app.MapGet("/", () => new
     timestamp = DateTime.UtcNow
 }).WithTags("Health");
 
+await app.Services.InitializeDatabaseAsync<CategoryDbContext>(
+    applyMigrations: true,
+    seedData: false);
+
 app.Run();
 
 public partial class Program { }

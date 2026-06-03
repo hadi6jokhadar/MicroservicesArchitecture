@@ -137,45 +137,80 @@ public static class DatabaseExtensions
     }
 
     /// <summary>
-    /// Applies pending migrations and seeds data (Development only)
-    /// Modern approach: Async initialization with retry logic
+    /// Applies pending migrations and optional seed data at startup, with retry logic.
+    /// Retries handle the case where multiple service instances start simultaneously and
+    /// one instance fails to acquire PostgreSQL's implicit migration lock.
+    /// Each retry creates a fresh scope so the DbContext is not reused after a failure.
     /// </summary>
     public static async Task InitializeDatabaseAsync<TContext>(
         this IServiceProvider serviceProvider,
         bool applyMigrations = true,
-        bool seedData = false) 
+        bool seedData = false,
+        int maxAttempts = 3,
+        int retryDelaySeconds = 5)
         where TContext : DbContext
     {
-        using var scope = serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TContext>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<TContext>>();
+        var logger = serviceProvider.GetRequiredService<ILoggerFactory>()
+            .CreateLogger(typeof(TContext).Name);
 
-        try
+        Exception? lastException = null;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            if (applyMigrations)
+            try
             {
-                logger.LogInformation("Applying database migrations for {Context}...", typeof(TContext).Name);
-                await context.Database.MigrateAsync();
-                logger.LogInformation("Database migrations applied successfully");
-            }
+                using var scope = serviceProvider.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<TContext>();
 
-            if (seedData)
-            {
-                logger.LogInformation("Seeding database for {Context}...", typeof(TContext).Name);
-                // Call seed method if exists
-                var seedMethod = context.GetType().GetMethod("SeedAsync");
-                if (seedMethod != null)
+                if (applyMigrations)
                 {
-                    await (Task)seedMethod.Invoke(context, null)!;
+                    logger.LogInformation(
+                        "Applying database migrations for {Context} (attempt {Attempt}/{MaxAttempts})...",
+                        typeof(TContext).Name, attempt, maxAttempts);
+
+                    await context.Database.MigrateAsync();
+
+                    logger.LogInformation(
+                        "Database migrations applied successfully for {Context}",
+                        typeof(TContext).Name);
                 }
-                logger.LogInformation("Database seeded successfully");
+
+                if (seedData)
+                {
+                    logger.LogInformation("Seeding database for {Context}...", typeof(TContext).Name);
+                    var seedMethod = context.GetType().GetMethod("SeedAsync");
+                    if (seedMethod != null)
+                        await (Task)seedMethod.Invoke(context, null)!;
+                    logger.LogInformation("Database seeded successfully for {Context}", typeof(TContext).Name);
+                }
+
+                return;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+
+                if (attempt < maxAttempts)
+                {
+                    // Add per-instance jitter so concurrent instances don't all retry at the same moment
+                    var jitter = Random.Shared.Next(0, retryDelaySeconds);
+                    var delay = retryDelaySeconds + jitter;
+
+                    logger.LogWarning(
+                        "Database initialization attempt {Attempt}/{MaxAttempts} failed for {Context}. " +
+                        "Retrying in {Delay}s... Error: {Message}",
+                        attempt, maxAttempts, typeof(TContext).Name, delay, ex.Message);
+
+                    await Task.Delay(TimeSpan.FromSeconds(delay));
+                }
             }
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "An error occurred while initializing the database");
-            throw;
-        }
+
+        logger.LogError(lastException,
+            "Database initialization failed after {MaxAttempts} attempt(s) for {Context}",
+            maxAttempts, typeof(TContext).Name);
+
+        throw lastException!;
     }
 
     /// <summary>

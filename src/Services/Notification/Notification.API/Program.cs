@@ -399,14 +399,12 @@ logger.LogInformation("Multi-Tenancy: {Enabled}", builder.Configuration["MultiTe
 logger.LogInformation("JWT Mode: {JwtMode}", builder.Configuration["MultiTenancy:JwtMode"]);
 logger.LogInformation("========================================");
 
-// Initialize database (Development only)
-// Skip if multi-tenancy is enabled - tenant databases will be initialized automatically per-request
-if (app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false))
-{
-    await app.Services.InitializeDatabaseAsync<NotificationDbContext>(
-        applyMigrations: true,
-        seedData: false);
-}
+// NotificationProcessor and CleanupService (BackgroundServices) start at the same time
+// as the HTTP server, before any request triggers UseDefaultDatabaseMigration. Migrate
+// the global queue DB eagerly here so the schema exists when background services poll.
+await app.Services.InitializeDatabaseAsync<NotificationDbContext>(
+    applyMigrations: true,
+    seedData: false);
 
 // Enable Swagger in all environments (for debugging)
 // TODO: Restrict to Development only in production
@@ -445,24 +443,21 @@ app.UseJwtTenantVerification(builder.Configuration);
 // Note: Standard UseCors() is NOT needed because TenantAwareCors handles everything
 // DO NOT call app.UseCors() - it will conflict with TenantAwareCorsMiddleware
 
-// Automatic database migration - use EITHER tenant or default based on configuration
+// Migrate both global DBs BEFORE tenant resolution so the global fallback connection
+// string is used. NotificationDbContext (global queue) must be migrated here — not just
+// in UseTenantDatabaseMigration — because background services query it before any HTTP
+// request triggers the tenant-based path.
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+app.UseDefaultDatabaseMigration<NotificationDbContext>();
+app.UseDefaultDatabaseMigration<TenantNotificationDbContext>();
+
 if (multiTenancyEnabled)
 {
-    // Multi-tenancy enabled: Use tenant database migration
-    // NotificationDbContext → Global queue database (shared across all tenants)
-    // TenantNotificationDbContext → Each tenant's notification history database
+    // Also run per-tenant migration on each tenant's first request.
+    // NotificationDbContext → global queue (idempotent, always same DB regardless of tenant)
+    // TenantNotificationDbContext → per-tenant notification history
     app.UseTenantDatabaseMigration<NotificationDbContext>(builder.Configuration);
     app.UseTenantDatabaseMigration<TenantNotificationDbContext>(builder.Configuration);
-}
-else
-{
-    // Multi-tenancy disabled: Use default database migration
-    // Both contexts use the same global database from appsettings.json
-    // NotificationDbContext → Global queue database
-    // TenantNotificationDbContext → Global notification history (same DB, TenantNotificationDbContext.OnConfiguring handles fallback)
-    app.UseDefaultDatabaseMigration<NotificationDbContext>();
-    app.UseDefaultDatabaseMigration<TenantNotificationDbContext>();
 }
 
 // Service authentication middleware (must be BEFORE UseAuthentication)
