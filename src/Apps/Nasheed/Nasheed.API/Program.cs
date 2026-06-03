@@ -92,34 +92,6 @@ builder.Services.AddCors(options =>
 });
 
 // ============================================
-// Rate Limiting
-// ============================================
-builder.Services.AddRateLimiter(options =>
-{
-    options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(_ =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: "global",
-            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:Global:PermitLimit", 10000),
-                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:Global:WindowMinutes", 1)),
-                QueueLimit = 0
-            }));
-
-    options.AddPolicy("PerIP", context =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PerIP:PermitLimit", 200),
-                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:PerIP:WindowMinutes", 1)),
-                QueueLimit = 10
-            }));
-
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-});
-
-// ============================================
 // Response Compression
 // ============================================
 builder.Services.AddResponseCompression(options =>
@@ -181,7 +153,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseResponseCompression();
-app.UseRateLimiter();
 app.UseCors();
 app.UseLocalization();
 app.UseGlobalExceptionHandler();

@@ -9,19 +9,21 @@ Use this workflow when the user asks to create or refresh Postman collections fr
 
 ## Goal
 
-Create accurate Postman collection files for one service or all services by scanning endpoint definitions in:
+Create accurate Postman collection files for one service, all services, or the unified gateway collection by scanning endpoint definitions in:
 
 - `src/Services/{ServiceName}/{ServiceName}.API/Endpoints/**/*.cs`
+- `src/Apps/{AppName}/{AppName}.API/Endpoints/**/*.cs` (for apps like Nasheed)
 
 Collections are written to:
 
-- `PostmanCollections/{ServiceName}_Service.postman_collection.json`
+- `PostmanCollections/{ServiceName}_Service.postman_collection.json` (per service)
+- `PostmanCollections/Gateway_Service.postman_collection.json` (unified gateway)
 
 ## Required Inputs
 
 Ask only if missing:
 
-1. Target service name or `all`
+1. Target: service name, `all`, or `gateway` (unified collection through port 5000)
 2. Base URL override per service if different from appsettings
 3. Whether to replace full collection or merge with existing file
 
@@ -29,34 +31,42 @@ Ask only if missing:
 
 1. Read `PostmanCollections/README.md`.
 2. Read each target service API `Program.cs` to find configured port and route conventions.
-3. Scan endpoint files for:
+3. When target is `gateway` or `all`: also read `src/Gateway/Gateway.API/appsettings.json` to extract route-to-cluster mappings and any path transforms.
+4. Scan endpoint files for:
    - HTTP methods: `MapGet`, `MapPost`, `MapPut`, `MapDelete`, `MapPatch`
    - Route prefixes from `MapGroup(...)`
    - Endpoint metadata such as `WithName`, `RequireAuthorization`, or allow-anonymous usage
    - Tenant behavior hints from attributes or middleware usage in service docs
-4. Keep only callable HTTP endpoints. Skip SignalR hubs unless user requested them.
+5. Keep only callable HTTP endpoints. Skip SignalR hubs unless user requested them.
 
 ## Collection Rules
 
 1. Collection schema version must be `v2.1.0`.
-2. Collection name must follow `{ServiceName} Service API`.
-3. Add variables when needed:
-   - `baseUrl`
+2. For individual service collections, name must follow `{ServiceName} Service API`.
+3. For the gateway collection, name must be `Gateway API (Unified)`.
+4. Add variables when needed:
+   - `baseUrl` — service direct port for individual collections; `http://localhost:5000` for gateway collection
    - `tenantId`
    - `authToken`
    - `refreshToken` when auth flow exists
-   - `serviceSecret` for internal service endpoints
-4. Group requests into folders:
-   - `Public`
-   - `Authenticated`
-   - `Admin`
-   - `Internal`
-5. For each request include:
+   - `serviceSecret` for internal service endpoints (individual collections only — not in gateway collection)
+5. Individual service collections: group requests into folders `Public`, `Authenticated`, `Admin`, `Internal`
+6. Gateway collection: group by service name at top level, then by concern sub-folder; exclude `Internal` folder and SignalR hubs entirely
+7. For each request include:
    - Method
-   - URL with route params as Postman variables
+   - URL with route params as Postman `:variable` path variable format
    - Required headers
    - Example JSON body for POST, PUT, PATCH when body model exists
    - A concise description copied from endpoint intent if available
+
+### AI Service Gateway Path Transform
+
+The gateway routes `/api/v1/ai/{**}` and YARP transforms the path to `/api/v1/{**}` when forwarding to the AI service on port 5008.
+In the **gateway collection** use the gateway-side path with `/api/v1/ai/` prefix:
+
+- Service path `/api/v1/settings/` → gateway path `/api/v1/ai/settings/`
+- Service path `/api/v1/chat/stream` → gateway path `/api/v1/ai/chat/stream`
+- Service path `/api/v1/prompts/` → gateway path `/api/v1/ai/prompts/`
 
 ## Header Conventions
 

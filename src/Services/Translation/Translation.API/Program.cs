@@ -99,59 +99,6 @@ else
 }
 
 // ============================================
-// Rate Limiting (DoS Protection)
-// ============================================
-builder.Services.AddRateLimiter(options =>
-{
-    // Global rate limit
-    options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: "global",
-            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:Global:PermitLimit", 20000),
-                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:Global:WindowMinutes", 1)),
-                QueueLimit = 0
-            }));
-
-    // Per-IP rate limiting
-    options.AddPolicy("PerIP", context =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PerIP:PermitLimit", 200),
-                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:PerIP:WindowMinutes", 1)),
-                QueueLimit = 10
-            }));
-
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    
-    // On rejected - log the rate limit violation and return localized error
-    options.OnRejected = async (context, cancellationToken) =>
-    {
-        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-        var endpoint = context.HttpContext.GetEndpoint()?.DisplayName ?? "Unknown";
-        var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
-        var tenantId = context.HttpContext.Request.Headers["x-tenant-id"].FirstOrDefault() ?? "None";
-        
-        logger.LogWarning("Rate limit exceeded - Endpoint: {Endpoint}, IP: {IP}, TenantId: {TenantId}", 
-            endpoint, ip, tenantId);
-
-        var localizationService = context.HttpContext.RequestServices.GetRequiredService<IhsanDev.Shared.Application.Localization.ILocalizationService>();
-        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        await context.HttpContext.Response.WriteAsJsonAsync(new
-        {
-            error = localizationService.GetString(IhsanDev.Shared.Application.Localization.LocalizationKeys.Error.RateLimitExceeded),
-            message = localizationService.GetString(IhsanDev.Shared.Application.Localization.LocalizationKeys.Error.RateLimitExceeded),
-            retryAfter = context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter)
-                ? retryAfter.TotalSeconds
-                : 60
-        }, cancellationToken);
-    };
-});
-
-// ============================================
 // Response Compression
 // ============================================
 builder.Services.AddResponseCompression(options =>
@@ -226,7 +173,6 @@ app.UseLocalization();
 
 app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance
-app.UseRateLimiter(); // Rate limiting middleware (before authentication)
 app.UseHttpsRedirection();
 
 // CORS middleware (multi-tenancy is disabled, using static CORS from appsettings.json)

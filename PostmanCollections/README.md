@@ -11,7 +11,25 @@ You can generate or refresh collections directly from endpoint source code using
 Use it when endpoint files change and you want collection files to stay aligned with real routes.
 The workflow scans `src/Services/*/*.API/Endpoints/**/*.cs` and updates files in this folder.
 
+## When to Use Which Collection
+
+| Collection                                    | Base URL                | Use when                                                       |
+| --------------------------------------------- | ----------------------- | -------------------------------------------------------------- |
+| **`Gateway_Service.postman_collection.json`** | `http://localhost:5000` | Integration testing, end-to-end flows, production-like testing |
+| Individual service collections                | `http://localhost:500X` | Isolating a single service, debugging, development             |
+
+The gateway collection routes every request through YARP. Individual service collections bypass the gateway and hit services directly.
+
+> **Note:** Internal service-to-service endpoints (using `X-Service-Secret`) and SignalR hubs are only available in individual service collections — they are not routed through the gateway.
+
 ## Collections
+
+### Gateway (Unified) (`Gateway_Service.postman_collection.json`)
+
+- **Base URL**: `http://localhost:5000`
+- **Covers**: All 8 services through the API Gateway (YARP)
+- **Excludes**: Internal (X-Service-Secret) endpoints and SignalR hubs
+- **AI routes**: Uses `/api/v1/ai/` prefix — YARP transforms to `/api/v1/` before forwarding to port 5008
 
 ### 0. AI Service (`AI_Service.postman_collection.json`)
 
@@ -116,7 +134,7 @@ Some endpoints use `X-Service-Secret` header instead of JWT for internal service
 - All collections include example request bodies with placeholder data
 - Update variable values according to your environment
 - Some endpoints may require specific roles (User, Admin, SuperAdmin, Service)
-- Rate limiting is enabled on most endpoints
+- Rate limiting is split: Global (10,000 req/min) and PerIP (500 req/min/IP) enforced at the gateway; PerTenant and PerUser enforced at individual services
 - File upload endpoints expect multipart/form-data
 
 ## Testing Workflow

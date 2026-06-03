@@ -54,6 +54,12 @@ const services = [
     path: join(__dirname, "Category", "Category.API"),
     command: "run-development-instance.bat",
   },
+  {
+    color: "#FF0055",
+    title: "Gateway API",
+    path: join(__dirname, "..", "Gateway", "Gateway.API"),
+    command: "run-development-instance.bat",
+  },
 ];
 
 console.log("Starting all development services...\n");

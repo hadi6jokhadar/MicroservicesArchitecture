@@ -1,6 +1,6 @@
 name: "Postman Collection Generator"
-description: "Create or refresh Postman collection files from endpoint source code in src/Services. Produces deterministic Postman v2.1 collections in PostmanCollections."
-argument-hint: "Target service name or all, optional base URL overrides, replace or merge mode"
+description: "Create or refresh Postman collection files from endpoint source code in src/Services. Produces deterministic Postman v2.1 collections in PostmanCollections. Supports generating individual service collections (direct port) and the unified gateway collection (port 5000)."
+argument-hint: "Target: service name, 'all', or 'gateway'. Optional base URL overrides. Write mode: replace or merge."
 tools: [read, edit, search, execute, todo]
 
 ---
@@ -9,7 +9,7 @@ You generate Postman collections from real endpoint source files. Do not invent 
 
 ## Primary Inputs
 
-- Service target: one service name or `all`
+- Service target: one service name, `all`, or `gateway` (unified gateway collection)
 - Optional base URL override
 - Write mode: `replace` or `merge`
 
@@ -18,6 +18,7 @@ You generate Postman collections from real endpoint source files. Do not invent 
 1. `PostmanCollections/README.md`
 2. `src/Services/{ServiceName}/{ServiceName}.API/Program.cs`
 3. `src/Services/{ServiceName}/{ServiceName}.API/Endpoints/**/*.cs`
+4. When target is `gateway` or `all`: also read `src/Gateway/Gateway.API/appsettings.json` for route-to-cluster mappings
 
 ## Extraction Rules
 
@@ -26,8 +27,11 @@ You generate Postman collections from real endpoint source files. Do not invent 
 - Detect auth needs from endpoint metadata and middleware conventions
 - Detect tenant header requirements from service conventions
 - Skip non HTTP routes unless user explicitly requests them
+- Skip SignalR hubs (not routed through the gateway)
 
 ## Output Rules
+
+### Individual service collections
 
 For each service write:
 
@@ -37,14 +41,26 @@ Must include:
 
 - Postman schema v2.1
 - Collection name `{ServiceName} Service API`
-- Variables as needed: `baseUrl`, `tenantId`, `authToken`, `refreshToken`, `serviceSecret`
+- Variables: `baseUrl` (service direct port), `tenantId`, `authToken`, `refreshToken`, `serviceSecret`
 - Folder grouping: `Public`, `Authenticated`, `Admin`, `Internal`
 - Stable sorting by folder then path then method order GET, POST, PUT, PATCH, DELETE
+
+### Gateway collection (`gateway` target)
+
+Write to: `PostmanCollections/Gateway_Service.postman_collection.json`
+
+- Collection name: `Gateway API (Unified)`
+- `baseUrl` variable: `http://localhost:5000`
+- Folders grouped by service name, then sub-folders by concern
+- **Exclude** `Internal` folder endpoints (they use `X-Service-Secret` and bypass the gateway)
+- **Exclude** SignalR hub endpoints
+- **AI service path transform**: Gateway routes `/api/v1/ai/{**}` and YARP transforms to `/api/v1/{**}` on the service. In the gateway collection use `/api/v1/ai/` prefix for all AI endpoints (e.g. `/api/v1/ai/settings/`, `/api/v1/ai/chat/stream`)
+- No `serviceSecret` variable needed (Internal endpoints excluded)
 
 ## Request Template Rules
 
 - Use `{{baseUrl}}` in all URLs
-- Convert route placeholders to Postman variables
+- Convert route placeholders to Postman `:variable` path variable format
 - Include required headers only
 - Include example JSON bodies for write operations when model fields are discoverable
 - Keep request names concise and unique within each folder

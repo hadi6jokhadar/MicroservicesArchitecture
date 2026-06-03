@@ -11,20 +11,20 @@
 
 ## 📋 Progress Tracker
 
-| # | Capability | Tier | Status |
-|---|---|---|---|
-| 1 | API Gateway | 1 | ⬜ Not started |
-| 2 | Distributed Tracing & Observability | 1 | ⬜ Not started |
-| 3 | Secrets Management | 1 | ⬜ Not started |
-| 4 | Circuit Breaker / Resilience Patterns | 1 | ⬜ Not started |
-| 5 | Audit Logging Service | 1 | ⬜ Not started |
-| 6 | Background Job / Scheduling Service | 2 | ⬜ Not started |
-| 7 | API Versioning Standard | 2 | ⬜ Not started |
-| 8 | Feature Flags Service | 2 | ⬜ Not started |
-| 9 | Database Backup & Recovery | 2 | ⬜ Not started |
-| 10 | Search Service | 3 | ⬜ Not started |
-| 11 | CDN / Media Delivery | 3 | ⬜ Not started |
-| 12 | Usage Metering / Billing Hooks | 3 | ⬜ Not started |
+| #   | Capability                            | Tier | Status         |
+| --- | ------------------------------------- | ---- | -------------- |
+| 1   | API Gateway                           | 1    | ✅ Done        |
+| 2   | Distributed Tracing & Observability   | 1    | ⬜ Not started |
+| 3   | Secrets Management                    | 1    | ⬜ Not started |
+| 4   | Circuit Breaker / Resilience Patterns | 1    | ⬜ Not started |
+| 5   | Audit Logging Service                 | 1    | ⬜ Not started |
+| 6   | Background Job / Scheduling Service   | 2    | ⬜ Not started |
+| 7   | API Versioning Standard               | 2    | ⬜ Not started |
+| 8   | Feature Flags Service                 | 2    | ⬜ Not started |
+| 9   | Database Backup & Recovery            | 2    | ⬜ Not started |
+| 10  | Search Service                        | 3    | ⬜ Not started |
+| 11  | CDN / Media Delivery                  | 3    | ⬜ Not started |
+| 12  | Usage Metering / Billing Hooks        | 3    | ⬜ Not started |
 
 ---
 
@@ -40,7 +40,7 @@
 
 ### Why It's Needed
 
-Every service currently exposes its own port directly. A frontend must know 8 different base URLs. There is no centralized rate limiting, no single SSL termination point, and no place to inject cross-cutting headers (correlation IDs, auth pre-checks) before requests reach services.
+Every service currently exposes its own port directly. A frontend or mobile app must know 8 different base URLs (.NET services on 5001–5007, Python AI service on 5008). There is no centralized rate limiting, no single SSL termination point, and no place to inject cross-cutting headers (correlation IDs, auth pre-checks) before requests reach services.
 
 ### Recommended Approach: YARP (Yet Another Reverse Proxy)
 
@@ -93,47 +93,147 @@ app.Run();
 
 #### 3. appsettings.json routing table
 
+YARP is **language-agnostic** — it proxies HTTP regardless of whether the backend is .NET or Python. All 8 services go in the same routing table.
+
+The AI Python service has two endpoint types that need different route configurations:
+
+- `/api/v1/chat/single` — standard JSON response, no special config needed
+- `/api/v1/chat/stream` — Server-Sent Events (SSE) streaming; needs response buffering disabled and a long timeout
+
 ```json
 {
   "ReverseProxy": {
     "Routes": {
-      "identity-route":      { "ClusterId": "identity",      "Match": { "Path": "/api/auth/{**catch-all}" } },
-      "tenant-route":        { "ClusterId": "tenant",        "Match": { "Path": "/api/tenant/{**catch-all}" } },
-      "filemanager-route":   { "ClusterId": "filemanager",   "Match": { "Path": "/api/filemanager/{**catch-all}" } },
-      "notification-route":  { "ClusterId": "notification",  "Match": { "Path": "/api/notifications/{**catch-all}" } },
-      "translation-route":   { "ClusterId": "translation",   "Match": { "Path": "/api/translations/{**catch-all}" } },
-      "category-route":      { "ClusterId": "category",      "Match": { "Path": "/api/categories/{**catch-all}" } },
-      "nasheed-route":       { "ClusterId": "nasheed",       "Match": { "Path": "/api/nasheed/{**catch-all}" } }
+      "identity-route": {
+        "ClusterId": "identity",
+        "Match": { "Path": "/api/auth/{**catch-all}" }
+      },
+      "tenant-route": {
+        "ClusterId": "tenant",
+        "Match": { "Path": "/api/tenant/{**catch-all}" }
+      },
+      "filemanager-route": {
+        "ClusterId": "filemanager",
+        "Match": { "Path": "/api/filemanager/{**catch-all}" }
+      },
+      "notification-route": {
+        "ClusterId": "notification",
+        "Match": { "Path": "/api/notifications/{**catch-all}" }
+      },
+      "translation-route": {
+        "ClusterId": "translation",
+        "Match": { "Path": "/api/translations/{**catch-all}" }
+      },
+      "category-route": {
+        "ClusterId": "category",
+        "Match": { "Path": "/api/categories/{**catch-all}" }
+      },
+      "nasheed-route": {
+        "ClusterId": "nasheed",
+        "Match": { "Path": "/api/nasheed/{**catch-all}" }
+      },
+
+      "ai-route": {
+        "ClusterId": "ai",
+        "Match": { "Path": "/api/v1/ai/{**catch-all}" }
+      },
+      "ai-stream-route": {
+        "ClusterId": "ai",
+        "Match": { "Path": "/api/v1/ai/chat/stream" },
+        "Transforms": [{ "ResponseHeaderRemove": "Content-Length" }],
+        "Timeout": "00:10:00"
+      }
     },
     "Clusters": {
-      "identity":     { "Destinations": { "d1": { "Address": "https://localhost:5001" } } },
-      "tenant":       { "Destinations": { "d1": { "Address": "https://localhost:5002" } } },
-      "filemanager":  { "Destinations": { "d1": { "Address": "https://localhost:5005" } } },
-      "notification": { "Destinations": { "d1": { "Address": "https://localhost:5004" } } },
-      "translation":  { "Destinations": { "d1": { "Address": "https://localhost:5006" } } },
-      "category":     { "Destinations": { "d1": { "Address": "https://localhost:5007" } } },
-      "nasheed":      { "Destinations": { "d1": { "Address": "https://localhost:5009" } } }
+      "identity": {
+        "Destinations": { "d1": { "Address": "https://localhost:5001" } }
+      },
+      "tenant": {
+        "Destinations": { "d1": { "Address": "https://localhost:5002" } }
+      },
+      "filemanager": {
+        "Destinations": { "d1": { "Address": "https://localhost:5005" } }
+      },
+      "notification": {
+        "Destinations": { "d1": { "Address": "https://localhost:5004" } }
+      },
+      "translation": {
+        "Destinations": { "d1": { "Address": "https://localhost:5006" } }
+      },
+      "category": {
+        "Destinations": { "d1": { "Address": "https://localhost:5007" } }
+      },
+      "nasheed": {
+        "Destinations": { "d1": { "Address": "https://localhost:5009" } }
+      },
+      "ai": {
+        "Destinations": { "d1": { "Address": "http://localhost:5008" } },
+        "HttpClient": {
+          "RequestHeaderEncoding": "Latin1"
+        }
+      }
     }
   }
 }
 ```
 
-#### 4. Services affected by this change
+> **Why a separate `ai-stream-route`?** SSE streaming keeps the HTTP connection open until the model finishes generating. YARP's default response timeout (100s) will cut it off mid-stream for long completions. The stream route overrides timeout to 10 minutes and removes `Content-Length` (SSE responses don't have one). The non-stream route uses the default — no change needed.
 
-- **All frontends:** Update base URL to gateway port only (e.g. `https://localhost:5000`)
-- **All services:** No code changes needed — they stay on their own ports; gateway proxies to them
+> **Why `http://` for the AI cluster?** The Python FastAPI service runs on plain HTTP in development (no .NET Kestrel HTTPS). In production, use a TLS-terminating load balancer in front of the Python service and point the YARP cluster at the internal HTTP address.
+
+#### 4. Path rewriting for the AI service
+
+The AI service's internal routes are `/api/v1/chat/single` and `/api/v1/chat/stream`. The gateway exposes them at `/api/v1/ai/chat/single` and `/api/v1/ai/chat/stream`. YARP must strip the `/ai` prefix before forwarding:
+
+```json
+"ai-route": {
+  "ClusterId": "ai",
+  "Match": { "Path": "/api/v1/ai/{**catch-all}" },
+  "Transforms": [
+    { "PathPattern": "/api/v1/{**catch-all}" }
+  ]
+}
+```
+
+This means a client calls `POST /api/v1/ai/chat/single` → YARP rewrites to `POST /api/v1/chat/single` → Python service.
+
+#### 5. Service-to-service calls bypass the gateway
+
+Internal calls between services (e.g. Nasheed → AI) should go **direct** to `http://localhost:5008`, not through the gateway. Going through the gateway adds an extra network hop and ties internal availability to the gateway's availability. The gateway is for **client-to-service** traffic only.
+
+```csharp
+// Nasheed appsettings.json — point directly at AI service, not gateway
+"AiService": {
+  "BaseUrl": "http://localhost:5008"   // direct, not through gateway
+}
+```
+
+#### 6. Services affected by this change
+
+- **All frontends / mobile apps:** Single base URL — the gateway port (e.g. `https://localhost:5000`)
+- **All services:** No code changes — they stay on their own ports; gateway proxies to them
+- **Service-to-service clients:** Keep pointing direct (no change to `appsettings.json` service URLs)
 - **CORS:** Each service's `UseTenantAwareCors` or `UseCors` still controls allowed origins
 
 ### Implementation Checklist
 
-- [ ] Create `src/Gateway/Gateway.API/` project
-- [ ] Install `Yarp.ReverseProxy` NuGet package
-- [ ] Configure routing table in appsettings.json for all 7 services
-- [ ] Add correlation ID injection middleware
-- [ ] Add rate limiter (global + per-IP)
-- [ ] Add to solution file
-- [ ] Update all frontend API base URLs
-- [ ] Add `/health` endpoint that aggregates downstream health checks
+- [x] Create `src/Gateway/Gateway.API/` project
+- [x] Install `Yarp.ReverseProxy` NuGet package (v2.3.0)
+- [x] Configure routing table in appsettings.json for all 8 services (7 .NET + 1 Python AI)
+- [x] Add separate `ai-stream-route` with 10-minute timeout and `Content-Length` removal
+- [x] Add path-rewrite transform for the AI cluster (`/api/v1/ai/` → `/api/v1/`)
+- [x] Add correlation ID injection middleware
+- [x] Add rate limiter (per-IP, 500 req/min)
+- [x] Add to solution file
+- [x] Add `run-development-instance.bat` and entry in `start-all-services.mjs`
+- [x] Add `/health` endpoint on the gateway itself
+- [ ] Update all frontend API base URLs to point to gateway (port 5000)
+- [ ] Verify service-to-service calls still use direct addresses (not gateway)
+- [ ] Wire gateway `/health` to aggregate all downstream `/health` endpoints
+- [ ] Smoke-test the streaming endpoint through the gateway (`/api/v1/ai/chat/stream`)
+
+> **Gateway project:** `src/Gateway/Gateway.API/` — runs on `http://localhost:5000`  
+> **Full routing reference:** `Doc/API_GATEWAY_GUIDE.md`
 
 ---
 
@@ -392,13 +492,13 @@ services.AddHttpClient<INotificationServiceClient, NotificationServiceClient>(cl
 
 Services that use HTTP clients for inter-service calls:
 
-| Calling Service | Calls | Priority |
-|---|---|---|
-| Identity | Notification, FileManager | High |
-| FileManager | Notification, Tenant | High |
-| Nasheed | FileManager, AI | High |
-| Notification | Identity, Tenant | Medium |
-| Category | Tenant | Medium |
+| Calling Service | Calls                     | Priority |
+| --------------- | ------------------------- | -------- |
+| Identity        | Notification, FileManager | High     |
+| FileManager     | Notification, Tenant      | High     |
+| Nasheed         | FileManager, AI           | High     |
+| Notification    | Identity, Tenant          | Medium   |
+| Category        | Tenant                    | Medium   |
 
 #### 4. Handle open circuit in handlers
 
@@ -532,13 +632,13 @@ await _repository.DeleteAsync(entity, ct);
 
 #### 6. Priority: which operations to audit first
 
-| Service | Operations to audit |
-|---|---|
-| Identity | Login, logout, role assignment, password change |
-| Tenant | Tenant create, update, delete |
-| Category | Admin create, update, delete, move |
-| FileManager | Admin delete, blob operations |
-| Notification | Global send, archive |
+| Service      | Operations to audit                             |
+| ------------ | ----------------------------------------------- |
+| Identity     | Login, logout, role assignment, password change |
+| Tenant       | Tenant create, update, delete                   |
+| Category     | Admin create, update, delete, move              |
+| FileManager  | Admin delete, blob operations                   |
+| Notification | Global send, archive                            |
 
 ### Implementation Checklist
 
@@ -618,12 +718,12 @@ RecurringJob.AddOrUpdate<OutboxEventProcessorJob>(
 
 #### 5. Jobs to create first
 
-| Job | Service | Schedule | Queue |
-|---|---|---|---|
-| Outbox event processor | Category | Every 5 seconds | critical |
-| Temp file cleanup | FileManager | Daily at 2am | low |
-| Notification cleanup | Notification | Daily at 3am | low |
-| Tenant cache refresh | Tenant | Every 30 minutes | default |
+| Job                    | Service      | Schedule         | Queue    |
+| ---------------------- | ------------ | ---------------- | -------- |
+| Outbox event processor | Category     | Every 5 seconds  | critical |
+| Temp file cleanup      | FileManager  | Daily at 2am     | low      |
+| Notification cleanup   | Notification | Daily at 3am     | low      |
+| Tenant cache refresh   | Tenant       | Every 30 minutes | default  |
 
 ### Implementation Checklist
 
@@ -854,12 +954,12 @@ restore_command = 'cp /var/lib/postgresql/wal-archive/%f %p'
 
 #### 4. Backup retention policy
 
-| Type | Retention | Storage |
-|---|---|---|
-| Daily full backup | 30 days | Local + offsite |
-| Weekly backup | 12 weeks | Offsite only |
-| Monthly backup | 12 months | Offsite only |
-| WAL archive | 7 days rolling | Local |
+| Type              | Retention      | Storage         |
+| ----------------- | -------------- | --------------- |
+| Daily full backup | 30 days        | Local + offsite |
+| Weekly backup     | 12 weeks       | Offsite only    |
+| Monthly backup    | 12 months      | Offsite only    |
+| WAL archive       | 7 days rolling | Local           |
 
 ### Implementation Checklist
 
@@ -897,6 +997,7 @@ Sync the Elasticsearch index using the existing event-driven pattern (Category a
 #### 1. New service: `src/Services/Search/`
 
 Follow `NEW_SERVICE_INTEGRATION_GUIDE.md`. This service:
+
 - **Strategy A** (Global DB) — maintains its own index metadata table
 - Subscribes to Redis events from Category, Nasheed
 - Exposes `/api/v1/search?q=...&type=song|category|artist`
@@ -1062,13 +1163,13 @@ public interface IUsageMeteringService
 
 #### 3. Metric keys to implement first
 
-| Metric key | Where to record | Unit |
-|---|---|---|
-| `ai.tokens.input` | AI service call in Nasheed handler | tokens |
-| `ai.tokens.output` | AI service call in Nasheed handler | tokens |
-| `storage.bytes` | FileManager SaveFileCommandHandler | bytes |
-| `storage.files` | FileManager SaveFileCommandHandler | files |
-| `api.calls` | Gateway middleware (count per tenant) | requests |
+| Metric key         | Where to record                       | Unit     |
+| ------------------ | ------------------------------------- | -------- |
+| `ai.tokens.input`  | AI service call in Nasheed handler    | tokens   |
+| `ai.tokens.output` | AI service call in Nasheed handler    | tokens   |
+| `storage.bytes`    | FileManager SaveFileCommandHandler    | bytes    |
+| `storage.files`    | FileManager SaveFileCommandHandler    | files    |
+| `api.calls`        | Gateway middleware (count per tenant) | requests |
 
 #### 4. Quota enforcement example
 
@@ -1115,6 +1216,7 @@ await _metering.RecordAsync("ai.tokens.output", response.OutputTokens, "tokens",
 ## 🔄 Maintenance
 
 **Update this file when:**
+
 1. ✅ An item is started → change status to `🔵 In progress`
 2. ✅ An item is completed → change status to `✅ Done` and link to the guide or PR
 3. ✅ An approach changes → update the relevant section
@@ -1122,9 +1224,9 @@ await _metering.RecordAsync("ai.tokens.output", response.OutputTokens, "tokens",
 
 **Status legend:**
 
-| Symbol | Meaning |
-|---|---|
-| ⬜ | Not started |
-| 🔵 | In progress |
-| ✅ | Done — link to guide |
-| ❌ | Descoped |
+| Symbol | Meaning              |
+| ------ | -------------------- |
+| ⬜     | Not started          |
+| 🔵     | In progress          |
+| ✅     | Done — link to guide |
+| ❌     | Descoped             |

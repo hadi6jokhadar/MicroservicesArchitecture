@@ -62,5 +62,6 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
   </ItemGroup>
 </Project>

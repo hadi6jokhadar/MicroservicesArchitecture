@@ -92,27 +92,7 @@ builder.Services.AddCors(options =>
 // ============================================
 builder.Services.AddRateLimiter(options =>
 {
-    // Global rate limit across all requests
-    options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: "global",
-            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:Global:PermitLimit", 10000),
-                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:Global:WindowMinutes", 1)),
-                QueueLimit = 0
-            }));
-
-    // Per-IP rate limiting (prevent file upload/download abuse)
-    options.AddPolicy("PerIP", context =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PerIP:PermitLimit", 50),
-                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:PerIP:WindowMinutes", 1)),
-                QueueLimit = 10
-            }));
+    // Gateway handles Global + PerIP — services apply PerTenant/PerUser only
 
     // Per-Tenant rate limiting
     options.AddPolicy("PerTenant", context =>

@@ -4,7 +4,7 @@
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
 **Last Updated:** June 3, 2026  
-**Total Files:** 37
+**Total Files:** 38
 
 ---
 
@@ -144,11 +144,27 @@ Files are organized by category. Each entry includes:
 
 ---
 
+## 🌐 Infrastructure
+
+### API_GATEWAY_GUIDE.md
+
+**Description:** Complete guide for the YARP-based API Gateway (`src/Gateway/Gateway.API/`). Covers service routing table (all 8 downstream services), admin endpoint conflict resolution, AI stream route special handling (10-min timeout, SSE), rate limiting (500 req/min per IP), correlation ID injection, health check endpoint, run instructions, and future work.  
+**Read When:**
+
+- Configuring or modifying the gateway routing table
+- Debugging request routing failures
+- Adding a new service that needs to be reachable through the gateway
+- Understanding why an internal service must NOT call through the gateway
+- Changing rate limits or correlation ID behavior
+- Pointing the frontend at `http://localhost:5000` (gateway base URL)
+
+---
+
 ## 🗛 Platform Roadmap
 
 ### PLATFORM_CAPABILITIES_ROADMAP.md
 
-**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway, Distributed Tracing, Secrets Management, Circuit Breaker, Audit Logging), Tier 2 (Background Jobs, API Versioning, Feature Flags, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
+**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing, Secrets Management, Circuit Breaker, Audit Logging), Tier 2 (Background Jobs, API Versioning, Feature Flags, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
 **Read When:**
 
 - Planning new infrastructure work
@@ -517,6 +533,7 @@ Files are organized by category. Each entry includes:
 
 | Task                     | Files to Read                                                                                 |
 | ------------------------ | --------------------------------------------------------------------------------------------- |
+| Gateway routing          | API_GATEWAY_GUIDE.md                                                                          |
 | Create new service       | NEW_SERVICE_INTEGRATION_GUIDE.md, DATABASE_PER_TENANT_ARCHITECTURE.md, MULTI_TENANCY_GUIDE.md |
 | Add authentication       | SHARED_IDENTITY_SERVICE_GUIDE.md                                                              |
 | Implement file upload    | FILE_MANAGER.md                                                                               |
@@ -558,7 +575,7 @@ AI agents: Do NOT reference or create these files - they have been removed:
 
 ## 📊 Documentation Statistics
 
-- **Total Files:** 37 (all in `MicroservicesArchitecture/Doc/`)
+- **Total Files:** 38 (all in `MicroservicesArchitecture/Doc/`)
 
 **Average file size:** Comprehensive (each file contains complete information on its topic)
 
