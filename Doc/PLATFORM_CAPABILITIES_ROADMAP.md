@@ -14,7 +14,7 @@
 | #   | Capability                            | Tier | Status         |
 | --- | ------------------------------------- | ---- | -------------- |
 | 1   | API Gateway                           | 1    | ✅ Done        |
-| 2   | Distributed Tracing & Observability   | 1    | ⬜ Not started |
+| 2   | Distributed Tracing & Observability   | 1    | ✅ Done        |
 | 3   | Secrets Management                    | 1    | ⬜ Not started |
 | 4   | Circuit Breaker / Resilience Patterns | 1    | ⬜ Not started |
 | 5   | Audit Logging Service                 | 1    | ⬜ Not started |
@@ -243,9 +243,15 @@ Internal calls between services (e.g. Nasheed → AI) should go **direct** to `h
 
 When a request touches Identity → FileManager → Notification, there is no way to trace it end-to-end in production today. A single slow query in the wrong service causes a timeout that surfaces in the gateway with no actionable information.
 
-### Recommended Approach: OpenTelemetry + structured logging
+### Recommended Approach: OpenTelemetry + Jaeger + Grafana (fully free, OSS)
 
-Use **OpenTelemetry** (vendor-neutral) with export to **Jaeger** (local/dev) or **Azure Application Insights** (production). This fits cleanly onto the existing Serilog logging setup.
+Use **OpenTelemetry** (vendor-neutral instrumentation) with **Jaeger** as the tracing backend across **all environments** — local and production. For metrics and alerting, add **Prometheus + Grafana** alongside it. This fits cleanly onto the existing Serilog logging setup and costs nothing.
+
+| Concern | Tool | Cost |
+|---|---|---|
+| Distributed tracing | OpenTelemetry SDK → Jaeger | Free / OSS |
+| Metrics & dashboards | Prometheus + Grafana | Free / OSS |
+| Structured logs | Serilog (already in place) | Free / OSS |
 
 ### What to Build
 
@@ -256,8 +262,8 @@ dotnet add package OpenTelemetry.Extensions.Hosting
 dotnet add package OpenTelemetry.Instrumentation.AspNetCore
 dotnet add package OpenTelemetry.Instrumentation.Http
 dotnet add package OpenTelemetry.Instrumentation.EntityFrameworkCore
-dotnet add package OpenTelemetry.Exporter.Jaeger        # local dev
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol  # production
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol   # OTLP — used by both Jaeger and Grafana
+dotnet add package OpenTelemetry.Exporter.Prometheus.AspNetCore   # Prometheus /metrics scrape endpoint
 ```
 
 #### 2. Shared registration extension (add to `IhsanDev.Shared.Infrastructure`)
@@ -285,9 +291,18 @@ public static class ObservabilityExtensions
                     .AddHttpClientInstrumentation()
                     .AddEntityFrameworkCoreInstrumentation(o => o.SetDbStatementForText = true);
 
-                var jaegerEndpoint = configuration["Observability:JaegerEndpoint"];
-                if (!string.IsNullOrEmpty(jaegerEndpoint))
-                    tracing.AddJaegerExporter(o => o.AgentHost = jaegerEndpoint);
+                var otlpEndpoint = configuration["Observability:OtlpEndpoint"];
+                if (!string.IsNullOrEmpty(otlpEndpoint))
+                    tracing.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+            })
+            .WithMetrics(metrics =>
+            {
+                metrics
+                    .SetResourceBuilder(ResourceBuilder.CreateDefault()
+                        .AddService(serviceName))
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddPrometheusExporter();   // exposes /metrics for Prometheus to scrape
             });
 
         return services;
@@ -295,13 +310,75 @@ public static class ObservabilityExtensions
 }
 ```
 
-#### 3. Call in every service's Program.cs
+#### 3. Expose the Prometheus scrape endpoint in every service's Program.cs
 
 ```csharp
 builder.Services.AddPlatformObservability(builder.Configuration, "IdentityService");
+
+// ...after app.Build()...
+app.MapPrometheusScrapingEndpoint("/metrics");   // Prometheus scrapes this
 ```
 
-#### 4. Health check endpoints (add to every service)
+#### 4. Local Docker Compose — Jaeger + Prometheus + Grafana
+
+```yaml
+# docker-compose.observability.yml  (run alongside your services)
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC (services export here)
+      - "4318:4318"     # OTLP HTTP
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+      - jaeger
+```
+
+Minimal `prometheus.yml` to scrape all services:
+
+```yaml
+scrape_configs:
+  - job_name: "services"
+    static_configs:
+      - targets:
+          - "host.docker.internal:5001"   # IdentityService
+          - "host.docker.internal:5002"   # TenantService
+          - "host.docker.internal:5003"   # FileManagerService
+          - "host.docker.internal:5004"   # NotificationService
+          - "host.docker.internal:5005"   # TranslationService
+          - "host.docker.internal:5006"   # AIService
+          - "host.docker.internal:5000"   # Gateway
+    metrics_path: /metrics
+```
+
+#### 5. appsettings configuration (all services)
+
+```json
+{
+  "Observability": {
+    "OtlpEndpoint": "http://localhost:4317"
+  }
+}
+```
+
+In production, point `OtlpEndpoint` at the hosted Jaeger OTLP collector. No code change needed.
+
+#### 6. Health check endpoints (add to every service)
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -315,7 +392,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 ```
 
-#### 5. Correlation ID propagation
+#### 7. Correlation ID propagation
 
 The gateway injects `X-Correlation-Id`. Each service must read it and include it in logs:
 
@@ -335,13 +412,17 @@ app.Use(async (ctx, next) =>
 
 ### Implementation Checklist
 
-- [ ] Add `AddPlatformObservability` extension to `IhsanDev.Shared.Infrastructure`
-- [ ] Register in all 7 .NET services' `Program.cs`
-- [ ] Add `/health` and `/health/ready` endpoints to all services
+- [x] Add `AddPlatformObservability` extension to `IhsanDev.Shared.Infrastructure`
+- [x] Register in all 6 .NET services' `Program.cs` + expose `/metrics`
+- [x] Wire AI Python service (FastAPI + SQLAlchemy + Prometheus)
+- [x] Add `docker-compose.observability.yml` + `prometheus.yml` to repo root
+- [x] Add `start-observability.mjs` — launches stack automatically with `start-all-services`
+- [x] Add `start-observability` Nx target to `project.json`
+- [ ] Add `/health` and `/health/ready` endpoints to all services (Notification already has them)
 - [ ] Add correlation ID middleware to shared infrastructure
-- [ ] Stand up local Jaeger container (`docker run -p 16686:16686 jaegertracing/all-in-one`)
 - [ ] Wire gateway `/health` to aggregate all downstream `/health` endpoints
-- [ ] Verify traces appear in Jaeger UI for a cross-service request
+- [ ] Verify traces in Jaeger UI (`http://localhost:16686`) after first run
+- [ ] Add Prometheus data source in Grafana and import ASP.NET Core dashboard (ID 10915)
 
 ---
 

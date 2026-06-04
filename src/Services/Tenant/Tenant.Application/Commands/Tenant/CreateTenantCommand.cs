@@ -42,5 +42,8 @@ public class CreateTenantCommandValidator : LocalizedValidator<CreateTenantComma
         RuleFor(x => x.ExpireDate)
             .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.ExpireDate)))
             .GreaterThan(x => x.StartDate).WithMessage(L(LocalizationKeys.Validation.MustBeGreaterThan, L(LocalizationKeys.Fields.ExpireDate), L(LocalizationKeys.Fields.StartDate)));
+
+        RuleFor(x => x.Data)
+            .NotNull().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.ConfigurationData)));
     }
 }

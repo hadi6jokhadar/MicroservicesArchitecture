@@ -51,6 +51,13 @@ Compare the service's implementation against these key requirements:
 - [ ] **Localization**: References `ILocalizationService` and `LocalizationKeys` instead of hardcoded strings.
 - [ ] **Result Types**: Uses standard result wrappers or HTTP responses consistent with the Identity service.
 
+### Observability
+
+- [ ] **Tracing**: `builder.Services.AddPlatformObservability(builder.Configuration, "{ServiceName}")` is called in `Program.cs` after `AddCustomLogging`.
+- [ ] **Metrics endpoint**: `app.MapPrometheusScrapingEndpoint("/metrics")` is called before `app.Run()`.
+- [ ] **Config**: `appsettings.json` contains `"Observability": { "OtlpEndpoint": "http://localhost:4317" }`.
+- [ ] **Prometheus target**: Service port is listed in `prometheus.yml` at the repo root.
+
 ## 4. Report Results
 
 Generate a verification report for the user:

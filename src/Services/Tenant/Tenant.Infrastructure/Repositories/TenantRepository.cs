@@ -16,14 +16,14 @@ public class TenantRepository : Repository<TenantSettings>, ITenantRepository
     {
         return await _dbSet
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.TenantId == tenantId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.TenantId == tenantId && !t.IsArchived, cancellationToken);
     }
 
     public async Task<TenantSettings?> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.UserId == userId && !t.IsArchived, cancellationToken);
     }
 
     public async Task<(IEnumerable<TenantSettings> Items, int TotalCount)> GetAllActiveAsync(

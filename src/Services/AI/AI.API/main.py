@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
-from core.database import ensure_database_exists, ensure_schema_exists
+from core.database import ensure_database_exists, ensure_schema_exists, engine
 from core.exceptions import (
     AppException,
     app_exception_handler,
@@ -24,6 +24,35 @@ from core.logger import get_logger, init_logging
 # ---------------------------------------------------------------------------
 init_logging()
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# OpenTelemetry — distributed tracing
+# ---------------------------------------------------------------------------
+def _setup_tracing() -> None:
+    otlp_endpoint = settings.Observability.OtlpEndpoint
+    if not otlp_endpoint:
+        return
+    try:
+        from opentelemetry import trace
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+        from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
+        resource = Resource.create({"service.name": settings.ServiceCommunication.ServiceName})
+        provider = TracerProvider(resource=resource)
+        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint)))
+        trace.set_tracer_provider(provider)
+
+        HTTPXClientInstrumentor().instrument()
+        SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
+        logger.info("OpenTelemetry tracing initialised → %s", otlp_endpoint)
+    except ImportError:
+        logger.warning("OpenTelemetry packages not installed — tracing disabled")
+
+_setup_tracing()
 
 # Suppress verbose third-party logs
 import logging
@@ -93,6 +122,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- OpenTelemetry FastAPI instrumentation + Prometheus /metrics endpoint ---
+try:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    FastAPIInstrumentor.instrument_app(
+        app,
+        excluded_urls="health,metrics",
+    )
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+except ImportError:
+    pass
 
 # ---------------------------------------------------------------------------
 # Routers

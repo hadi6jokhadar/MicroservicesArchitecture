@@ -47,6 +47,11 @@ builder.Services.AddLocalizationService();
 builder.Services.AddCustomLogging(builder.Configuration, "Notification");
 
 // ============================================
+// Observability (OpenTelemetry → Jaeger + Prometheus)
+// ============================================
+builder.Services.AddPlatformObservability(builder.Configuration, "NotificationService");
+
+// ============================================
 // Multi-Tenancy Support (Optional)
 // ============================================
 builder.Services.AddMultiTenancy(builder.Configuration);
@@ -532,6 +537,8 @@ else
 logger.LogInformation("========================================");
 logger.LogInformation("Notification API Started Successfully!");
 logger.LogInformation("========================================");
+
+app.MapPrometheusScrapingEndpoint("/metrics");
 
 app.Run();
 

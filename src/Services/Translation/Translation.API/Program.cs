@@ -39,6 +39,11 @@ builder.Services.AddLocalizationService();
 builder.Services.AddCustomLogging(builder.Configuration, "Translation");
 
 // ============================================
+// Observability (OpenTelemetry → Jaeger + Prometheus)
+// ============================================
+builder.Services.AddPlatformObservability(builder.Configuration, "TranslationService");
+
+// ============================================
 // Multi-Tenancy Support (DISABLED)
 // ============================================
 // Translation Service uses a GLOBAL database (single database for all tenants)
@@ -198,6 +203,8 @@ app.MapTranslationEndpoints();
 await app.Services.InitializeDatabaseAsync<TranslationDbContext>(
     applyMigrations: true,
     seedData: false);
+
+app.MapPrometheusScrapingEndpoint("/metrics");
 
 app.Run();
 

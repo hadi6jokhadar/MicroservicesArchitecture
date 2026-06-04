@@ -43,6 +43,11 @@ builder.Services.AddLocalizationService();
 builder.Services.AddCustomLogging(builder.Configuration, "Tenant");
 
 // ============================================
+// Observability (OpenTelemetry → Jaeger + Prometheus)
+// ============================================
+builder.Services.AddPlatformObservability(builder.Configuration, "TenantService");
+
+// ============================================
 // Database Configuration (Multi-Provider)
 // ============================================
 // Tenant Service ALWAYS uses the static connection string from appsettings.json
@@ -223,6 +228,8 @@ app.UseAuthorization();
 // Map API Endpoints (Grouped Minimal APIs)
 // ============================================
 app.MapTenantEndpoints();
+
+app.MapPrometheusScrapingEndpoint("/metrics");
 
 app.Run();
 

@@ -50,6 +50,11 @@ builder.Services.AddLocalizationService();
 builder.Services.AddCustomLogging(builder.Configuration, "FileManager");
 
 // ============================================
+// Observability (OpenTelemetry → Jaeger + Prometheus)
+// ============================================
+builder.Services.AddPlatformObservability(builder.Configuration, "FileManagerService");
+
+// ============================================
 // Identity Services
 // ============================================
 builder.Services.AddScoped<IhsanDev.Shared.Infrastructure.Services.Identity.ICurrentUserService, IhsanDev.Shared.Infrastructure.Services.CurrentUserService>();
@@ -325,6 +330,8 @@ app.MapGet("/", () => new
 await app.Services.InitializeDatabaseAsync<FileManagerDbContext>(
     applyMigrations: true,
     seedData: false);
+
+app.MapPrometheusScrapingEndpoint("/metrics");
 
 app.Run();
 

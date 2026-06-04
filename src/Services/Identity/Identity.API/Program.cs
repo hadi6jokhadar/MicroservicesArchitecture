@@ -46,6 +46,11 @@ builder.Services.AddLocalizationService();
 builder.Services.AddCustomLogging(builder.Configuration, "Identity");
 
 // ============================================
+// Observability (OpenTelemetry → Jaeger + Prometheus)
+// ============================================
+builder.Services.AddPlatformObservability(builder.Configuration, "IdentityService");
+
+// ============================================
 // Multi-Tenancy Support (Optional)
 // ============================================
 builder.Services.AddMultiTenancy(builder.Configuration);
@@ -322,6 +327,8 @@ app.MapDeviceTokenEndpoints();
 
 // Keep controllers if you still have other controllers that haven't been converted
 // app.MapControllers();
+
+app.MapPrometheusScrapingEndpoint("/metrics");
 
 app.Run();
 

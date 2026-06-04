@@ -16,3 +16,10 @@ sentence-transformers>=3.0.0
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 pytest-mock>=3.14.0
+# OpenTelemetry — distributed tracing + Prometheus metrics
+opentelemetry-sdk>=1.25.0
+opentelemetry-instrumentation-fastapi>=0.46b0
+opentelemetry-instrumentation-httpx>=0.46b0
+opentelemetry-instrumentation-sqlalchemy>=0.46b0
+opentelemetry-exporter-otlp-proto-grpc>=1.25.0
+prometheus-fastapi-instrumentator>=7.0.0

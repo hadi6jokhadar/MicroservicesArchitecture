@@ -49,10 +49,19 @@ public class TenantMiddleware
         // Skip tenant resolution for static files (images, videos, documents, etc.)
         var path = context.Request.Path.Value ?? "";
         var isStaticFile = path.Contains(".") && !path.StartsWith("/api/");
-        
+
         if (isStaticFile)
         {
             _logger.LogDebug("Skipping tenant resolution for static file: {Path}", path);
+            await _next(context);
+            return;
+        }
+
+        // Skip tenant resolution for observability/infrastructure endpoints
+        if (path.StartsWith("/metrics", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/health", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug("Skipping tenant resolution for infrastructure endpoint: {Path}", path);
             await _next(context);
             return;
         }

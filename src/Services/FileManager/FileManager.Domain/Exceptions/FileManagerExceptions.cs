@@ -1,17 +1,34 @@
+using IhsanDev.Shared.Application.Exceptions;
+using IhsanDev.Shared.Application.Localization;
+
 namespace FileManager.Domain.Exceptions;
 
-public class FileNotFoundException : Exception
+public class FileNotFoundException : NotFoundException
 {
+    public int FileId { get; }
+
     public FileNotFoundException(int fileId)
-        : base($"File with ID {fileId} was not found.")
+        : base(LocalizationKeys.Exceptions.FileNotFound)
     {
+        FileId = fileId;
+    }
+
+    public FileNotFoundException(int fileId, ILocalizationService localizationService)
+        : base(LocalizationKeys.Exceptions.FileNotFound, localizationService)
+    {
+        FileId = fileId;
     }
 }
 
-public class FileValidationException : Exception
+public class FileValidationException : BadRequestException
 {
-    public FileValidationException(string message)
-        : base(message)
+    public FileValidationException(string localizationKey)
+        : base(localizationKey)
+    {
+    }
+
+    public FileValidationException(string localizationKey, ILocalizationService localizationService)
+        : base(localizationKey, localizationService)
     {
     }
 }

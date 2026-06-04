@@ -17,7 +17,7 @@
   "exception_tenant_not_found_for_user": "Tenant for user '{0}' not found",
   "exception_file_not_found": "File not found",
   "exception_file_not_found_on_disk": "File not found on disk",
-  "exception_invalid_file_type": "Invalid file type",
+  "exception_invalid_file_type": "File type is not allowed",
   "exception_file_size_exceeded": "File size exceeds maximum allowed size",
   "exception_account_disabled": "Account is disabled. Please contact support",
   "exception_queue_item_not_found": "Queue item not found",

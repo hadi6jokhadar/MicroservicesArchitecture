@@ -118,15 +118,14 @@ public class UserRepository : Repository<User>, IUserRepository
 
     public async Task<bool> UpdateRefreshTokenAsync(int userId, string refreshToken, DateTime expiryTime, CancellationToken cancellationToken = default)
     {
-        var user = await _dbSet.FirstOrDefaultAsync(u => u.Id == userId && !u.IsArchived, cancellationToken);
-        if (user == null) return false;
-
-        user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiryTime = expiryTime;
-        user.LastModified = DateTime.UtcNow;
-
-        await _context.SaveChangesAsync(cancellationToken);
-        return true;
+        var affected = await _dbSet
+            .Where(u => u.Id == userId && !u.IsArchived)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.RefreshToken, refreshToken)
+                .SetProperty(u => u.RefreshTokenExpiryTime, expiryTime)
+                .SetProperty(u => u.LastModified, DateTime.UtcNow),
+            cancellationToken);
+        return affected > 0;
     }
 
     public async Task<bool> RevokeRefreshTokenAsync(int userId, CancellationToken cancellationToken = default)

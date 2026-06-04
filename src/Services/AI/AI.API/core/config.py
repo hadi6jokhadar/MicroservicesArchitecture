@@ -13,12 +13,17 @@ class FileManagerSettings(BaseModel):
     BaseUrl: str
 
 
+class ObservabilitySettings(BaseModel):
+    OtlpEndpoint: str = ""
+
+
 # ---------------------------------------------------------------------------
 # Full settings for the AI service (extends the shared base)
 # ---------------------------------------------------------------------------
 
 class AppSettings(BaseAppSettings):
     FileManagerSettings: FileManagerSettings
+    Observability: ObservabilitySettings = ObservabilitySettings()
 
 
 # Load appsettings.json + appsettings.{env}.json from the AI.API root directory

@@ -52,6 +52,8 @@ This solution implements a **microservices architecture** with a focus on:
 - ✅ **Multi-Tenancy Support**: Optional per-tenant configuration with isolated databases
 - ✅ **Distributed Caching**: Redis support with automatic MemoryCache fallback
 - ✅ **File Manager Service**: Multi-tenant file storage with static file serving and caching
+- ✅ **Distributed Tracing**: OpenTelemetry → Jaeger (all 7 services instrumented)
+- ✅ **Metrics & Dashboards**: Prometheus scraping + Grafana dashboards
 - ✅ **Centralized Package Management**: Consistent versioning across services
 - ✅ **Global Exception Handling**: Centralized error management
 - ✅ **Input Validation**: FluentValidation integration
@@ -99,6 +101,9 @@ This solution implements a **microservices architecture** with a focus on:
 | **Caching**           | Microsoft.Extensions.Caching.StackExchangeRedis | 8.0.0   | Redis integration      |
 | **Database**          | Multiple EF Core providers                      | 8.0.0   | Data access            |
 | **API Documentation** | Swashbuckle.AspNetCore                          | 6.5.0   | Swagger/OpenAPI        |
+| **Tracing**           | OpenTelemetry.Extensions.Hosting                | 1.9.0   | Distributed tracing    |
+| **Tracing**           | OpenTelemetry.Exporter.OpenTelemetryProtocol    | 1.9.0   | OTLP export to Jaeger  |
+| **Metrics**           | OpenTelemetry.Exporter.Prometheus.AspNetCore    | 1.9.0b2 | /metrics scrape endpoint |
 
 ### Database Providers
 
@@ -928,7 +933,7 @@ chore: maintenance tasks
 - [x] Event sourcing implementation
 - [x] Distributed caching (Redis) - ✅ Completed with automatic fallback
 - [x] Message bus (RabbitMQ/Azure Service Bus)
-- [x] Distributed tracing (Jaeger/Zipkin)
+- [x] Distributed tracing — ✅ OpenTelemetry → Jaeger (all 7 services)
 - [x] Performance optimization - ✅ All 10 bottlenecks resolved
 - [x] Database replication - ✅ PostgreSQL primary-replica with automatic failover
 
@@ -949,12 +954,20 @@ chore: maintenance tasks
 - **Database Performance**: Query execution time
 - **Memory Usage**: Application memory consumption
 
-### Recommended Tools
+### Observability Stack (implemented)
 
-- **Application Performance Monitoring**: Application Insights
-- **Logging**: Serilog with structured logging
-- **Metrics**: Prometheus + Grafana
-- **Tracing**: OpenTelemetry
+| Tool | Purpose | URL (local) |
+|---|---|---|
+| Jaeger | Distributed traces | http://localhost:16686 |
+| Prometheus | Metrics scraping | http://localhost:9090 |
+| Grafana | Dashboards & alerts | http://localhost:3100 (admin/admin) |
+
+Start the stack:
+```powershell
+docker compose -f docker-compose.observability.yml up -d
+```
+
+See [Doc/OBSERVABILITY_GUIDE.md](OBSERVABILITY_GUIDE.md) for full setup and testing instructions.
 
 ## 🔒 Security Considerations
 

@@ -37,6 +37,11 @@ builder.Services.AddLocalizationService();
 builder.Services.AddCustomLogging(builder.Configuration, "Category");
 
 // ============================================
+// Observability (OpenTelemetry → Jaeger + Prometheus)
+// ============================================
+builder.Services.AddPlatformObservability(builder.Configuration, "CategoryService");
+
+// ============================================
 // Identity Services
 // ============================================
 builder.Services.AddScoped<IhsanDev.Shared.Infrastructure.Services.Identity.ICurrentUserService,
@@ -234,6 +239,8 @@ app.MapGet("/", () => new
 await app.Services.InitializeDatabaseAsync<CategoryDbContext>(
     applyMigrations: true,
     seedData: false);
+
+app.MapPrometheusScrapingEndpoint("/metrics");
 
 app.Run();
 

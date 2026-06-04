@@ -850,6 +850,20 @@ Use the `FileManager` appsettings as the template. Replace:
 - `"ServiceName"` in ServiceCommunication → `"{SN}Service"`
 - For Strategy A/D: remove `MultiTenancy` block entirely or set `Enabled: false`
 
+Always add the observability section:
+
+```json
+"Observability": {
+  "OtlpEndpoint": "http://localhost:4317"
+}
+```
+
+Also add the service port to `prometheus.yml` in the repo root so Prometheus scrapes it:
+
+```yaml
+- "host.docker.internal:{PORT}"   # {SN}Service
+```
+
 **File: `src/Services/{SN}/{SN}.API/appsettings.Development.json`**
 
 ```json
@@ -880,6 +894,8 @@ Full pipeline (Strategy B example):
 builder.Services.AddMultiTenancy(builder.Configuration);
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddDatabaseMigration();
+// Observability — ALWAYS add this for every new service
+builder.Services.AddPlatformObservability(builder.Configuration, "{SN}Service");
 // ...
 // Pipeline (ORDER IS CRITICAL for Strategy B)
 app.UseTenantResolution(builder.Configuration);
@@ -891,6 +907,7 @@ if (multiTenancyEnabled)
 app.UseAuthentication();
 app.UseAuthorization();
 app.Map{SN}Endpoints();
+app.MapPrometheusScrapingEndpoint("/metrics");  // exposes /metrics for Prometheus
 ```
 
 ### Phase 7 — Register in Solution

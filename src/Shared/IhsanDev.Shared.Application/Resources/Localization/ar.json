@@ -17,7 +17,7 @@
   "exception_tenant_not_found_for_user": "المستأجر للمستخدم '{0}' غير موجود",
   "exception_file_not_found": "الملف غير موجود",
   "exception_file_not_found_on_disk": "الملف غير موجود على القرص",
-  "exception_invalid_file_type": "نوع الملف غير صالح",
+  "exception_invalid_file_type": "نوع الملف غير مسموح به",
   "exception_file_size_exceeded": "حجم الملف يتجاوز الحد الأقصى المسموح به",
   "exception_account_disabled": "الحساب معطل. يرجى الاتصال بالدعم",
   "exception_queue_item_not_found": "عنصر قائمة الانتظار غير موجود",

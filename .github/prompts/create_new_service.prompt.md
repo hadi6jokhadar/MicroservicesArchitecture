@@ -321,15 +321,37 @@ Wire the pipeline based on the strategy chosen in Step 0. The order is **critica
 > Full DI registration + pipeline code for each strategy is in
 > [database-strategy.instructions.md](../instructions/database-strategy.instructions.md).
 
+**Always add observability** (same for every strategy):
+
+```csharp
+// After AddCustomLogging:
+builder.Services.AddPlatformObservability(builder.Configuration, "MyServiceName");
+
+// Before app.Run():
+app.MapPrometheusScrapingEndpoint("/metrics");
+```
+
+Also add to `appsettings.json`:
+
+```json
+"Observability": {
+  "OtlpEndpoint": "http://localhost:4317"
+}
+```
+
+And add the service port to `prometheus.yml` in the repo root.
+
 **Strategy A / D — Global DB (no tenant middleware):**
 
 ```csharp
 // DI
 builder.Services.AddDatabaseContext<MyServiceDbContext>(builder.Configuration, "MyService.Infrastructure");
+builder.Services.AddPlatformObservability(builder.Configuration, "MyServiceName");
 // Pipeline
 app.UseDefaultDatabaseMigration<MyServiceDbContext>();
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapPrometheusScrapingEndpoint("/metrics");
 ```
 
 **Strategy B — Per-Tenant DB:**
@@ -338,6 +360,7 @@ app.UseAuthorization();
 // DI
 builder.Services.AddMultiTenancy(builder.Configuration);
 builder.Services.AddDatabaseContext<MyServiceDbContext>(builder.Configuration, "MyService.Infrastructure");
+builder.Services.AddPlatformObservability(builder.Configuration, "MyServiceName");
 // Pipeline (ORDER IS NON-NEGOTIABLE)
 app.UseTenantResolution(builder.Configuration);
 app.UseTenantAwareCors();                               // replaces UseCors()
@@ -346,6 +369,7 @@ app.UseDefaultDatabaseMigration<MyServiceDbContext>();  // always first
 if (multiTenancyEnabled) app.UseTenantDatabaseMigration<MyServiceDbContext>(builder.Configuration);
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapPrometheusScrapingEndpoint("/metrics");
 ```
 
 **Strategy C — Dual DB:**
@@ -355,6 +379,7 @@ app.UseAuthorization();
 builder.Services.AddMultiTenancy(builder.Configuration);
 builder.Services.AddDatabaseContext<MyServiceGlobalDbContext>(builder.Configuration, "...");
 builder.Services.AddDatabaseContext<MyServiceTenantDbContext>(builder.Configuration, "...");
+builder.Services.AddPlatformObservability(builder.Configuration, "MyServiceName");
 // Pipeline
 app.UseTenantResolution(builder.Configuration);
 app.UseTenantAwareCors();
@@ -371,6 +396,7 @@ else
 }
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapPrometheusScrapingEndpoint("/metrics");
 ```
 
 ---

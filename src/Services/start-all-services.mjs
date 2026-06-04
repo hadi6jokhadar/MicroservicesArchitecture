@@ -7,6 +7,12 @@ const __dirname = dirname(__filename);
 
 const services = [
   {
+    color: "#FF6B35",
+    title: "Observability (Jaeger + Prometheus + Grafana)",
+    path: join(__dirname, "..", ".."),
+    command: "docker compose -f docker-compose.observability.yml up",
+  },
+  {
     color: "#646464ff",
     title: "Redis",
     path: join(__dirname, "..", ".."),

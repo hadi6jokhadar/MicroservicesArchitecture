@@ -22,6 +22,7 @@ public class FileManagerService : IFileManagerService
     private readonly BlobStorageFactory _blobStorageFactory;
     private readonly FileManagerOptions _options;
     private readonly ILogger<FileManagerService> _logger;
+    private readonly ILocalizationService _localizationService;
     private readonly string _urlPrefix;
 
     public FileManagerService(
@@ -30,7 +31,8 @@ public class FileManagerService : IFileManagerService
         IFileStorage fileStorage,
         BlobStorageFactory blobStorageFactory,
         IOptions<FileManagerOptions> options,
-        ILogger<FileManagerService> logger)
+        ILogger<FileManagerService> logger,
+        ILocalizationService localizationService)
     {
         _repository = repository;
         _usageRepository = usageRepository;
@@ -38,7 +40,7 @@ public class FileManagerService : IFileManagerService
         _blobStorageFactory = blobStorageFactory;
         _options = options.Value;
         _logger = logger;
-        // RootStoragePath is the URL prefix for responses
+        _localizationService = localizationService;
         _urlPrefix = _options.RootStoragePath?.TrimEnd('/') ?? string.Empty;
     }
 
@@ -56,7 +58,7 @@ public class FileManagerService : IFileManagerService
 
         if (file.Length > _options.MaxFileSizeBytes)
         {
-            throw new BadRequestException(LocalizationKeys.Exceptions.FileSizeExceeded);
+            throw new Domain.Exceptions.FileValidationException(LocalizationKeys.Exceptions.FileSizeExceeded, _localizationService);
         }
 
         var fileToSave = file;
@@ -65,16 +67,32 @@ public class FileManagerService : IFileManagerService
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (string.IsNullOrEmpty(extension) || !_options.AllowedExtensions.Contains(extension))
         {
-            throw new BadRequestException(LocalizationKeys.Exceptions.InvalidFileType);
+            throw new Domain.Exceptions.FileValidationException(LocalizationKeys.Exceptions.InvalidFileType, _localizationService);
         }
 
-        // Convert WebM uploads to MP3 before save.
-        if (string.Equals(extension, ".webm", StringComparison.OrdinalIgnoreCase))
+        // Convert WebM audio to MP3 before save (video webm is stored as-is).
+        // Falls back to saving as webm when FFmpeg is unavailable or conversion fails.
+        if (string.Equals(extension, ".webm", StringComparison.OrdinalIgnoreCase)
+            && file.ContentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
         {
-            var convertedResult = await ConvertWebMFormFileToMp3Async(file, cancellationToken);
-            fileToSave = convertedResult.ConvertedFile;
-            convertedStream = convertedResult.ConvertedStream;
-            extension = ".mp3";
+            if (!string.IsNullOrWhiteSpace(ResolveFfmpegExecutablePath()))
+            {
+                try
+                {
+                    var convertedResult = await ConvertWebMFormFileToMp3Async(file, cancellationToken);
+                    fileToSave = convertedResult.ConvertedFile;
+                    convertedStream = convertedResult.ConvertedStream;
+                    extension = ".mp3";
+                }
+                catch (GeneralException ex)
+                {
+                    _logger.LogWarning(ex, "FFmpeg conversion failed for {FileName}, saving audio webm as-is", file.FileName);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("FFmpeg not found; audio webm {FileName} will be saved as-is", file.FileName);
+            }
         }
 
         try
@@ -340,7 +358,7 @@ public class FileManagerService : IFileManagerService
         var entity = await _repository.GetByIdWithArchivedAsync(id, cancellationToken);
         if (entity == null)
         {
-            throw new Domain.Exceptions.FileNotFoundException(id);
+            throw new Domain.Exceptions.FileNotFoundException(id, _localizationService);
         }
 
         // Update fields if provided
@@ -423,7 +441,7 @@ public class FileManagerService : IFileManagerService
         var entity = await _repository.GetByIdWithArchivedAsync(id, cancellationToken);
         if (entity == null)
         {
-            throw new Domain.Exceptions.FileNotFoundException(id);
+            throw new Domain.Exceptions.FileNotFoundException(id, _localizationService);
         }
 
         entity.IsArchived = !entity.IsArchived;
@@ -527,7 +545,7 @@ public class FileManagerService : IFileManagerService
         var entity = await _repository.GetByIdWithArchivedAsync(id, cancellationToken);
         if (entity == null)
         {
-            throw new Domain.Exceptions.FileNotFoundException(id);
+            throw new Domain.Exceptions.FileNotFoundException(id, _localizationService);
         }
 
         var blob = _blobStorageFactory.Create();
@@ -557,7 +575,7 @@ public class FileManagerService : IFileManagerService
         var entity = await _repository.GetByIdWithArchivedAsync(id, cancellationToken);
         if (entity == null)
         {
-            throw new Domain.Exceptions.FileNotFoundException(id);
+            throw new Domain.Exceptions.FileNotFoundException(id, _localizationService);
         }
 
         if (!string.IsNullOrWhiteSpace(entity.ExternalUrl))

@@ -3,8 +3,8 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** June 3, 2026  
-**Total Files:** 38
+**Last Updated:** June 4, 2026  
+**Total Files:** 39
 
 ---
 
@@ -164,12 +164,23 @@ Files are organized by category. Each entry includes:
 
 ### PLATFORM_CAPABILITIES_ROADMAP.md
 
-**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing, Secrets Management, Circuit Breaker, Audit Logging), Tier 2 (Background Jobs, API Versioning, Feature Flags, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
+**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing ✅, Secrets Management, Circuit Breaker, Audit Logging), Tier 2 (Background Jobs, API Versioning, Feature Flags, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
 **Read When:**
 
 - Planning new infrastructure work
 - Deciding what to build next for production readiness
 - Starting implementation of any of the 12 capabilities listed
+
+### OBSERVABILITY_GUIDE.md
+
+**Description:** Complete guide for the distributed tracing and metrics stack (OpenTelemetry → Jaeger + Prometheus + Grafana). Covers how traces flow from all 7 services (6 .NET + 1 Python) to Jaeger, how Prometheus scrapes `/metrics` from each service, how to start the observability stack with `docker compose`, how to verify traces and metrics in Jaeger UI and Prometheus, and Grafana setup steps. Includes architecture diagram, troubleshooting table, and production notes.  
+**Read When:**
+
+- Starting or stopping the Jaeger/Prometheus/Grafana observability stack
+- Debugging missing traces or Prometheus scrape failures
+- Adding observability instrumentation to a new service
+- Understanding what is automatically instrumented (HTTP in/out, EF Core, SQLAlchemy)
+- Setting up Grafana dashboards or data sources
 
 ---
 
@@ -534,6 +545,7 @@ Files are organized by category. Each entry includes:
 | Task                     | Files to Read                                                                                 |
 | ------------------------ | --------------------------------------------------------------------------------------------- |
 | Gateway routing          | API_GATEWAY_GUIDE.md                                                                          |
+| Observability / tracing  | OBSERVABILITY_GUIDE.md                                                                        |
 | Create new service       | NEW_SERVICE_INTEGRATION_GUIDE.md, DATABASE_PER_TENANT_ARCHITECTURE.md, MULTI_TENANCY_GUIDE.md |
 | Add authentication       | SHARED_IDENTITY_SERVICE_GUIDE.md                                                              |
 | Implement file upload    | FILE_MANAGER.md                                                                               |
@@ -575,7 +587,7 @@ AI agents: Do NOT reference or create these files - they have been removed:
 
 ## 📊 Documentation Statistics
 
-- **Total Files:** 38 (all in `MicroservicesArchitecture/Doc/`)
+- **Total Files:** 39 (all in `MicroservicesArchitecture/Doc/`)
 
 **Average file size:** Comprehensive (each file contains complete information on its topic)
 
@@ -628,5 +640,5 @@ cd Doc
 
 ---
 
-**Last Updated:** June 3, 2026  
+**Last Updated:** June 4, 2026  
 **Maintained By:** AI agents following DOCUMENTATION_GUIDELINES.md
