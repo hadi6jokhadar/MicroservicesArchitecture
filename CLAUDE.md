@@ -14,9 +14,12 @@
 
 1. **Read** relevant `Doc/*.md` files first (start with `Doc/DOCUMENTATION_INDEX.md`)
 2. **Implement** the requested changes
-3. **Update** affected documentation in `Doc/` folder
-4. **Update** `Doc/DOCUMENTATION_INDEX.md` if you added/modified doc files
-5. **For Python service work**, use the project-local `venv\Scripts\python.exe` instead of system Python whenever a `venv` folder exists
+3. **Update** every affected `Doc/*.md` file in place — this is BLOCKING, not optional
+4. **Update** `Doc/DOCUMENTATION_INDEX.md` if you added, removed, or renamed any doc file
+5. **Update** this `CLAUDE.md` and `.claude/instructions/` files if you discovered a new pattern, pitfall, or structural change
+6. **For Python service work**, use the project-local `venv\Scripts\python.exe` instead of system Python whenever a `venv` folder exists
+
+**Do not report a task as complete until steps 3–5 are done.**
 
 ## CRITICAL: No Hardcoded Text — EVER
 
@@ -147,14 +150,18 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 
 ## Auto-Maintenance Rules
 
-After completing ANY task, self-check and update instruction files:
+After completing ANY task, self-check and update ALL affected files. These are **required** steps — a task is not done until they are complete.
 
-| Change Made | Section to Update |
-|---|---|
-| New/deleted/renamed `Doc/*.md` | This file → "Key Files" + root `CLAUDE.md` |
-| New service added or port changed | This file + root `CLAUDE.md` → Architecture services table |
-| New shared library added to `src/Shared/` | This file → "Shared Libraries" table |
-| New endpoint pattern or pitfall discovered | This file → "Common Pitfalls" or "Essential Patterns" |
+| Change Made | File(s) to Update | Section |
+|---|---|---|
+| New/deleted/renamed `Doc/*.md` | This file → "Key Files" table | Key Files |
+| New/deleted/renamed `Doc/*.md` | `Doc/DOCUMENTATION_INDEX.md` | Index entry |
+| New/deleted/renamed `Doc/*.md` | Root `CLAUDE.md` → "Key File Locations" | Key File Locations |
+| New service added or port changed | This file + root `CLAUDE.md` | Architecture services table |
+| New shared library added to `src/Shared/` | This file | "Shared Libraries" table |
+| New endpoint pattern or pitfall discovered | This file | "Common Pitfalls" or "Essential Patterns" |
+| New pattern added to `.claude/instructions/` | This file or relevant instructions file | Relevant section |
+| New database strategy detail discovered | `.claude/instructions/database-strategy.instructions.md` | Relevant strategy section |
 
 ---
 

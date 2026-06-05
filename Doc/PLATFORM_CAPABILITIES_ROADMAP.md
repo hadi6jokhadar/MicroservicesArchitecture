@@ -418,11 +418,11 @@ app.Use(async (ctx, next) =>
 - [x] Add `docker-compose.observability.yml` + `prometheus.yml` to repo root
 - [x] Add `start-observability.mjs` — launches stack automatically with `start-all-services`
 - [x] Add `start-observability` Nx target to `project.json`
-- [ ] Add `/health` and `/health/ready` endpoints to all services (Notification already has them)
-- [ ] Add correlation ID middleware to shared infrastructure
-- [ ] Wire gateway `/health` to aggregate all downstream `/health` endpoints
-- [ ] Verify traces in Jaeger UI (`http://localhost:16686`) after first run
-- [ ] Add Prometheus data source in Grafana and import ASP.NET Core dashboard (ID 10915)
+- [x] Add `/health` and `/health/ready` endpoints to all services (Notification already has them)
+- [x] Add correlation ID middleware to shared infrastructure (`CorrelationIdMiddleware` + `UseCorrelationId()` in `IhsanDev.Shared.Infrastructure`)
+- [x] Wire gateway `/health/aggregate` to probe all downstream `/health` endpoints in parallel (reads cluster addresses from YARP config)
+- [ ] Verify traces in Jaeger UI (`http://localhost:16686`) after first run — **requires Docker stack running**
+- [ ] Add Prometheus data source in Grafana and import ASP.NET Core dashboard (ID 10915) — **manual step in Grafana UI**
 
 ---
 

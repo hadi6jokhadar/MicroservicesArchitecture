@@ -115,9 +115,24 @@ throw new BadRequestException(LocalizationKeys.Exceptions.FileEmpty);
 
 ## Documentation Protocol
 
-If you encounter a discrepancy between these rules and the codebase:
+### Before starting
 
-1. **Stop.**
-2. **Analyze** the `Doc/` folder.
-3. **Fix** the documentation if it led you astray (Self-Correcting Documentation).
+Read `Doc/DOCUMENTATION_INDEX.md` and every doc file relevant to the task. State which files you read.
+
+### After every change — BLOCKING REQUIREMENT
+
+A task is **not complete** until:
+
+1. Every `Doc/*.md` that describes changed behavior has been updated in place
+2. `Doc/DOCUMENTATION_INDEX.md` reflects any added, removed, or renamed doc files
+3. If a new pattern or pitfall was discovered: it is added to this file or to `MicroservicesArchitecture/CLAUDE.md`
+4. No stale information remains in any doc you touched during the task
+
+### Self-correcting docs
+
+If you make a mistake caused by incorrect or misleading documentation:
+
+1. **Stop.** Acknowledge the mistake.
+2. **Fix** the offending doc immediately with correct information.
+3. **Add** a warning or clarification to prevent repeating it.
 4. **Proceed** with the correct architectural pattern.

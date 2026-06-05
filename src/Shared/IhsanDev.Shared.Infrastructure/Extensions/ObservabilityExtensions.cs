@@ -27,7 +27,7 @@ public static class ObservabilityExtensions
                             !ctx.Request.Path.StartsWithSegments("/metrics");
                     })
                     .AddHttpClientInstrumentation()
-                    .AddEntityFrameworkCoreInstrumentation(o => o.SetDbStatementForText = true);
+                    .AddEntityFrameworkCoreInstrumentation();
 
                 var otlpEndpoint = configuration["Observability:OtlpEndpoint"];
                 if (!string.IsNullOrEmpty(otlpEndpoint))
@@ -40,6 +40,7 @@ public static class ObservabilityExtensions
                         .AddService(serviceName))
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
+                    .AddRuntimeInstrumentation()
                     .AddPrometheusExporter();
             });
 

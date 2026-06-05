@@ -1,164 +1,50 @@
 {
   "info": {
+    "_postman_id": "notification-service-collection",
     "name": "Notification Service API",
-    "description": "Postman collection for Notification microservice endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:5004",
-      "type": "string"
-    },
-    {
-      "key": "tenantId",
-      "value": "your-tenant-id",
-      "type": "string"
-    },
-    {
-      "key": "authToken",
-      "value": "your-jwt-token",
-      "type": "string"
-    },
-    {
-      "key": "serviceSecret",
-      "value": "CHANGE_ME_SHARED_SECRET",
-      "type": "string"
-    }
+    { "key": "baseUrl", "value": "http://localhost:5004", "type": "string" },
+    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "authToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "serviceSecret", "value": "", "type": "string" }
   ],
   "item": [
     {
-      "name": "Health Check",
+      "name": "Public",
       "item": [
         {
-          "name": "Get Service Health",
+          "name": "Health Check",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
-            }
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "Health Readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
           }
         }
       ]
     },
     {
-      "name": "Service/Admin Endpoints",
+      "name": "Authenticated",
       "item": [
         {
-          "name": "Send Notification",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": 1,\n  \"title\": \"Test Notification\",\n  \"body\": \"This is a test notification\",\n  \"data\": {\n    \"key\": \"value\"\n  },\n  \"tenantId\": \"{{tenantId}}\",\n  \"priority\": \"Normal\",\n  \"type\": \"General\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/notifications/send",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "notifications", "send"]
-            }
-          }
-        },
-        {
-          "name": "Get Queue Item Status",
+          "name": "Get My Notifications",
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/api/notifications/status/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "notifications", "status", "1"]
-            }
-          }
-        },
-        {
-          "name": "Get Queue Items",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/notifications/queue?pageNumber=1&pageSize=10&status=Pending",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "notifications", "queue"],
-              "query": [
-                {
-                  "key": "pageNumber",
-                  "value": "1"
-                },
-                {
-                  "key": "pageSize",
-                  "value": "10"
-                },
-                {
-                  "key": "status",
-                  "value": "Pending"
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "User Endpoints",
-      "item": [
-        {
-          "name": "Get User Notifications",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/notifications/user?pageNumber=1&pageSize=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "notifications", "user"],
-              "query": [
-                {
-                  "key": "pageNumber",
-                  "value": "1"
-                },
-                {
-                  "key": "pageSize",
-                  "value": "10"
-                }
-              ]
-            }
+            "url": { "raw": "{{baseUrl}}/api/notifications/user", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "user"] }
           }
         },
         {
@@ -166,51 +52,89 @@
           "request": {
             "method": "PUT",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/api/notifications/1/read",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "notifications", "1", "read"]
-            }
+            "url": { "raw": "{{baseUrl}}/api/notifications/:id/read", "host": ["{{baseUrl}}"], "path": ["api", "notifications", ":id", "read"], "variable": [{ "key": "id", "value": "1" }] }
           }
         }
       ]
     },
     {
-      "name": "SignalR Hub",
+      "name": "Admin",
       "item": [
         {
-          "name": "Connect to Notification Hub",
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"tenantId\": \"{{tenantId}}\",\n  \"title\": \"Test Notification\",\n  \"message\": \"This is a test notification\",\n  \"type\": \"Info\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/notifications/send", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "send"] }
+          }
+        },
+        {
+          "name": "Get Queue Item Status",
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/notifications/status/:id", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "status", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+          }
+        },
+        {
+          "name": "Get Queue Items",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/hubs/notifications",
+              "raw": "{{baseUrl}}/api/notifications/queue?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["hubs", "notifications"]
+              "path": ["api", "notifications", "queue"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+            }
+          }
+        },
+        {
+          "name": "Toggle Queue Item Archived Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/notifications/queue/:id/toggle-archive", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "queue", ":id", "toggle-archive"], "variable": [{ "key": "id", "value": "1" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal",
+      "item": [
+        {
+          "name": "SignalR Hub (WebSocket)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-service-secret", "value": "{{serviceSecret}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/hubs/notifications?access_token={{authToken}}&tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["hubs", "notifications"],
+              "query": [
+                { "key": "access_token", "value": "{{authToken}}" },
+                { "key": "tenantId", "value": "{{tenantId}}" }
+              ]
             },
-            "description": "WebSocket connection endpoint for real-time notifications. Use SignalR client to connect."
+            "description": "SignalR WebSocket hub. Connect via a SignalR client, not plain HTTP. Token passed as query string for WebSocket upgrade."
           }
         }
       ]

@@ -138,6 +138,17 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // ============================================
+// Health Checks
+// ============================================
+// Nasheed uses a per-tenant DB from tenant configuration — no static connection string.
+// Only a service-level liveness check is registered; the DB is not probed here.
+builder.Services.AddHealthChecks()
+    .AddCheck(
+        name: "nasheed-service",
+        check: () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Nasheed service is running"),
+        tags: ["service"]);
+
+// ============================================
 // Build
 // ============================================
 var app = builder.Build();
@@ -154,6 +165,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseResponseCompression();
 app.UseCors();
+app.UseCorrelationId();
 app.UseLocalization();
 app.UseGlobalExceptionHandler();
 
@@ -181,13 +193,31 @@ app.UseAuthorization();
 // ============================================
 app.MapNasheedEndpoints();
 
-app.MapGet("/", () => new
+// ============================================
+// Health Check Endpoints
+// ============================================
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
-    service = "Nasheed API",
-    version = "1.0",
-    status = "Running",
-    timestamp = DateTime.UtcNow
-}).WithTags("Health");
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds
+        });
+        await context.Response.WriteAsync(result);
+    }
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready").AllowAnonymous();
 
 app.Run();
 

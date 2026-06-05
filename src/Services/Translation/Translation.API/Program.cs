@@ -88,6 +88,20 @@ builder.Services.AddCors(options =>
 });
 
 // ============================================
+// Health Checks
+// ============================================
+builder.Services.AddHealthChecks()
+    .AddNpgSql(
+        connectionString: builder.Configuration["DatabaseSettings:ConnectionString"]!,
+        name: "translation-database",
+        tags: ["database", "postgresql"],
+        timeout: TimeSpan.FromSeconds(5))
+    .AddCheck(
+        name: "translation-service",
+        check: () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Translation service is running"),
+        tags: ["service"]);
+
+// ============================================
 // Distributed Cache (Redis or Memory)
 // ============================================
 if (builder.Configuration.GetValue<bool>("Redis:Enabled"))
@@ -173,6 +187,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCorrelationId();
+
 // Localization middleware (must be before exception handler)
 app.UseLocalization();
 
@@ -194,9 +210,31 @@ app.UseAuthorization();
 // ============================================
 // Endpoints
 // ============================================
-app.MapGet("/", () => "Translation Service API - Running")
-    .WithName("Root")
-    .WithTags("Health");
+// ============================================
+// Health Check Endpoints
+// ============================================
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds
+        });
+        await context.Response.WriteAsync(result);
+    }
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready").AllowAnonymous();
 
 app.MapTranslationEndpoints();
 

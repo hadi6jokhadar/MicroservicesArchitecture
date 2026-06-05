@@ -1,22 +1,42 @@
 {
   "info": {
-    "_postman_id": "gateway-unified-collection-v1",
+    "_postman_id": "gateway-unified-collection-v2",
     "name": "Gateway API (Unified)",
-    "description": "Unified collection routing all requests through the API Gateway (http://localhost:5000). Use this collection for integration testing and production-like flows. For direct per-service testing use the individual service collections.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
     { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
-    { "key": "authToken", "value": "your-jwt-token", "type": "string" },
-    { "key": "refreshToken", "value": "your-refresh-token", "type": "string" }
+    { "key": "authToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" }
   ],
   "item": [
+    {
+      "name": "Gateway Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "Health Aggregate",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health/aggregate", "host": ["{{baseUrl}}"], "path": ["health", "aggregate"] }
+          }
+        }
+      ]
+    },
     {
       "name": "Identity",
       "item": [
         {
-          "name": "Authentication",
+          "name": "Public",
           "item": [
             {
               "name": "Login",
@@ -24,21 +44,13 @@
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/login",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "login"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
               }
             },
             {
@@ -47,67 +59,13 @@
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}"
+                  "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/register",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "register"]
-                }
-              }
-            },
-            {
-              "name": "Refresh Token",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/refresh",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "refresh"]
-                }
-              }
-            },
-            {
-              "name": "Logout",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/logout",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "logout"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] }
               }
             },
             {
@@ -116,21 +74,28 @@
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"email\": \"user@example.com\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/forgot-password",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "forgot-password"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "forgot-password"] }
+              }
+            },
+            {
+              "name": "Refresh Token",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "auth", "refresh"] }
               }
             },
             {
@@ -139,21 +104,13 @@
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"phoneNumber\": \"+1234567890\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/get-verification-code-by-phone",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "get-verification-code-by-phone"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/auth/get-verification-code-by-phone", "host": ["{{baseUrl}}"], "path": ["api", "auth", "get-verification-code-by-phone"] }
               }
             },
             {
@@ -162,21 +119,13 @@
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"email\": \"user@example.com\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/get-verification-code-by-email",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "get-verification-code-by-email"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/auth/get-verification-code-by-email", "host": ["{{baseUrl}}"], "path": ["api", "auth", "get-verification-code-by-email"] }
               }
             },
             {
@@ -185,21 +134,13 @@
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"phoneNumber\": \"+1234567890\",\n  \"code\": \"123456\"\n}"
+                  "raw": "{\n  \"phoneNumber\": \"+1234567890\",\n  \"code\": \"12345\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/login-with-code-by-phone",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "login-with-code-by-phone"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/auth/login-with-code-by-phone", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login-with-code-by-phone"] }
               }
             },
             {
@@ -208,21 +149,13 @@
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"code\": \"123456\"\n}"
+                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"code\": \"12345\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/login-with-code-by-email",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "login-with-code-by-email"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/auth/login-with-code-by-email", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login-with-code-by-email"] }
               }
             },
             {
@@ -231,21 +164,13 @@
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"phoneNumber\": \"+1234567890\",\n  \"code\": \"123456\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}"
+                  "raw": "{\n  \"phoneNumber\": \"+1234567890\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/register-with-code-by-phone",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "register-with-code-by-phone"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/auth/register-with-code-by-phone", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register-with-code-by-phone"] }
               }
             },
             {
@@ -254,50 +179,40 @@
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"code\": \"123456\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}"
+                  "raw": "{\n  \"email\": \"user@example.com\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/auth/register-with-code-by-email",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "auth", "register-with-code-by-email"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/auth/register-with-code-by-email", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register-with-code-by-email"] }
               }
             }
           ]
         },
-
         {
-          "name": "Profile Management",
+          "name": "Authenticated",
           "item": [
+            {
+              "name": "Logout",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] }
+              }
+            },
             {
               "name": "Get Profile",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/user/profile",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "user", "profile"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/user/profile", "host": ["{{baseUrl}}"], "path": ["api", "user", "profile"] }
               }
             },
             {
@@ -305,27 +220,15 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}"
+                  "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phoneNumber\": \"+1234567890\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/user/profile",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "user", "profile"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/user/profile", "host": ["{{baseUrl}}"], "path": ["api", "user", "profile"] }
               }
             },
             {
@@ -333,50 +236,134 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/me", "host": ["{{baseUrl}}"], "path": ["api", "user", "me"] }
+              }
+            },
+            {
+              "name": "Add Device Token",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"device-fcm-token-here\",\n  \"platform\": \"Android\",\n  \"userId\": 1\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/device-tokens/", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", ""] }
+              }
+            },
+            {
+              "name": "Get Device Token by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/device-tokens/:id", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Get User Device Tokens",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/device-tokens/user/:userId", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", "user", ":userId"], "variable": [{ "key": "userId", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Get User Device Tokens by Platform",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/user/me",
+                  "raw": "{{baseUrl}}/api/device-tokens/user/:userId/platform?platform=Android",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "user", "me"]
+                  "path": ["api", "device-tokens", "user", ":userId", "platform"],
+                  "query": [{ "key": "platform", "value": "Android" }],
+                  "variable": [{ "key": "userId", "value": "1" }]
                 }
+              }
+            },
+            {
+              "name": "Get Tenant Device Tokens",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/device-tokens/tenant", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", "tenant"] }
+              }
+            },
+            {
+              "name": "Update Device Token",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"updated-fcm-token\",\n  \"platform\": \"iOS\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/device-tokens/:id", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Delete Device Token",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/device-tokens/:id", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Delete All User Device Tokens",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/device-tokens/user/:userId", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", "user", ":userId"], "variable": [{ "key": "userId", "value": "1" }] }
               }
             }
           ]
         },
-
         {
-          "name": "Admin Users",
+          "name": "Admin",
           "item": [
             {
-              "name": "List Users",
+              "name": "Get All Users",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/admin/users",
+                  "raw": "{{baseUrl}}/api/admin/users?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "users"]
+                  "path": ["api", "admin", "users"],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
               }
             },
@@ -385,23 +372,10 @@
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/users/:id",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "users", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/admin/users/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -409,27 +383,15 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\",\n  \"firstName\": \"Admin\",\n  \"lastName\": \"User\",\n  \"role\": \"Admin\"\n}"
+                  "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/users",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "users"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/admin/users", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users"] }
               }
             },
             {
@@ -437,28 +399,37 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Name\"\n}"
+                  "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"email\": \"jane@example.com\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/users/:id",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "users", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/admin/users/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Toggle User Status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/admin/users/:id/toggle-status", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", ":id", "toggle-status"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Toggle User Archived Status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/admin/users/:id/toggle-archive", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", ":id", "toggle-archive"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -466,127 +437,213 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/users/:id",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "users", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/admin/users/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Get All Roles",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/admin/roles/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ""] }
+              }
+            },
+            {
+              "name": "Create Role",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Editor\",\n  \"description\": \"Can edit content\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/admin/roles/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ""] }
+              }
+            },
+            {
+              "name": "Update Role",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Editor\",\n  \"description\": \"Updated description\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/admin/roles/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Delete Role",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/admin/roles/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Assign Claims to Role",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"claimIds\": [1, 2, 3]\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/admin/roles/:id/claims", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ":id", "claims"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Assign Roles to User",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"roleIds\": [1, 2]\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/admin/roles/user/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", "user", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Get All Claims",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/admin/claims/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "claims", ""] }
+              }
+            },
+            {
+              "name": "Create Claim",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"permission\",\n  \"value\": \"posts:write\",\n  \"description\": \"Can write posts\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/admin/claims/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "claims", ""] }
+              }
+            },
+            {
+              "name": "Update Claim",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"permission\",\n  \"value\": \"posts:write\",\n  \"description\": \"Updated description\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/admin/claims/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "claims", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Delete Claim",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/admin/claims/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "claims", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             }
           ]
         }
       ]
     },
-
     {
       "name": "Tenant",
       "item": [
         {
-          "name": "Tenant Config",
+          "name": "Public",
           "item": [
+            {
+              "name": "Get Tenant by ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/tenant/:tenantId", "host": ["{{baseUrl}}"], "path": ["api", "tenant", ":tenantId"], "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }] }
+              }
+            },
             {
               "name": "Get Tenant Config",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/tenant/config/:tenantId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "tenant", "config", ":tenantId"],
-                  "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/tenant/config/:tenantId", "host": ["{{baseUrl}}"], "path": ["api", "tenant", "config", ":tenantId"], "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }] }
               }
             },
             {
-              "name": "Get My Tenant Config",
+              "name": "Get All Active Tenants with Config",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/tenant/config",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "tenant", "config"]
-                }
-              }
-            },
-            {
-              "name": "Get Tenant Public Info",
-              "request": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{baseUrl}}/api/tenant/:tenantId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "tenant", ":tenantId"],
-                  "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/tenant/config", "host": ["{{baseUrl}}"], "path": ["api", "tenant", "config"] }
               }
             }
           ]
         },
-
         {
-          "name": "Admin Tenant Management",
+          "name": "Admin",
           "item": [
             {
-              "name": "List Tenants",
+              "name": "Get All Active Tenants",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/tenant",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "tenant"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/admin/tenant/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", ""] }
               }
             },
             {
-              "name": "Get Tenant by User",
+              "name": "Get Tenant by User ID",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/tenant/user/:userId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "tenant", "user", ":userId"],
-                  "variable": [{ "key": "userId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/admin/tenant/user/:userId", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", "user", ":userId"], "variable": [{ "key": "userId", "value": "1" }] }
               }
             },
             {
@@ -594,22 +651,14 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "Content-Type", "value": "application/json" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"My Tenant\",\n  \"slug\": \"my-tenant\"\n}"
+                  "raw": "{\n  \"name\": \"Acme Corp\",\n  \"identifier\": \"acme\",\n  \"databaseProvider\": \"PostgreSql\",\n  \"connectionString\": \"Host=localhost;Database=acme_db;Username=user;Password=pass\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/tenant",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "tenant"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/admin/tenant/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", ""] }
               }
             },
             {
@@ -617,23 +666,14 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "Content-Type", "value": "application/json" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Updated Tenant Name\"\n}"
+                  "raw": "{\n  \"name\": \"Acme Corporation\",\n  \"allowedOrigins\": [\"https://acme.example.com\"]\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/tenant/:tenantId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "tenant", ":tenantId"],
-                  "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/admin/tenant/:tenantId", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", ":tenantId"], "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }] }
               }
             },
             {
@@ -641,52 +681,40 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/tenant/:tenantId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "tenant", ":tenantId"],
-                  "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/admin/tenant/:tenantId", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", ":tenantId"], "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }] }
+              }
+            },
+            {
+              "name": "Toggle Tenant Archived Status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/admin/tenant/:tenantId/toggle-archive", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", ":tenantId", "toggle-archive"], "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }] }
               }
             }
           ]
         }
       ]
     },
-
     {
       "name": "Notification",
       "item": [
         {
-          "name": "User Notifications",
+          "name": "Authenticated",
           "item": [
             {
               "name": "Get My Notifications",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/notifications/user",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "notifications", "user"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/notifications/user", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "user"] }
               }
             },
             {
@@ -694,173 +722,131 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/notifications/:id/read",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "notifications", ":id", "read"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/notifications/:id/read", "host": ["{{baseUrl}}"], "path": ["api", "notifications", ":id", "read"], "variable": [{ "key": "id", "value": "1" }] }
               }
             }
           ]
         },
-
         {
-          "name": "Admin Notifications",
+          "name": "Admin",
           "item": [
             {
               "name": "Send Notification",
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "Content-Type", "value": "application/json" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"userId\": \"user-id\",\n  \"title\": \"Notification Title\",\n  \"message\": \"Notification message\",\n  \"type\": \"Info\"\n}"
+                  "raw": "{\n  \"userId\": 1,\n  \"tenantId\": \"{{tenantId}}\",\n  \"title\": \"Test Notification\",\n  \"message\": \"This is a test notification\",\n  \"type\": \"Info\"\n}"
                 },
+                "url": { "raw": "{{baseUrl}}/api/notifications/send", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "send"] }
+              }
+            },
+            {
+              "name": "Get Queue Item Status",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/notifications/status/:id", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "status", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Get Queue Items",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
+                ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/notifications/send",
+                  "raw": "{{baseUrl}}/api/notifications/queue?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "notifications", "send"]
+                  "path": ["api", "notifications", "queue"],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
               }
             },
             {
-              "name": "Get Notification Status",
+              "name": "Toggle Queue Item Archived Status",
               "request": {
-                "method": "GET",
+                "method": "PATCH",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/notifications/status/:id",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "notifications", "status", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
-              }
-            },
-            {
-              "name": "Get Notification Queue",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/notifications/queue",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "notifications", "queue"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/notifications/queue/:id/toggle-archive", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "queue", ":id", "toggle-archive"], "variable": [{ "key": "id", "value": "1" }] }
               }
             }
           ]
         }
       ]
     },
-
     {
       "name": "FileManager",
       "item": [
         {
-          "name": "Files",
+          "name": "Public",
+          "item": [
+            {
+              "name": "Download File",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id/download", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id", "download"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Authenticated",
           "item": [
             {
               "name": "Upload File",
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "formdata",
-                  "formdata": [{ "key": "file", "type": "file", "src": "" }]
+                  "formdata": [
+                    { "key": "file", "type": "file", "src": "" }
+                  ]
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/files",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "filemanager", "files"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/filemanager/files", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files"] }
               }
             },
             {
-              "name": "List Files",
+              "name": "Get File by ID",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/files",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "filemanager", "files"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
-              "name": "Get File Metadata",
+              "name": "Get Files List",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/files/:id",
+                  "raw": "{{baseUrl}}/api/filemanager/files?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "filemanager", "files", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
+                  "path": ["api", "filemanager", "files"],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
               }
             },
@@ -869,28 +855,15 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"fileName\": \"updated-name.jpg\"\n}"
+                  "raw": "{\n  \"name\": \"updated-filename\",\n  \"category\": \"images\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/files/:id",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "filemanager", "files", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -898,143 +871,52 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/files/:id",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "filemanager", "files", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
-              "name": "Download File",
+              "name": "Upload File to Blob",
               "request": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/files/:id/download",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "filemanager", "files", ":id", "download"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id/upload-to-blob", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id", "upload-to-blob"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Remove File from Blob",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id/remove-from-blob", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id", "remove-from-blob"], "variable": [{ "key": "id", "value": "1" }] }
               }
             }
           ]
         },
-
         {
-          "name": "Admin Files",
+          "name": "Admin",
           "item": [
             {
-              "name": "Admin Upload File",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
-                ],
-                "body": {
-                  "mode": "formdata",
-                  "formdata": [{ "key": "file", "type": "file", "src": "" }]
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/admin/files",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "filemanager", "admin", "files"]
-                }
-              }
-            },
-            {
-              "name": "Admin List Files",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/admin/files",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "filemanager", "admin", "files"]
-                }
-              }
-            },
-            {
-              "name": "Admin Get File",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/admin/files/:id",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "filemanager", "admin", "files", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
-              }
-            },
-            {
-              "name": "Admin Update File",
-              "request": {
-                "method": "PUT",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"fileName\": \"updated-name.jpg\"\n}"
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/admin/files/:id",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "filemanager", "admin", "files", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
-              }
-            },
-            {
-              "name": "Admin Delete File",
+              "name": "Delete File (Admin)",
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/admin/files/:id",
+                  "raw": "{{baseUrl}}/api/filemanager/admin/files/:id?tenantId={{tenantId}}",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "filemanager", "admin", "files", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
+                  "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }],
+                  "variable": [{ "key": "id", "value": "1" }]
                 }
               }
             },
@@ -1043,24 +925,9 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/admin/files/temp/all",
-                  "host": ["{{baseUrl}}"],
-                  "path": [
-                    "api",
-                    "filemanager",
-                    "admin",
-                    "files",
-                    "temp",
-                    "all"
-                  ]
-                }
+                "url": { "raw": "{{baseUrl}}/api/filemanager/admin/files/temp/all", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "admin", "files", "temp", "all"] }
               }
             },
             {
@@ -1068,23 +935,45 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/filemanager/admin/files/temp/old",
+                  "raw": "{{baseUrl}}/api/filemanager/admin/files/temp/old?olderThanDays=7",
                   "host": ["{{baseUrl}}"],
-                  "path": [
-                    "api",
-                    "filemanager",
-                    "admin",
-                    "files",
-                    "temp",
-                    "old"
-                  ]
+                  "path": ["api", "filemanager", "admin", "files", "temp", "old"],
+                  "query": [{ "key": "olderThanDays", "value": "7" }]
+                }
+              }
+            },
+            {
+              "name": "Upload File to Blob (Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/filemanager/admin/files/:id/upload-to-blob?tenantId={{tenantId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "filemanager", "admin", "files", ":id", "upload-to-blob"],
+                  "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
+              }
+            },
+            {
+              "name": "Remove File from Blob (Admin)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/filemanager/admin/files/:id/remove-from-blob?tenantId={{tenantId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "filemanager", "admin", "files", ":id", "remove-from-blob"],
+                  "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }],
+                  "variable": [{ "key": "id", "value": "1" }]
                 }
               }
             }
@@ -1092,7 +981,6 @@
         }
       ]
     },
-
     {
       "name": "Translation",
       "item": [
@@ -1104,63 +992,28 @@
               "request": {
                 "method": "GET",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/translations/:language",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "translations", ":language"],
-                  "variable": [{ "key": "language", "value": "en" }]
-                }
-              }
-            },
-            {
-              "name": "Get Tenant Translations",
-              "request": {
-                "method": "GET",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/translations/:language",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "translations", ":language"],
-                  "variable": [{ "key": "language", "value": "ar" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/translations/:language", "host": ["{{baseUrl}}"], "path": ["api", "translations", ":language"], "variable": [{ "key": "language", "value": "en" }] }
               }
             }
           ]
         },
-
         {
-          "name": "Admin - Translation Keys",
+          "name": "Admin",
           "item": [
             {
-              "name": "List Translation Keys",
+              "name": "Get Translation Keys",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/translations/keys",
+                  "raw": "{{baseUrl}}/api/translations/keys?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "translations", "keys"]
+                  "path": ["api", "translations", "keys"],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
               }
             },
@@ -1169,27 +1022,14 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"key\": \"common.save\",\n  \"description\": \"Save button label\"\n}"
+                  "raw": "{\n  \"key\": \"common.save\",\n  \"category\": \"common\",\n  \"description\": \"Save button label\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/translations/keys",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "translations", "keys"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/translations/keys", "host": ["{{baseUrl}}"], "path": ["api", "translations", "keys"] }
               }
             },
             {
@@ -1197,28 +1037,14 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
                 ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"description\": \"Updated description\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/translations/keys/:keyId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "translations", "keys", ":keyId"],
-                  "variable": [{ "key": "keyId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/translations/keys/:id", "host": ["{{baseUrl}}"], "path": ["api", "translations", "keys", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -1226,58 +1052,34 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/translations/keys/:keyId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "translations", "keys", ":keyId"],
-                  "variable": [{ "key": "keyId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/translations/keys/:id", "host": ["{{baseUrl}}"], "path": ["api", "translations", "keys", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
-            }
-          ]
-        },
-
-        {
-          "name": "Admin - Translation Values",
-          "item": [
+            },
+            {
+              "name": "Toggle Translation Key Archived Status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/translations/keys/:id/toggle-archive", "host": ["{{baseUrl}}"], "path": ["api", "translations", "keys", ":id", "toggle-archive"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
             {
               "name": "Set Translation Value",
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"keyId\": \"key-id\",\n  \"language\": \"en\",\n  \"value\": \"Save\"\n}"
+                  "raw": "{\n  \"key\": \"common.save\",\n  \"language\": \"en\",\n  \"value\": \"Save\",\n  \"tenantId\": null\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/translations/values",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "translations", "values"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/translations/values", "host": ["{{baseUrl}}"], "path": ["api", "translations", "values"] }
               }
             },
             {
@@ -1285,65 +1087,30 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/translations/values/:id",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "translations", "values", ":id"],
-                  "variable": [{ "key": "id", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/translations/values/:id", "host": ["{{baseUrl}}"], "path": ["api", "translations", "values", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
-            }
-          ]
-        },
-
-        {
-          "name": "Admin - Bulk Import",
-          "item": [
+            },
             {
-              "name": "Bulk Import Translations",
+              "name": "Import Translations",
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"language\": \"en\",\n  \"translations\": {\n    \"common.save\": \"Save\",\n    \"common.cancel\": \"Cancel\"\n  }\n}"
+                  "raw": "{\n  \"language\": \"en\",\n  \"translations\": {\n    \"common.save\": \"Save\",\n    \"common.cancel\": \"Cancel\"\n  },\n  \"tenantId\": null\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/translations/import",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "translations", "import"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/translations/import", "host": ["{{baseUrl}}"], "path": ["api", "translations", "import"] }
               }
             }
           ]
         }
       ]
     },
-
     {
       "name": "Category",
       "item": [
@@ -1355,69 +1122,37 @@
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/categories/tree", "host": ["{{baseUrl}}"], "path": ["api", "categories", "tree"] }
+              }
+            },
+            {
+              "name": "Get Category List",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/categories/tree",
+                  "raw": "{{baseUrl}}/api/categories/?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "categories", "tree"]
+                  "path": ["api", "categories", ""],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
               }
             },
             {
-              "name": "List Categories",
+              "name": "Get Category by ID",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/categories",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "categories"]
-                }
-              }
-            },
-            {
-              "name": "Get Category",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/categories/:categoryId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "categories", ":categoryId"],
-                  "variable": [{ "key": "categoryId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -1425,27 +1160,15 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Category Name\",\n  \"parentId\": null\n}"
+                  "raw": "{\n  \"name\": \"Electronics\",\n  \"parentId\": null,\n  \"order\": 1\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/categories",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "categories"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/categories/", "host": ["{{baseUrl}}"], "path": ["api", "categories", ""] }
               }
             },
             {
@@ -1453,28 +1176,15 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Updated Category Name\"\n}"
+                  "raw": "{\n  \"name\": \"Consumer Electronics\",\n  \"order\": 2\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/categories/:categoryId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "categories", ":categoryId"],
-                  "variable": [{ "key": "categoryId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -1482,28 +1192,15 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"newParentId\": \"parent-category-id\"\n}"
+                  "raw": "{\n  \"newParentId\": 2,\n  \"order\": 1\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/categories/:categoryId/move",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "categories", ":categoryId", "move"],
-                  "variable": [{ "key": "categoryId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/categories/:id/move", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id", "move"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -1511,64 +1208,39 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/categories/:categoryId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "categories", ":categoryId"],
-                  "variable": [{ "key": "categoryId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             }
           ]
         },
-
         {
           "name": "Admin",
           "item": [
             {
-              "name": "Get Admin Category Tree",
+              "name": "Get Category Tree (Admin)",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/admin/categories/tree",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "categories", "tree"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/admin/categories/tree", "host": ["{{baseUrl}}"], "path": ["api", "admin", "categories", "tree"] }
               }
             },
             {
-              "name": "List Admin Categories",
+              "name": "Get Category List (Admin)",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/admin/categories",
+                  "raw": "{{baseUrl}}/api/admin/categories/?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "admin", "categories"]
+                  "path": ["api", "admin", "categories", ""],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
               }
             }
@@ -1576,62 +1248,79 @@
         }
       ]
     },
-
     {
       "name": "AI",
-      "description": "All AI routes go through the gateway with /api/v1/ai/ prefix. YARP transforms them to /api/v1/ before forwarding to the AI service on port 5008.",
       "item": [
         {
-          "name": "Settings",
+          "name": "Authenticated",
           "item": [
             {
-              "name": "List Settings (Tenant)",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/settings/",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "settings", ""]
-                }
-              }
-            },
-            {
-              "name": "Create Setting (Tenant)",
+              "name": "Chat Stream (SSE)",
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"key\": \"provider\",\n  \"value\": \"openai\"\n}"
+                  "raw": "{\n  \"settingsKey\": \"default\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Hello, how can you help me?\" }\n  ],\n  \"sessionId\": null,\n  \"generateSessionTitle\": true\n}"
                 },
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/chat/stream", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "chat", "stream"] },
+                "description": "Gateway path: /api/v1/ai/chat/stream. YARP transforms to /api/v1/chat/stream on port 5008. Returns text/event-stream SSE."
+              }
+            },
+            {
+              "name": "Chat Single Response",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"settingsKey\": \"default\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Hello, how can you help me?\" }\n  ],\n  \"sessionId\": null,\n  \"generateSessionTitle\": false\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/chat/single", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "chat", "single"] }
+              }
+            },
+            {
+              "name": "Create Embedding",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"settingsKey\": \"embedding-default\",\n  \"text\": \"Text to embed\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/embedding", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "embedding"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "name": "Get Settings",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/settings/",
+                  "raw": "{{baseUrl}}/api/v1/ai/settings/?scope=all",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "settings", ""]
+                  "path": ["api", "v1", "ai", "settings", ""],
+                  "query": [{ "key": "scope", "value": "all" }]
                 }
               }
             },
@@ -1640,30 +1329,10 @@
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/settings/by-key/:settingKey",
-                  "host": ["{{baseUrl}}"],
-                  "path": [
-                    "api",
-                    "v1",
-                    "ai",
-                    "settings",
-                    "by-key",
-                    ":settingKey"
-                  ],
-                  "variable": [{ "key": "settingKey", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/settings/by-key/:key", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "settings", "by-key", ":key"], "variable": [{ "key": "key", "value": "default" }] }
               }
             },
             {
@@ -1671,23 +1340,26 @@
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/settings/:settingId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "settings", ":settingId"],
-                  "variable": [{ "key": "settingId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/settings/:setting_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "settings", ":setting_id"], "variable": [{ "key": "setting_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
+            },
+            {
+              "name": "Create Setting",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"Key\": \"default\",\n  \"ModelType\": \"Chat\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-your-api-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": null\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/settings/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "settings", ""] }
               }
             },
             {
@@ -1695,28 +1367,15 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"value\": \"updated-value\"\n}"
+                  "raw": "{\n  \"Key\": \"default\",\n  \"ModelType\": \"Chat\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-updated-api-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": null\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/settings/:settingId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "settings", ":settingId"],
-                  "variable": [{ "key": "settingId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/settings/:setting_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "settings", ":setting_id"], "variable": [{ "key": "setting_id", "value": "00000000-0000-0000-0000-000000000000" }] }
               }
             },
             {
@@ -1724,271 +1383,206 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/settings/:setting_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "settings", ":setting_id"], "variable": [{ "key": "setting_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
+            },
+            {
+              "name": "Get System Prompts",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/settings/:settingId",
+                  "raw": "{{baseUrl}}/api/v1/ai/prompts/?scope=all",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "settings", ":settingId"],
-                  "variable": [{ "key": "settingId", "value": "" }]
+                  "path": ["api", "v1", "ai", "prompts", ""],
+                  "query": [{ "key": "scope", "value": "all" }]
                 }
               }
             },
             {
-              "name": "List Settings (Admin — no tenant)",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/settings/",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "settings", ""]
-                }
-              }
-            }
-          ]
-        },
-
-        {
-          "name": "System Prompts",
-          "item": [
-            {
-              "name": "List Prompts (Tenant)",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/prompts/",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "prompts", ""]
-                }
-              }
-            },
-            {
-              "name": "Create Prompt (Tenant)",
+              "name": "Create System Prompt",
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"My Prompt\",\n  \"content\": \"You are a helpful assistant.\"\n}"
+                  "raw": "{\n  \"Name\": \"Customer Support\",\n  \"PromptText\": \"You are a helpful customer support agent.\",\n  \"TenantId\": null,\n  \"ResponseFormat\": null\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/prompts/",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "prompts", ""]
-                }
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/prompts/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "prompts", ""] }
               }
             },
             {
-              "name": "Get Prompt",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/prompts/:promptId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "prompts", ":promptId"],
-                  "variable": [{ "key": "promptId", "value": "" }]
-                }
-              }
-            },
-            {
-              "name": "Update Prompt",
+              "name": "Update System Prompt",
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"content\": \"Updated prompt content.\"\n}"
+                  "raw": "{\n  \"Name\": \"Customer Support Updated\",\n  \"PromptText\": \"You are a friendly customer support agent.\",\n  \"TenantId\": null,\n  \"ResponseFormat\": null\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/prompts/:promptId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "prompts", ":promptId"],
-                  "variable": [{ "key": "promptId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/prompts/:prompt_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "prompts", ":prompt_id"], "variable": [{ "key": "prompt_id", "value": "00000000-0000-0000-0000-000000000000" }] }
               }
             },
             {
-              "name": "Delete Prompt",
+              "name": "Delete System Prompt",
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/prompts/:promptId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "prompts", ":promptId"],
-                  "variable": [{ "key": "promptId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/prompts/:prompt_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "prompts", ":prompt_id"], "variable": [{ "key": "prompt_id", "value": "00000000-0000-0000-0000-000000000000" }] }
               }
-            }
-          ]
-        },
-
-        {
-          "name": "Chat",
-          "item": [
+            },
             {
-              "name": "Chat Stream (SSE)",
+              "name": "List Chat Sessions",
               "request": {
-                "method": "POST",
+                "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"message\": \"Hello, how can you help me?\",\n  \"conversationId\": null\n}"
-                },
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/chat/stream",
+                  "raw": "{{baseUrl}}/api/v1/ai/chat-sessions/?skip=0&limit=50",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "chat", "stream"]
+                  "path": ["api", "v1", "ai", "chat-sessions", ""],
+                  "query": [{ "key": "skip", "value": "0" }, { "key": "limit", "value": "50" }]
                 }
               }
             },
             {
-              "name": "Chat Single",
+              "name": "Delete Chat Session",
               "request": {
-                "method": "POST",
+                "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/chat-sessions/:session_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "chat-sessions", ":session_id"], "variable": [{ "key": "session_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
+            },
+            {
+              "name": "Update Chat Session Title",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"message\": \"What is the capital of France?\",\n  \"conversationId\": null\n}"
+                  "raw": "{\n  \"title\": \"My Chat Session\"\n}"
                 },
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/chat-sessions/:session_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "chat-sessions", ":session_id"], "variable": [{ "key": "session_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
+            },
+            {
+              "name": "List Chat Messages",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
+                ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/ai/chat/single",
+                  "raw": "{{baseUrl}}/api/v1/ai/chat-messages/?skip=0&limit=50",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "ai", "chat", "single"]
+                  "path": ["api", "v1", "ai", "chat-messages", ""],
+                  "query": [{ "key": "skip", "value": "0" }, { "key": "limit", "value": "50" }]
                 }
+              }
+            },
+            {
+              "name": "List Chat Message Files",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/ai/chat-message-files/?skip=0&limit=50",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "ai", "chat-message-files", ""],
+                  "query": [{ "key": "skip", "value": "0" }, { "key": "limit", "value": "50" }]
+                }
+              }
+            },
+            {
+              "name": "List Token Usage Logs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/ai/token-usage-logs/?skip=0&limit=50",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "ai", "token-usage-logs", ""],
+                  "query": [{ "key": "skip", "value": "0" }, { "key": "limit", "value": "50" }]
+                }
+              }
+            },
+            {
+              "name": "Get Token Usage Stats",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/v1/ai/token-usage-logs/stats", "host": ["{{baseUrl}}"], "path": ["api", "v1", "ai", "token-usage-logs", "stats"] }
               }
             }
           ]
         }
       ]
     },
-
     {
       "name": "Nasheed",
       "item": [
         {
-          "name": "Artists",
+          "name": "Authenticated",
           "item": [
             {
-              "name": "List Artists",
+              "name": "Get Artist List",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/artists",
+                  "raw": "{{baseUrl}}/api/artists/?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "artists"]
+                  "path": ["api", "artists", ""],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
+              }
+            },
+            {
+              "name": "Get Artist by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/artists/:id", "host": ["{{baseUrl}}"], "path": ["api", "artists", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -1996,51 +1590,15 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"name\": \"Artist Name\",\n  \"bio\": \"Artist biography\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/artists",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "artists"]
-                }
-              }
-            },
-            {
-              "name": "Get Artist",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/artists/:artistId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "artists", ":artistId"],
-                  "variable": [{ "key": "artistId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/artists/", "host": ["{{baseUrl}}"], "path": ["api", "artists", ""] }
               }
             },
             {
@@ -2048,28 +1606,15 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Updated Artist Name\"\n}"
+                  "raw": "{\n  \"name\": \"Updated Artist Name\",\n  \"bio\": \"Updated biography\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/artists/:artistId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "artists", ":artistId"],
-                  "variable": [{ "key": "artistId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/artists/:id", "host": ["{{baseUrl}}"], "path": ["api", "artists", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -2077,51 +1622,64 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/artists/:artistId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "artists", ":artistId"],
-                  "variable": [{ "key": "artistId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/artists/:id", "host": ["{{baseUrl}}"], "path": ["api", "artists", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
-            }
-          ]
-        },
-
-        {
-          "name": "Songs",
-          "item": [
+            },
             {
-              "name": "List Songs",
+              "name": "Get Song List",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/songs",
+                  "raw": "{{baseUrl}}/api/songs/?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs"]
+                  "path": ["api", "songs", ""],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+                }
+              }
+            },
+            {
+              "name": "Get Song by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/songs/:id", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Get Song Analysis Status",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/songs/:id/analysis", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id", "analysis"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Get Similar Songs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/songs/:id/similar?topN=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "songs", ":id", "similar"],
+                  "query": [{ "key": "topN", "value": "10" }],
+                  "variable": [{ "key": "id", "value": "1" }]
                 }
               }
             },
@@ -2130,51 +1688,15 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"title\": \"Song Title\",\n  \"artistId\": \"artist-id\",\n  \"duration\": 240\n}"
+                  "raw": "{\n  \"title\": \"Song Title\",\n  \"artistId\": 1,\n  \"audioFileId\": 1,\n  \"lyrics\": \"Song lyrics here\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/songs",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs"]
-                }
-              }
-            },
-            {
-              "name": "Get Song",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/songs/:songId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ":songId"],
-                  "variable": [{ "key": "songId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/songs/", "host": ["{{baseUrl}}"], "path": ["api", "songs", ""] }
               }
             },
             {
@@ -2182,28 +1704,15 @@
               "request": {
                 "method": "PUT",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"title\": \"Updated Title\"\n}"
+                  "raw": "{\n  \"title\": \"Updated Song Title\",\n  \"lyrics\": \"Updated lyrics\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/songs/:songId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ":songId"],
-                  "variable": [{ "key": "songId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/songs/:id", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -2211,285 +1720,102 @@
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/songs/:songId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ":songId"],
-                  "variable": [{ "key": "songId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/songs/:id", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
-              "name": "Get Song Analysis",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/songs/:songId/analysis",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ":songId", "analysis"],
-                  "variable": [{ "key": "songId", "value": "" }]
-                }
-              }
-            },
-            {
-              "name": "Get Similar Songs",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/songs/:songId/similar",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ":songId", "similar"],
-                  "variable": [{ "key": "songId", "value": "" }]
-                }
-              }
-            },
-            {
-              "name": "Add to Favorites",
+              "name": "Add Favorite",
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "body": { "mode": "raw", "raw": "{}" },
-                "url": {
-                  "raw": "{{baseUrl}}/api/songs/:songId/favorites",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ":songId", "favorites"],
-                  "variable": [{ "key": "songId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/songs/:songId/favorites", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "favorites"], "variable": [{ "key": "songId", "value": "1" }] }
               }
             },
             {
-              "name": "Remove from Favorites",
+              "name": "Remove Favorite",
               "request": {
                 "method": "DELETE",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/songs/:songId/favorites",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ":songId", "favorites"],
-                  "variable": [{ "key": "songId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/songs/:songId/favorites", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "favorites"], "variable": [{ "key": "songId", "value": "1" }] }
               }
             },
             {
-              "name": "Record Play",
+              "name": "Add Rating",
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "body": { "mode": "raw", "raw": "{}" },
-                "url": {
-                  "raw": "{{baseUrl}}/api/songs/:songId/play",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ":songId", "play"],
-                  "variable": [{ "key": "songId", "value": "" }]
-                }
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"score\": 5\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/songs/:songId/ratings", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "ratings"], "variable": [{ "key": "songId", "value": "1" }] }
               }
             },
             {
-              "name": "Rate Song",
+              "name": "Log Play",
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "body": { "mode": "raw", "raw": "{\n  \"rating\": 5\n}" },
-                "url": {
-                  "raw": "{{baseUrl}}/api/songs/:songId/ratings",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ":songId", "ratings"],
-                  "variable": [{ "key": "songId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/songs/:songId/play", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "play"], "variable": [{ "key": "songId", "value": "1" }] }
               }
-            }
-          ]
-        },
-
-        {
-          "name": "Search",
-          "item": [
+            },
             {
-              "name": "Semantic Search",
+              "name": "Search Songs",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/search?query=nasheed&page=1&pageSize=20",
+                  "raw": "{{baseUrl}}/api/search/?q=nasheed&topN=10",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "search"],
-                  "query": [
-                    { "key": "query", "value": "nasheed" },
-                    { "key": "page", "value": "1" },
-                    { "key": "pageSize", "value": "20" }
-                  ]
-                }
-              }
-            }
-          ]
-        },
-
-        {
-          "name": "Ingestion",
-          "item": [
-            {
-              "name": "List Ingestion Jobs",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/ingestion",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "ingestion"]
+                  "path": ["api", "search", ""],
+                  "query": [{ "key": "q", "value": "nasheed" }, { "key": "topN", "value": "10" }]
                 }
               }
             },
             {
-              "name": "Get Ingestion Job",
+              "name": "Get Ingestion Job List",
               "request": {
                 "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/ingestion/:ingestionJobId",
+                  "raw": "{{baseUrl}}/api/ingestion/?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "ingestion", ":ingestionJobId"],
-                  "variable": [{ "key": "ingestionJobId", "value": "" }]
+                  "path": ["api", "ingestion", ""],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
               }
             },
             {
-              "name": "Delete Ingestion Job",
+              "name": "Get Ingestion Job by ID",
               "request": {
-                "method": "DELETE",
+                "method": "GET",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/ingestion/:ingestionJobId",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "ingestion", ":ingestionJobId"],
-                  "variable": [{ "key": "ingestionJobId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/ingestion/:id", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -2497,25 +1823,10 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "body": { "mode": "raw", "raw": "{}" },
-                "url": {
-                  "raw": "{{baseUrl}}/api/ingestion/:ingestionJobId/retry",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "ingestion", ":ingestionJobId", "retry"],
-                  "variable": [{ "key": "ingestionJobId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/ingestion/:id/retry", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", ":id", "retry"], "variable": [{ "key": "id", "value": "1" }] }
               }
             },
             {
@@ -2523,59 +1834,42 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "body": { "mode": "raw", "raw": "{}" },
-                "url": {
-                  "raw": "{{baseUrl}}/api/ingestion/songs/:songId/reindex",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "ingestion", "songs", ":songId", "reindex"],
-                  "variable": [{ "key": "songId", "value": "" }]
-                }
+                "url": { "raw": "{{baseUrl}}/api/ingestion/songs/:songId/reindex", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", "songs", ":songId", "reindex"], "variable": [{ "key": "songId", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Remove Ingestion Job",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/ingestion/:id", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
             }
           ]
         },
-
         {
-          "name": "Generation",
+          "name": "Admin",
           "item": [
             {
               "name": "Generate Lyrics",
               "request": {
                 "method": "POST",
                 "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{authToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "x-tenant-id",
-                    "value": "{{tenantId}}",
-                    "type": "text"
-                  },
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"songId\": \"song-id\",\n  \"style\": \"nasheed\",\n  \"language\": \"ar\"\n}"
+                  "raw": "{\n  \"theme\": \"gratitude\",\n  \"language\": \"ar\",\n  \"style\": \"traditional\"\n}"
                 },
-                "url": {
-                  "raw": "{{baseUrl}}/api/generation/lyrics",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "generation", "lyrics"]
-                }
+                "url": { "raw": "{{baseUrl}}/api/generation/lyrics", "host": ["{{baseUrl}}"], "path": ["api", "generation", "lyrics"] }
               }
             }
           ]

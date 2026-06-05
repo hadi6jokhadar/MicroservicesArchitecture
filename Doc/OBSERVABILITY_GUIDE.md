@@ -49,6 +49,52 @@ Change the endpoint value to point at a remote Jaeger collector in production �
 
 ---
 
+## Health Checks & Correlation ID
+
+These two features work alongside OpenTelemetry to give complete request visibility. They were implemented in June 2026.
+
+### Health Check Endpoints (all services)
+
+Every .NET service now exposes:
+
+| Endpoint | Response | Use case |
+|---|---|---|
+| `GET /health` | JSON with per-check status, description, duration | Ops dashboards, `/health/aggregate` |
+| `GET /health/ready` | 200 OK / 503 Unhealthy | Kubernetes readiness probe, load balancers |
+
+Services with a static connection string (Identity, Tenant, FileManager, Translation, Category) probe PostgreSQL as part of their health check. Nasheed performs a service-only liveness check because its DB connection string comes from tenant config at runtime.
+
+The Gateway exposes:
+- `GET /health` — gateway-only liveness
+- `GET /health/aggregate` — calls all 8 downstream `/health` endpoints in parallel and returns aggregate status
+
+### Correlation ID — end-to-end request chain
+
+**Backend:** `CorrelationIdMiddleware` in `IhsanDev.Shared.Infrastructure` is registered in every service via `app.UseCorrelationId()` (placed before `UseLocalization`). It:
+1. Reads `X-Correlation-Id` from the inbound request (stamped by the gateway, or generates a new UUID if missing)
+2. Stores it in `HttpContext.Items["CorrelationId"]`
+3. Echoes it back in the response header
+4. Pushes it into the structured log scope for the entire request — every `ILogger` call in that request automatically includes `CorrelationId`
+
+**Frontend:** `correlationIdInterceptor` (`libs/core`) reads the echoed header from every response and stores it in `CorrelationIdService`. It sends the stored ID on every outgoing request, creating a continuous trace chain through browser → gateway → service → logs.
+
+**How to use for debugging:**
+
+```powershell
+# Send a known ID and trace it across service logs
+curl http://localhost:5000/api/auth/login \
+  -H "X-Correlation-Id: my-debug-session-001" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@acme.com","password":"pass"}'
+
+# Then grep logs in any service:
+# CorrelationId: my-debug-session-001
+```
+
+The correlation ID also appears in every Jaeger span as the `X-Correlation-Id` attribute, linking HTTP-level correlation to OpenTelemetry trace context.
+
+---
+
 ## Start the Observability Stack
 
 From the repo root (`MicroservicesArchitecture/`):

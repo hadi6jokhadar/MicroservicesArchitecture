@@ -212,6 +212,20 @@ builder.Services.Configure<FileManagerOptions>(
 
 
 // ============================================
+// Health Checks
+// ============================================
+builder.Services.AddHealthChecks()
+    .AddNpgSql(
+        connectionString: builder.Configuration["DatabaseSettings:ConnectionString"]!,
+        name: "filemanager-database",
+        tags: ["database", "postgresql"],
+        timeout: TimeSpan.FromSeconds(5))
+    .AddCheck(
+        name: "filemanager-service",
+        check: () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("FileManager service is running"),
+        tags: ["service"]);
+
+// ============================================
 // Service-to-Service HTTP Clients
 // ============================================
 // Register Notification service client for service-to-service communication
@@ -276,6 +290,8 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseCors();
 
+app.UseCorrelationId();
+
 // Localization middleware (must be before exception handler)
 app.UseLocalization();
 
@@ -319,13 +335,31 @@ app.UseAuthorization();
 // ============================================
 app.MapFileManagerEndpoints();
 
-app.MapGet("/", () => new
+// ============================================
+// Health Check Endpoints
+// ============================================
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
-    service = "FileManager API",
-    version = "1.0",
-    status = "Running",
-    timestamp = DateTime.UtcNow
-}).WithTags("Health");
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds
+        });
+        await context.Response.WriteAsync(result);
+    }
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready").AllowAnonymous();
 
 await app.Services.InitializeDatabaseAsync<FileManagerDbContext>(
     applyMigrations: true,

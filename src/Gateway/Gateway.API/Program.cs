@@ -14,6 +14,14 @@ builder.Services
 // ============================================
 // Rate Limiting
 // ============================================
+// ============================================
+// HttpClient for downstream health checks
+// ============================================
+builder.Services.AddHttpClient("downstream-health", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
 builder.Services.AddRateLimiter(options =>
 {
     // Global: total request cap across all clients — gateway-wide protection
@@ -55,10 +63,53 @@ app.Use(async (ctx, next) =>
 });
 
 // ============================================
-// Health check (lightweight — no downstream calls)
+// Health check (lightweight — gateway only)
 // ============================================
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "Gateway.API", timestamp = DateTimeOffset.UtcNow }))
    .AllowAnonymous();
+
+// ============================================
+// Aggregate health check — calls all downstream /health endpoints in parallel
+// ============================================
+app.MapGet("/health/aggregate", async (IHttpClientFactory httpClientFactory, IConfiguration configuration) =>
+{
+    // Read cluster addresses from YARP config so this endpoint stays in sync with routing
+    var serviceUrls = configuration.GetSection("ReverseProxy:Clusters")
+        .GetChildren()
+        .Select(cluster => new
+        {
+            Name = cluster.Key,
+            HealthUrl = (cluster["Destinations:d1:Address"] ?? "").TrimEnd('/') + "/health"
+        })
+        .Where(s => !string.IsNullOrEmpty(s.HealthUrl.Replace("/health", "")))
+        .ToList();
+
+    var client = httpClientFactory.CreateClient("downstream-health");
+
+    var tasks = serviceUrls.Select(async s =>
+    {
+        try
+        {
+            var response = await client.GetAsync(s.HealthUrl);
+            return (s.Name, status: response.IsSuccessStatusCode ? "healthy" : "unhealthy");
+        }
+        catch
+        {
+            return (s.Name, status: "unreachable");
+        }
+    });
+
+    var results = await Task.WhenAll(tasks);
+    var overall = results.All(r => r.status == "healthy") ? "healthy" : "degraded";
+
+    return Results.Ok(new
+    {
+        status = overall,
+        gateway = "healthy",
+        timestamp = DateTimeOffset.UtcNow,
+        services = results.ToDictionary(r => r.Name, r => r.status)
+    });
+}).AllowAnonymous();
 
 app.UseRateLimiter();
 

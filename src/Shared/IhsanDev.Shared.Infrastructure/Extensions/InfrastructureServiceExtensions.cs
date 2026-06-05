@@ -30,6 +30,17 @@ public static class InfrastructureServiceExtensions
     }
 
     /// <summary>
+    /// Reads X-Correlation-Id from inbound requests (or generates one), stores it in
+    /// HttpContext.Items, echoes it back in the response header, and enriches the
+    /// structured log scope so every log line within the request includes CorrelationId.
+    /// </summary>
+    public static IApplicationBuilder UseCorrelationId(this IApplicationBuilder app)
+    {
+        app.UseMiddleware<CorrelationIdMiddleware>();
+        return app;
+    }
+
+    /// <summary>
     /// Registers localization service with proper resource path
     /// </summary>
     public static IServiceCollection AddLocalizationService(this IServiceCollection services)

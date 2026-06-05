@@ -1,50 +1,34 @@
 {
   "info": {
+    "_postman_id": "category-service-collection",
     "name": "Category Service API",
-    "description": "Postman collection for Category microservice — hierarchical category management with per-tenant database isolation. Port: 5007.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:5007",
-      "type": "string"
-    },
-    {
-      "key": "tenantId",
-      "value": "your-tenant-id",
-      "type": "string"
-    },
-    {
-      "key": "authToken",
-      "value": "your-jwt-token",
-      "type": "string"
-    },
-    {
-      "key": "serviceSecret",
-      "value": "CHANGE_ME_SHARED_SECRET",
-      "type": "string"
-    },
-    {
-      "key": "categoryId",
-      "value": "1",
-      "type": "string"
-    }
+    { "key": "baseUrl", "value": "http://localhost:5007", "type": "string" },
+    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "authToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "serviceSecret", "value": "", "type": "string" }
   ],
   "item": [
     {
-      "name": "Health",
+      "name": "Public",
       "item": [
         {
-          "name": "Get Service Health",
+          "name": "Health Check",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/",
-              "host": ["{{baseUrl}}"],
-              "path": [""]
-            }
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "Health Readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
           }
         }
       ]
@@ -57,22 +41,10 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/api/categories/tree",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "categories", "tree"]
-            }
+            "url": { "raw": "{{baseUrl}}/api/categories/tree", "host": ["{{baseUrl}}"], "path": ["api", "categories", "tree"] }
           }
         },
         {
@@ -80,60 +52,26 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/categories?PageNumber=1&PageSize=20",
+              "raw": "{{baseUrl}}/api/categories/?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "categories"],
-              "query": [
-                {
-                  "key": "PageNumber",
-                  "value": "1"
-                },
-                {
-                  "key": "PageSize",
-                  "value": "20"
-                },
-                {
-                  "key": "TextFilter",
-                  "value": "",
-                  "disabled": true
-                }
-              ]
+              "path": ["api", "categories", ""],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
             }
           }
         },
         {
-          "name": "Get Category By Id",
+          "name": "Get Category by ID",
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "categories", "{{categoryId}}"]
-            }
+            "url": { "raw": "{{baseUrl}}/api/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id"], "variable": [{ "key": "id", "value": "1" }] }
           }
         },
         {
@@ -141,73 +79,15 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"slug\": \"electronics\",\n  \"nameTranslations\": {\n    \"en\": \"Electronics\",\n    \"ar\": \"إلكترونيات\"\n  },\n  \"parentId\": null,\n  \"iconUrl\": null,\n  \"imageUrl\": null,\n  \"attributes\": {\n    \"featured\": true,\n    \"sortOrder\": 1\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"name\": \"Electronics\",\n  \"parentId\": null,\n  \"order\": 1\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/categories",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "categories"]
-            }
-          }
-        },
-        {
-          "name": "Create Child Category",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"slug\": \"smartphones\",\n  \"nameTranslations\": {\n    \"en\": \"Smartphones\",\n    \"ar\": \"الهواتف الذكية\"\n  },\n  \"parentId\": 1,\n  \"iconUrl\": null,\n  \"imageUrl\": null,\n  \"attributes\": {}\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/categories",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "categories"]
-            }
+            "url": { "raw": "{{baseUrl}}/api/categories/", "host": ["{{baseUrl}}"], "path": ["api", "categories", ""] }
           }
         },
         {
@@ -215,36 +95,15 @@
           "request": {
             "method": "PUT",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"slug\": \"electronics-updated\",\n  \"nameTranslations\": {\n    \"en\": \"Electronics & Tech\",\n    \"ar\": \"الإلكترونيات والتقنية\"\n  },\n  \"iconUrl\": \"/icons/electronics.svg\",\n  \"imageUrl\": \"/images/electronics.jpg\",\n  \"attributes\": {\n    \"featured\": true,\n    \"sortOrder\": 1\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"name\": \"Consumer Electronics\",\n  \"order\": 2\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "categories", "{{categoryId}}"]
-            }
+            "url": { "raw": "{{baseUrl}}/api/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id"], "variable": [{ "key": "id", "value": "1" }] }
           }
         },
         {
@@ -252,73 +111,15 @@
           "request": {
             "method": "PUT",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"newParentId\": 2\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"newParentId\": 2,\n  \"order\": 1\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/categories/{{categoryId}}/move",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "categories", "{{categoryId}}", "move"]
-            }
-          }
-        },
-        {
-          "name": "Move Category to Root",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"newParentId\": null\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/categories/{{categoryId}}/move",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "categories", "{{categoryId}}", "move"]
-            }
+            "url": { "raw": "{{baseUrl}}/api/categories/:id/move", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id", "move"], "variable": [{ "key": "id", "value": "1" }] }
           }
         },
         {
@@ -326,22 +127,10 @@
           "request": {
             "method": "DELETE",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "categories", "{{categoryId}}"]
-            }
+            "url": { "raw": "{{baseUrl}}/api/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id"], "variable": [{ "key": "id", "value": "1" }] }
           }
         }
       ]
@@ -350,54 +139,44 @@
       "name": "Admin",
       "item": [
         {
-          "name": "Admin - Get Category Tree (All Tenants)",
+          "name": "Get Category Tree (Admin)",
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/categories/tree",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "categories", "tree"]
-            }
+            "url": { "raw": "{{baseUrl}}/api/admin/categories/tree", "host": ["{{baseUrl}}"], "path": ["api", "admin", "categories", "tree"] }
           }
         },
         {
-          "name": "Admin - Get Category List (All Tenants)",
+          "name": "Get Category List (Admin)",
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/categories?PageNumber=1&PageSize=20",
+              "raw": "{{baseUrl}}/api/admin/categories/?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "categories"],
-              "query": [
-                {
-                  "key": "PageNumber",
-                  "value": "1"
-                },
-                {
-                  "key": "PageSize",
-                  "value": "20"
-                },
-                {
-                  "key": "TextFilter",
-                  "value": "",
-                  "disabled": true
-                }
-              ]
+              "path": ["api", "admin", "categories", ""],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal",
+      "item": [
+        {
+          "name": "Get Category Snapshot (Internal)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Service-Secret", "value": "{{serviceSecret}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — scopes result to a specific tenant" }
+            ],
+            "url": { "raw": "{{baseUrl}}/internal/categories/snapshot", "host": ["{{baseUrl}}"], "path": ["internal", "categories", "snapshot"] }
           }
         }
       ]

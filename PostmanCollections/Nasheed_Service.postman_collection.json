@@ -1,72 +1,35 @@
 {
   "info": {
+    "_postman_id": "nasheed-service-collection",
     "name": "Nasheed Service API",
-    "description": "Postman collection for Nasheed service endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:5009",
-      "type": "string"
-    },
-    {
-      "key": "tenantId",
-      "value": "your-tenant-id",
-      "type": "string"
-    },
-    {
-      "key": "authToken",
-      "value": "your-jwt-token",
-      "type": "string"
-    },
-    {
-      "key": "refreshToken",
-      "value": "your-refresh-token",
-      "type": "string"
-    },
-    {
-      "key": "serviceSecret",
-      "value": "your-service-secret",
-      "type": "string"
-    },
-    {
-      "key": "artistId",
-      "value": "1",
-      "type": "string"
-    },
-    {
-      "key": "songId",
-      "value": "1",
-      "type": "string"
-    },
-    {
-      "key": "ingestionJobId",
-      "value": "1",
-      "type": "string"
-    }
+    { "key": "baseUrl", "value": "http://localhost:5009", "type": "string" },
+    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "authToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "serviceSecret", "value": "", "type": "string" }
   ],
   "item": [
     {
       "name": "Public",
       "item": [
         {
-          "name": "Health - Service Root",
+          "name": "Health Check",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/",
-              "host": ["{{baseUrl}}"],
-              "path": [""]
-            }
-          },
-          "response": []
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "Health Readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
+          }
         }
       ]
     },
@@ -74,711 +37,345 @@
       "name": "Authenticated",
       "item": [
         {
-          "name": "Artists - Get List",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/artists?pageNumber=1&pageSize=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "artists"],
-              "query": [
-                {
-                  "key": "pageNumber",
-                  "value": "1"
-                },
-                {
-                  "key": "pageSize",
-                  "value": "20"
-                },
-                {
-                  "key": "textFilter",
-                  "value": "",
-                  "disabled": true
+          "name": "Artists",
+          "item": [
+            {
+              "name": "Get Artist List",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/artists/?page=1&pageSize=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "artists", ""],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Artists - Create",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Maher Zain\",\n  \"imageFileId\": 123\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/artists",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "artists"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Artists - Get By Id",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+            {
+              "name": "Get Artist by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/artists/:id", "host": ["{{baseUrl}}"], "path": ["api", "artists", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/artists/{{artistId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "artists", "{{artistId}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Artists - Update",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Artist\",\n  \"imageFileId\": 123\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/artists/{{artistId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "artists", "{{artistId}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Artists - Delete",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+            {
+              "name": "Create Artist",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Artist Name\",\n  \"bio\": \"Artist biography\",\n  \"profileImageId\": null\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/artists/", "host": ["{{baseUrl}}"], "path": ["api", "artists", ""] }
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/artists/{{artistId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "artists", "{{artistId}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Generation - Generate Lyrics",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"theme\": \"الصبر\",\n  \"style\": \"هادئ\",\n  \"languageCode\": \"ar\"\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/generation/lyrics",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "generation", "lyrics"]
+            {
+              "name": "Update Artist",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated Artist Name\",\n  \"bio\": \"Updated biography\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/artists/:id", "host": ["{{baseUrl}}"], "path": ["api", "artists", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Delete Artist",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/artists/:id", "host": ["{{baseUrl}}"], "path": ["api", "artists", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "Ingestion - Get List",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/ingestion?pageNumber=1&pageSize=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "ingestion"],
-              "query": [
-                {
-                  "key": "pageNumber",
-                  "value": "1"
-                },
-                {
-                  "key": "pageSize",
-                  "value": "20"
-                },
-                {
-                  "key": "status",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "songId",
-                  "value": "",
-                  "disabled": true
+          "name": "Songs",
+          "item": [
+            {
+              "name": "Get Song List",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/songs/?page=1&pageSize=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "songs", ""],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Ingestion - Get By Id",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/ingestion/{{ingestionJobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "ingestion", "{{ingestionJobId}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Ingestion - Remove",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+            },
+            {
+              "name": "Get Song by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/songs/:id", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/ingestion/{{ingestionJobId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "ingestion", "{{ingestionJobId}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Ingestion - Retry",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+            },
+            {
+              "name": "Get Song Analysis Status",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/songs/:id/analysis", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id", "analysis"], "variable": [{ "key": "id", "value": "1" }] }
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/ingestion/{{ingestionJobId}}/retry",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "ingestion", "{{ingestionJobId}}", "retry"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Ingestion - Reindex Song",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/ingestion/songs/{{songId}}/reindex",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "ingestion", "songs", "{{songId}}", "reindex"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Search - Semantic Search",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/search?q=نشيد&topN=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "search"],
-              "query": [
-                {
-                  "key": "q",
-                  "value": "نشيد"
-                },
-                {
-                  "key": "topN",
-                  "value": "10"
+            },
+            {
+              "name": "Get Similar Songs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/songs/:id/similar?topN=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "songs", ":id", "similar"],
+                  "query": [{ "key": "topN", "value": "10" }],
+                  "variable": [{ "key": "id", "value": "1" }]
                 }
-              ]
+              }
+            },
+            {
+              "name": "Create Song",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Song Title\",\n  \"artistId\": 1,\n  \"audioFileId\": 1,\n  \"lyrics\": \"Song lyrics here\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/songs/", "host": ["{{baseUrl}}"], "path": ["api", "songs", ""] }
+              }
+            },
+            {
+              "name": "Update Song",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Updated Song Title\",\n  \"lyrics\": \"Updated lyrics\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/songs/:id", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Delete Song",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/songs/:id", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "Songs - Get List",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+          "name": "Interactions",
+          "item": [
+            {
+              "name": "Add Favorite",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/songs/:songId/favorites", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "favorites"], "variable": [{ "key": "songId", "value": "1" }] }
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/songs?pageNumber=1&pageSize=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs"],
-              "query": [
-                {
-                  "key": "pageNumber",
-                  "value": "1"
+            },
+            {
+              "name": "Remove Favorite",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/songs/:songId/favorites", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "favorites"], "variable": [{ "key": "songId", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Add Rating",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"score\": 5\n}"
                 },
-                {
-                  "key": "pageSize",
-                  "value": "20"
-                },
-                {
-                  "key": "artistId",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "state",
-                  "value": "",
-                  "disabled": true
+                "url": { "raw": "{{baseUrl}}/api/songs/:songId/ratings", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "ratings"], "variable": [{ "key": "songId", "value": "1" }] }
+              }
+            },
+            {
+              "name": "Log Play",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/songs/:songId/play", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "play"], "variable": [{ "key": "songId", "value": "1" }] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search",
+          "item": [
+            {
+              "name": "Search Songs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/search/?q=nasheed&topN=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "search", ""],
+                  "query": [{ "key": "q", "value": "nasheed" }, { "key": "topN", "value": "10" }]
                 }
-              ]
+              }
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "Songs - Create",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"artistId\": 1,\n  \"title\": \"طريق النور\",\n  \"fileId\": 123\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/songs",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Songs - Get By Id",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/songs/{{songId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs", "{{songId}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Songs - Update",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"عنوان محدث\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/songs/{{songId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs", "{{songId}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Songs - Delete",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/songs/{{songId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs", "{{songId}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Songs - Analysis Status",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/songs/{{songId}}/analysis",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs", "{{songId}}", "analysis"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Songs - Similar",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/songs/{{songId}}/similar?topN=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs", "{{songId}}", "similar"],
-              "query": [
-                {
-                  "key": "topN",
-                  "value": "10"
+          "name": "Ingestion",
+          "item": [
+            {
+              "name": "Get Ingestion Job List",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ingestion/?page=1&pageSize=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ingestion", ""],
+                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Songs - Add Favorite",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": 123\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/songs/{{songId}}/favorites",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs", "{{songId}}", "favorites"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Songs - Remove Favorite",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+            {
+              "name": "Get Ingestion Job by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/ingestion/:id", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", ":id"], "variable": [{ "key": "id", "value": "1" }] }
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": 123\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/songs/{{songId}}/favorites",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs", "{{songId}}", "favorites"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Songs - Log Play",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+            {
+              "name": "Retry Ingestion Job",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/ingestion/:id/retry", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", ":id", "retry"], "variable": [{ "key": "id", "value": "1" }] }
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": 123\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/songs/{{songId}}/play",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs", "{{songId}}", "play"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Songs - Add Rating",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+            {
+              "name": "Reindex Song",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/ingestion/songs/:songId/reindex", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", "songs", ":songId", "reindex"], "variable": [{ "key": "songId", "value": "1" }] }
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": 123,\n  \"value\": 4\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/songs/{{songId}}/ratings",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "songs", "{{songId}}", "ratings"]
+            {
+              "name": "Remove Ingestion Job",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/ingestion/:id", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              }
             }
-          },
-          "response": []
+          ]
         }
       ]
     },
     {
       "name": "Admin",
-      "description": "No admin only Nasheed endpoints were detected from endpoint source.",
-      "item": []
-    },
-    {
-      "name": "Internal",
-      "description": "No internal service secret endpoints were detected from endpoint source.",
-      "item": []
+      "item": [
+        {
+          "name": "Generate Lyrics",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"theme\": \"gratitude\",\n  \"language\": \"ar\",\n  \"style\": \"traditional\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/generation/lyrics", "host": ["{{baseUrl}}"], "path": ["api", "generation", "lyrics"] }
+          }
+        }
+      ]
     }
   ]
 }

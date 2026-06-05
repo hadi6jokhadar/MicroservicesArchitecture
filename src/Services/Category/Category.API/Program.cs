@@ -181,6 +181,20 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<TenantHeaderOperationFilter>();
 });
 
+// ============================================
+// Health Checks
+// ============================================
+builder.Services.AddHealthChecks()
+    .AddNpgSql(
+        connectionString: builder.Configuration["DatabaseSettings:ConnectionString"]!,
+        name: "category-database",
+        tags: ["database", "postgresql"],
+        timeout: TimeSpan.FromSeconds(5))
+    .AddCheck(
+        name: "category-service",
+        check: () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Category service is running"),
+        tags: ["service"]);
+
 var app = builder.Build();
 
 // ============================================
@@ -196,6 +210,7 @@ app.UseHttpsRedirection();
 app.UseResponseCompression();
 app.UseRateLimiter();
 app.UseCors();
+app.UseCorrelationId();
 app.UseLocalization();
 app.UseGlobalExceptionHandler();
 
@@ -228,13 +243,31 @@ app.UseAuthorization();
 app.MapCategoryEndpoints();
 app.MapCategoryInternalEndpoints();
 
-app.MapGet("/", () => new
+// ============================================
+// Health Check Endpoints
+// ============================================
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
-    service = "Category API",
-    version = "1.0",
-    status = "Running",
-    timestamp = DateTime.UtcNow
-}).WithTags("Health");
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds
+        });
+        await context.Response.WriteAsync(result);
+    }
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready").AllowAnonymous();
 
 await app.Services.InitializeDatabaseAsync<CategoryDbContext>(
     applyMigrations: true,

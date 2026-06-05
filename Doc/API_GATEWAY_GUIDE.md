@@ -82,7 +82,36 @@ Internal calls between .NET services must go **direct** to the target service po
 
 ## Correlation ID
 
-The gateway injects `X-Correlation-Id` on every inbound request that does not already carry one. Downstream services should read this header and include it in log entries (see `PLATFORM_CAPABILITIES_ROADMAP.md` — Tier 1 item 2: Distributed Tracing).
+The gateway injects `X-Correlation-Id` on every inbound request that does not already carry one:
+
+```csharp
+// Gateway — Program.cs
+app.Use(async (ctx, next) =>
+{
+    if (!ctx.Request.Headers.ContainsKey("X-Correlation-Id"))
+        ctx.Request.Headers.Append("X-Correlation-Id", Guid.NewGuid().ToString());
+    await next();
+});
+```
+
+Every downstream service reads the header, stores it in `HttpContext.Items`, echoes it back in the response, and enriches the structured log scope for the entire request lifetime via `CorrelationIdMiddleware` (in `IhsanDev.Shared.Infrastructure`):
+
+```csharp
+// Each service — Program.cs
+app.UseCorrelationId();   // must be called before UseLocalization/UseGlobalExceptionHandler
+```
+
+The frontend `correlationIdInterceptor` (`libs/core/src/lib/interceptors/`) reads the echoed response header and sends the same ID on all subsequent requests, creating a continuous trace chain: browser → gateway → service → logs.
+
+**End-to-end trace example:**
+
+```
+Browser sends:   X-Correlation-Id: abc-123
+Gateway:         echoes it through (already present — no new ID needed)
+Identity logs:   CorrelationId: abc-123  (in every log line for this request)
+Response header: X-Correlation-Id: abc-123
+Browser stores:  "abc-123" → sent on next request
+```
 
 ---
 
@@ -117,19 +146,71 @@ These services had only Global + PerIP which have been removed (gateway handles 
 
 ---
 
-## Health Check
+## Health Checks
+
+### Gateway liveness (`/health`)
 
 ```
 GET http://localhost:5000/health
 ```
 
-Returns:
-
 ```json
-{ "status": "healthy", "service": "Gateway.API", "timestamp": "..." }
+{ "status": "healthy", "service": "Gateway.API", "timestamp": "2026-06-05T..." }
 ```
 
-This is a gateway-local health check only. It does **not** probe downstream services. A downstream-aggregating health check is planned (see roadmap checklist).
+Lightweight — gateway process only. Always fast. Safe to use as a load-balancer liveness probe.
+
+### Aggregate downstream health (`/health/aggregate`)
+
+```
+GET http://localhost:5000/health/aggregate
+```
+
+Calls all 8 downstream `/health` endpoints in parallel (5-second timeout each). Reads cluster addresses from the YARP `ReverseProxy:Clusters` config, so it stays in sync with the routing table automatically.
+
+```json
+{
+  "status": "healthy",
+  "gateway": "healthy",
+  "timestamp": "2026-06-05T...",
+  "services": {
+    "identity":     "healthy",
+    "tenant":       "healthy",
+    "notification": "healthy",
+    "filemanager":  "healthy",
+    "translation":  "healthy",
+    "category":     "healthy",
+    "nasheed":      "healthy",
+    "ai":           "healthy"
+  }
+}
+```
+
+`status` is `"healthy"` when all services are healthy, `"degraded"` if any service is `"unhealthy"` or `"unreachable"`.
+
+### Service-level health (each service)
+
+All services expose:
+
+| Endpoint | Purpose | Auth |
+|---|---|---|
+| `GET /health` | JSON report: DB check + service liveness, with durations | Anonymous |
+| `GET /health/ready` | Simple readiness probe for load balancers | Anonymous |
+
+Example response from any service:
+
+```json
+{
+  "status": "Healthy",
+  "checks": [
+    { "name": "identity-database", "status": "Healthy", "description": null, "duration": 2.1 },
+    { "name": "identity-service",  "status": "Healthy", "description": "Identity service is running", "duration": 0.0 }
+  ],
+  "totalDuration": 2.1
+}
+```
+
+**Nasheed** only includes a service-level check (no DB probe) because its database connection string comes from the tenant config, not `appsettings.json`.
 
 ---
 
@@ -187,6 +268,6 @@ Key fields:
 ## Future Work (from Roadmap)
 
 - [ ] Update all frontend API base URLs to point to `http://localhost:5000` (dev) / production gateway URL
-- [ ] Wire `/health` endpoint to aggregate all 8 downstream `/health` responses
+- [x] Wire `/health/aggregate` to probe all downstream `/health` endpoints — **implemented June 2026**
 - [ ] Add TLS termination (production)
 - [ ] Consider per-service rate limit tiers (AI service may need stricter limits)

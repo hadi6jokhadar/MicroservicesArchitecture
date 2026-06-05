@@ -3,7 +3,7 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** June 4, 2026  
+**Last Updated:** June 5, 2026  
 **Total Files:** 39
 
 ---
@@ -148,7 +148,7 @@ Files are organized by category. Each entry includes:
 
 ### API_GATEWAY_GUIDE.md
 
-**Description:** Complete guide for the YARP-based API Gateway (`src/Gateway/Gateway.API/`). Covers service routing table (all 8 downstream services), admin endpoint conflict resolution, AI stream route special handling (10-min timeout, SSE), rate limiting (500 req/min per IP), correlation ID injection, health check endpoint, run instructions, and future work.  
+**Description:** Complete guide for the YARP-based API Gateway (`src/Gateway/Gateway.API/`). Covers service routing table (all 8 downstream services), admin endpoint conflict resolution, AI stream route special handling (10-min timeout, SSE), rate limiting (500 req/min per IP), end-to-end correlation ID chain (gateway inject → service middleware → frontend interceptor), health endpoints (`/health` lightweight + `/health/aggregate` polling all downstream services), run instructions, and future work.  
 **Read When:**
 
 - Configuring or modifying the gateway routing table
@@ -156,6 +156,7 @@ Files are organized by category. Each entry includes:
 - Adding a new service that needs to be reachable through the gateway
 - Understanding why an internal service must NOT call through the gateway
 - Changing rate limits or correlation ID behavior
+- Checking downstream service health via the gateway aggregate endpoint
 - Pointing the frontend at `http://localhost:5000` (gateway base URL)
 
 ---
@@ -164,7 +165,7 @@ Files are organized by category. Each entry includes:
 
 ### PLATFORM_CAPABILITIES_ROADMAP.md
 
-**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing ✅, Secrets Management, Circuit Breaker, Audit Logging), Tier 2 (Background Jobs, API Versioning, Feature Flags, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
+**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing ✅ including health checks + correlation ID, Secrets Management, Circuit Breaker, Audit Logging), Tier 2 (Background Jobs, API Versioning, Feature Flags, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
 **Read When:**
 
 - Planning new infrastructure work
@@ -173,7 +174,7 @@ Files are organized by category. Each entry includes:
 
 ### OBSERVABILITY_GUIDE.md
 
-**Description:** Complete guide for the distributed tracing and metrics stack (OpenTelemetry → Jaeger + Prometheus + Grafana). Covers how traces flow from all 7 services (6 .NET + 1 Python) to Jaeger, how Prometheus scrapes `/metrics` from each service, how to start the observability stack with `docker compose`, how to verify traces and metrics in Jaeger UI and Prometheus, and Grafana setup steps. Includes architecture diagram, troubleshooting table, and production notes.  
+**Description:** Complete guide for the distributed tracing and metrics stack (OpenTelemetry → Jaeger + Prometheus + Grafana). Covers how traces flow from all 7 services (6 .NET + 1 Python) to Jaeger, how Prometheus scrapes `/metrics` from each service, how to start the observability stack with `docker compose`, how to verify traces and metrics in Jaeger UI and Prometheus, and Grafana setup steps. Also covers health check endpoints (`/health` + `/health/ready`) on every service and end-to-end `X-Correlation-Id` propagation (gateway → service middleware → frontend interceptor → logs). Includes architecture diagram, troubleshooting table, and production notes.  
 **Read When:**
 
 - Starting or stopping the Jaeger/Prometheus/Grafana observability stack
@@ -181,6 +182,8 @@ Files are organized by category. Each entry includes:
 - Adding observability instrumentation to a new service
 - Understanding what is automatically instrumented (HTTP in/out, EF Core, SQLAlchemy)
 - Setting up Grafana dashboards or data sources
+- Understanding how `X-Correlation-Id` flows from browser to backend logs
+- Verifying service health checks are working
 
 ---
 
@@ -545,6 +548,8 @@ Files are organized by category. Each entry includes:
 | Task                     | Files to Read                                                                                 |
 | ------------------------ | --------------------------------------------------------------------------------------------- |
 | Gateway routing          | API_GATEWAY_GUIDE.md                                                                          |
+| Health checks            | API_GATEWAY_GUIDE.md (aggregate), OBSERVABILITY_GUIDE.md (per-service)                        |
+| Correlation ID tracing   | API_GATEWAY_GUIDE.md, OBSERVABILITY_GUIDE.md                                                  |
 | Observability / tracing  | OBSERVABILITY_GUIDE.md                                                                        |
 | Create new service       | NEW_SERVICE_INTEGRATION_GUIDE.md, DATABASE_PER_TENANT_ARCHITECTURE.md, MULTI_TENANCY_GUIDE.md |
 | Add authentication       | SHARED_IDENTITY_SERVICE_GUIDE.md                                                              |
@@ -640,5 +645,5 @@ cd Doc
 
 ---
 
-**Last Updated:** June 4, 2026  
+**Last Updated:** June 5, 2026  
 **Maintained By:** AI agents following DOCUMENTATION_GUIDELINES.md

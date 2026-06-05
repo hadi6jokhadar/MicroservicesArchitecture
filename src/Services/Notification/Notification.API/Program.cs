@@ -416,6 +416,8 @@ await app.Services.InitializeDatabaseAsync<NotificationDbContext>(
 app.UseSwagger();
 app.UseSwaggerUI();
 
+app.UseCorrelationId();
+
 // Localization middleware (must be before exception handler)
 app.UseLocalization();
 

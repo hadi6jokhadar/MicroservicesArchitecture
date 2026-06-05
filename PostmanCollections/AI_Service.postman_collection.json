@@ -1,648 +1,371 @@
 {
   "info": {
+    "_postman_id": "ai-service-collection",
     "name": "AI Service API",
-    "description": "Postman collection for the AI microservice endpoints (FastAPI)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:5008",
-      "type": "string"
-    },
-    {
-      "key": "tenantId",
-      "value": "your-tenant-id",
-      "type": "string"
-    },
-    {
-      "key": "authToken",
-      "value": "your-jwt-token",
-      "type": "string"
-    },
-    {
-      "key": "settingId",
-      "value": "00000000-0000-0000-0000-000000000001",
-      "type": "string"
-    },
-    {
-      "key": "settingKey",
-      "value": "gpt4-tenant",
-      "type": "string",
-      "description": "The unique Key field of an AiProviderSettings row — used in chat requests"
-    },
-    {
-      "key": "promptId",
-      "value": "00000000-0000-0000-0000-000000000002",
-      "type": "string"
-    },
-    {
-      "key": "systemPromptKey",
-      "value": "support-bot",
-      "type": "string",
-      "description": "The Name field of an AiSystemPrompt row — used as system_prompt_key in chat requests"
-    },
-    {
-      "key": "sessionId",
-      "value": "",
-      "type": "string",
-      "description": "Returned as session_id in stream chunks and in single-response JSON. Paste here to continue an existing session."
-    },
-    {
-      "key": "serviceSecret",
-      "value": "CHANGE_ME_SHARED_SECRET",
-      "type": "string"
-    }
+    { "key": "baseUrl", "value": "http://localhost:5008", "type": "string" },
+    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "authToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "serviceSecret", "value": "", "type": "string" }
   ],
   "item": [
     {
-      "name": "Health Check",
+      "name": "Public",
       "item": [
         {
-          "name": "Get Service Health",
+          "name": "Health Check",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
-            }
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
           }
         }
       ]
     },
     {
-      "name": "Settings Endpoints",
+      "name": "Authenticated",
       "item": [
         {
-          "name": "Get Tenant AI Settings",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/settings/",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "settings", ""]
-            }
-          }
-        },
-        {
-          "name": "Create AI Setting",
+          "name": "Chat Stream (SSE)",
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"Key\": \"gpt4-tenant\",\n  \"ModelType\": \"Text\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-your-openai-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
+              "raw": "{\n  \"settingsKey\": \"default\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Hello, how can you help me?\" }\n  ],\n  \"sessionId\": null,\n  \"generateSessionTitle\": true\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/settings/",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "settings", ""]
-            }
+            "url": { "raw": "{{baseUrl}}/api/v1/chat/stream", "host": ["{{baseUrl}}"], "path": ["api", "v1", "chat", "stream"] },
+            "description": "Server-Sent Events streaming response. Returns text/event-stream."
           }
         },
         {
-          "name": "Get AI Setting By Key",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/settings/by-key/{{settingKey}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "settings", "by-key", "{{settingKey}}"]
-            }
-          }
-        },
-        {
-          "name": "Get AI Setting By Id",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/settings/{{settingId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "settings", "{{settingId}}"]
-            }
-          }
-        },
-        {
-          "name": "Update AI Setting",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"Key\": \"gpt4-tenant\",\n  \"ModelType\": \"Text\",\n  \"Provider\": \"azure\",\n  \"ApiKey\": \"updated-api-key\",\n  \"ModelName\": \"gpt-4.1\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/settings/{{settingId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "settings", "{{settingId}}"]
-            }
-          }
-        },
-        {
-          "name": "Delete AI Setting",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/settings/{{settingId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "settings", "{{settingId}}"]
-            }
-          }
-        },
-        {
-          "name": "Get Global AI Settings",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/settings/",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "settings", ""]
-            }
-          }
-        },
-        {
-          "name": "Create Global AI Setting",
+          "name": "Chat Single Response",
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"Key\": \"gpt4o-mini-global\",\n  \"ModelType\": \"Text\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-global-openai-key\",\n  \"ModelName\": \"gpt-4o-mini\",\n  \"TenantId\": null\n}"
+              "raw": "{\n  \"settingsKey\": \"default\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Hello, how can you help me?\" }\n  ],\n  \"sessionId\": null,\n  \"generateSessionTitle\": false\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/settings/",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "settings", ""]
-            }
+            "url": { "raw": "{{baseUrl}}/api/v1/chat/single", "host": ["{{baseUrl}}"], "path": ["api", "v1", "chat", "single"] }
+          }
+        },
+        {
+          "name": "Create Embedding",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settingsKey\": \"embedding-default\",\n  \"text\": \"Text to embed\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/embedding", "host": ["{{baseUrl}}"], "path": ["api", "v1", "embedding"] }
           }
         }
       ]
     },
     {
-      "name": "System Prompts Endpoints",
+      "name": "Admin",
       "item": [
         {
-          "name": "Get Tenant Prompts",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+          "name": "Settings",
+          "item": [
+            {
+              "name": "Get Settings",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/settings/?scope=all",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "settings", ""],
+                  "query": [{ "key": "scope", "value": "all", "description": "all | tenant | global" }]
+                }
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/prompts/",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "prompts", ""]
-            }
-          }
-        },
-        {
-          "name": "Create System Prompt",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"Name\": \"EnhanceText\",\n  \"PromptText\": \"You are a helpful text editor. Please enhance the following text.\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/prompts/",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "prompts", ""]
-            }
-          }
-        },
-        {
-          "name": "Get System Prompt By Id",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+            {
+              "name": "Get Setting by Key",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/v1/settings/by-key/:key", "host": ["{{baseUrl}}"], "path": ["api", "v1", "settings", "by-key", ":key"], "variable": [{ "key": "key", "value": "default" }] }
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/prompts/{{promptId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "prompts", "{{promptId}}"]
-            }
-          }
-        },
-        {
-          "name": "Update System Prompt",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"Name\": \"Summarizer\",\n  \"PromptText\": \"Summarize the following text in a concise way.\",\n  \"TenantId\": \"{{tenantId}}\"\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/prompts/{{promptId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "prompts", "{{promptId}}"]
-            }
-          }
-        },
-        {
-          "name": "Delete System Prompt",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
+            {
+              "name": "Get Setting by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/v1/settings/:setting_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "settings", ":setting_id"], "variable": [{ "key": "setting_id", "value": "00000000-0000-0000-0000-000000000000" }] }
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/prompts/{{promptId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "prompts", "{{promptId}}"]
-            }
-          }
-        },
-        {
-          "name": "Get Global Prompts",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/prompts/",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "prompts", ""]
-            }
-          }
-        },
-        {
-          "name": "Create Global System Prompt",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"Name\": \"GlobalPrompt\",\n  \"PromptText\": \"Use a neutral and helpful tone.\",\n  \"TenantId\": null\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/prompts/",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "prompts", ""]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Chat Endpoints",
-      "item": [
-        {
-          "name": "Stream Chat — New Session",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+            {
+              "name": "Create Setting",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"Key\": \"default\",\n  \"ModelType\": \"Chat\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-your-api-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": null\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/v1/settings/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "settings", ""] }
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"settings_key\": \"{{settingKey}}\",\n  \"system_prompt_key\": \"{{systemPromptKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Write a haiku about artificial intelligence.\"\n    }\n  ],\n  \"file_ids\": []\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/chat/stream",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "chat", "stream"]
+            {
+              "name": "Update Setting",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"Key\": \"default\",\n  \"ModelType\": \"Chat\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-updated-api-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": null\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/v1/settings/:setting_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "settings", ":setting_id"], "variable": [{ "key": "setting_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
+            },
+            {
+              "name": "Delete Setting",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/v1/settings/:setting_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "settings", ":setting_id"], "variable": [{ "key": "setting_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
             }
-          }
+          ]
         },
         {
-          "name": "Stream Chat — New Session (no system prompt)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+          "name": "System Prompts",
+          "item": [
+            {
+              "name": "Get System Prompts",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/prompts/?scope=all",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "prompts", ""],
+                  "query": [{ "key": "scope", "value": "all", "description": "all | tenant | global" }]
+                }
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"settings_key\": \"{{settingKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Explain quantum computing in simple terms.\"\n    }\n  ],\n  \"file_ids\": []\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/chat/stream",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "chat", "stream"]
+            {
+              "name": "Get System Prompt by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/v1/prompts/:prompt_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "prompts", ":prompt_id"], "variable": [{ "key": "prompt_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
+            },
+            {
+              "name": "Create System Prompt",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"Name\": \"Customer Support\",\n  \"PromptText\": \"You are a helpful customer support agent.\",\n  \"TenantId\": null,\n  \"ResponseFormat\": null\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/v1/prompts/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "prompts", ""] }
+              }
+            },
+            {
+              "name": "Update System Prompt",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"Name\": \"Customer Support Updated\",\n  \"PromptText\": \"You are a friendly customer support agent.\",\n  \"TenantId\": null,\n  \"ResponseFormat\": null\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/v1/prompts/:prompt_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "prompts", ":prompt_id"], "variable": [{ "key": "prompt_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
+            },
+            {
+              "name": "Delete System Prompt",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/v1/prompts/:prompt_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "prompts", ":prompt_id"], "variable": [{ "key": "prompt_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
             }
-          }
+          ]
         },
         {
-          "name": "Stream Chat — Continue Existing Session",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+          "name": "Chat Sessions",
+          "item": [
+            {
+              "name": "List Chat Sessions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat-sessions/?skip=0&limit=50",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "chat-sessions", ""],
+                  "query": [{ "key": "skip", "value": "0" }, { "key": "limit", "value": "50" }]
+                }
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"session_id\": \"{{sessionId}}\",\n  \"settings_key\": \"{{settingKey}}\",\n  \"system_prompt_key\": \"{{systemPromptKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Can you elaborate on your previous answer?\"\n    }\n  ],\n  \"file_ids\": []\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/chat/stream",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "chat", "stream"]
+            {
+              "name": "Update Chat Session Title",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"My Chat Session\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/v1/chat-sessions/:session_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "chat-sessions", ":session_id"], "variable": [{ "key": "session_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
+            },
+            {
+              "name": "Delete Chat Session",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/v1/chat-sessions/:session_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "chat-sessions", ":session_id"], "variable": [{ "key": "session_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+              }
             }
-          }
+          ]
         },
         {
-          "name": "Single Chat — New Session",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+          "name": "Chat Messages",
+          "item": [
+            {
+              "name": "List Chat Messages",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat-messages/?skip=0&limit=50",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "chat-messages", ""],
+                  "query": [
+                    { "key": "session_id", "value": "", "disabled": true },
+                    { "key": "skip", "value": "0" },
+                    { "key": "limit", "value": "50" }
+                  ]
+                }
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"settings_key\": \"{{settingKey}}\",\n  \"system_prompt_key\": \"{{systemPromptKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Write a haiku about artificial intelligence.\"\n    }\n  ],\n  \"file_ids\": []\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/chat/single",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "chat", "single"]
             }
-          }
+          ]
         },
         {
-          "name": "Single Chat — New Session (no system prompt)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+          "name": "Chat Message Files",
+          "item": [
+            {
+              "name": "List Chat Message Files",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat-message-files/?skip=0&limit=50",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "chat-message-files", ""],
+                  "query": [{ "key": "skip", "value": "0" }, { "key": "limit", "value": "50" }]
+                }
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"settings_key\": \"{{settingKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Explain quantum computing in simple terms.\"\n    }\n  ],\n  \"file_ids\": []\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/chat/single",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "chat", "single"]
             }
-          }
+          ]
         },
         {
-          "name": "Single Chat — Continue Existing Session",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}",
-                "type": "text"
-              },
-              {
-                "key": "x-tenant-id",
-                "value": "{{tenantId}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+          "name": "Token Usage Logs",
+          "item": [
+            {
+              "name": "List Token Usage Logs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/token-usage-logs/?skip=0&limit=50",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "token-usage-logs", ""],
+                  "query": [{ "key": "skip", "value": "0" }, { "key": "limit", "value": "50" }]
+                }
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"session_id\": \"{{sessionId}}\",\n  \"settings_key\": \"{{settingKey}}\",\n  \"system_prompt_key\": \"{{systemPromptKey}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Can you elaborate on your previous answer?\"\n    }\n  ],\n  \"file_ids\": []\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/chat/single",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "chat", "single"]
+            {
+              "name": "Get Token Usage Stats",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/v1/token-usage-logs/stats", "host": ["{{baseUrl}}"], "path": ["api", "v1", "token-usage-logs", "stats"] }
+              }
             }
-          }
+          ]
         }
       ]
     }

@@ -208,6 +208,20 @@ builder.Services.AddScoped(typeof(ValidationFilter<>));
 builder.Services.AddScoped<Identity.Application.Helpers.ProfilePictureHelper>();
 
 // ============================================
+// Health Checks
+// ============================================
+builder.Services.AddHealthChecks()
+    .AddNpgSql(
+        connectionString: builder.Configuration["DatabaseSettings:ConnectionString"]!,
+        name: "identity-database",
+        tags: ["database", "postgresql"],
+        timeout: TimeSpan.FromSeconds(5))
+    .AddCheck(
+        name: "identity-service",
+        check: () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Identity service is running"),
+        tags: ["service"]);
+
+// ============================================
 // HTTP Clients for Service-to-Service Communication
 // ============================================
 // Register Notification service client for service-to-service communication
@@ -251,6 +265,8 @@ await app.Services.InitializeDatabaseAsync<IdentityDbContext>(
 // TODO: Restrict to Development only in production
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseCorrelationId();
 
 // Localization middleware (must be before exception handler)
 app.UseLocalization();
@@ -329,6 +345,32 @@ app.MapDeviceTokenEndpoints();
 // app.MapControllers();
 
 app.MapPrometheusScrapingEndpoint("/metrics");
+
+// ============================================
+// Health Check Endpoints
+// ============================================
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds
+        });
+        await context.Response.WriteAsync(result);
+    }
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready").AllowAnonymous();
 
 app.Run();
 
