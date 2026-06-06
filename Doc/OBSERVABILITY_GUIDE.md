@@ -71,24 +71,32 @@ The Gateway exposes:
 ### Correlation ID — end-to-end request chain
 
 **Backend:** `CorrelationIdMiddleware` in `IhsanDev.Shared.Infrastructure` is registered in every service via `app.UseCorrelationId()` (placed before `UseLocalization`). It:
-1. Reads `X-Correlation-Id` from the inbound request (stamped by the gateway, or generates a new UUID if missing)
+1. Reads `X-Correlation-Id` from the inbound request (or generates a new UUID if missing)
 2. Stores it in `HttpContext.Items["CorrelationId"]`
-3. Echoes it back in the response header
-4. Pushes it into the structured log scope for the entire request — every `ILogger` call in that request automatically includes `CorrelationId`
+3. Echoes it back in the `X-Correlation-Id` response header
+4. Enriches the `ILogger` structured log scope so all framework logs include `CorrelationId`
 
-**Frontend:** `correlationIdInterceptor` (`libs/core`) reads the echoed header from every response and stores it in `CorrelationIdService`. It sends the stored ID on every outgoing request, creating a continuous trace chain through browser → gateway → service → logs.
+**`TraceIdProvider`** reads from `HttpContext.Items["CorrelationId"]` first (falling back to `HttpContext.TraceIdentifier` only for health checks and routes that bypass the middleware). This means the `| TraceId: ...` field in every custom log file entry **is** the `X-Correlation-Id`.
+
+**Cross-service propagation:** `CorrelationIdForwardingHandler` (`IhsanDev.Shared.Infrastructure.Middleware`) is attached to every service client registered via the extension methods (`AddNotificationServiceClient`, `AddFileManagerServiceClient`, etc.). It automatically injects the current `X-Correlation-Id` into outgoing inter-service HTTP calls, so the same ID appears in downstream service logs without any manual wiring.
+
+**Frontend:** `correlationIdInterceptor` (`libs/core`) reads the echoed header from every response and stores it in `CorrelationIdService`. It sends the stored ID on every outgoing request, creating a continuous trace chain: browser → gateway → service → downstream service → log files.
 
 **How to use for debugging:**
 
 ```powershell
 # Send a known ID and trace it across service logs
-curl http://localhost:5000/api/auth/login \
-  -H "X-Correlation-Id: my-debug-session-001" \
-  -H "Content-Type: application/json" \
+curl http://localhost:5001/api/v1/auth/login `
+  -H "X-Correlation-Id: my-debug-session-001" `
+  -H "Content-Type: application/json" `
+  -H "x-tenant-id: your-tenant-id" `
   -d '{"email":"user@acme.com","password":"pass"}'
 
-# Then grep logs in any service:
-# CorrelationId: my-debug-session-001
+# Grep across ALL service log files for that ID:
+Select-String -Path "C:\...\Logs\*\*.log" -Pattern "my-debug-session-001"
+
+# Every MediatR handler log line across Identity, FileManager, Notification, etc.
+# will show: | TraceId: my-debug-session-001 [MediatR] Handling ...
 ```
 
 The correlation ID also appears in every Jaeger span as the `X-Correlation-Id` attribute, linking HTTP-level correlation to OpenTelemetry trace context.

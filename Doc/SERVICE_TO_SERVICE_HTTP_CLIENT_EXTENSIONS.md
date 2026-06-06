@@ -173,8 +173,19 @@ All service clients automatically include authentication headers:
 
 **Headers Added:**
 
-- `X-Service-Secret`: Shared secret for authentication
-- `X-Service-Name`: Name of the calling service
+| Header | Value | Set at |
+|---|---|---|
+| `X-Service-Secret` | Shared secret for auth | Startup (static) |
+| `X-Service-Name` | Name of calling service | Startup (static) |
+| `X-Correlation-Id` | Current request correlation ID | Per-request (dynamic) |
+
+### X-Correlation-Id Propagation
+
+Every service client registered via these extension methods automatically forwards the `X-Correlation-Id` from the inbound request to all outbound calls, via `CorrelationIdForwardingHandler` (`IhsanDev.Shared.Infrastructure.Middleware`).
+
+This means when Identity calls Notification (e.g., on login), both services log the **same** correlation ID — allowing a single grep across all log files to reconstruct the full call chain.
+
+The handler is wired automatically — no changes needed in `Program.cs` or handlers. It is a no-op for background tasks that have no `HttpContext` (the header is simply not added).
 
 ### SSL Configuration
 
@@ -360,6 +371,7 @@ public static IServiceCollection Add[Service]ServiceClient(
 - Standardized error handling
 - Automatic retry policies (via HttpClient)
 - Request/response logging
+- Automatic `X-Correlation-Id` forwarding for end-to-end request tracing across services
 
 ### ✅ Type Safety
 
@@ -625,5 +637,5 @@ builder.Services.AddNotificationServiceClient(
 
 ---
 
-**Last Updated:** November 22, 2025  
-**Version:** 1.0
+**Last Updated:** June 6, 2026  
+**Version:** 1.1

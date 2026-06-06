@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Common.Interfaces;
+using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,8 @@ public static class FileManagerServiceExtensions
         string serviceName,
         bool isDevelopment = false)
     {
+        services.AddTransient<CorrelationIdForwardingHandler>();
+
         services.AddHttpClient<IFileManagerServiceClient, FileManagerServiceClient>(client =>
         {
             var baseUrl = configuration["Services:FileManagerService:BaseUrl"]
@@ -48,11 +51,12 @@ public static class FileManagerServiceExtensions
             var handler = new HttpClientHandler();
             if (isDevelopment)
             {
-                handler.ServerCertificateCustomValidationCallback = 
+                handler.ServerCertificateCustomValidationCallback =
                     HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             }
             return handler;
-        });
+        })
+        .AddHttpMessageHandler<CorrelationIdForwardingHandler>();
 
         return services;
     }

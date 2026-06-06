@@ -17,6 +17,12 @@ public class TraceIdProvider : ITraceIdProvider
 
     public string? GetTraceId()
     {
-        return _httpContextAccessor.HttpContext?.TraceIdentifier;
+        var context = _httpContextAccessor.HttpContext;
+        if (context == null) return null;
+
+        // Prefer X-Correlation-Id so logs can be grepped by the same ID the client sees in the response header.
+        // Fall back to Kestrel's TraceIdentifier when the correlation middleware hasn't run (e.g. health checks).
+        return context.Items["CorrelationId"]?.ToString()
+               ?? context.TraceIdentifier;
     }
 }

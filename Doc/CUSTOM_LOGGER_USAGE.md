@@ -16,7 +16,7 @@ The custom logger system consists of:
 - ✅ **Colored Console Output**: Different colors for different log levels
 - ✅ **File Logging**: Automatic daily log file rotation
 - ✅ **Service Context**: Optional service name for multi-service logging
-- ✅ **TraceId Support**: Automatic request correlation tracking
+- ✅ **TraceId = X-Correlation-Id**: The `TraceId` field in every log line is the `X-Correlation-Id` from the HTTP request — the same ID the client receives in the response header, enabling end-to-end grep across all services
 - ✅ **Thread-Safe**: Safe for concurrent operations
 - ✅ **Exception Support**: Enhanced exception logging with stack traces
 - ✅ **MediatR Integration**: Automatic request/response logging with traceId
@@ -164,13 +164,19 @@ public class CustomMiddleware
 ### File Output (Logs/Identity/project-2024-10-14.log)
 
 ```
-2024-10-14 15:30:15.123 [Information] | TraceId: 0HNIJVSH6HAU1:00000001 [Identity] Handling LoginCommand
+2024-10-14 15:30:15.123 [Information] | TraceId: f3a2b1c4-d5e6-7890-abcd-ef1234567890 [MediatR] Handling LoginCommand
 2024-10-14 15:30:15.456 [Information] [UserService] Getting user with ID: 123
 2024-10-14 15:30:16.789 [Information] [UserService] Successfully retrieved user: user@example.com
-2024-10-14 15:30:16.890 [Information] | TraceId: 0HNIJVSH6HAU1:00000001 [Identity] Handled LoginCommand in 1250ms
+2024-10-14 15:30:16.890 [Information] | TraceId: f3a2b1c4-d5e6-7890-abcd-ef1234567890 [MediatR] Handled LoginCommand in 1250ms
 ```
 
-**Note**: TraceId is automatically included in logs when available from the HTTP request context. This allows you to correlate log entries with HTTP responses and track requests across services.
+**Note**: `TraceId` is the `X-Correlation-Id` from the HTTP request (read by `CorrelationIdMiddleware`). The same ID is echoed back to the client in the `X-Correlation-Id` response header. If no header was sent, a new UUID is auto-generated. Background tasks (no HTTP context) produce entries with no `TraceId` part — this is expected behaviour.
+
+**Grep across all services for one request:**
+
+```powershell
+Select-String -Path "C:\...\Logs\*\*.log" -Pattern "f3a2b1c4-d5e6-7890-abcd-ef1234567890"
+```
 
 ## Log Levels and Colors
 
@@ -221,9 +227,9 @@ catch (Exception ex)
 The custom LoggingBehavior automatically logs all MediatR requests with traceId for request correlation and localizes exception messages:
 
 ```csharp
-// Automatically logged with traceId and localized messages:
-// [Information] | TraceId: 0HNIK0HVNM5E4:00000003 [MediatR] Handling LoginCommand
-// [Warning] | TraceId: 0HNIK0HVNM5E4:00000003 [MediatR] Business exception in LoginCommand after 36ms: البريد الإلكتروني أو كلمة المرور غير صحيحة
+// Automatically logged with traceId (= X-Correlation-Id) and localized messages:
+// [Information] | TraceId: f3a2b1c4-d5e6-7890-abcd-ef1234567890 [MediatR] Handling LoginCommand
+// [Warning] | TraceId: f3a2b1c4-d5e6-7890-abcd-ef1234567890 [MediatR] Business exception in LoginCommand after 36ms: البريد الإلكتروني أو كلمة المرور غير صحيحة
 var result = await _mediator.Send(new LoginCommand { Email = "test@example.com" });
 ```
 
@@ -240,7 +246,7 @@ Validation failures are automatically logged at the ValidationFilter level with 
 
 ```csharp
 // When validation fails, automatically logged as:
-// [Warning] | TraceId: 0HNIK0HVNM5E4:00000001 [ValidationFilter] Validation failed for RegisterCommand: Password: يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل; Password: يجب أن تحتوي كلمة المرور على حرف خاص واحد على الأقل
+// [Warning] | TraceId: f3a2b1c4-d5e6-7890-abcd-ef1234567890 [ValidationFilter] Validation failed for RegisterCommand: Password: يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل; Password: يجب أن تحتوي كلمة المرور على حرف خاص واحد على الأقل
 
 // User receives 400 BadRequest with matching traceId
 // No need to manually log validation errors
@@ -255,7 +261,7 @@ Validation failures are automatically logged at the ValidationFilter level with 
 
 ### Manual TraceId Logging
 
-You can also manually pass traceId when logging from contexts with HttpContext access:
+You can also manually pass traceId when logging from contexts with HttpContext access. Always read from `HttpContext.Items["CorrelationId"]` — not `TraceIdentifier` — so the value matches what the client sees in the response header:
 
 ```csharp
 public class UserEndpoint
@@ -264,9 +270,9 @@ public class UserEndpoint
 
     public async Task<IResult> HandleRequest(HttpContext context)
     {
-        var traceId = context.TraceIdentifier;
+        // Read the X-Correlation-Id stored by CorrelationIdMiddleware
+        var traceId = context.Items["CorrelationId"]?.ToString();
         _logger.LogInfo("Processing user request", "UserService", traceId);
-        // This will include the traceId in the log file
     }
 }
 ```

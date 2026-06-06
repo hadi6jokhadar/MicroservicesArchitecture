@@ -1,3 +1,4 @@
+using IhsanDev.Shared.Infrastructure.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,6 +23,8 @@ public static class NotificationServiceExtensions
         string serviceName,
         bool isDevelopment = false)
     {
+        services.AddTransient<CorrelationIdForwardingHandler>();
+
         services.AddHttpClient("NotificationService", client =>
         {
             var baseUrl = configuration["Services:NotificationService:BaseUrl"]
@@ -47,11 +50,12 @@ public static class NotificationServiceExtensions
             var handler = new HttpClientHandler();
             if (isDevelopment)
             {
-                handler.ServerCertificateCustomValidationCallback = 
+                handler.ServerCertificateCustomValidationCallback =
                     HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             }
             return handler;
-        });
+        })
+        .AddHttpMessageHandler<CorrelationIdForwardingHandler>();
 
         return services;
     }
