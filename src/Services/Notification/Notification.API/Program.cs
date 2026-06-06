@@ -407,9 +407,15 @@ logger.LogInformation("JWT Mode: {JwtMode}", builder.Configuration["MultiTenancy
 logger.LogInformation("========================================");
 
 // NotificationProcessor and CleanupService (BackgroundServices) start at the same time
-// as the HTTP server, before any request triggers UseDefaultDatabaseMigration. Migrate
-// the global queue DB eagerly here so the schema exists when background services poll.
+// as the HTTP server, before any HTTP request triggers UseDefaultDatabaseMigration. Migrate
+// both DB contexts eagerly so the schema exists when background services start polling.
+// NotificationDbContext → global queue DB (NotificationQueue + AuditLogs)
+// TenantNotificationDbContext → global fallback DB (Notifications + AuditLogs); per-tenant DBs
+//   are still lazily migrated on each tenant's first request via UseTenantDatabaseMigration.
 await app.Services.InitializeDatabaseAsync<NotificationDbContext>(
+    applyMigrations: true,
+    seedData: false);
+await app.Services.InitializeDatabaseAsync<TenantNotificationDbContext>(
     applyMigrations: true,
     seedData: false);
 
@@ -435,6 +441,14 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+// Migrate global DBs BEFORE tenant resolution so the global fallback connection
+// string is used. NotificationDbContext (global queue) must be migrated here — not just
+// in UseTenantDatabaseMigration — because background services query it before any HTTP
+// request triggers the tenant-based path.
+var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
+app.UseDefaultDatabaseMigration<NotificationDbContext>();
+app.UseDefaultDatabaseMigration<TenantNotificationDbContext>();
+
 // Multi-tenancy middleware (must be before CORS and authentication)
 // Only runs if MultiTenancy:Enabled is true
 app.UseTenantResolution(builder.Configuration);
@@ -451,14 +465,6 @@ app.UseJwtTenantVerification(builder.Configuration);
 
 // Note: Standard UseCors() is NOT needed because TenantAwareCors handles everything
 // DO NOT call app.UseCors() - it will conflict with TenantAwareCorsMiddleware
-
-// Migrate both global DBs BEFORE tenant resolution so the global fallback connection
-// string is used. NotificationDbContext (global queue) must be migrated here — not just
-// in UseTenantDatabaseMigration — because background services query it before any HTTP
-// request triggers the tenant-based path.
-var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
-app.UseDefaultDatabaseMigration<NotificationDbContext>();
-app.UseDefaultDatabaseMigration<TenantNotificationDbContext>();
 
 if (multiTenancyEnabled)
 {

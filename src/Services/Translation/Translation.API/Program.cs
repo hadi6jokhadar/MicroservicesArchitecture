@@ -180,6 +180,10 @@ builder.Services.AddAuditLogQueries<TranslationDbContext>();
 
 var app = builder.Build();
 
+await app.Services.InitializeDatabaseAsync<TranslationDbContext>(
+    applyMigrations: true,
+    seedData: false);
+
 // ============================================
 // Middleware Pipeline
 // ============================================
@@ -240,10 +244,6 @@ app.MapHealthChecks("/health/ready").AllowAnonymous();
 
 app.MapTranslationEndpoints();
 app.MapAuditLogEndpoints();
-
-await app.Services.InitializeDatabaseAsync<TranslationDbContext>(
-    applyMigrations: true,
-    seedData: false);
 
 app.MapPrometheusScrapingEndpoint("/metrics");
 

@@ -1,6 +1,7 @@
+using IhsanDev.Shared.Infrastructure.Extensions;
+using IhsanDev.Shared.Kernel.Interfaces.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using IhsanDev.Shared.Kernel.Interfaces.Database;
 
 namespace IhsanDev.Shared.Infrastructure.Services.Database;
 
@@ -48,7 +49,7 @@ public class DatabaseMigrationService : IDatabaseMigrationService
                     tenantInfo, contextName);
 
                 // Create database and apply migrations
-                await context.Database.MigrateAsync(cancellationToken);
+                await context.Database.MigrateWithRecoveryAsync(_logger, cancellationToken);
 
                 _logger.LogInformation(
                     "Database for {TenantInfo} created and migrated successfully (Context: {ContextName})",
@@ -66,7 +67,7 @@ public class DatabaseMigrationService : IDatabaseMigrationService
                     "Found {Count} pending migration(s) for {TenantInfo}. Applying... (Context: {ContextName})",
                     pendingMigrations.Count(), tenantInfo, contextName);
 
-                await context.Database.MigrateAsync(cancellationToken);
+                await context.Database.MigrateWithRecoveryAsync(_logger, cancellationToken);
 
                 _logger.LogInformation(
                     "Migrations applied successfully for {TenantInfo} (Context: {ContextName})",

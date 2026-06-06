@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using IhsanDev.Shared.Kernel.Entities;
@@ -8,6 +9,16 @@ namespace IhsanDev.Shared.Infrastructure.Persistence;
 
 public abstract class BaseDbContext : DbContext
 {
+    // Timestamp and tracking fields are already captured in the action name and
+    // top-level audit fields — excluding them keeps Before/After payloads lean.
+    private static readonly FrozenSet<string> SnapshotExcluded = new HashSet<string>
+    {
+        nameof(BaseEntity.Created),
+        nameof(BaseEntity.LastModified),
+        nameof(BaseEntity.CreatedBy),
+        nameof(BaseEntity.LastModifiedBy),
+    }.ToFrozenSet();
+
     private readonly ICurrentUserService? _currentUserService;
     private readonly IAuditService? _auditService;
 
@@ -41,7 +52,7 @@ public abstract class BaseDbContext : DbContext
             }
         }
 
-        // 2. Auto-capture every entity change before flushing to DB
+        // 2. Capture entity changes into the audit pending list (no JSON yet)
         if (_auditService != null)
         {
             foreach (var entry in ChangeTracker.Entries<BaseEntity>()
@@ -79,15 +90,42 @@ public abstract class BaseDbContext : DbContext
             }
         }
 
-        // 3. Flush pending rows (auto-captured above) atomically with the main save
-        var auditRows = _auditService?.Flush();
-        if (auditRows?.Count > 0)
-            AuditLogs.AddRange(auditRows);
+        // 3. Capture connection string before the save (available once context is configured)
+        var connectionString = Database.GetConnectionString() ?? string.Empty;
 
-        return await base.SaveChangesAsync(cancellationToken);
+        // 4. Save business data only — audit rows go through the background channel
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        // 5. Publish audit entries to channel after successful save (non-blocking)
+        _auditService?.Commit(connectionString);
+
+        return result;
     }
 
-    // Returns a plain dictionary of scalar property name → value (no navigation properties)
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<AuditLogEntity>(e =>
+        {
+            // Composite indexes that match the query handler's filter + sort patterns
+            e.HasIndex(x => new { x.TenantId, x.OccurredAt })
+                .IsDescending(false, true)
+                .HasDatabaseName("IX_AuditLogs_TenantId_OccurredAt");
+
+            e.HasIndex(x => new { x.EntityType, x.OccurredAt })
+                .IsDescending(false, true)
+                .HasDatabaseName("IX_AuditLogs_EntityType_OccurredAt");
+
+            e.HasIndex(x => new { x.UserId, x.OccurredAt })
+                .IsDescending(false, true)
+                .HasDatabaseName("IX_AuditLogs_UserId_OccurredAt");
+        });
+    }
+
+    // Returns scalar properties only, excluding internal tracking fields to keep payloads lean.
     private static Dictionary<string, object?> Snapshot(PropertyValues values)
-        => values.Properties.ToDictionary(p => p.Name, p => values[p]);
+        => values.Properties
+            .Where(p => !SnapshotExcluded.Contains(p.Name))
+            .ToDictionary(p => p.Name, p => values[p]);
 }

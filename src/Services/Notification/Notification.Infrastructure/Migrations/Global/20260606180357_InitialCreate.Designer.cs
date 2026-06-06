@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Notification.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Tenant.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace Tenant.Infrastructure.Migrations
+namespace Notification.Infrastructure.Migrations.Global
 {
-    [DbContext(typeof(TenantDbContext))]
-    partial class TenantDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(NotificationDbContext))]
+    [Migration("20260606180357_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -79,7 +82,7 @@ namespace Tenant.Infrastructure.Migrations
                     b.ToTable("AuditLogs");
                 });
 
-            modelBuilder.Entity("Tenant.Domain.Entities.TenantSettings", b =>
+            modelBuilder.Entity("Notification.Domain.Entities.NotificationQueueItem", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -94,16 +97,17 @@ namespace Tenant.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Data")
-                        .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("jsonb");
 
-                    b.Property<DateTime>("ExpireDate")
+                    b.Property<int>("DeliveryType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean");
@@ -114,35 +118,64 @@ namespace Tenant.Infrastructure.Migrations
                     b.Property<string>("LastModifiedBy")
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("StartDate")
+                    b.Property<string>("Message")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("NextRetryAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("NotificationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("QueueStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("Status")
                         .HasColumnType("boolean");
 
                     b.Property<string>("TenantId")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
-                    b.Property<string>("TenantName")
+                    b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
-                    b.Property<int>("UserId")
+                    b.Property<int?>("UserId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId")
-                        .IsUnique()
-                        .HasFilter("\"IsArchived\" = false");
+                    b.HasIndex("ExpiresAt", "QueueStatus")
+                        .HasDatabaseName("IX_NotificationQueue_Expiration")
+                        .HasFilter("\"QueueStatus\" = 0");
 
-                    b.HasIndex("UserId")
-                        .HasFilter("\"IsArchived\" = false");
+                    b.HasIndex("QueueStatus", "LastModified")
+                        .HasDatabaseName("IX_NotificationQueue_Cleanup")
+                        .HasFilter("\"QueueStatus\" IN (2, 3, 4)");
 
-                    b.ToTable("TenantSettings");
+                    b.HasIndex("TenantId", "QueueStatus", "Created")
+                        .HasDatabaseName("IX_NotificationQueue_Tenant");
+
+                    b.HasIndex("UserId", "QueueStatus", "Created")
+                        .HasDatabaseName("IX_NotificationQueue_User");
+
+                    b.HasIndex("QueueStatus", "ExpiresAt", "NextRetryAt", "Priority", "Created")
+                        .HasDatabaseName("IX_NotificationQueue_Processing")
+                        .HasFilter("\"QueueStatus\" = 0");
+
+                    b.ToTable("NotificationQueue", (string)null);
                 });
 #pragma warning restore 612, 618
         }

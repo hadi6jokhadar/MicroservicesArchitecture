@@ -1,5 +1,3 @@
-using IhsanDev.Shared.Kernel.Entities;
-
 namespace IhsanDev.Shared.Application.Services;
 
 public interface IAuditService
@@ -11,5 +9,9 @@ public interface IAuditService
         object? before = null,
         object? after = null);
 
-    IReadOnlyList<AuditLogEntity> Flush();
+    /// <summary>
+    /// Publishes all pending audit entries to the background channel for async persistence.
+    /// Pass an empty string for in-memory/test contexts — entries are silently discarded.
+    /// </summary>
+    void Commit(string connectionString);
 }

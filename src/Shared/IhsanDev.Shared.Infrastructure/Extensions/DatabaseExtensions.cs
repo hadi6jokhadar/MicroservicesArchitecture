@@ -141,6 +141,9 @@ public static class DatabaseExtensions
     /// Retries handle the case where multiple service instances start simultaneously and
     /// one instance fails to acquire PostgreSQL's implicit migration lock.
     /// Each retry creates a fresh scope so the DbContext is not reused after a failure.
+    /// When tables already exist but are not tracked in __EFMigrationsHistory (e.g. after a
+    /// database restore or EnsureCreated path), pending migrations are marked as applied
+    /// without re-running their SQL so the history stays consistent.
     /// </summary>
     public static async Task InitializeDatabaseAsync<TContext>(
         this IServiceProvider serviceProvider,
@@ -168,7 +171,7 @@ public static class DatabaseExtensions
                         "Applying database migrations for {Context} (attempt {Attempt}/{MaxAttempts})...",
                         typeof(TContext).Name, attempt, maxAttempts);
 
-                    await context.Database.MigrateAsync();
+                    await context.Database.MigrateWithRecoveryAsync(logger);
 
                     logger.LogInformation(
                         "Database migrations applied successfully for {Context}",

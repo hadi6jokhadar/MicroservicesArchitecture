@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Notification.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Tenant.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace Tenant.Infrastructure.Migrations
+namespace Notification.Infrastructure.Migrations.Tenant
 {
-    [DbContext(typeof(TenantDbContext))]
-    partial class TenantDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(TenantNotificationDbContext))]
+    [Migration("20260606180407_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -79,7 +82,7 @@ namespace Tenant.Infrastructure.Migrations
                     b.ToTable("AuditLogs");
                 });
 
-            modelBuilder.Entity("Tenant.Domain.Entities.TenantSettings", b =>
+            modelBuilder.Entity("Notification.Domain.Entities.Notification", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -94,18 +97,12 @@ namespace Tenant.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Data")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("ExpireDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
+                        .HasColumnType("jsonb");
 
                     b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("LastModified")
@@ -114,35 +111,39 @@ namespace Tenant.Infrastructure.Migrations
                     b.Property<string>("LastModifiedBy")
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("StartDate")
+                    b.Property<string>("Message")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("QueueItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ReadAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("Status")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("TenantId")
+                    b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
-                    b.Property<string>("TenantName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("UserId")
+                    b.Property<int?>("UserId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId")
-                        .IsUnique()
-                        .HasFilter("\"IsArchived\" = false");
+                    b.HasIndex("Created")
+                        .HasDatabaseName("IX_Notifications_Created");
 
                     b.HasIndex("UserId")
-                        .HasFilter("\"IsArchived\" = false");
+                        .HasDatabaseName("IX_Notifications_UserId");
 
-                    b.ToTable("TenantSettings");
+                    b.HasIndex("UserId", "IsRead")
+                        .HasDatabaseName("IX_Notifications_UserId_IsRead");
+
+                    b.ToTable("Notifications", (string)null);
                 });
 #pragma warning restore 612, 618
         }

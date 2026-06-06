@@ -64,6 +64,18 @@ namespace Notification.Infrastructure.Migrations.Tenant
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EntityType", "OccurredAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_AuditLogs_EntityType_OccurredAt");
+
+                    b.HasIndex("TenantId", "OccurredAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_AuditLogs_TenantId_OccurredAt");
+
+                    b.HasIndex("UserId", "OccurredAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_AuditLogs_UserId_OccurredAt");
+
                     b.ToTable("AuditLogs");
                 });
 

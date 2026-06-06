@@ -37,10 +37,13 @@ public static class InfrastructureServiceExtensions
     }
 
     /// <summary>
-    /// Registers the scoped audit service. Call from every service's Program.cs.
+    /// Registers the audit pipeline: singleton channel, background writer, and scoped per-request service.
+    /// Call from every service's Program.cs.
     /// </summary>
     public static IServiceCollection AddAuditService(this IServiceCollection services)
     {
+        services.AddSingleton<IAuditChannel, AuditChannelService>();
+        services.AddHostedService<AuditBackgroundService>();
         services.AddScoped<IAuditService, DbAuditService>();
         return services;
     }

@@ -2,6 +2,7 @@ using FileManager.Application.Commands;
 using FileManager.Application.DTOs;
 using FileManager.Application.Interfaces;
 using FileManager.Infrastructure.Persistence;
+using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
@@ -213,7 +214,7 @@ public class TempFileCleanupService : BackgroundService
                     pendingMigrations.Count(), 
                     tenantId);
                 
-                await dbContext.Database.MigrateAsync(cancellationToken);
+                await dbContext.Database.MigrateWithRecoveryAsync(_logger, cancellationToken);
                 
                 _logger.LogInformation(
                     "Successfully applied migrations for tenant {TenantId}", 

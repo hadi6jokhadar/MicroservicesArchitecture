@@ -1,3 +1,4 @@
+using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -112,7 +113,7 @@ public class NasheedTenantLoaderService : IHostedService
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<NasheedDbContext>();
-            await dbContext.Database.MigrateAsync(cancellationToken);
+            await dbContext.Database.MigrateWithRecoveryAsync(_logger, cancellationToken);
             _logger.LogInformation("Nasheed database migration completed successfully.");
         }
         catch (Exception ex)

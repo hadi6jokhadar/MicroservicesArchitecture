@@ -249,6 +249,10 @@ builder.Services.AddTenantServiceClient<FileManager.Application.Interfaces.ITena
 
 var app = builder.Build();
 
+await app.Services.InitializeDatabaseAsync<FileManagerDbContext>(
+    applyMigrations: true,
+    seedData: false);
+
 // ============================================
 // Middleware Pipeline
 // ============================================
@@ -363,10 +367,6 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
 }).AllowAnonymous();
 
 app.MapHealthChecks("/health/ready").AllowAnonymous();
-
-await app.Services.InitializeDatabaseAsync<FileManagerDbContext>(
-    applyMigrations: true,
-    seedData: false);
 
 app.MapPrometheusScrapingEndpoint("/metrics");
 
