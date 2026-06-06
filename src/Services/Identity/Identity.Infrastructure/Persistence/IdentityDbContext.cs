@@ -2,6 +2,7 @@ using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using IhsanDev.Shared.Application.Services;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
@@ -16,12 +17,13 @@ public class IdentityDbContext : BaseDbContext
     private readonly ILogger<IdentityDbContext>? _logger;
 
     public IdentityDbContext(
-        DbContextOptions<IdentityDbContext> options, 
+        DbContextOptions<IdentityDbContext> options,
         ICurrentUserService? currentUserService = null,
         ITenantContext? tenantContext = null,
         IConfiguration? configuration = null,
-        ILogger<IdentityDbContext>? logger = null) 
-        : base(options, currentUserService)
+        ILogger<IdentityDbContext>? logger = null,
+        IAuditService? auditService = null)
+        : base(options, currentUserService, auditService)
     {
         _tenantContext = tenantContext;
         _configuration = configuration;

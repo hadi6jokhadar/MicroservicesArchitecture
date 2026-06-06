@@ -17,7 +17,7 @@
 | 2   | Distributed Tracing & Observability   | 1    | ✅ Done        |
 | 3   | Secrets Management                    | 1    | ⬜ Not started |
 | 4   | Circuit Breaker / Resilience Patterns | 1    | ⬜ Not started |
-| 5   | Audit Logging Service                 | 1    | ⬜ Not started |
+| 5   | Audit Logging Service                 | 1    | ✅ Done        |
 | 6   | Background Job / Scheduling Service   | 2    | ⬜ Not started |
 | 7   | API Versioning Standard               | 2    | ⬜ Not started |
 | 8   | Feature Flags Service                 | 2    | ⬜ Not started |
@@ -247,11 +247,11 @@ When a request touches Identity → FileManager → Notification, there is no wa
 
 Use **OpenTelemetry** (vendor-neutral instrumentation) with **Jaeger** as the tracing backend across **all environments** — local and production. For metrics and alerting, add **Prometheus + Grafana** alongside it. This fits cleanly onto the existing Serilog logging setup and costs nothing.
 
-| Concern | Tool | Cost |
-|---|---|---|
-| Distributed tracing | OpenTelemetry SDK → Jaeger | Free / OSS |
-| Metrics & dashboards | Prometheus + Grafana | Free / OSS |
-| Structured logs | Serilog (already in place) | Free / OSS |
+| Concern              | Tool                       | Cost       |
+| -------------------- | -------------------------- | ---------- |
+| Distributed tracing  | OpenTelemetry SDK → Jaeger | Free / OSS |
+| Metrics & dashboards | Prometheus + Grafana       | Free / OSS |
+| Structured logs      | Serilog (already in place) | Free / OSS |
 
 ### What to Build
 
@@ -327,9 +327,9 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:latest
     ports:
-      - "16686:16686"   # Jaeger UI
-      - "4317:4317"     # OTLP gRPC (services export here)
-      - "4318:4318"     # OTLP HTTP
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OTLP gRPC (services export here)
+      - "4318:4318" # OTLP HTTP
 
   prometheus:
     image: prom/prometheus:latest
@@ -356,13 +356,13 @@ scrape_configs:
   - job_name: "services"
     static_configs:
       - targets:
-          - "host.docker.internal:5001"   # IdentityService
-          - "host.docker.internal:5002"   # TenantService
-          - "host.docker.internal:5003"   # FileManagerService
-          - "host.docker.internal:5004"   # NotificationService
-          - "host.docker.internal:5005"   # TranslationService
-          - "host.docker.internal:5006"   # AIService
-          - "host.docker.internal:5000"   # Gateway
+          - "host.docker.internal:5001" # IdentityService
+          - "host.docker.internal:5002" # TenantService
+          - "host.docker.internal:5003" # FileManagerService
+          - "host.docker.internal:5004" # NotificationService
+          - "host.docker.internal:5005" # TranslationService
+          - "host.docker.internal:5006" # AIService
+          - "host.docker.internal:5000" # Gateway
     metrics_path: /metrics
 ```
 
@@ -723,16 +723,15 @@ await _repository.DeleteAsync(entity, ct);
 
 ### Implementation Checklist
 
-- [ ] Add `AuditLogEntity` to `IhsanDev.Shared.Kernel`
-- [ ] Add `IAuditService` to `IhsanDev.Shared.Application`
-- [ ] Implement `DbAuditService` in `IhsanDev.Shared.Infrastructure`
-- [ ] Register `IAuditService` as Scoped in shared DI registration
-- [ ] Override `SaveChangesAsync` in `BaseDbContext` to flush audit rows
-- [ ] Add `DbSet<AuditLogEntity>` and EF configuration to each service's DbContext
-- [ ] Add `dotnet ef migrations add AddAuditLog` for each service
-- [ ] Call `_auditService.Record(...)` in Identity login, role assignment, and Tenant admin handlers first
-- [ ] Expand to Category, FileManager, and Notification admin handlers
-- [ ] Add admin endpoint to query audit logs per tenant
+- [x] Add `AuditLogEntity` to `IhsanDev.Shared.Kernel`
+- [x] Add `IAuditService` to `IhsanDev.Shared.Application`
+- [x] Implement `DbAuditService` in `IhsanDev.Shared.Infrastructure`
+- [x] Register `IAuditService` as Scoped in shared DI registration (`AddAuditService()` in `InfrastructureServiceExtensions`)
+- [x] Override `SaveChangesAsync` in `BaseDbContext` to flush audit rows atomically
+- [x] Add `DbSet<AuditLogEntity>` and EF configuration to each service's DbContext (all 8 DbContexts updated)
+- [x] Add `dotnet ef migrations add AddAuditLog` for each service (Identity, Tenant, FileManager, Translation, Category, Nasheed, Notification global, Notification tenant)
+- [x] Replaced explicit `_auditService.Record()` calls with automatic ChangeTracker capture in `BaseDbContext.SaveChangesAsync` — all handlers across all services are covered with zero per-handler code
+- [x] Add admin endpoint to query audit logs per tenant — `GET /api/admin/audit-logs` added to all 7 services (Identity, Tenant, FileManager, Notification, Translation, Category, Nasheed) with filter (`tenantId`, `entityType`, `action`, `userId`, `userEmail`, `fromDate`, `toDate`), sort (`sortBy`, `sortDesc`), and pagination (`page`, `pageSize`)
 
 ---
 

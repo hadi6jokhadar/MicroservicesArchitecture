@@ -4,6 +4,7 @@ using IhsanDev.Shared.Infrastructure.Services.Cache;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Tenant.Application.Commands.Tenant;
+using Tenant.Domain.Entities;
 using Tenant.Domain.Repositories;
 
 namespace Tenant.Application.Handlers.Tenant;
@@ -18,7 +19,7 @@ public class DeleteTenantCommandHandler : IRequestHandler<DeleteTenantCommand, b
     private readonly ILogger<DeleteTenantCommandHandler> _logger;
 
     public DeleteTenantCommandHandler(
-        ITenantRepository tenantRepository, 
+        ITenantRepository tenantRepository,
         ICacheService cacheService,
         ILogger<DeleteTenantCommandHandler> logger)
     {

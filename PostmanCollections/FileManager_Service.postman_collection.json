@@ -141,6 +141,40 @@
       ]
     },
     {
+      "name": "Audit Logs",
+      "item": [
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — OptionalTenantAttribute" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "audit-logs"],
+              "query": [
+                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
+                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type (e.g. User, CategoryEntity)" },
+                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring (e.g. Deleted, Updated)" },
+                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user who made the change" },
+                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
+                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp, e.g. 2026-01-01T00:00:00Z" },
+                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
+                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
+                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
+                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based (default: 1)" },
+                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100 (default: 20)" }
+              ]
+            },
+            "description": "Returns PaginatedList<AuditLogDto>. Requires Admin or SuperAdmin role."
+          }
+        }
+      ]
+    },
+    {
       "name": "Admin",
       "item": [
         {

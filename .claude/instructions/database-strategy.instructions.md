@@ -58,6 +58,9 @@ public class MyServiceDbContext : BaseDbContext
 builder.Services.AddDatabaseContext<MyServiceDbContext>(
     builder.Configuration,
     typeof(MyServiceDbContext).Assembly.GetName().Name!);
+builder.Services.AddAuditService();                         // automatic before/after audit for every entity change
+builder.Services.AddAuditLogQueries<MyServiceDbContext>();  // registers GET /api/admin/audit-logs handler
+// ...then call app.MapAuditLogEndpoints() after app.Build()
 
 // ── Before app.Run() ─────────────────────────────────
 // Migrate the global DB at startup (before background services start).
@@ -179,6 +182,9 @@ builder.Services.AddMultiTenancy(builder.Configuration);   // registers ITenantC
 builder.Services.AddDatabaseContext<MyServiceDbContext>(
     builder.Configuration,
     typeof(MyServiceDbContext).Assembly.GetName().Name!);
+builder.Services.AddAuditService();                         // automatic before/after audit for every entity change
+builder.Services.AddAuditLogQueries<MyServiceDbContext>();  // registers GET /api/admin/audit-logs handler
+// ...then call app.MapAuditLogEndpoints() after app.Build()
 
 // ── Before app.Run() ─────────────────────────────────
 await app.Services.InitializeDatabaseAsync<MyServiceDbContext>(applyMigrations: true);
@@ -311,6 +317,9 @@ builder.Services.AddDatabaseContext<MyServiceGlobalDbContext>(
 builder.Services.AddDatabaseContext<MyServiceTenantDbContext>(
     builder.Configuration,
     typeof(MyServiceTenantDbContext).Assembly.GetName().Name!);
+builder.Services.AddAuditService();                               // automatic before/after audit for every entity change
+builder.Services.AddAuditLogQueries<MyServiceGlobalDbContext>();  // registers GET /api/admin/audit-logs handler (use global context)
+// ...then call app.MapAuditLogEndpoints() after app.Build()
 
 // ── Before app.Run() ─────────────────────────────────
 await app.Services.InitializeDatabaseAsync<MyServiceGlobalDbContext>(applyMigrations: true);
@@ -420,6 +429,9 @@ var value = await _context.Entities
 builder.Services.AddDatabaseContext<MyServiceDbContext>(
     builder.Configuration,
     typeof(MyServiceDbContext).Assembly.GetName().Name!);
+builder.Services.AddAuditService();                         // automatic before/after audit for every entity change
+builder.Services.AddAuditLogQueries<MyServiceDbContext>();  // registers GET /api/admin/audit-logs handler
+// ...then call app.MapAuditLogEndpoints() after app.Build()
 
 // ── Before app.Run() ─────────────────────────────────
 await app.Services.InitializeDatabaseAsync<MyServiceDbContext>(applyMigrations: true);

@@ -42,11 +42,31 @@ Several services expose endpoints under `/api/admin/`. YARP resolves these by ro
 
 | Route                        | Order | Forwards to                                                     |
 | ---------------------------- | ----- | --------------------------------------------------------------- |
+| `/api/admin/tenant/audit-logs`      | 4 | Tenant (5002) — path rewritten to `/api/admin/audit-logs`      |
+| `/api/admin/filemanager/audit-logs` | 4 | FileManager (5005) — path rewritten to `/api/admin/audit-logs` |
+| `/api/admin/notifications/audit-logs` | 4 | Notification (5004) — path rewritten to `/api/admin/audit-logs` |
+| `/api/admin/translations/audit-logs`  | 4 | Translation (5006) — path rewritten to `/api/admin/audit-logs` |
+| `/api/admin/categories/audit-logs`  | 4 | Category (5007) — path rewritten to `/api/admin/audit-logs`    |
+| `/api/admin/nasheed/audit-logs`     | 4 | Nasheed (5009) — path rewritten to `/api/admin/audit-logs`     |
 | `/api/admin/tenant/{**}`     | 5     | Tenant (5002)                                                   |
 | `/api/admin/categories/{**}` | 5     | Category (5007)                                                 |
-| `/api/admin/{**}`            | 20    | Identity (5001) — catch-all for user/role/claim admin endpoints |
+| `/api/admin/{**}`            | 20    | Identity (5001) — catch-all; also serves Identity audit-logs at `/api/admin/audit-logs` |
 
-This means `/api/admin/tenant/123` routes to Tenant, `/api/admin/categories/` routes to Category, and anything else under `/api/admin/` routes to Identity.
+### Audit Log Endpoints
+
+Every service exposes `GET /api/admin/audit-logs` internally. The gateway maps each service to a unique public path using YARP path rewriting (`PathPattern` transform). Query string parameters (`page`, `pageSize`, `tenantId`, etc.) are forwarded automatically.
+
+| Frontend calls (via gateway)                | Service queried  |
+| ------------------------------------------- | ---------------- |
+| `GET /api/admin/audit-logs`                 | Identity (5001)  |
+| `GET /api/admin/tenant/audit-logs`          | Tenant (5002)    |
+| `GET /api/admin/notifications/audit-logs`   | Notification (5004) |
+| `GET /api/admin/filemanager/audit-logs`     | FileManager (5005) |
+| `GET /api/admin/translations/audit-logs`    | Translation (5006) |
+| `GET /api/admin/categories/audit-logs`      | Category (5007)  |
+| `GET /api/admin/nasheed/audit-logs`         | Nasheed (5009)   |
+
+All routes require `Admin` or `SuperAdmin` role. See `NEW_SERVICE_INTEGRATION_GUIDE.md` for the full query parameter reference.
 
 ---
 
@@ -257,7 +277,7 @@ The `ReverseProxy` section follows the [YARP configuration documentation](https:
 Key fields:
 
 - `Routes[*].ClusterId` — which cluster (service) to forward to
-- `Routes[*].Order` — priority (lower = matched first); use `5` for specific admin routes, `10` for standard routes, `20` for admin catch-all
+- `Routes[*].Order` — priority (lower = matched first); use `4` for audit-log routes with path rewrite, `5` for specific admin routes, `10` for standard routes, `20` for admin catch-all
 - `Routes[*].Match.Path` — path pattern with `{**catch-all}` wildcard
 - `Routes[*].Transforms` — path rewrites and header modifications
 - `Routes[*].Timeout` — per-route request timeout (used for SSE stream route: 10 minutes)

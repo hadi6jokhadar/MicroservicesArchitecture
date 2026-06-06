@@ -1,3 +1,4 @@
+using IhsanDev.Shared.Application.Services;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
@@ -22,8 +23,9 @@ public class NasheedDbContext : BaseDbContext
         ITenantContext? tenantContext = null,
         INasheedTenantCache? nasheedTenantCache = null,
         IConfiguration? configuration = null,
-        ILogger<NasheedDbContext>? logger = null)
-        : base(options, currentUserService)
+        ILogger<NasheedDbContext>? logger = null,
+        IAuditService? auditService = null)
+        : base(options, currentUserService, auditService)
     {
         _tenantContext = tenantContext;
         _nasheedTenantCache = nasheedTenantCache;

@@ -62,6 +62,9 @@ public static class LocalizationKeys
         // JWT tenant verification exceptions
         public const string TokenTenantHeaderMissing = "exception_token_tenant_header_missing";
         public const string TokenTenantMismatch = "exception_token_tenant_mismatch";
+
+        // Audit exceptions
+        public const string AuditLogNotFound = "exception_audit_log_not_found";
     }
 
     /// <summary>

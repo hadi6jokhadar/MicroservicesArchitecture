@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Application.DTOs;
+using Tenant.Domain.Entities;
 using Tenant.Domain.Repositories;
 
 namespace Tenant.Application.Handlers.Tenant;
@@ -20,7 +21,7 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, T
     private readonly ILogger<UpdateTenantCommandHandler> _logger;
 
     public UpdateTenantCommandHandler(
-        ITenantRepository tenantRepository, 
+        ITenantRepository tenantRepository,
         ICacheService cacheService,
         ILogger<UpdateTenantCommandHandler> logger)
     {

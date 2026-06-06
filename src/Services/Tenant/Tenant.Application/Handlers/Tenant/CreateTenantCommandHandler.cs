@@ -22,7 +22,7 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
     private readonly ILogger<CreateTenantCommandHandler> _logger;
 
     public CreateTenantCommandHandler(
-        ITenantRepository tenantRepository, 
+        ITenantRepository tenantRepository,
         ICacheService cacheService,
         ILogger<CreateTenantCommandHandler> logger)
     {

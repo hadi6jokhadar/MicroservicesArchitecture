@@ -1,5 +1,6 @@
 using Tenant.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using IhsanDev.Shared.Application.Services;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 
@@ -7,8 +8,11 @@ namespace Tenant.Infrastructure.Persistence;
 
 public class TenantDbContext : BaseDbContext
 {
-    public TenantDbContext(DbContextOptions<TenantDbContext> options, ICurrentUserService? currentUserService = null) 
-        : base(options, currentUserService)
+    public TenantDbContext(
+        DbContextOptions<TenantDbContext> options,
+        ICurrentUserService? currentUserService = null,
+        IAuditService? auditService = null)
+        : base(options, currentUserService, auditService)
     {
     }
 

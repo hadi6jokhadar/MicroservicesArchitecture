@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using IhsanDev.Shared.Application.Services;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
@@ -22,8 +23,9 @@ public class TenantNotificationDbContext : BaseDbContext
         ICurrentUserService? currentUserService = null,
         ITenantContext? tenantContext = null,
         IConfiguration? configuration = null,
-        ILogger<TenantNotificationDbContext>? logger = null)
-        : base(options, currentUserService)
+        ILogger<TenantNotificationDbContext>? logger = null,
+        IAuditService? auditService = null)
+        : base(options, currentUserService, auditService)
     {
         _tenantContext = tenantContext;
         _configuration = configuration;

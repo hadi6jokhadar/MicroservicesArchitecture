@@ -1,4 +1,5 @@
 using FileManager.Domain.Entities;
+using IhsanDev.Shared.Application.Services;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
@@ -19,8 +20,9 @@ public class FileManagerDbContext : BaseDbContext
         ICurrentUserService currentUserService,
         ITenantContext? tenantContext = null,
         IConfiguration? configuration = null,
-        ILogger<FileManagerDbContext>? logger = null)
-        : base(options, currentUserService)
+        ILogger<FileManagerDbContext>? logger = null,
+        IAuditService? auditService = null)
+        : base(options, currentUserService, auditService)
     {
         _tenantContext = tenantContext;
         _configuration = configuration;

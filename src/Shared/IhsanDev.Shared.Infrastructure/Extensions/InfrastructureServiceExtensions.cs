@@ -1,9 +1,16 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using IhsanDev.Shared.Infrastructure.Middleware;
+using IhsanDev.Shared.Application.Audit;
+using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Localization;
-using Microsoft.Extensions.Logging;
+using IhsanDev.Shared.Application.Services;
+using IhsanDev.Shared.Infrastructure.Handlers.Audit;
+using IhsanDev.Shared.Infrastructure.Middleware;
+using IhsanDev.Shared.Infrastructure.Persistence;
+using IhsanDev.Shared.Infrastructure.Services.Audit;
+using MediatR;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace IhsanDev.Shared.Infrastructure.Extensions;
 
@@ -27,6 +34,27 @@ public static class InfrastructureServiceExtensions
     {
         app.UseExceptionHandler();
         return app;
+    }
+
+    /// <summary>
+    /// Registers the scoped audit service. Call from every service's Program.cs.
+    /// </summary>
+    public static IServiceCollection AddAuditService(this IServiceCollection services)
+    {
+        services.AddScoped<IAuditService, DbAuditService>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the generic audit log query handler for the given DbContext.
+    /// Call from every service's Program.cs after AddAuditService().
+    /// </summary>
+    public static IServiceCollection AddAuditLogQueries<TDbContext>(this IServiceCollection services)
+        where TDbContext : BaseDbContext
+    {
+        services.AddScoped<IRequestHandler<GetAuditLogsQuery, PaginatedList<AuditLogDto>>,
+            GetAuditLogsQueryHandler<TDbContext>>();
+        return services;
     }
 
     /// <summary>

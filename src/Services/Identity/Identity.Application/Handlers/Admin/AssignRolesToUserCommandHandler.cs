@@ -30,7 +30,6 @@ public class AssignRolesToUserCommandHandler : IRequestHandler<AssignRolesToUser
     {
         try
         {
-            // Verify user exists
             var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
             if (user == null)
             {
@@ -38,7 +37,6 @@ public class AssignRolesToUserCommandHandler : IRequestHandler<AssignRolesToUser
                 throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
             }
 
-            // Verify all roles exist
             if (request.RoleIds.Any())
             {
                 foreach (var roleId in request.RoleIds)
@@ -52,11 +50,9 @@ public class AssignRolesToUserCommandHandler : IRequestHandler<AssignRolesToUser
                 }
             }
 
-            // Revoke all existing roles from user
             await _userRoleRepository.RevokeAllRolesFromUserAsync(request.UserId, cancellationToken);
             _logger.LogInformation("Revoked all existing roles from user {UserId}", request.UserId);
 
-            // Assign new roles to user
             if (request.RoleIds.Any())
             {
                 await _userRoleRepository.AssignRolesToUserAsync(request.UserId, request.RoleIds, cancellationToken);

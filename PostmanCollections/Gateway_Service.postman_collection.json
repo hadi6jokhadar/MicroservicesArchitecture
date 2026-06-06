@@ -1875,6 +1875,215 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Audit Logs",
+      "description": "Per-service audit log endpoints routed through the gateway. All require Admin or SuperAdmin role. x-tenant-id header is optional (OptionalTenantAttribute).",
+      "item": [
+        {
+          "name": "Identity — Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "audit-logs"],
+              "query": [
+                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
+                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type" },
+                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring" },
+                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user ID" },
+                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
+                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp" },
+                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
+                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
+                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
+                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based" },
+                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100" }
+              ]
+            },
+            "description": "Gateway path: GET /api/admin/audit-logs → Identity service (port 5001). Returns PaginatedList<AuditLogDto>."
+          }
+        },
+        {
+          "name": "Tenant — Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tenant/audit-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tenant", "audit-logs"],
+              "query": [
+                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
+                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type" },
+                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring" },
+                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user ID" },
+                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
+                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp" },
+                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
+                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
+                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
+                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based" },
+                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100" }
+              ]
+            },
+            "description": "Gateway path: GET /api/admin/tenant/audit-logs → Tenant service (port 5002). Returns PaginatedList<AuditLogDto>."
+          }
+        },
+        {
+          "name": "Notification — Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/notifications/audit-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "notifications", "audit-logs"],
+              "query": [
+                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
+                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type" },
+                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring" },
+                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user ID" },
+                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
+                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp" },
+                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
+                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
+                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
+                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based" },
+                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100" }
+              ]
+            },
+            "description": "Gateway path: GET /api/admin/notifications/audit-logs → Notification service (port 5004). Returns PaginatedList<AuditLogDto>."
+          }
+        },
+        {
+          "name": "FileManager — Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/filemanager/audit-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "filemanager", "audit-logs"],
+              "query": [
+                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
+                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type" },
+                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring" },
+                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user ID" },
+                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
+                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp" },
+                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
+                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
+                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
+                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based" },
+                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100" }
+              ]
+            },
+            "description": "Gateway path: GET /api/admin/filemanager/audit-logs → FileManager service (port 5005). Returns PaginatedList<AuditLogDto>."
+          }
+        },
+        {
+          "name": "Translation — Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/translations/audit-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "translations", "audit-logs"],
+              "query": [
+                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
+                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type" },
+                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring" },
+                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user ID" },
+                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
+                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp" },
+                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
+                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
+                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
+                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based" },
+                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100" }
+              ]
+            },
+            "description": "Gateway path: GET /api/admin/translations/audit-logs → Translation service (port 5006). Returns PaginatedList<AuditLogDto>."
+          }
+        },
+        {
+          "name": "Category — Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/categories/audit-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "categories", "audit-logs"],
+              "query": [
+                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
+                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type" },
+                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring" },
+                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user ID" },
+                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
+                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp" },
+                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
+                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
+                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
+                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based" },
+                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100" }
+              ]
+            },
+            "description": "Gateway path: GET /api/admin/categories/audit-logs → Category service (port 5007). Returns PaginatedList<AuditLogDto>."
+          }
+        },
+        {
+          "name": "Nasheed — Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/nasheed/audit-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "nasheed", "audit-logs"],
+              "query": [
+                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
+                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type" },
+                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring" },
+                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user ID" },
+                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
+                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp" },
+                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
+                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
+                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
+                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based" },
+                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100" }
+              ]
+            },
+            "description": "Gateway path: GET /api/admin/nasheed/audit-logs → Nasheed service (port 5009). Returns PaginatedList<AuditLogDto>."
+          }
+        }
+      ]
     }
   ]
 }

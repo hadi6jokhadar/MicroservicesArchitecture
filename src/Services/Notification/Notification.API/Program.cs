@@ -300,6 +300,8 @@ builder.Services.AddMemoryCache();
 
 // Register infrastructure services (repositories, services, etc.)
 builder.Services.AddInfrastructureServices();
+builder.Services.AddAuditService();
+builder.Services.AddAuditLogQueries<NotificationDbContext>();
 
 // ============================================
 // Service-to-Service HTTP Clients
@@ -478,6 +480,7 @@ app.UseAuthorization();
 // API Endpoints
 // ============================================
 app.MapNotificationEndpoints();
+app.MapAuditLogEndpoints();
 
 // ============================================
 // SignalR Hub Endpoint

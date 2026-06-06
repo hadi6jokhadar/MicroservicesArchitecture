@@ -181,6 +181,8 @@ builder.Services.AddSwaggerGen(options =>
 
 // Infrastructure Services
 builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddAuditService();
+builder.Services.AddAuditLogQueries<TenantDbContext>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
@@ -244,6 +246,7 @@ app.UseAuthorization();
 // Map API Endpoints (Grouped Minimal APIs)
 // ============================================
 app.MapTenantEndpoints();
+app.MapAuditLogEndpoints();
 
 app.MapPrometheusScrapingEndpoint("/metrics");
 

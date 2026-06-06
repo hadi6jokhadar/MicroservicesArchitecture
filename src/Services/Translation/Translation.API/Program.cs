@@ -175,6 +175,8 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 // Infrastructure Services
 builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddAuditService();
+builder.Services.AddAuditLogQueries<TranslationDbContext>();
 
 var app = builder.Build();
 
@@ -237,6 +239,7 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
 app.MapHealthChecks("/health/ready").AllowAnonymous();
 
 app.MapTranslationEndpoints();
+app.MapAuditLogEndpoints();
 
 await app.Services.InitializeDatabaseAsync<TranslationDbContext>(
     applyMigrations: true,

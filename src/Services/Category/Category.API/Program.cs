@@ -56,6 +56,8 @@ builder.Services.AddMultiTenancy(builder.Configuration);
 // Infrastructure (Database + Repositories + Redis Cache)
 // ============================================
 builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddAuditService();
+builder.Services.AddAuditLogQueries<CategoryDbContext>();
 builder.Services.AddDatabaseMigration();
 
 // ============================================
@@ -242,6 +244,7 @@ app.UseAuthorization();
 // ============================================
 app.MapCategoryEndpoints();
 app.MapCategoryInternalEndpoints();
+app.MapAuditLogEndpoints();
 
 // ============================================
 // Health Check Endpoints

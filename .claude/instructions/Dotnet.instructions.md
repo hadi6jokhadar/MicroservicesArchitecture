@@ -68,7 +68,37 @@ Before modifying ANY backend code, you MUST:
   - MUST ensure `UseDefaultDatabaseMigration` is registered so the fallback global DB is available.
   - MUST handle fallback to global connection string if tenant context is missing.
 
-### 5. Service Communication
+### 5. Audit Logging — Automatic, No Handler Code Required
+
+Every service registers `AddAuditService()` in `Program.cs`. Once registered, `BaseDbContext.SaveChangesAsync` automatically intercepts the EF `ChangeTracker` before each save and writes a row per entity change to the `audit_log` table inside the same transaction:
+
+- `EntityType.Created` — for `Added` entities (captures `after` snapshot)
+- `EntityType.Updated` — for `Modified` entities (captures `before` and `after`)
+- `EntityType.Deleted` — for soft-deleted entities (`IsArchived` changed `false → true`)
+- `EntityType.HardDeleted` — for EF `Deleted` state (captures `before` snapshot)
+
+**Do NOT inject `IAuditService` into handlers** and call `.Record()` manually — the auto-capture in `BaseDbContext` handles everything. Manual calls would produce duplicate audit rows.
+
+Each audit row includes: `UserId`, `UserEmail`, `TenantId`, `IpAddress` (resolved automatically via `DbAuditService`).
+
+After adding `AddAuditService()`, also register the query handler and endpoint, then run the migration:
+
+```csharp
+// Program.cs DI
+builder.Services.AddAuditService();
+builder.Services.AddAuditLogQueries<YourServiceDbContext>();
+
+// Program.cs endpoint mapping
+app.MapAuditLogEndpoints();
+```
+
+```powershell
+dotnet ef migrations add AddAuditLog --project {Service}.Infrastructure --startup-project {Service}.API
+```
+
+`MapAuditLogEndpoints()` exposes `GET /api/admin/audit-logs` (Admin/SuperAdmin only) with query params: `tenantId`, `entityType`, `action`, `userId`, `userEmail`, `fromDate`, `toDate`, `sortBy`, `sortDesc`, `page`, `pageSize`. Returns `PaginatedList<AuditLogDto>`.
+
+### 6. Service Communication
 
 - **Protocol:** HTTP with `X-Service-Secret` header using `INotificationServiceClient`.
 - **Injection:** Inject `INotificationServiceClient` (infrastructure layer).

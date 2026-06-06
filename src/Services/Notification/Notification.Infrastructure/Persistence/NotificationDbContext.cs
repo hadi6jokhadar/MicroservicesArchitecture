@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Notification.Domain.Entities;
 using Notification.Domain.Enums;
+using IhsanDev.Shared.Application.Services;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 
@@ -14,8 +15,9 @@ public class NotificationDbContext : BaseDbContext
 {
     public NotificationDbContext(
         DbContextOptions<NotificationDbContext> options,
-        ICurrentUserService? currentUserService = null)
-        : base(options, currentUserService)
+        ICurrentUserService? currentUserService = null,
+        IAuditService? auditService = null)
+        : base(options, currentUserService, auditService)
     {
     }
 

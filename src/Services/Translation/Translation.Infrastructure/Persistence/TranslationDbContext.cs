@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Translation.Domain.Entities;
+using IhsanDev.Shared.Application.Services;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 
@@ -19,11 +20,12 @@ public class TranslationDbContext : BaseDbContext
     private readonly ILogger<TranslationDbContext>? _logger;
 
     public TranslationDbContext(
-        DbContextOptions<TranslationDbContext> options, 
+        DbContextOptions<TranslationDbContext> options,
         ICurrentUserService? currentUserService = null,
         IConfiguration? configuration = null,
-        ILogger<TranslationDbContext>? logger = null) 
-        : base(options, currentUserService)
+        ILogger<TranslationDbContext>? logger = null,
+        IAuditService? auditService = null)
+        : base(options, currentUserService, auditService)
     {
         _configuration = configuration;
         _logger = logger;

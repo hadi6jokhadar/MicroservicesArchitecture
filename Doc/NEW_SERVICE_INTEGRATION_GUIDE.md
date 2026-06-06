@@ -1475,12 +1475,64 @@ When creating a new service, ensure you:
 - [ ] Access authenticated user via `IHttpContextAccessor`
 - [ ] Add multi-tenancy support (if needed)
 - [ ] Access tenant data via `ITenantContext`
+- [ ] **Call `builder.Services.AddAuditService()` in Program.cs** — one line enables automatic before/after audit logs for every entity change in this service
+- [ ] **Call `builder.Services.AddAuditLogQueries<YourServiceDbContext>()` in Program.cs** — registers the generic `GET /api/admin/audit-logs` query handler for this service's DbContext
+- [ ] **Call `app.MapAuditLogEndpoints()` in Program.cs** — exposes `GET /api/admin/audit-logs` with filter, sort, and pagination for Admin/SuperAdmin role
 - [ ] Create test infrastructure (Factory, TestBase)
 - [ ] Use `TenantTestHelper` for testing
 - [ ] Test authentication and authorization
 - [ ] Test tenant isolation (if using multi-tenancy)
 - [ ] Document your API endpoints
 - [ ] Update service README with auth/tenant details
+
+### Audit Logging — Automatic, Zero Per-Handler Code
+
+`AddAuditService()` registers the scoped `DbAuditService`. Once registered, `BaseDbContext.SaveChangesAsync` automatically intercepts every EF entity change and writes a row to the service's `audit_log` table inside the same transaction. No handler changes are needed.
+
+```csharp
+// Program.cs — DI (add after AddInfrastructureServices())
+builder.Services.AddAuditService();
+builder.Services.AddAuditLogQueries<YourServiceDbContext>();  // registers query handler
+
+// Program.cs — endpoint mapping (add with other MapXxxEndpoints() calls)
+app.MapAuditLogEndpoints();
+```
+
+After registering, run the migration to create the `audit_log` table:
+
+```powershell
+dotnet ef migrations add AddAuditLog \
+  --project src/Services/YourService/YourService.Infrastructure \
+  --startup-project src/Services/YourService/YourService.API
+```
+
+Each audit row records: `Action` (e.g. `User.Updated`, `CategoryEntity.Deleted`), `EntityType`, `EntityId`, `Before` (JSON), `After` (JSON), `UserId`, `UserEmail`, `TenantId`, `IpAddress`, `OccurredAt`.
+
+#### Audit Log Query Endpoint
+
+`MapAuditLogEndpoints()` maps:
+
+```
+GET /api/admin/audit-logs
+```
+
+Auth: `Admin` or `SuperAdmin` role required. Supports `OptionalTenantAttribute` (works with or without `x-tenant-id`).
+
+| Query param | Type            | Default      | Description                              |
+| ----------- | --------------- | ------------ | ---------------------------------------- |
+| `tenantId`  | `string?`       | —            | Filter by tenant                         |
+| `entityType`| `string?`       | —            | Filter by entity type (e.g. `User`)      |
+| `action`    | `string?`       | —            | Filter by action substring (e.g. `Deleted`) |
+| `userId`    | `string?`       | —            | Filter by user who made the change       |
+| `userEmail` | `string?`       | —            | Filter by user email substring           |
+| `fromDate`  | `DateTimeOffset?`| —           | Records on or after this UTC timestamp   |
+| `toDate`    | `DateTimeOffset?`| —           | Records on or before this UTC timestamp  |
+| `sortBy`    | `string`        | `OccurredAt` | Column: `OccurredAt`, `Action`, `EntityType`, `EntityId`, `UserId` |
+| `sortDesc`  | `bool`          | `true`       | Sort direction                           |
+| `page`      | `int`           | `1`          | Page number (1-based)                    |
+| `pageSize`  | `int`           | `20`         | Items per page (max 100)                 |
+
+Response: `PaginatedList<AuditLogDto>` (`items`, `pageNumber`, `totalPages`, `totalCount`, `hasPreviousPage`, `hasNextPage`).
 
 ---
 

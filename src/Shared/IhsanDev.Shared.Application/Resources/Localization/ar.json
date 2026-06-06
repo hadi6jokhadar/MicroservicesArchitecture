@@ -36,6 +36,7 @@
   "exception_song_not_indexed": "لم يتم فهرسة الأغنية بعد. البحث غير متاح لهذه الأغنية.",
   "exception_token_tenant_header_missing": "رمز المصادقة الخاص بك مرتبط بمستأجر، ولكن لم يتم توفير رأس المستأجر.",
   "exception_token_tenant_mismatch": "تم رفض الوصول. رمز المصادقة الخاص بك لمستأجر '{0}'، ولكنك تحاول الوصول إلى المستأجر '{1}'.",
+  "exception_audit_log_not_found": "سجل المراجعة غير موجود",
 
   "validation_required": "{0} مطلوب",
   "validation_email_invalid": "عنوان البريد الإلكتروني غير صالح",

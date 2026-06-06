@@ -68,6 +68,8 @@ builder.Services.AddMultiTenancy(builder.Configuration);
 // Database Configuration (Multi-Provider)
 // ============================================
 builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddAuditService();
+builder.Services.AddAuditLogQueries<FileManagerDbContext>();
 
 // Add database migration service for automatic database creation
 builder.Services.AddDatabaseMigration();
@@ -334,6 +336,7 @@ app.UseAuthorization();
 // Endpoints
 // ============================================
 app.MapFileManagerEndpoints();
+app.MapAuditLogEndpoints();
 
 // ============================================
 // Health Check Endpoints

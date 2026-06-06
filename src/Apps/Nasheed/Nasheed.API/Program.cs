@@ -55,6 +55,8 @@ builder.Services.AddMultiTenancy(builder.Configuration);
 // Infrastructure (DB + Repositories + AI Client + Worker)
 // ============================================
 builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddAuditService();
+builder.Services.AddAuditLogQueries<NasheedDbContext>();
 
 // ============================================
 // Service-to-Service HTTP Clients
@@ -192,6 +194,7 @@ app.UseAuthorization();
 // Endpoints
 // ============================================
 app.MapNasheedEndpoints();
+app.MapAuditLogEndpoints();
 
 // ============================================
 // Health Check Endpoints

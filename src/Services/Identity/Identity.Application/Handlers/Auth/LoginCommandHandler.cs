@@ -45,17 +45,16 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, UserDtoIncludes
                 throw new UnauthorizedException(LocalizationKeys.Exceptions.InvalidCredentials);
 
             user.LastLogin = DateTime.UtcNow;
-            await _userRepository.UpdateLastLoginAsync(user.Id, cancellationToken);
+            await _userRepository.UpdateAsync(user, cancellationToken);
 
             var authResult = await _userService.GenerateTokensAsync(user);
-            
-            // Enrich with profile picture
+
             await _profilePictureHelper.EnrichWithProfilePictureAsync(
                 authResult,
                 user.ProfilePictureId,
                 user.Id,
                 cancellationToken);
-            
+
             return authResult;
         }
         catch (AppException)

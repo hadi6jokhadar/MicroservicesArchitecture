@@ -1,3 +1,4 @@
+using IhsanDev.Shared.Application.Services;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
@@ -19,8 +20,9 @@ public class CategoryDbContext : BaseDbContext
         ICurrentUserService? currentUserService = null,
         ITenantContext? tenantContext = null,
         IConfiguration? configuration = null,
-        ILogger<CategoryDbContext>? logger = null)
-        : base(options, currentUserService)
+        ILogger<CategoryDbContext>? logger = null,
+        IAuditService? auditService = null)
+        : base(options, currentUserService, auditService)
     {
         _tenantContext = tenantContext;
         _configuration = configuration;

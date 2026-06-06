@@ -197,6 +197,8 @@ builder.Services.AddSwaggerGen(options =>
 
 // Infrastructure Services
 builder.Services.AddInfrastructureServices();
+builder.Services.AddAuditService();
+builder.Services.AddAuditLogQueries<IdentityDbContext>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -328,6 +330,7 @@ app.MapUserEndpoints();
 
 // Map admin-related endpoints (user management)
 app.MapAdminEndpoints();
+app.MapAuditLogEndpoints();
 
 // Map role management endpoints
 app.MapRoleEndpoints();
