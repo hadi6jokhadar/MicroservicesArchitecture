@@ -14,7 +14,7 @@ The `src/` directory has two distinct sub-folders:
 
 | Folder          | Role                                                                   | Current projects                                             |
 | --------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `src/Services/` | Core platform microservices. Foundational — other Apps depend on them. | Identity, Tenant, FileManager, Notification, Translation, AI |
+| `src/Services/` | Core platform microservices. Foundational — other Apps depend on them. | Identity, Tenant, FileManager, Notification, Translation, Category, AI |
 | `src/Apps/`     | Domain-specific application projects that consume platform Services.   | Nasheed                                                      |
 
 **Every project in `src/Apps/` must have its own `Doc/` folder** with at minimum: `DOCUMENTATION_INDEX.md`, `OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md`. See `NEW_SERVICE_INTEGRATION_GUIDE.md` for the full required file list.

@@ -200,7 +200,7 @@ Looking at your `Identity.API/appsettings.json`:
 {
   "Jwt": {
     "Secret": "CHANGE_ME_JWT_SECRET",
-    "Issuer": "IdentityService",
+    "Issuer": "IhsanDev",
     "Audience": "MicroservicesApp", // ← Generic audience (not project-specific)
     "AccessTokenExpirationMinutes": 21600,
     "RefreshTokenExpirationDays": 7
@@ -223,11 +223,11 @@ Looking at your `Identity.API/appsettings.json`:
 #### **2. Centralized Issuer**
 
 ```json
-"Issuer": "IdentityService"
+"Issuer": "IhsanDev"
 ```
 
 - ✅ Single issuer for all tokens
-- ✅ All projects trust tokens from `"IdentityService"`
+- ✅ All projects trust tokens from `"IhsanDev"`
 
 #### **3. Shared Secret Key**
 
@@ -313,7 +313,7 @@ docker run -d -p 5001:8080 --name identity-api identity-service:latest
 {
   "Jwt": {
     "Secret": "CHANGE_ME_JWT_SECRET",
-    "Issuer": "IdentityService",
+    "Issuer": "IhsanDev",
     "Audience": "MicroservicesApp"
   },
 
@@ -427,7 +427,7 @@ public class OrdersController : ControllerBase
 {
   "Jwt": {
     "Secret": "CHANGE_ME_JWT_SECRET", // ← Same secret as Project A
-    "Issuer": "IdentityService", // ← Same issuer
+    "Issuer": "IhsanDev", // ← Same issuer
     "Audience": "MicroservicesApp" // ← Same audience
   },
 
@@ -545,7 +545,7 @@ For each new project, **repeat the exact same configuration**:
      │                            │
      │                            │ 2. Validate JWT:
      │                            │    - Check signature (using Jwt:Secret)
-     │                            │    - Check issuer = "IdentityService"
+     │                            │    - Check issuer = "IhsanDev"
      │                            │    - Check audience = "MicroservicesApp"
      │                            │    - Check expiration
      │                            │
@@ -1348,7 +1348,7 @@ curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." https://
 
 ```csharp
 // Identity Service generates token with:
-Issuer = "IdentityService"
+Issuer = "IhsanDev"
 Audience = "MicroservicesApp"
 
 // Project A validates with DIFFERENT values (WRONG)
@@ -1501,7 +1501,7 @@ var token = new JwtSecurityToken(
 {
   "Jwt": {
     "Secret": "<SAME_SECRET_KEY_FOR_ALL_SERVICES>",
-    "Issuer": "IdentityService",
+    "Issuer": "IhsanDev",
     "Audience": "MicroservicesApp"
   }
 }

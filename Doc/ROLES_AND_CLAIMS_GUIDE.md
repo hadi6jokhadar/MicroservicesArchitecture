@@ -264,13 +264,13 @@ Authorization: Bearer <superadmin_jwt>
 
 ### Cache Keys
 
-- `roles_all` - All roles list
-- `role_{id}` - Individual role by ID
-- `role_name_{normalizedName}` - Role by name
-- `claims_all` - All claims list
-- `claim_{id}` - Individual claim by ID
-- `claim_name_{normalizedName}` - Claim by name
-- `role_{roleId}_claims` - Claims for specific role
+- `admin:roles` - All roles list
+- `admin:roles:{id}` - Individual role by ID
+- `admin:roles:name_{normalizedName}` - Role by name
+- `admin:claims` - All claims list
+- `admin:claims:{id}` - Individual claim by ID
+- `admin:claims:name_{normalizedName}` - Claim by name
+- `admin:roles:{roleId}:claims` - Claims for specific role
 
 ### Cache-First Read Pattern
 
@@ -278,7 +278,7 @@ Authorization: Bearer <superadmin_jwt>
 public async Task<List<RoleDto>> Handle(GetRolesQuery request, CancellationToken ct)
 {
     // 1. Try cache first
-    var cachedRoles = await _cacheService.GetAsync<List<RoleDto>>("roles_all", ct);
+    var cachedRoles = await _cacheService.GetAsync<List<RoleDto>>("admin:roles", ct);
     if (cachedRoles != null)
         return cachedRoles; // ⚡ Cache hit - instant response
 
@@ -287,7 +287,7 @@ public async Task<List<RoleDto>> Handle(GetRolesQuery request, CancellationToken
     var roleDtos = roles.Select(RoleDto.MapFrom).ToList();
 
     // 3. Cache for 30 minutes
-    await _cacheService.SetAsync("roles_all", roleDtos, TimeSpan.FromMinutes(30), ct);
+    await _cacheService.SetAsync("admin:roles", roleDtos, TimeSpan.FromMinutes(30), ct);
 
     return roleDtos;
 }
@@ -296,13 +296,13 @@ public async Task<List<RoleDto>> Handle(GetRolesQuery request, CancellationToken
 ### Cache Invalidation
 
 ```csharp
-// On create → Invalidate *_all caches
-await _cacheService.RemoveAsync("roles_all", ct);
+// On create → Invalidate *:all caches
+await _cacheService.RemoveAsync("admin:roles", ct);
 
-// On update → Invalidate *_all, *_{id}, *_name_{name}
-await _cacheService.RemoveAsync("roles_all", ct);
-await _cacheService.RemoveAsync($"role_{role.Id}", ct);
-await _cacheService.RemoveAsync($"role_name_{role.NormalizedName}", ct);
+// On update → Invalidate list, by-id, by-name
+await _cacheService.RemoveAsync("admin:roles", ct);
+await _cacheService.RemoveAsync($"admin:roles:{role.Id}", ct);
+await _cacheService.RemoveAsync($"admin:roles:name_{role.NormalizedName}", ct);
 
 // On delete → Same as update
 // On claim assignment → Invalidate role caches

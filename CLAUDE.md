@@ -53,7 +53,7 @@ All user-facing strings in backend code **MUST** use `LocalizationKeys` and `ILo
 ```
 src/
 ├── Services/   # Core platform microservices (foundational — other projects depend on these)
-│               # Identity, Tenant, FileManager, Notification, Translation, AI
+│               # Identity, Tenant, FileManager, Notification, Translation, Category, AI
 └── Apps/       # Domain-specific application projects that consume platform Services
                 # e.g. src/Apps/Nasheed/
 ```
