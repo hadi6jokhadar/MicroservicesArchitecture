@@ -4,6 +4,7 @@ using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 using Nasheed.Application.Commands;
 using Nasheed.Application.DTOs;
 using Nasheed.Application.Helpers;
@@ -51,24 +52,27 @@ public class UpdateArtistCommandHandler : IRequestHandler<UpdateArtistCommand, A
         // If ImageFileId changed
         if (oldImageFileId != newImageFileId)
         {
-            // Remove usage row for old image (may set Temp=true if no other usages)
-            if (oldImageFileId.HasValue)
+            try
             {
-                var success = await _fileManagerClient.ChangeTempStatusAsync(oldImageFileId.Value, "Artist", entity.Id.ToString(), false, _tenantId, cancellationToken);
-                if (!success)
+                // Remove usage row for old image (may set Temp=true if no other usages)
+                if (oldImageFileId.HasValue)
                 {
-                    _logger.LogWarning("Failed to remove usage for old ImageFileId {FileId} for Artist {ArtistId}", oldImageFileId.Value, entity.Id);
+                    var success = await _fileManagerClient.ChangeTempStatusAsync(oldImageFileId.Value, "Artist", entity.Id.ToString(), false, _tenantId, cancellationToken);
+                    if (!success)
+                        _logger.LogWarning("Failed to remove usage for old ImageFileId {FileId} for Artist {ArtistId}", oldImageFileId.Value, entity.Id);
+                }
+
+                // Add usage row for new image (sets Temp=false)
+                if (newImageFileId.HasValue)
+                {
+                    var success = await _fileManagerClient.ChangeTempStatusAsync(newImageFileId.Value, "Artist", entity.Id.ToString(), true, _tenantId, cancellationToken);
+                    if (!success)
+                        _logger.LogWarning("Failed to add usage for new ImageFileId {FileId} for Artist {ArtistId}", newImageFileId.Value, entity.Id);
                 }
             }
-
-            // Add usage row for new image (sets Temp=false)
-            if (newImageFileId.HasValue)
+            catch (BrokenCircuitException ex)
             {
-                var success = await _fileManagerClient.ChangeTempStatusAsync(newImageFileId.Value, "Artist", entity.Id.ToString(), true, _tenantId, cancellationToken);
-                if (!success)
-                {
-                    _logger.LogWarning("Failed to add usage for new ImageFileId {FileId} for Artist {ArtistId}", newImageFileId.Value, entity.Id);
-                }
+                _logger.LogWarning(ex, "FileManager circuit open; skipping image file tracking update for Artist {ArtistId}", entity.Id);
             }
         }
 

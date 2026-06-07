@@ -3,6 +3,7 @@ using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 using Nasheed.Application.Commands;
 using Nasheed.Application.DTOs;
 using Nasheed.Application.Helpers;
@@ -44,10 +45,15 @@ public class CreateArtistCommandHandler : IRequestHandler<CreateArtistCommand, A
         // Mark the image file as in-use (permanent) if provided
         if (request.ImageFileId.HasValue)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(request.ImageFileId.Value, "Artist", entity.Id.ToString(), true, _tenantId, cancellationToken);
-            if (!success)
+            try
             {
-                _logger.LogWarning("Failed to mark ImageFileId {FileId} as permanent for Artist {ArtistId}", request.ImageFileId.Value, entity.Id);
+                var success = await _fileManagerClient.ChangeTempStatusAsync(request.ImageFileId.Value, "Artist", entity.Id.ToString(), true, _tenantId, cancellationToken);
+                if (!success)
+                    _logger.LogWarning("Failed to mark ImageFileId {FileId} as permanent for Artist {ArtistId}", request.ImageFileId.Value, entity.Id);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning(ex, "FileManager circuit open; skipping image file mark for Artist {ArtistId}", entity.Id);
             }
         }
 

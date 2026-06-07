@@ -3,6 +3,8 @@ using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
+using Polly;
 
 namespace IhsanDev.Shared.Infrastructure.Extensions;
 
@@ -56,7 +58,22 @@ public static class FileManagerServiceExtensions
             }
             return handler;
         })
-        .AddHttpMessageHandler<CorrelationIdForwardingHandler>();
+        .AddHttpMessageHandler<CorrelationIdForwardingHandler>()
+        .AddStandardResilienceHandler(options =>
+        {
+            // FileManager is a fast internal call — keep retries tight
+            options.Retry.MaxRetryAttempts = 3;
+            options.Retry.Delay = TimeSpan.FromMilliseconds(100);
+            options.Retry.BackoffType = DelayBackoffType.Exponential;
+
+            options.CircuitBreaker.FailureRatio = 0.5;
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+            options.CircuitBreaker.MinimumThroughput = 5;
+            options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
+
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(4);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(15);
+        });
 
         return services;
     }

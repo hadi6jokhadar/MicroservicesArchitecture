@@ -5,6 +5,7 @@ using IhsanDev.Shared.Kernel.Dto;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 using Category.Application.Commands;
 using Category.Application.DTOs;
 using Category.Application.Events;
@@ -91,28 +92,42 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
 
         if (request.IconFileId.HasValue && oldIconFileId != request.IconFileId)
         {
-            if (oldIconFileId.HasValue)
+            try
             {
-                var success = await _fileManagerClient.ChangeTempStatusAsync(oldIconFileId.Value, "Category", entity.Id.ToString(), false, tenantId, cancellationToken);
-                if (!success)
-                    _logger.LogWarning("Failed to remove usage for old IconFileId {FileId} for Category {CategoryId}", oldIconFileId.Value, entity.Id);
+                if (oldIconFileId.HasValue)
+                {
+                    var success = await _fileManagerClient.ChangeTempStatusAsync(oldIconFileId.Value, "Category", entity.Id.ToString(), false, tenantId, cancellationToken);
+                    if (!success)
+                        _logger.LogWarning("Failed to remove usage for old IconFileId {FileId} for Category {CategoryId}", oldIconFileId.Value, entity.Id);
+                }
+                var addSuccess = await _fileManagerClient.ChangeTempStatusAsync(request.IconFileId.Value, "Category", entity.Id.ToString(), true, tenantId, cancellationToken);
+                if (!addSuccess)
+                    _logger.LogWarning("Failed to add usage for new IconFileId {FileId} for Category {CategoryId}", request.IconFileId.Value, entity.Id);
             }
-            var addSuccess = await _fileManagerClient.ChangeTempStatusAsync(request.IconFileId.Value, "Category", entity.Id.ToString(), true, tenantId, cancellationToken);
-            if (!addSuccess)
-                _logger.LogWarning("Failed to add usage for new IconFileId {FileId} for Category {CategoryId}", request.IconFileId.Value, entity.Id);
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning(ex, "FileManager circuit open; skipping icon file tracking update for Category {CategoryId}", entity.Id);
+            }
         }
 
         if (request.ImageFileId.HasValue && oldImageFileId != request.ImageFileId)
         {
-            if (oldImageFileId.HasValue)
+            try
             {
-                var success = await _fileManagerClient.ChangeTempStatusAsync(oldImageFileId.Value, "Category", entity.Id.ToString(), false, tenantId, cancellationToken);
-                if (!success)
-                    _logger.LogWarning("Failed to remove usage for old ImageFileId {FileId} for Category {CategoryId}", oldImageFileId.Value, entity.Id);
+                if (oldImageFileId.HasValue)
+                {
+                    var success = await _fileManagerClient.ChangeTempStatusAsync(oldImageFileId.Value, "Category", entity.Id.ToString(), false, tenantId, cancellationToken);
+                    if (!success)
+                        _logger.LogWarning("Failed to remove usage for old ImageFileId {FileId} for Category {CategoryId}", oldImageFileId.Value, entity.Id);
+                }
+                var addSuccess = await _fileManagerClient.ChangeTempStatusAsync(request.ImageFileId.Value, "Category", entity.Id.ToString(), true, tenantId, cancellationToken);
+                if (!addSuccess)
+                    _logger.LogWarning("Failed to add usage for new ImageFileId {FileId} for Category {CategoryId}", request.ImageFileId.Value, entity.Id);
             }
-            var addSuccess = await _fileManagerClient.ChangeTempStatusAsync(request.ImageFileId.Value, "Category", entity.Id.ToString(), true, tenantId, cancellationToken);
-            if (!addSuccess)
-                _logger.LogWarning("Failed to add usage for new ImageFileId {FileId} for Category {CategoryId}", request.ImageFileId.Value, entity.Id);
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning(ex, "FileManager circuit open; skipping image file tracking update for Category {CategoryId}", entity.Id);
+            }
         }
 
         await _cache.RemoveByPatternAsync("categories:tree*", cancellationToken);

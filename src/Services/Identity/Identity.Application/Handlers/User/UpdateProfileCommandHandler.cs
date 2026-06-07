@@ -1,6 +1,7 @@
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
+using Polly.CircuitBreaker;
 using IhsanDev.Shared.Infrastructure.Services.Identity;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
@@ -72,10 +73,9 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
                 {
                     await _fileManagerClient.ChangeTempStatusAsync(oldProfilePictureId.Value, "User", userId, false, tenantId, cancellationToken);
                 }
-                catch (Exception ex)
+                catch (BrokenCircuitException ex)
                 {
-                    // Log warning but don't fail the operation
-                    _logger.LogWarning(ex, "Warning: Failed to remove usage for old profile picture {OldProfilePictureId}", oldProfilePictureId);
+                    _logger.LogWarning(ex, "FileManager circuit open; skipping old profile picture release for User {UserId}", request.Id);
                 }
             }
 
@@ -86,10 +86,9 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
                 {
                     await _fileManagerClient.ChangeTempStatusAsync(request.ProfilePictureId.Value, "User", userId, true, tenantId, cancellationToken);
                 }
-                catch (Exception ex)
+                catch (BrokenCircuitException ex)
                 {
-                    // Log warning but don't fail the operation
-                    _logger.LogWarning(ex, "Warning: Failed to add usage for new profile picture {NewProfilePictureId}", request.ProfilePictureId);
+                    _logger.LogWarning(ex, "FileManager circuit open; skipping new profile picture mark for User {UserId}", request.Id);
                 }
             }
 

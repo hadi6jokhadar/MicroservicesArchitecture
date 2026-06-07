@@ -3,6 +3,7 @@ using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 using Nasheed.Application.Commands;
 using Nasheed.Application.Interfaces;
 using Nasheed.Domain.Interfaces;
@@ -91,10 +92,15 @@ public class DeleteSongCommandHandler : IRequestHandler<DeleteSongCommand, bool>
             }
             else
             {
-                var success = await _fileManagerClient.ChangeTempStatusAsync(entity.FileId, "Song", entity.Id.ToString(), false, tenantId, cancellationToken);
-                if (!success)
+                try
                 {
-                    _logger.LogWarning("Failed to mark FileId {FileId} as temporary after deleting Song {SongId}", entity.FileId, entity.Id);
+                    var success = await _fileManagerClient.ChangeTempStatusAsync(entity.FileId, "Song", entity.Id.ToString(), false, tenantId, cancellationToken);
+                    if (!success)
+                        _logger.LogWarning("Failed to mark FileId {FileId} as temporary after deleting Song {SongId}", entity.FileId, entity.Id);
+                }
+                catch (BrokenCircuitException ex)
+                {
+                    _logger.LogWarning(ex, "FileManager circuit open; skipping file release for Song {SongId}", entity.Id);
                 }
             }
         }

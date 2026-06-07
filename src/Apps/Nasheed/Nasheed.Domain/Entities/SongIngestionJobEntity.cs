@@ -22,7 +22,7 @@ public class SongIngestionJobEntity : BaseEntity
 
     private SongIngestionJobEntity() { }
 
-    public static SongIngestionJobEntity Create(int songId, int fileId, IngestionJobType jobType, int maxRetries = 3)
+    public static SongIngestionJobEntity Create(int songId, int fileId, IngestionJobType jobType, int maxRetries = 10)
     {
         return new SongIngestionJobEntity
         {

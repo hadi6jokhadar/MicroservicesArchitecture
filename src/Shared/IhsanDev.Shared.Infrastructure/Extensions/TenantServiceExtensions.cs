@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
+using Polly;
 
 namespace IhsanDev.Shared.Infrastructure.Extensions;
 
@@ -48,10 +50,24 @@ public static class TenantServiceExtensions
             var handler = new HttpClientHandler();
             if (isDevelopment)
             {
-                handler.ServerCertificateCustomValidationCallback = 
+                handler.ServerCertificateCustomValidationCallback =
                     HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             }
             return handler;
+        })
+        .AddStandardResilienceHandler(options =>
+        {
+            options.Retry.MaxRetryAttempts = 3;
+            options.Retry.Delay = TimeSpan.FromMilliseconds(200);
+            options.Retry.BackoffType = DelayBackoffType.Exponential;
+
+            options.CircuitBreaker.FailureRatio = 0.5;
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+            options.CircuitBreaker.MinimumThroughput = 5;
+            options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
+
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(40);
         });
 
         return services;
@@ -101,10 +117,24 @@ public static class TenantServiceExtensions
             var handler = new HttpClientHandler();
             if (isDevelopment)
             {
-                handler.ServerCertificateCustomValidationCallback = 
+                handler.ServerCertificateCustomValidationCallback =
                     HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             }
             return handler;
+        })
+        .AddStandardResilienceHandler(options =>
+        {
+            options.Retry.MaxRetryAttempts = 3;
+            options.Retry.Delay = TimeSpan.FromMilliseconds(200);
+            options.Retry.BackoffType = DelayBackoffType.Exponential;
+
+            options.CircuitBreaker.FailureRatio = 0.5;
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+            options.CircuitBreaker.MinimumThroughput = 5;
+            options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
+
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(40);
         });
 
         return services;

@@ -1,6 +1,7 @@
 using IhsanDev.Shared.Application.Common.Models;
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
+using Polly.CircuitBreaker;
 using Identity.Application.Commands;
 using Identity.Application.DTOs;
 using Identity.Domain.Repositories;
@@ -59,10 +60,9 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, bool>
                     var tenantId = _tenantContext.TenantId;
                     await _fileManagerClient.ChangeTempStatusAsync(user.ProfilePictureId.Value, "User", user.Id.ToString(), false, tenantId, cancellationToken);
                 }
-                catch (Exception ex)
+                catch (BrokenCircuitException ex)
                 {
-                    // Log warning but don't fail the operation
-                    Console.WriteLine($"Warning: Failed to mark profile picture {user.ProfilePictureId} as temporary: {ex.Message}");
+                    _logger.LogWarning(ex, "FileManager circuit open; skipping profile picture release for User {UserId}", user.Id);
                 }
             }
 

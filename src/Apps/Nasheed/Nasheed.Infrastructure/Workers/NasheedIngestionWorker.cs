@@ -8,6 +8,7 @@ using Nasheed.Application.Interfaces;
 using Nasheed.Domain.Entities;
 using Nasheed.Domain.Enums;
 using Nasheed.Domain.Interfaces;
+using Polly.CircuitBreaker;
 
 namespace Nasheed.Infrastructure.Workers;
 
@@ -18,7 +19,15 @@ public class NasheedIngestionWorker : BackgroundService
     private readonly ILogger<NasheedIngestionWorker> _logger;
     private const int BatchSize = 5;
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromMinutes(5);
+
+    // Exponential back-off: attempt 1→30s, 2→2min, 3→10min, 4+→30min
+    private static TimeSpan GetRetryDelay(int retryCount) => retryCount switch
+    {
+        1 => TimeSpan.FromSeconds(30),
+        2 => TimeSpan.FromMinutes(2),
+        3 => TimeSpan.FromMinutes(10),
+        _ => TimeSpan.FromMinutes(30),
+    };
 
     public NasheedIngestionWorker(
         IServiceScopeFactory scopeFactory,
@@ -119,8 +128,9 @@ public class NasheedIngestionWorker : BackgroundService
         {
             _logger.LogError(ex, "Job {JobId} failed.", job.Id);
             var retryable = IsRetryableFailure(ex);
+            var nextRetryCount = job.RetryCount + 1;
             var nextRetry = retryable && job.RetryCount < job.MaxRetries
-                ? DateTime.UtcNow.Add(RetryDelay)
+                ? DateTime.UtcNow.Add(GetRetryDelay(nextRetryCount))
                 : (DateTime?)null;
 
             var errorMessage = ex.Message.Length > 2000 ? ex.Message[..2000] : ex.Message;
@@ -131,11 +141,18 @@ public class NasheedIngestionWorker : BackgroundService
 
     private static bool IsRetryableFailure(Exception exception)
     {
-        if (exception is HttpRequestException { StatusCode: HttpStatusCode statusCode })
+        if (exception is BrokenCircuitException)
+            return true;
+
+        if (exception is HttpRequestException httpEx)
         {
-            return statusCode == HttpStatusCode.RequestTimeout
-                || statusCode == HttpStatusCode.TooManyRequests
-                || (int)statusCode >= 500;
+            // Connection refused / no status code → service is down, retry later
+            if (httpEx.StatusCode is null)
+                return true;
+
+            return httpEx.StatusCode == HttpStatusCode.RequestTimeout
+                || httpEx.StatusCode == HttpStatusCode.TooManyRequests
+                || (int)httpEx.StatusCode >= 500;
         }
 
         return true;
@@ -270,11 +287,21 @@ public class NasheedIngestionWorker : BackgroundService
     {
         var tenantId = GetTenantId();
         var searchText = BuildSearchText(song);
-        var embedding = await aiClient.EmbedAsync(
-            NasheedAiKeys.EmbeddingSettings,
-            searchText,
-            tenantId,
-            cancellationToken: cancellationToken);
+
+        float[] embedding;
+        try
+        {
+            embedding = await aiClient.EmbedAsync(
+                NasheedAiKeys.EmbeddingSettings,
+                searchText,
+                tenantId,
+                cancellationToken: cancellationToken);
+        }
+        catch (BrokenCircuitException ex)
+        {
+            _logger.LogWarning(ex, "AI circuit open; embedding job {JobId} for song {SongId} will retry.", job.Id, song.Id);
+            throw;
+        }
 
         var embeddingJson = JsonSerializer.Serialize(embedding);
         var doc = await searchDocRepo.GetBySongIdAsync(song.Id, cancellationToken);

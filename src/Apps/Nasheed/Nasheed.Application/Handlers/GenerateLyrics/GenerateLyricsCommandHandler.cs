@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 using Nasheed.Application.Commands;
 using Nasheed.Application.Constants;
 using Nasheed.Application.DTOs;
@@ -23,11 +24,20 @@ public class GenerateLyricsCommandHandler : IRequestHandler<GenerateLyricsComman
     {
         var userMessage = BuildUserMessage(request);
 
-        var response = await _aiClient.ChatAsync(
-            NasheedAiKeys.ExtractionSettings,
-            NasheedAiKeys.ExtractionPrompt,
-            userMessage,
-            cancellationToken: cancellationToken);
+        string response;
+        try
+        {
+            response = await _aiClient.ChatAsync(
+                NasheedAiKeys.ExtractionSettings,
+                NasheedAiKeys.ExtractionPrompt,
+                userMessage,
+                cancellationToken: cancellationToken);
+        }
+        catch (BrokenCircuitException ex)
+        {
+            _logger.LogWarning(ex, "AI circuit open; lyrics generation unavailable for theme '{Theme}'", request.Theme);
+            throw;
+        }
 
         _logger.LogInformation("Generated lyrics for theme '{Theme}'", request.Theme);
 

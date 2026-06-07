@@ -4,6 +4,7 @@ using IhsanDev.Shared.Infrastructure.Services.Cache;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 using Category.Application.Commands;
 using Category.Application.Events;
 using Category.Domain.Interfaces;
@@ -52,16 +53,30 @@ public class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategoryComman
 
         if (entity.IconFileId.HasValue)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(entity.IconFileId.Value, "Category", entity.Id.ToString(), false, tenantId, cancellationToken);
-            if (!success)
-                _logger.LogWarning("Failed to release IconFileId {FileId} after deleting Category {CategoryId}", entity.IconFileId.Value, entity.Id);
+            try
+            {
+                var success = await _fileManagerClient.ChangeTempStatusAsync(entity.IconFileId.Value, "Category", entity.Id.ToString(), false, tenantId, cancellationToken);
+                if (!success)
+                    _logger.LogWarning("Failed to release IconFileId {FileId} after deleting Category {CategoryId}", entity.IconFileId.Value, entity.Id);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning(ex, "FileManager circuit open; skipping IconFileId {FileId} release for Category {CategoryId}", entity.IconFileId.Value, entity.Id);
+            }
         }
 
         if (entity.ImageFileId.HasValue && entity.ImageFileId != entity.IconFileId)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(entity.ImageFileId.Value, "Category", entity.Id.ToString(), false, tenantId, cancellationToken);
-            if (!success)
-                _logger.LogWarning("Failed to release ImageFileId {FileId} after deleting Category {CategoryId}", entity.ImageFileId.Value, entity.Id);
+            try
+            {
+                var success = await _fileManagerClient.ChangeTempStatusAsync(entity.ImageFileId.Value, "Category", entity.Id.ToString(), false, tenantId, cancellationToken);
+                if (!success)
+                    _logger.LogWarning("Failed to release ImageFileId {FileId} after deleting Category {CategoryId}", entity.ImageFileId.Value, entity.Id);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning(ex, "FileManager circuit open; skipping ImageFileId {FileId} release for Category {CategoryId}", entity.ImageFileId.Value, entity.Id);
+            }
         }
 
         await _cache.RemoveByPatternAsync("categories:tree*", cancellationToken);

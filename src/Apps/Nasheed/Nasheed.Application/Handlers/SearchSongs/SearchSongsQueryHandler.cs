@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Nasheed.Application.Constants;
+using Polly.CircuitBreaker;
 using Nasheed.Application.DTOs;
 using Nasheed.Application.Interfaces;
 using Nasheed.Application.Queries;
@@ -66,10 +67,19 @@ public class SearchSongsQueryHandler : IRequestHandler<SearchSongsQuery, List<Se
             return directResults;
         }
 
-        var queryEmbedding = await _aiClient.EmbedAsync(
-            NasheedAiKeys.EmbeddingSettings,
-            normalizedQuery,
-            cancellationToken: cancellationToken);
+        float[] queryEmbedding;
+        try
+        {
+            queryEmbedding = await _aiClient.EmbedAsync(
+                NasheedAiKeys.EmbeddingSettings,
+                normalizedQuery,
+                cancellationToken: cancellationToken);
+        }
+        catch (BrokenCircuitException ex)
+        {
+            _logger.LogWarning(ex, "AI circuit open; semantic search unavailable for query '{Query}'", normalizedQuery);
+            return new List<SearchResultDto>();
+        }
 
         var similarPairs = await _searchDocRepository.SearchSimilarAsync(queryEmbedding, topN, cancellationToken);
         if (similarPairs.Count == 0) return new List<SearchResultDto>();

@@ -16,7 +16,7 @@
 | 1   | API Gateway                           | 1    | ✅ Done        |
 | 2   | Distributed Tracing & Observability   | 1    | ✅ Done        |
 | 3   | Secrets Management                    | 1    | ⬜ Not started |
-| 4   | Circuit Breaker / Resilience Patterns | 1    | ⬜ Not started |
+| 4   | Circuit Breaker / Resilience Patterns | 1    | ✅ Done        |
 | 5   | Audit Logging Service                 | 1    | ✅ Done        |
 | 6   | Background Job / Scheduling Service   | 2    | ⬜ Not started |
 | 7   | API Versioning Standard               | 2    | ⬜ Not started |
@@ -598,12 +598,13 @@ catch (BrokenCircuitException ex)
 
 ### Implementation Checklist
 
-- [ ] Add `Microsoft.Extensions.Http.Resilience` to `IhsanDev.Shared.Infrastructure`
-- [ ] Update `SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.cs` with `.AddStandardResilienceHandler()`
-- [ ] Apply to all 5 inter-service HTTP clients
-- [ ] Wrap notification/non-critical calls in `catch (BrokenCircuitException)` in handlers
-- [ ] Add resilience pipeline to the AI service HTTP client in Nasheed
-- [ ] Verify circuit opens correctly under simulated failure
+- [x] Add `Microsoft.Extensions.Http.Resilience` to `IhsanDev.Shared.Infrastructure`
+- [x] Update all service client extension methods with `.AddStandardResilienceHandler()` (FileManager, Notification, Identity, Tenant — all named and typed overloads)
+- [x] Apply to all 5 inter-service HTTP clients (FileManager, Notification, Identity × 2 overloads, Tenant × 2 overloads)
+- [x] Wrap all FileManager and AI service calls in `catch (BrokenCircuitException)` in handlers — Category (3), Nasheed (5), Identity (4) — 12 handlers total
+- [x] Add resilience pipeline to the AI service HTTP client in Nasheed (custom `AddResilienceHandler` — no timeout override, circuit breaker + 1 retry)
+- [x] Verify circuit opens correctly under simulated failure — tested by stopping FileManager; circuit opened after timeout, subsequent calls returned in ~0ms, profile endpoint responded successfully without image. Polly logs at `Warning` level.
+- [x] Fix `NasheedIngestionWorker` retry behavior: replaced flat 5-minute `RetryDelay` with exponential back-off (30 s → 2 min → 10 min → 30 min), bumped `SongIngestionJobEntity.MaxRetries` default from 3 to 10, and added explicit `BrokenCircuitException` handling inside `RunEmbeddingGenerationAsync` so circuit-open state logs at `Warning` rather than `Error`.
 
 ---
 

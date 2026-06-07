@@ -4,6 +4,7 @@ using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 using Nasheed.Application.Commands;
 using Nasheed.Application.DTOs;
 using Nasheed.Application.Helpers;
@@ -75,10 +76,15 @@ public class CreateSongCommandHandler : IRequestHandler<CreateSongCommand, SongD
         // Mark the audio file as in-use (permanent)
         if (request.FileId > 0)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(request.FileId, "Song", song.Id.ToString(), true, _tenantId, cancellationToken);
-            if (!success)
+            try
             {
-                _logger.LogWarning("Failed to mark FileId {FileId} as permanent for Song {SongId}", request.FileId, song.Id);
+                var success = await _fileManagerClient.ChangeTempStatusAsync(request.FileId, "Song", song.Id.ToString(), true, _tenantId, cancellationToken);
+                if (!success)
+                    _logger.LogWarning("Failed to mark FileId {FileId} as permanent for Song {SongId}", request.FileId, song.Id);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning(ex, "FileManager circuit open; skipping file mark for Song {SongId}", song.Id);
             }
         }
 

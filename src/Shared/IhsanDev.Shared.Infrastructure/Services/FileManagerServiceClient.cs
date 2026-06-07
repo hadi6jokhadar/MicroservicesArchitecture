@@ -1,6 +1,8 @@
 using System.Net.Http.Json;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 namespace IhsanDev.Shared.Infrastructure.Services;
 
@@ -75,6 +77,16 @@ public class FileManagerServiceClient : IFileManagerServiceClient
             }
 
             return fileDto;
+        }
+        catch (BrokenCircuitException ex)
+        {
+            _logger.LogWarning(ex, "FileManager circuit open; skipping file {FileId} fetch", fileId);
+            return null;
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            _logger.LogWarning(ex, "FileManager timeout fetching file {FileId}", fileId);
+            return null;
         }
         catch (HttpRequestException ex)
         {
@@ -160,6 +172,16 @@ public class FileManagerServiceClient : IFileManagerServiceClient
 
             return result;
         }
+        catch (BrokenCircuitException ex)
+        {
+            _logger.LogWarning(ex, "FileManager circuit open; skipping batch fetch for {Count} files", fileIdsList.Count);
+            return result;
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            _logger.LogWarning(ex, "FileManager timeout on batch fetch for {Count} files", fileIdsList.Count);
+            return result;
+        }
         catch (HttpRequestException ex)
         {
             _logger.LogError(
@@ -210,6 +232,16 @@ public class FileManagerServiceClient : IFileManagerServiceClient
             }
 
             return true;
+        }
+        catch (BrokenCircuitException ex)
+        {
+            _logger.LogWarning(ex, "FileManager circuit open; skipping temp-status change for file {FileId}", fileId);
+            return false;
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            _logger.LogWarning(ex, "FileManager timeout changing temp-status for file {FileId}", fileId);
+            return false;
         }
         catch (HttpRequestException ex)
         {

@@ -4,6 +4,7 @@ using IhsanDev.Shared.Infrastructure.Services.Cache;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 using Category.Application.Commands;
 using Category.Application.DTOs;
 using Category.Application.Events;
@@ -92,17 +93,31 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
         var tenantId = _tenantContext.TenantId;
         if (request.IconFileId.HasValue)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(request.IconFileId.Value, "Category", entity.Id.ToString(), true, tenantId, cancellationToken);
-            if (!success)
-                _logger.LogWarning("Failed to mark IconFileId {FileId} as permanent for Category {CategoryId}", request.IconFileId.Value, entity.Id);
+            try
+            {
+                var success = await _fileManagerClient.ChangeTempStatusAsync(request.IconFileId.Value, "Category", entity.Id.ToString(), true, tenantId, cancellationToken);
+                if (!success)
+                    _logger.LogWarning("Failed to mark IconFileId {FileId} as permanent for Category {CategoryId}", request.IconFileId.Value, entity.Id);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning(ex, "FileManager circuit open; skipping IconFileId {FileId} mark for Category {CategoryId}", request.IconFileId.Value, entity.Id);
+            }
         }
 
         // Mark image file as in-use
         if (request.ImageFileId.HasValue && request.ImageFileId != request.IconFileId)
         {
-            var success = await _fileManagerClient.ChangeTempStatusAsync(request.ImageFileId.Value, "Category", entity.Id.ToString(), true, tenantId, cancellationToken);
-            if (!success)
-                _logger.LogWarning("Failed to mark ImageFileId {FileId} as permanent for Category {CategoryId}", request.ImageFileId.Value, entity.Id);
+            try
+            {
+                var success = await _fileManagerClient.ChangeTempStatusAsync(request.ImageFileId.Value, "Category", entity.Id.ToString(), true, tenantId, cancellationToken);
+                if (!success)
+                    _logger.LogWarning("Failed to mark ImageFileId {FileId} as permanent for Category {CategoryId}", request.ImageFileId.Value, entity.Id);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning(ex, "FileManager circuit open; skipping ImageFileId {FileId} mark for Category {CategoryId}", request.ImageFileId.Value, entity.Id);
+            }
         }
 
         // Invalidate tree caches — the tenant context will scope cache keys

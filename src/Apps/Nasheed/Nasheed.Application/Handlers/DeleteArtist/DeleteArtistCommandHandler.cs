@@ -3,6 +3,7 @@ using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 using Nasheed.Application.Commands;
 using Nasheed.Application.Interfaces;
 using Nasheed.Domain.Interfaces;
@@ -88,16 +89,30 @@ public class DeleteArtistCommandHandler : IRequestHandler<DeleteArtistCommand, b
 
         foreach (var song in songs.Where(s => s.FileId > 0))
         {
-            var ok = await _fileManagerClient.ChangeTempStatusAsync(song.FileId, "Song", song.Id.ToString(), false, tenantId, cancellationToken);
-            if (!ok)
-                _logger.LogWarning("Failed to mark FileId {FileId} as temporary after deleting Song {SongId}", song.FileId, song.Id);
+            try
+            {
+                var ok = await _fileManagerClient.ChangeTempStatusAsync(song.FileId, "Song", song.Id.ToString(), false, tenantId, cancellationToken);
+                if (!ok)
+                    _logger.LogWarning("Failed to mark FileId {FileId} as temporary after deleting Song {SongId}", song.FileId, song.Id);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning(ex, "FileManager circuit open; skipping file release for Song {SongId}", song.Id);
+            }
         }
 
         if (entity.ImageFileId.HasValue)
         {
-            var ok = await _fileManagerClient.ChangeTempStatusAsync(entity.ImageFileId.Value, "Artist", entity.Id.ToString(), false, tenantId, cancellationToken);
-            if (!ok)
-                _logger.LogWarning("Failed to mark ImageFileId {FileId} as temporary after deleting Artist {ArtistId}", entity.ImageFileId.Value, entity.Id);
+            try
+            {
+                var ok = await _fileManagerClient.ChangeTempStatusAsync(entity.ImageFileId.Value, "Artist", entity.Id.ToString(), false, tenantId, cancellationToken);
+                if (!ok)
+                    _logger.LogWarning("Failed to mark ImageFileId {FileId} as temporary after deleting Artist {ArtistId}", entity.ImageFileId.Value, entity.Id);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning(ex, "FileManager circuit open; skipping image file release for Artist {ArtistId}", entity.Id);
+            }
         }
 
         return true;
