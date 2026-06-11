@@ -59,23 +59,36 @@ OpenTelemetry instruments every service — distributed traces flow into Jaeger,
 
 ## Running the Backend
 
-**Prerequisites:** .NET 8 SDK, PostgreSQL, Redis
+**Prerequisites:** .NET 8 SDK, Node.js, PostgreSQL, Redis, Windows Terminal (`wt.exe`)
+
+### Option 1 — Start everything at once
 
 ```powershell
-# Start a specific service (example: Identity)
-cd src/Services/Identity/Identity.API
-dotnet run
-
-# Start the gateway
-cd src/Gateway/Gateway.API
-dotnet run
+node src/Services/start-all-services.mjs
 ```
 
-Each service reads its connection strings and secrets from `appsettings.json` / environment variables. The first request to a new tenant auto-creates and migrates its database.
+Opens a dedicated Windows Terminal tab for every service (colour-coded), with a 4-second stagger between each. Starts observability (Jaeger + Prometheus + Grafana via Docker), Redis, then all .NET services and the gateway in dependency order.
+
+### Option 2 — Start a single service
+
+Each service has a `run-development-instance.bat` that sets the correct environment and port:
+
+```powershell
+cd src/Services/Identity/Identity.API
+run-development-instance.bat
+```
+
+Each service reads its connection strings and secrets from `appsettings.Development.json` (gitignored) falling back to `appsettings.json`. The first request to a new tenant auto-creates and migrates its database automatically.
 
 **Hangfire dashboards** (background jobs): `http://localhost:{port}/admin/jobs`
 
 **Health checks**: `GET http://localhost:{port}/health`
+
+---
+
+## API Testing
+
+Every service has a full Postman collection in [`PostmanCollections/`](PostmanCollections/), covering all endpoints with example request bodies and auth flows. Import any collection directly into Postman — no manual setup required.
 
 ---
 
