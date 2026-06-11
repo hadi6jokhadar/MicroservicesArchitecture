@@ -391,7 +391,7 @@ FodyWeavers.xsd
 # Docker
 .dockerignore
 Dockerfile*
-docker-compose*
+docker-compose.override.yml
 .env
 
 # Environment variables
@@ -586,7 +586,7 @@ FodyWeavers.xsd
 # Docker
 .dockerignore
 Dockerfile*
-docker-compose*
+docker-compose.override.yml
 .env
 
 # Environment variables
