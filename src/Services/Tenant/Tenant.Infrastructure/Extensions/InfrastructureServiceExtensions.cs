@@ -12,10 +12,12 @@ public static class InfrastructureServiceExtensions
     {
         // Register repositories
         services.AddScoped<ITenantRepository, TenantRepository>();
-        
+
         // Register cache service (Redis or in-memory based on configuration)
         services.AddCacheService(configuration);
-        
+
+        services.AddTenantHangfire(configuration);
+
         return services;
     }
 }

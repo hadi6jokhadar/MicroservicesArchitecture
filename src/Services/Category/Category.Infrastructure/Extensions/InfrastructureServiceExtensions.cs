@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Category.Application.Events;
 using Category.Application.Helpers;
 using Category.Domain.Interfaces;
-using Category.Infrastructure.BackgroundServices;
 using Category.Infrastructure.Persistence;
 using Category.Infrastructure.Persistence.Repositories;
 using Category.Infrastructure.Services;
@@ -27,14 +26,14 @@ public static class InfrastructureServiceExtensions
 
         // Event publisher — Outbox pattern:
         //   OutboxCategoryEventPublisher (Scoped) writes to the DB outbox table.
-        //   OutboxEventProcessorService (BackgroundService/Singleton) reads the table
-        //   and publishes to Redis, providing at-least-once delivery.
+        //   Hangfire recurring job (OutboxEventProcessorJob) reads the table and publishes
+        //   to Redis Pub/Sub — replaces the previous BackgroundService polling loop.
         //   Falls back to no-op when Redis is disabled so local dev still works.
         var redisEnabled = configuration.GetValue<bool>("Redis:Enabled", false);
         if (redisEnabled)
         {
             services.AddScoped<ICategoryEventPublisher, OutboxCategoryEventPublisher>();
-            services.AddHostedService<OutboxEventProcessorService>();
+            services.AddCategoryHangfire(configuration);
         }
         else
             services.AddScoped<ICategoryEventPublisher, NoOpCategoryEventPublisher>();

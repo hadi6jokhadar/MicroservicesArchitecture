@@ -1,5 +1,6 @@
 using System.Text;
 using FluentValidation;
+using Hangfire;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Infrastructure.Extensions;
 using Tenant.Infrastructure.Persistence;
@@ -200,10 +201,8 @@ builder.Services.AddHealthChecks()
         check: () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Tenant service is running"),
         tags: ["service"]);
 
-// ============================================
-// Background Jobs
-// ============================================
-builder.Services.AddHostedService<Tenant.Infrastructure.BackgroundJobs.TenantCacheRefreshService>();
+// TenantCacheRefreshService replaced by Hangfire recurring job (TenantCacheRefreshJob)
+// registered inside AddTenantHangfire → AddInfrastructureServices above.
 
 // ============================================
 // Build & Configure Pipeline
@@ -247,6 +246,10 @@ app.UseAuthorization();
 // ============================================
 app.MapTenantEndpoints();
 app.MapAuditLogEndpoints();
+
+// Hangfire dashboard + recurring jobs
+app.UseTenantHangfireDashboard(app.Configuration);
+HangfireExtensions.RegisterTenantRecurringJobs();
 
 app.MapPrometheusScrapingEndpoint("/metrics");
 

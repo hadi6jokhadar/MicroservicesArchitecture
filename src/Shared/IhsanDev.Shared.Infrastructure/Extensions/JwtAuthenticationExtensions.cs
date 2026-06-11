@@ -67,7 +67,6 @@ public static class JwtAuthenticationExtensions
             }
             else if (customMessageReceived != null)
             {
-                // Allow custom events even in shared JWT mode
                 options.Events = new JwtBearerEvents
                 {
                     OnMessageReceived = customMessageReceived,
@@ -148,7 +147,7 @@ public static class JwtAuthenticationExtensions
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
                     .CreateLogger("JwtAuthentication");
-                
+
                 // Run custom message received handler first (e.g., for SignalR token extraction)
                 if (customMessageReceived != null)
                 {

@@ -18,7 +18,7 @@
 | 3   | Secrets Management                    | 1    | ⬜ Not started |
 | 4   | Circuit Breaker / Resilience Patterns | 1    | ✅ Done        |
 | 5   | Audit Logging Service                 | 1    | ✅ Done        |
-| 6   | Background Job / Scheduling Service   | 2    | ⬜ Not started |
+| 6   | Background Job / Scheduling Service   | 2    | ✅ Done        |
 | 7   | API Versioning Standard               | 2    | ⬜ Not started |
 | 8   | Feature Flags Service                 | 2    | ⬜ Not started |
 | 9   | Database Backup & Recovery            | 2    | ⬜ Not started |
@@ -808,13 +808,19 @@ RecurringJob.AddOrUpdate<OutboxEventProcessorJob>(
 
 ### Implementation Checklist
 
-- [ ] Add Hangfire + Hangfire.PostgreSql to Category, FileManager, Notification
-- [ ] Configure shared PostgreSQL storage (dedicated `hangfire` schema in global DB)
-- [ ] Add Hangfire dashboard behind SuperAdmin route in Gateway or dedicated admin service
-- [ ] Migrate Category's `OutboxEventProcessorService` to a Hangfire recurring job
-- [ ] Migrate FileManager's temp cleanup to a Hangfire recurring job
-- [ ] Migrate Notification's cleanup service to a Hangfire recurring job
-- [ ] Add job retry policies (exponential back-off, max 5 retries)
+- [x] Add `Hangfire.AspNetCore` + `Hangfire.PostgreSql` to Category.Infrastructure, FileManager.Infrastructure, Notification.API, Tenant.Infrastructure (versions pinned in `Directory.Packages.props`)
+- [x] Configure per-service PostgreSQL storage with isolated schemas (`hangfire_category`, `hangfire_filemanager`, `hangfire_notification`, `hangfire_tenant`)
+- [x] Add Hangfire dashboard behind `HangfireBasicAuthFilter` (HTTP Basic Auth) at service-specific paths: `/admin/jobs/category`, `/admin/jobs/filemanager`, `/admin/jobs/notification`, `/admin/jobs/tenant`
+- [x] Credentials stored in each service's `appsettings.json` under `Hangfire:Dashboard:Username` / `Hangfire:Dashboard:Password`; dashboards accessed directly per service (not through the gateway)
+- [x] Add `/admin/jobs` prefix to `TenantMiddleware` bypass list in `IhsanDev.Shared.Infrastructure` (alongside `/health` and `/metrics`)
+- [x] Migrate Category's `OutboxEventProcessorService` polling loop → `OutboxEventProcessorJob` (every 1 minute)
+- [x] Migrate FileManager's `TempFileCleanupService` polling loop → `TempFileCleanupJob` (daily at 02:00 UTC)
+- [x] Migrate Notification's `CleanupService` polling loop → `NotificationCleanupJob` (hourly)
+- [x] Migrate Tenant's `TenantCacheRefreshService` polling loop → `TenantCacheRefreshJob` (every 30 minutes)
+- [x] `NotificationProcessor` kept as `BackgroundService` — it is a real-time sub-second queue poller, not a scheduled job
+- [x] Verify Hangfire dashboards accessible at direct service URLs after startup (Basic Auth login prompt appears on first visit)
+- [x] Verify recurring jobs appear in the Hangfire dashboard after first run
+- [ ] Add job retry policies (exponential back-off, max 5 retries) — currently using Hangfire default (10 attempts, exponential)
 
 ---
 

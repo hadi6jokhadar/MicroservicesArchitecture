@@ -19,6 +19,9 @@
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" />
     <!-- Health Checks -->
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
+    <!-- Hangfire -->
+    <PackageReference Include="Hangfire.AspNetCore" />
+    <PackageReference Include="Hangfire.PostgreSql" />
   </ItemGroup>
 
   <ItemGroup>

@@ -59,7 +59,8 @@ public class TenantMiddleware
 
         // Skip tenant resolution for observability/infrastructure endpoints
         if (path.StartsWith("/metrics", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWith("/health", StringComparison.OrdinalIgnoreCase))
+            path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/admin/jobs", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogDebug("Skipping tenant resolution for infrastructure endpoint: {Path}", path);
             await _next(context);

@@ -2,6 +2,7 @@ using Category.API.Endpoints;
 using Category.Application.Handlers.CreateCategory;
 using Category.Infrastructure.Extensions;
 using Category.Infrastructure.Persistence;
+using Hangfire;
 using FluentValidation;
 using IhsanDev.Shared.Application.Common.Behaviors;
 using IhsanDev.Shared.Application.Localization;
@@ -249,6 +250,14 @@ app.UseAuthorization();
 app.MapCategoryEndpoints();
 app.MapCategoryInternalEndpoints();
 app.MapAuditLogEndpoints();
+
+// Hangfire dashboard + recurring jobs (only when Redis / Hangfire is enabled)
+var redisEnabled = app.Configuration.GetValue<bool>("Redis:Enabled", false);
+if (redisEnabled)
+{
+    app.UseCategoryHangfireDashboard(app.Configuration);
+    HangfireExtensions.RegisterCategoryRecurringJobs();
+}
 
 // ============================================
 // Health Check Endpoints

@@ -2,16 +2,17 @@ using FileManager.API.Endpoints;
 using FileManager.Application.Handlers.SaveFile;
 using FileManager.Application.Interfaces;
 using FileManager.Domain.Interfaces;
+using FileManager.Infrastructure.Extensions;
 using FileManager.Infrastructure.Options;
 using FileManager.Infrastructure.Persistence;
 using FileManager.Infrastructure.Persistence.Repositories;
 using FileManager.Infrastructure.Services;
 using FileManager.Infrastructure.Storage;
 using FluentValidation;
+using Hangfire;
 using IhsanDev.Shared.Application.Common.Behaviors;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Extensions;
-using FileManager.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using IhsanDev.Shared.Kernel.Enums;
@@ -341,6 +342,10 @@ app.UseAuthorization();
 // ============================================
 app.MapFileManagerEndpoints();
 app.MapAuditLogEndpoints();
+
+// Hangfire dashboard + recurring jobs
+app.UseFileManagerHangfireDashboard(app.Configuration);
+HangfireExtensions.RegisterFileManagerRecurringJobs();
 
 // ============================================
 // Health Check Endpoints

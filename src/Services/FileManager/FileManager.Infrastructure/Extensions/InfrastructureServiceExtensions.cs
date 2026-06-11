@@ -7,6 +7,7 @@ using FileManager.Infrastructure.Storage;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
 namespace FileManager.Infrastructure.Extensions;
 
 public static class InfrastructureServiceExtensions
@@ -22,8 +23,8 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IFileStorage, LocalFileStorage>();
         services.AddScoped<BlobStorageFactory>();
         services.AddScoped<IFileManagerService, FileManagerService>();
-        
-        services.AddHostedService<FileManager.Infrastructure.BackgroundJobs.TempFileCleanupService>();
+
+        services.AddFileManagerHangfire(configuration);
 
         return services;
     }

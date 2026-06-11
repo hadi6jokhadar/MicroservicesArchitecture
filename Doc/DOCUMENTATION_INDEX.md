@@ -3,8 +3,8 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** June 6, 2026  
-**Total Files:** 39
+**Last Updated:** June 11, 2026  
+**Total Files:** 40
 
 ---
 
@@ -161,11 +161,26 @@ Files are organized by category. Each entry includes:
 
 ---
 
+## ⚙️ Background Jobs
+
+### HANGFIRE_JOBS_GUIDE.md
+
+**Description:** Complete guide for Hangfire background jobs across Category, FileManager, Notification, and Tenant services. Covers per-service schema isolation, dashboard URLs and Basic Auth credentials, `HangfireBasicAuthFilter` implementation, `TenantMiddleware` bypass for `/admin/jobs`, recurring job schedules, why `NotificationProcessor` stays as a `BackgroundService`, frontend `BackgroundJobsService` integration, and troubleshooting.  
+**Read When:**
+
+- Accessing or configuring a Hangfire dashboard
+- Adding or modifying a recurring job in any of the four services
+- Debugging 401 / tenant-middleware errors on `/admin/jobs/*` paths
+- Understanding why dashboards bypass the YARP gateway
+- Implementing Basic Auth for a new Hangfire dashboard
+
+---
+
 ## 🗛 Platform Roadmap
 
 ### PLATFORM_CAPABILITIES_ROADMAP.md
 
-**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing ✅ including health checks + correlation ID, Secrets Management, Circuit Breaker, Audit Logging ✅), Tier 2 (Background Jobs, API Versioning, Feature Flags, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
+**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing ✅ including health checks + correlation ID, Secrets Management, Circuit Breaker, Audit Logging ✅), Tier 2 (Background Jobs ✅, API Versioning, Feature Flags, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
 **Read When:**
 
 - Planning new infrastructure work
@@ -557,6 +572,7 @@ Files are organized by category. Each entry includes:
 | Add notifications        | NOTIFICATION_SERVICE_README.md, FIREBASE_PUSH_NOTIFICATIONS_GUIDE.md                          |
 | Add caching              | CACHING_STRATEGY_COMPARISON.md                                                                |
 | Create admin endpoint    | BYPASS_TENANT_ENDPOINTS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                            |
+| Hangfire dashboards      | HANGFIRE_JOBS_GUIDE.md                                                                        |
 | Work on Nasheed service  | src/Apps/Nasheed/Doc/OVERVIEW.md, ENTITIES_AND_DATA_MODEL.md, API_ENDPOINTS.md                |
 | Work on Category service | CATEGORY_SERVICE_GUIDE.md                                                                     |
 | Work with roles          | ROLES_AND_CLAIMS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                                   |
@@ -592,7 +608,7 @@ AI agents: Do NOT reference or create these files - they have been removed:
 
 ## 📊 Documentation Statistics
 
-- **Total Files:** 39 (all in `MicroservicesArchitecture/Doc/`)
+- **Total Files:** 40 (all in `MicroservicesArchitecture/Doc/`)
 
 **Average file size:** Comprehensive (each file contains complete information on its topic)
 
@@ -645,5 +661,5 @@ cd Doc
 
 ---
 
-**Last Updated:** June 6, 2026  
+**Last Updated:** June 11, 2026  
 **Maintained By:** AI agents following DOCUMENTATION_GUIDELINES.md

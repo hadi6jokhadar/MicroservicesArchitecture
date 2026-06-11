@@ -1,5 +1,6 @@
 using System.Text;
 using FluentValidation;
+using Hangfire;
 using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -324,8 +325,10 @@ builder.Services.AddSingleton<Notification.Application.Interfaces.IFirebaseServi
 // ============================================
 // Background Services
 // ============================================
+// NotificationProcessor: real-time queue poller — stays as BackgroundService (sub-second loop).
 builder.Services.AddHostedService<NotificationProcessor>();
-builder.Services.AddHostedService<CleanupService>();
+// CleanupService: hourly scheduled job — migrated to Hangfire.
+builder.Services.AddNotificationHangfire(builder.Configuration);
 
 // ============================================
 // Application Services
@@ -487,6 +490,10 @@ app.UseAuthorization();
 // ============================================
 app.MapNotificationEndpoints();
 app.MapAuditLogEndpoints();
+
+// Hangfire dashboard + recurring jobs
+app.UseNotificationHangfireDashboard(app.Configuration);
+HangfireExtensions.RegisterNotificationRecurringJobs();
 
 // ============================================
 // SignalR Hub Endpoint
