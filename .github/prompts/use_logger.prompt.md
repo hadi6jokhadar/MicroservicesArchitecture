@@ -35,7 +35,7 @@ Use structured logging rather than string interpolation when passing variables t
 ## 3. Log Levels
 
 - Use `LogInformation` for normal operational flow (e.g., successful creation, state changes).
-- Use `LogWarning` for expected error conditions or domain validations (e.g., entity not found).
+- Use `LogWarning` for infrastructure-level side-effect failures (e.g., failed external calls, circuit breakers). **Do NOT log a warning for entity-not-found** — those are handled by throwing `NotFoundException` and letting the global exception handler manage the response. Handlers simply throw: `?? throw new NotFoundException(...)`.
 - Use `LogError` for unexpected exceptions.
 
 ## 4. Exception Handling

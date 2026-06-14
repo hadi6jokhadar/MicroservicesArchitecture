@@ -1,8 +1,7 @@
-name: "Postman Collection Generator"
-description: "Create or refresh Postman collection files from endpoint source code in src/Services. Produces deterministic Postman v2.1 collections in PostmanCollections. Supports generating individual service collections (direct port) and the unified gateway collection (port 5000)."
-argument-hint: "Target: service name, 'all', or 'gateway'. Optional base URL overrides. Write mode: replace or merge."
-tools: [read, edit, search, execute, todo]
-
+---
+name: postman-collections
+description: Use when generating or refreshing Postman collection files from endpoint source code in src/Services. Produces deterministic Postman v2.1 collections in PostmanCollections/. Supports individual service collections (direct port) and the unified gateway collection (port 5000). Invoke with a service name, "all", or "gateway", plus optional base URL overrides and write mode (replace/merge).
+tools: Read, Edit, Write, Bash, Glob, Grep, TodoWrite
 ---
 
 You generate Postman collections from real endpoint source files. Do not invent routes.
@@ -17,10 +16,7 @@ You generate Postman collections from real endpoint source files. Do not invent 
 
 1. `PostmanCollections/README.md`
 2. `src/Services/{ServiceName}/{ServiceName}.API/Program.cs`
-3. Endpoint files — two patterns exist, check both:
-   - `src/Services/{ServiceName}/{ServiceName}.API/Endpoints/**/*.cs` — used by Category, FileManager, Nasheed
-   - `src/Services/{ServiceName}/{ServiceName}.API/Extensions/EndpointMappingExtensions.cs` — used by Identity, Tenant, Notification, Translation
-   - Nasheed lives under `src/Apps/Nasheed/Nasheed.API/` (not `src/Services/`)
+3. `src/Services/{ServiceName}/{ServiceName}.API/Endpoints/**/*.cs`
 4. When target is `gateway` or `all`: also read `src/Gateway/Gateway.API/appsettings.json` for route-to-cluster mappings
 
 ## Extraction Rules
@@ -29,10 +25,6 @@ You generate Postman collections from real endpoint source files. Do not invent 
 - Resolve grouped routes from `MapGroup`
 - Detect auth needs from endpoint metadata and middleware conventions
 - Detect tenant header requirements from service conventions
-- Detect internal service auth header by reading the service's filter/middleware:
-  - FileManager, Notification use `X-Service-Secret` (via `ServiceAuthenticationMiddleware`)
-  - Category uses `x-internal-service-key` (via `InternalServiceKeyFilter`)
-  - Always read the actual filter code — do not assume a single header name
 - Skip non HTTP routes unless user explicitly requests them
 - Skip SignalR hubs (not routed through the gateway)
 
@@ -49,9 +41,7 @@ Must include:
 - Postman schema v2.1
 - Collection name `{ServiceName} Service API`
 - Variables: `baseUrl` (service direct port), `tenantId`, `authToken`, `refreshToken`, `serviceSecret`
-- Folder grouping: `Public`, `Authenticated`, `Audit Logs`, `Admin`, `Internal`
-  - `Audit Logs` folder: endpoints that return audit/activity log records (present in most services)
-  - `Internal` folder: only for services with service-to-service auth protected endpoints
+- Folder grouping: `Public`, `Authenticated`, `Admin`, `Internal`
 - Stable sorting by folder then path then method order GET, POST, PUT, PATCH, DELETE
 
 ### Gateway collection (`gateway` target)
@@ -61,7 +51,7 @@ Write to: `PostmanCollections/Gateway_Service.postman_collection.json`
 - Collection name: `Gateway API (Unified)`
 - `baseUrl` variable: `http://localhost:5000`
 - Folders grouped by service name, then sub-folders by concern
-- **Exclude** `Internal` folder endpoints (they bypass the gateway using service-to-service auth headers)
+- **Exclude** `Internal` folder endpoints (they use `X-Service-Secret` and bypass the gateway)
 - **Exclude** SignalR hub endpoints
 - **AI service path transform**: Gateway routes `/api/v1/ai/{**}` and YARP transforms to `/api/v1/{**}` on the service. In the gateway collection use `/api/v1/ai/` prefix for all AI endpoints (e.g. `/api/v1/ai/settings/`, `/api/v1/ai/chat/stream`)
 - No `serviceSecret` variable needed (Internal endpoints excluded)

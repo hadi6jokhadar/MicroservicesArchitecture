@@ -42,7 +42,10 @@ Compare the service's implementation against these key requirements:
 
 ### API Layer
 
-- [ ] **Endpoints**: Must be defined using Minimal API `MapGroup` in an `Extensions` class (e.g., `EndpointMappingExtensions.cs`).
+- [ ] **Endpoints**: Must be defined using Minimal API `MapGroup`. Two accepted patterns exist:
+  - `Extensions/EndpointMappingExtensions.cs` — used by Identity, Tenant, Notification, Translation (extension method pattern)
+  - `Endpoints/{Name}Endpoints.cs` — used by Category, FileManager, Nasheed (dedicated endpoints class pattern)
+  Both are valid. A service using either pattern is compliant.
 - [ ] **Validation**: Must use `AddEndpointFilter<ValidationFilter<T>>` where `ValidationFilter` inherits from `SharedValidationFilter`.
 - [ ] **Handlers**: Should use static handler methods to keep the endpoint mapping clean.
 

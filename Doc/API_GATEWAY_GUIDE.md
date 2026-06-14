@@ -4,7 +4,7 @@
 **Implemented:** June 3, 2026  
 **Project:** `src/Gateway/Gateway.API/`  
 **Port:** `http://localhost:5000`  
-**Technology:** YARP (Yet Another Reverse Proxy) v2.3.0 on .NET 8
+**Technology:** YARP (Yet Another Reverse Proxy) v2.3.0 on .NET 9
 
 ---
 
