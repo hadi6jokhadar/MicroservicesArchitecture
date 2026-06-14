@@ -497,7 +497,7 @@ The system automatically falls back to English if translation is missing, but lo
 
 **Solution:**
 
-1. Check JSON files exist in `bin/Debug/net8.0/Resources/Localization/`
+1. Check JSON files exist in `bin/Debug/net9.0/Resources/Localization/`
 2. Verify `.csproj` has `CopyToOutputDirectory` configuration
 3. Check file names: `en.json`, `ar.json` (lowercase)
 

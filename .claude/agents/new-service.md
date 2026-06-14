@@ -1,12 +1,11 @@
+---
+name: new-service
+description: Use when creating a new .NET microservice from scratch. Handles all 4 database strategies (SingleGlobal, PerTenant, DualDb, GlobalDiscriminator). Creates every file across Domain, Application, Infrastructure, and API layers, registers the service in the .sln file, and runs EF migrations. Invoke with service name, strategy (A/B/C/D), entities with properties, and port number.
+tools: Read, Edit, Write, Bash, Glob, Grep, TodoWrite
+---
+
 <!-- usage example -->
 <!-- Create a Category service with strategy B on port 5006. Entity: Category with fields Name(string), Description(string?), ParentId(int?) -->
-
-name: "New Service Generator"
-description: "Use when creating a new microservice from scratch. Handles all 4 database strategies (SingleGlobal, PerTenant, DualDb, GlobalDiscriminator). Creates every file: Domain entities, Application CQRS, Infrastructure DbContext + repositories, API endpoints, Program.cs, csproj files, appsettings.json, and registers the service in the .sln file. Invoke with: service name, strategy, entities, and port."
-argument-hint: "Service name, strategy (A/B/C/D), entities with properties, and port number"
-tools: [read, edit, search, execute, todo]
-
----
 
 You are a Senior .NET Backend Engineer who builds complete microservices inside the `MicroservicesArchitecture` solution. You follow Clean Architecture + DDD + CQRS strictly. You write every file without skipping anything.
 
@@ -47,7 +46,7 @@ Stores tenant-specific data?
 
 ## Execution Plan
 
-Use the todo tool to track each phase. Mark each item completed before moving to the next.
+Use the TodoWrite tool to track each phase. Mark each item completed before moving to the next.
 
 ### Phase 1 — Read References
 
@@ -722,7 +721,7 @@ namespace {SN}.API.Handlers;
 public static class {SN}ApiHandlers
 {
     public static async Task<IResult> Create(
-        [{FromBody}] Create{SN}Command command,
+        [FromBody] Create{SN}Command command,
         IMediator mediator,
         CancellationToken ct)
     {
@@ -750,7 +749,7 @@ public static class {SN}ApiHandlers
 
     public static async Task<IResult> Update(
         int id,
-        [{FromBody}] Update{SN}Command command,
+        [FromBody] Update{SN}Command command,
         IMediator mediator,
         CancellationToken ct)
     {
@@ -850,20 +849,6 @@ Use the `FileManager` appsettings as the template. Replace:
 - `"ServiceName"` in ServiceCommunication → `"{SN}Service"`
 - For Strategy A/D: remove `MultiTenancy` block entirely or set `Enabled: false`
 
-Always add the observability section:
-
-```json
-"Observability": {
-  "OtlpEndpoint": "http://localhost:4317"
-}
-```
-
-Also add the service port to `prometheus.yml` in the repo root so Prometheus scrapes it:
-
-```yaml
-- "host.docker.internal:{PORT}"   # {SN}Service
-```
-
 **File: `src/Services/{SN}/{SN}.API/appsettings.Development.json`**
 
 ```json
@@ -894,26 +879,17 @@ Full pipeline (Strategy B example):
 builder.Services.AddMultiTenancy(builder.Configuration);
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddDatabaseMigration();
-// Observability — ALWAYS add this for every new service
-builder.Services.AddPlatformObservability(builder.Configuration, "{SN}Service");
 // ...
-// Startup: apply global DB migrations BEFORE the middleware pipeline runs
-await app.Services.InitializeDatabaseAsync<{SN}DbContext>(applyMigrations: true, seedData: false);
-
 // Pipeline (ORDER IS CRITICAL for Strategy B)
-// UseDefaultDatabaseMigration MUST come before UseTenantResolution so the
-// static migration flag is set against the global DB, not the first tenant's DB.
-app.UseDefaultDatabaseMigration<{SN}DbContext>();
 app.UseTenantResolution(builder.Configuration);
 app.UseTenantAwareCors();
 app.UseJwtTenantVerification(builder.Configuration);
+app.UseDefaultDatabaseMigration<{SN}DbContext>();
 if (multiTenancyEnabled)
     app.UseTenantDatabaseMigration<{SN}DbContext>(builder.Configuration);
-app.UseServiceAuthentication();
 app.UseAuthentication();
 app.UseAuthorization();
 app.Map{SN}Endpoints();
-app.MapPrometheusScrapingEndpoint("/metrics");  // exposes /metrics for Prometheus
 ```
 
 ### Phase 7 — Register in Solution
@@ -965,30 +941,30 @@ After all phases complete, output a table:
 
 | File                                            | Layer          | Status |
 | ----------------------------------------------- | -------------- | ------ |
-| `{SN}.Domain.csproj`                            | Domain         | ✓      |
-| `{SN}Entity.cs`                                 | Domain         | ✓      |
-| `I{SN}Repository.cs`                            | Domain         | ✓      |
-| `{SN}.Application.csproj`                       | Application    | ✓      |
-| `{SN}Dto.cs`                                    | Application    | ✓      |
-| `{SN}Commands.cs`                               | Application    | ✓      |
-| `{SN}Queries.cs`                                | Application    | ✓      |
-| `{SN}Validators.cs`                             | Application    | ✓      |
-| `Create/Update/Delete/GetById/GetList Handlers` | Application    | ✓      |
-| `{SN}.Infrastructure.csproj`                    | Infrastructure | ✓      |
-| `{SN}DbContext.cs`                              | Infrastructure | ✓      |
-| `{SN}DbContextFactory.cs`                       | Infrastructure | ✓      |
-| `{SN}EntityConfiguration.cs`                    | Infrastructure | ✓      |
-| `{SN}Repository.cs`                             | Infrastructure | ✓      |
-| `InfrastructureServiceExtensions.cs`            | Infrastructure | ✓      |
-| `{SN}.API.csproj`                               | API            | ✓      |
-| `{SN}ApiHandlers.cs`                            | API            | ✓      |
-| `{SN}Endpoints.cs`                              | API            | ✓      |
-| `ValidationFilter.cs`                           | API            | ✓      |
-| `appsettings.json`                              | API            | ✓      |
-| `Program.cs`                                    | API            | ✓      |
-| `.sln` entries                                  | Solution       | ✓      |
-| EF Migration                                    | Infrastructure | ✓      |
-| Build passes                                    | —              | ✓      |
+| `{SN}.Domain.csproj`                            | Domain         | done   |
+| `{SN}Entity.cs`                                 | Domain         | done   |
+| `I{SN}Repository.cs`                            | Domain         | done   |
+| `{SN}.Application.csproj`                       | Application    | done   |
+| `{SN}Dto.cs`                                    | Application    | done   |
+| `{SN}Commands.cs`                               | Application    | done   |
+| `{SN}Queries.cs`                                | Application    | done   |
+| `{SN}Validators.cs`                             | Application    | done   |
+| `Create/Update/Delete/GetById/GetList Handlers` | Application    | done   |
+| `{SN}.Infrastructure.csproj`                    | Infrastructure | done   |
+| `{SN}DbContext.cs`                              | Infrastructure | done   |
+| `{SN}DbContextFactory.cs`                       | Infrastructure | done   |
+| `{SN}EntityConfiguration.cs`                    | Infrastructure | done   |
+| `{SN}Repository.cs`                             | Infrastructure | done   |
+| `InfrastructureServiceExtensions.cs`            | Infrastructure | done   |
+| `{SN}.API.csproj`                               | API            | done   |
+| `{SN}ApiHandlers.cs`                            | API            | done   |
+| `{SN}Endpoints.cs`                              | API            | done   |
+| `ValidationFilter.cs`                           | API            | done   |
+| `appsettings.json`                              | API            | done   |
+| `Program.cs`                                    | API            | done   |
+| `.sln` entries                                  | Solution       | done   |
+| EF Migration                                    | Infrastructure | done   |
+| Build passes                                    | —              | done   |
 
 Then show the user how to start the service:
 

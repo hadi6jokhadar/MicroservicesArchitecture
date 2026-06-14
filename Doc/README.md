@@ -1,6 +1,6 @@
 # 🏗️ Microservices Architecture
 
-A modern, scalable microservices architecture built with **.NET 8** and **ASP.NET Core**, implementing **Clean Architecture** principles, **Domain-Driven Design (DDD)**, and **CQRS** patterns.
+A modern, scalable microservices architecture built with **.NET 9** and **ASP.NET Core**, implementing **Clean Architecture** principles, **Domain-Driven Design (DDD)**, and **CQRS** patterns.
 
 ## 📋 Table of Contents
 
@@ -85,25 +85,25 @@ This solution implements a **microservices architecture** with a focus on:
 
 ### Core Framework
 
-- **ASP.NET Core 8.0** - Web API framework
-- **Entity Framework Core 8.0** - Object-relational mapping
-- **C# 12** - Programming language
+- **ASP.NET Core 9.0** - Web API framework
+- **Entity Framework Core 9.0** - Object-relational mapping
+- **C# 13** - Programming language
 
 ### Key Libraries & Packages
 
 | Category              | Package                                         | Version | Purpose                |
 | --------------------- | ----------------------------------------------- | ------- | ---------------------- |
-| **CQRS & Mediator**   | MediatR                                         | 12.2.0  | Command/Query handling |
+| **CQRS & Mediator**   | MediatR                                         | 12.4.1  | Command/Query handling |
 | **Validation**        | FluentValidation                                | 12.0.0  | Input validation       |
 | **Authentication**    | Microsoft.AspNetCore.Authentication.JwtBearer   | 8.0.0   | JWT authentication     |
 | **Security**          | BCrypt.Net-Next                                 | 4.0.3   | Password hashing       |
 | **Caching**           | StackExchange.Redis                             | 2.7.10  | Distributed caching    |
 | **Caching**           | Microsoft.Extensions.Caching.StackExchangeRedis | 8.0.0   | Redis integration      |
-| **Database**          | Multiple EF Core providers                      | 8.0.0   | Data access            |
+| **Database**          | Multiple EF Core providers                      | 9.0.0   | Data access            |
 | **API Documentation** | Swashbuckle.AspNetCore                          | 6.5.0   | Swagger/OpenAPI        |
-| **Tracing**           | OpenTelemetry.Extensions.Hosting                | 1.9.0   | Distributed tracing    |
-| **Tracing**           | OpenTelemetry.Exporter.OpenTelemetryProtocol    | 1.9.0   | OTLP export to Jaeger  |
-| **Metrics**           | OpenTelemetry.Exporter.Prometheus.AspNetCore    | 1.9.0b2 | /metrics scrape endpoint |
+| **Tracing**           | OpenTelemetry.Extensions.Hosting                | 1.15.3  | Distributed tracing    |
+| **Tracing**           | OpenTelemetry.Exporter.OpenTelemetryProtocol    | 1.15.3  | OTLP export to Jaeger  |
+| **Metrics**           | OpenTelemetry.Exporter.Prometheus.AspNetCore    | 1.15.3-beta.1 | /metrics scrape endpoint |
 
 ### Database Providers
 
@@ -185,7 +185,7 @@ MicroservicesArchitecture/
 
 ## 📋 Prerequisites
 
-- **[.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)** or later
+- **[.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)** or later
 - **Database**: PostgreSQL, SQL Server, MySQL, or SQLite
 - **IDE**: Visual Studio 2022, VS Code, or JetBrains Rider
 - **PowerShell** (for utility scripts)
@@ -669,8 +669,8 @@ This project uses **Central Package Management (CPM)** for consistent versioning
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="MediatR" Version="12.2.0" />
-    <PackageVersion Include="AutoMapper" Version="12.0.1" />
+    <PackageVersion Include="MediatR" Version="12.4.1" />
+    <PackageVersion Include="FluentValidation" Version="12.0.0" />
     <!-- ... other packages -->
   </ItemGroup>
 </Project>
@@ -1022,7 +1022,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](../LICENS
 
 <div align="center">
 
-**Built with ❤️ using .NET 8 & ASP.NET Core**
+**Built with ❤️ using .NET 9 & ASP.NET Core**
 
 ⭐ **Star this repository if it helped you!**
 
