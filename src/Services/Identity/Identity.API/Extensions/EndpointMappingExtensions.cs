@@ -20,7 +20,6 @@ public static class EndpointMappingExtensions
         var userGroup = app.MapGroup("/api/user")
             .WithTags("Profile Management")
             .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
-            .WithOpenApi()
             .WithMetadata(new OptionalTenantAttribute());
 
         // Profile endpoints - OptionalTenant: user can access their profile with or without tenant context
@@ -54,7 +53,6 @@ public static class EndpointMappingExtensions
     {
         var authGroup = app.MapGroup("/api/auth")
             .WithTags("Authentication")
-            .WithOpenApi()
             .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/login", AuthApiHandlers.LoginHandler)
@@ -156,7 +154,6 @@ public static class EndpointMappingExtensions
         var adminGroup = app.MapGroup("/api/admin")
             .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin")) // Require Admin role
             .WithTags("Admin User Management")
-            .WithOpenApi()
             .WithMetadata(new OptionalTenantAttribute());
 
         // User management endpoints (Admin only) - OptionalTenant: Admin can manage users across tenants or global database
@@ -217,7 +214,6 @@ public static class EndpointMappingExtensions
         var roleGroup = app.MapGroup("/api/admin/roles")
             .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"))
             .WithTags("Role Management")
-            .WithOpenApi()
             .WithMetadata(new OptionalTenantAttribute());
 
         // Get all roles
@@ -286,7 +282,6 @@ public static class EndpointMappingExtensions
         var claimGroup = app.MapGroup("/api/admin/claims")
             .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"))
             .WithTags("Claim Management")
-            .WithOpenApi()
             .WithMetadata(new OptionalTenantAttribute());
 
         // Get all claims
@@ -338,7 +333,6 @@ public static class EndpointMappingExtensions
         var deviceTokenGroup = app.MapGroup("/api/device-tokens")
             .WithTags("Device Token Management")
             .RequireAuthorization(policy => policy.RequireRole("Service", "User", "Admin", "SuperAdmin"))
-            .WithOpenApi()
             .WithMetadata(new OptionalTenantAttribute());
 
         // Add device token - OptionalTenant: Can register device tokens with or without tenant context

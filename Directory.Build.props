@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <!--
+      Pomelo.EntityFrameworkCore.MySql 9.0.0 has not yet released a version compatible with
+      EF Core 10.x. Suppress NU1608 until a Pomelo 10.x release is available.
+      Track: https://github.com/PomeloFoundation/Pomelo.EntityFrameworkCore.MySql/releases
+    -->
+    <NoWarn>$(NoWarn);NU1608</NoWarn>
+  </PropertyGroup>
+</Project>

@@ -118,7 +118,7 @@ Failover:
 
 - **Docker** & **Docker Compose** (for containerized setup)
 - **PostgreSQL 15+** (if running natively)
-- **.NET 9.0 SDK**
+- **.NET 10.0 SDK**
 - **Redis** (for SignalR backplane - already configured)
 
 ### Configuration Files

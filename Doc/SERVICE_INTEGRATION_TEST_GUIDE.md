@@ -10,9 +10,9 @@
 All integration tests in this repository call **MediatR handlers directly** via `SendAsync()`.  
 Do **not** use `HttpClient` / `client.PostAsJsonAsync()` / `GetFromJsonAsync()`.
 
-**Why:** .NET 9 has a known `PipeWriter` serialisation bug that causes `System.InvalidOperationException`
-when reading response bodies in `WebApplicationFactory` tests. Calling handlers bypasses the HTTP pipeline
-entirely, making tests fast, deterministic, and bug-free.
+**Why:** Calling handlers bypasses the HTTP pipeline entirely, making tests fast, deterministic, and
+bug-free. This pattern was adopted to avoid `PipeWriter` serialisation issues in `WebApplicationFactory`
+tests and remains the established convention for all services.
 
 ---
 
@@ -30,7 +30,7 @@ entirely, making tests fast, deterministic, and bug-free.
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>

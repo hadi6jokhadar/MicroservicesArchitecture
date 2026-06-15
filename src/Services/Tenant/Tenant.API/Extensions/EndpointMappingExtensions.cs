@@ -14,8 +14,7 @@ public static class EndpointMappingExtensions
         // Public tenant configuration endpoint (for Identity Service to fetch config)
         // Allow both anonymous access and service authentication
         var publicGroup = app.MapGroup("/api/tenant")
-            .WithTags("Tenant Configuration")
-            .WithOpenApi();
+            .WithTags("Tenant Configuration");
 
         // This endpoint is used by other services to fetch tenant configuration
         // Accessible ONLY by services with service authentication (not by users or anonymous)
@@ -50,8 +49,7 @@ public static class EndpointMappingExtensions
         // Tenant management endpoints (Admin only)
         var adminGroup = app.MapGroup("/api/admin/tenant")
             .RequireAuthorization(policy => policy.RequireRole("SuperAdmin"))
-            .WithTags("Tenant Management (Super Admin)")
-            .WithOpenApi();
+            .WithTags("Tenant Management (Super Admin)");
 
         adminGroup.MapGet("/", TenantApiHandlers.GetAllActiveTenantsHandler)
             .WithName("GetAllActiveTenants")

@@ -24,8 +24,7 @@ public static class EndpointMappingExtensions
         // =============================================================================
         var serviceAdminGroup = app.MapGroup("/api/notifications")
             .WithTags("Notifications - Service/Admin")
-            .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
-            .WithOpenApi();
+            .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"));
 
         // Send notification (accessible by services and SuperAdmin)
         // Note: Bypasses tenant middleware - tenantId comes from request body instead of x-tenant-id header
@@ -79,8 +78,7 @@ public static class EndpointMappingExtensions
         // =============================================================================
         var userGroup = app.MapGroup("/api/notifications")
             .WithTags("Notifications - User")
-            .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
-            .WithOpenApi();
+            .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"));
 
         // Get user notifications (tenant-specific)
         // Requires x-tenant-id header and tenant-specific JWT token (when JwtMode=PerTenant)
