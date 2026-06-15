@@ -271,7 +271,7 @@ External:
 
 ### 1. Prerequisites
 
-- .NET 9.0 SDK
+- .NET 10.0 SDK
 - PostgreSQL 15+ (or SQL Server, MySQL, SQLite)
 - Visual Studio 2022 / VS Code / Rider
 

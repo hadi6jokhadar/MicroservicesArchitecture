@@ -3,7 +3,7 @@
 **Status:** Planning  
 **Created:** June 3, 2026  
 **Purpose:** Actionable implementation guide for missing platform capabilities, organized by priority tier.  
-**Stack:** .NET 9 Minimal APIs · PostgreSQL · Redis · Clean Architecture · CQRS · MediatR
+**Stack:** .NET 10 Minimal APIs · PostgreSQL · Redis · Clean Architecture · CQRS · MediatR
 
 > This document is a companion to the analysis in `DOCUMENTATION_INDEX.md`. Each item below is a gap in the current platform. Work through tiers in order — Tier 1 items are load-bearing; Tier 2 and 3 build on top of them.
 
@@ -44,7 +44,7 @@ Every service currently exposes its own port directly. A frontend or mobile app 
 
 ### Recommended Approach: YARP (Yet Another Reverse Proxy)
 
-YARP is a Microsoft-maintained .NET reverse proxy — the best fit for a .NET-native stack. It runs as a standard .NET 9 Minimal API project and supports hot-reload routing config.
+YARP is a Microsoft-maintained .NET reverse proxy — the best fit for a .NET-native stack. It runs as a standard .NET 10 Minimal API project and supports hot-reload routing config.
 
 ### What to Build
 
@@ -520,7 +520,7 @@ Leave non-sensitive config in appsettings.json:
 
 ### Recommended Approach: Microsoft.Extensions.Resilience (built on Polly v8)
 
-.NET 9 ships `Microsoft.Extensions.Resilience` as a first-class package. It integrates directly with `IHttpClientFactory`.
+.NET 10 ships `Microsoft.Extensions.Resilience` as a first-class package. It integrates directly with `IHttpClientFactory`.
 
 ### What to Build
 

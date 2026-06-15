@@ -1,4 +1,4 @@
-# MicroservicesArchitecture — .NET 8 Backend Platform
+# MicroservicesArchitecture — .NET 10 Backend Platform
 
 A production-grade microservices backend built with **Clean Architecture**, **DDD**, **CQRS**, and **database-per-tenant multi-tenancy**. Powers a multi-tenant SaaS platform with real-time notifications, AI integration, and full observability.
 
@@ -42,8 +42,8 @@ OpenTelemetry instruments every service — distributed traces flow into Jaeger,
 
 | Layer | Technology |
 |---|---|
-| Runtime | .NET 8 / C# 12 |
-| ORM | Entity Framework Core 9 |
+| Runtime | .NET 10 / C# 14 |
+| ORM | Entity Framework Core 10 |
 | CQRS | MediatR 12.4 |
 | Validation | FluentValidation 12 |
 | Database | PostgreSQL (+ Redis 2.7) |
@@ -59,7 +59,7 @@ OpenTelemetry instruments every service — distributed traces flow into Jaeger,
 
 ## Running the Backend
 
-**Prerequisites:** .NET 8 SDK, Node.js, PostgreSQL, Redis, Windows Terminal (`wt.exe`)
+**Prerequisites:** .NET 10 SDK, Node.js, PostgreSQL, Redis, Windows Terminal (`wt.exe`)
 
 ### Option 1 — Start everything at once
 

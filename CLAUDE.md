@@ -8,7 +8,7 @@
 
 ## Project Overview
 
-.NET 8 microservices with Clean Architecture, DDD, CQRS, optional multi-tenancy, and database-per-tenant support.
+.NET 10 microservices with Clean Architecture, DDD, CQRS, optional multi-tenancy, and database-per-tenant support.
 
 ## Workflow for Every Task
 
@@ -143,7 +143,7 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 
 ## Technology Stack
 
-- **.NET 8**, **C# 12**, **EF Core 9.0**
+- **.NET 10**, **C# 14**, **EF Core 10.0**
 - **MediatR 12.4** (CQRS), **FluentValidation 12.0**
 - **PostgreSQL** (primary), SQL Server, MySQL, SQLite supported
 - **Redis 2.7** (distributed cache), **SignalR 8.0** (real-time)

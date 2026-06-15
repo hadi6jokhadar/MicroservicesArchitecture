@@ -1,6 +1,6 @@
 # 🏗️ Microservices Architecture
 
-A modern, scalable microservices architecture built with **.NET 9** and **ASP.NET Core**, implementing **Clean Architecture** principles, **Domain-Driven Design (DDD)**, and **CQRS** patterns.
+A modern, scalable microservices architecture built with **.NET 10** and **ASP.NET Core**, implementing **Clean Architecture** principles, **Domain-Driven Design (DDD)**, and **CQRS** patterns.
 
 ## 📋 Table of Contents
 
@@ -185,7 +185,7 @@ MicroservicesArchitecture/
 
 ## 📋 Prerequisites
 
-- **[.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)** or later
+- **[.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)** or later
 - **Database**: PostgreSQL, SQL Server, MySQL, or SQLite
 - **IDE**: Visual Studio 2022, VS Code, or JetBrains Rider
 - **PowerShell** (for utility scripts)
@@ -1022,7 +1022,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](../LICENS
 
 <div align="center">
 
-**Built with ❤️ using .NET 9 & ASP.NET Core**
+**Built with ❤️ using .NET 10 & ASP.NET Core**
 
 ⭐ **Star this repository if it helped you!**
 

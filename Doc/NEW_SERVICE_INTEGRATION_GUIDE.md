@@ -105,7 +105,7 @@ The project `Doc/` folder is the **single source of truth** for that app. Do not
 
 Before starting, ensure you have:
 
-- ✅ .NET 9.0 SDK installed
+- ✅ .NET 10.0 SDK installed
 - ✅ Identity Service running (for authentication)
 - ✅ Tenant Service running (optional, for multi-tenancy)
 - ✅ Basic understanding of Clean Architecture
