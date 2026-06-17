@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using IhsanDev.Shared.Infrastructure.Attributes;
 using IhsanDev.Shared.Infrastructure.Filters;
 using Category.API.Filters;
@@ -12,7 +13,9 @@ public static class CategoryEndpoints
     public static IEndpointRouteBuilder MapCategoryEndpoints(this IEndpointRouteBuilder app)
     {
         // ── TENANT ENDPOINTS (optional tenant — uses appSettings DB when no x-tenant-id) ──
-        var group = app.MapGroup("/api/categories")
+        var v1 = app.NewVersionedApi("Categories");
+        var group = v1.MapGroup("/api/v{version:apiVersion}/categories")
+            .HasApiVersion(1)
             .WithTags("Category Management")
             .RequireAuthorization()
             .WithMetadata(new OptionalTenantAttribute());
@@ -57,7 +60,9 @@ public static class CategoryEndpoints
             .Produces(StatusCodes.Status404NotFound);
 
         // ── ADMIN ENDPOINTS (bypass tenant) ──────────────────────────────────
-        var adminGroup = app.MapGroup("/api/admin/categories")
+        var v1Admin = app.NewVersionedApi("CategoriesAdmin");
+        var adminGroup = v1Admin.MapGroup("/api/v{version:apiVersion}/admin/categories")
+            .HasApiVersion(1)
             .WithTags("Category - Admin")
             .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"));
 

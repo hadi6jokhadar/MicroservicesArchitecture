@@ -26,16 +26,16 @@ public static class LoggingExtensions
     {
         // Register HttpContextAccessor (required by TraceIdProvider)
         services.AddHttpContextAccessor();
-        
-        // Get log file path from configuration or use default
-        var logsPath = configuration["Logging:FilePath"] ?? "Logs";
-        var serviceLogsPath = !string.IsNullOrWhiteSpace(serviceName) 
-            ? Path.Combine(logsPath, serviceName) 
-            : logsPath;
 
-        // Register the logger manager as singleton
+        // Register the logger manager as singleton — read FilePath lazily so test
+        // factories that override Logging:FilePath via ConfigureAppConfiguration are honoured.
         services.AddSingleton<ILoggerManager>(serviceProvider =>
         {
+            var conf = serviceProvider.GetRequiredService<IConfiguration>();
+            var logsPath = conf["Logging:FilePath"] ?? "Logs";
+            var serviceLogsPath = !string.IsNullOrWhiteSpace(serviceName)
+                ? Path.Combine(logsPath, serviceName)
+                : logsPath;
             var logger = serviceProvider.GetRequiredService<ILogger<LoggerManager>>();
             return new LoggerManager(logger, serviceLogsPath);
         });

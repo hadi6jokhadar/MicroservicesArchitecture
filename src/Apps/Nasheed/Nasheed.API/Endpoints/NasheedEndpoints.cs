@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Nasheed.API.Filters;
 using Nasheed.API.Handlers;
 using Nasheed.Application.Commands;
@@ -10,7 +11,9 @@ public static class NasheedEndpoints
     public static IEndpointRouteBuilder MapNasheedEndpoints(this IEndpointRouteBuilder app)
     {
         // ── ARTISTS ──────────────────────────────────────────
-        var artists = app.MapGroup("/api/artists")
+        var v1Artists = app.NewVersionedApi("Artists");
+        var artists = v1Artists.MapGroup("/api/v{version:apiVersion}/artists")
+            .HasApiVersion(1)
             .WithTags("Artists")
             .RequireAuthorization();
 
@@ -39,7 +42,9 @@ public static class NasheedEndpoints
             .RequireAuthorization("AdminOnly");
 
         // ── SONGS ─────────────────────────────────────────────
-        var songs = app.MapGroup("/api/songs")
+        var v1Songs = app.NewVersionedApi("Songs");
+        var songs = v1Songs.MapGroup("/api/v{version:apiVersion}/songs")
+            .HasApiVersion(1)
             .WithTags("Songs")
             .RequireAuthorization();
 
@@ -78,7 +83,9 @@ public static class NasheedEndpoints
             .Produces<List<SearchResultDto>>();
 
         // ── INGESTION ─────────────────────────────────────────
-        var ingestion = app.MapGroup("/api/ingestion")
+        var v1Ingestion = app.NewVersionedApi("Ingestion");
+        var ingestion = v1Ingestion.MapGroup("/api/v{version:apiVersion}/ingestion")
+            .HasApiVersion(1)
             .WithTags("Ingestion")
             .RequireAuthorization();
 
@@ -106,7 +113,9 @@ public static class NasheedEndpoints
             .Produces<IngestionJobDto>();
 
         // ── SEARCH ────────────────────────────────────────────
-        var search = app.MapGroup("/api/search")
+        var v1Search = app.NewVersionedApi("Search");
+        var search = v1Search.MapGroup("/api/v{version:apiVersion}/search")
+            .HasApiVersion(1)
             .WithTags("Search")
             .RequireAuthorization();
 
@@ -115,7 +124,9 @@ public static class NasheedEndpoints
             .Produces<List<SearchResultDto>>();
 
         // ── INTERACTIONS ──────────────────────────────────────
-        var interactions = app.MapGroup("/api/songs")
+        var v1Interactions = app.NewVersionedApi("Interactions");
+        var interactions = v1Interactions.MapGroup("/api/v{version:apiVersion}/songs")
+            .HasApiVersion(1)
             .WithTags("Interactions")
             .RequireAuthorization();
 
@@ -137,7 +148,9 @@ public static class NasheedEndpoints
             .Produces(StatusCodes.Status200OK);
 
         // ── GENERATION ────────────────────────────────────────
-        var generation = app.MapGroup("/api/generation")
+        var v1Generation = app.NewVersionedApi("Generation");
+        var generation = v1Generation.MapGroup("/api/v{version:apiVersion}/generation")
+            .HasApiVersion(1)
             .WithTags("Generation")
             .RequireAuthorization();
 

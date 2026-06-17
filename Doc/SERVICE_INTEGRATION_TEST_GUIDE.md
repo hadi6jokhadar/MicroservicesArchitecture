@@ -1,7 +1,7 @@
 # Service Integration Test Guide
 
 **Purpose:** Step-by-step process for creating integration tests for any service or app in this repository.  
-**Last Updated:** May 2, 2026
+**Last Updated:** June 17, 2026
 
 ---
 
@@ -68,7 +68,172 @@ global using FluentAssertions;
 
 ---
 
-## 2. Create the Infrastructure Folder
+## 2. Create `appsettings.Test.json` in the API Project
+
+### Why this file exists
+
+`appsettings.json` in every service has its real database password replaced with the placeholder
+`CHANGE_ME_DB_PASSWORD` so credentials are never committed in plaintext.
+`appsettings.Test.json` provides the **real test credentials** only for local test runs without
+polluting `appsettings.json`.
+
+**Location:** `{ServiceName}.API/appsettings.Test.json` — same folder as `appsettings.json`.
+
+The shared `CustomWebApplicationFactory` loads it automatically:
+
+```csharp
+config.AddJsonFile("appsettings.Test.json", optional: true, reloadOnChange: false);
+```
+
+After loading it, the factory reads `DatabaseSettings:ConnectionString` and updates
+`PostgreSqlConnectionString` if the value does **not** contain `CHANGE_ME`:
+
+```csharp
+var connStr = builtConfig["DatabaseSettings:ConnectionString"];
+if (!string.IsNullOrEmpty(connStr) && !connStr.Contains("CHANGE_ME"))
+    PostgreSqlConnectionString = connStr;
+```
+
+This means the real password flows into both `ConfigureDbContext<TDbContext>()` **and** any
+Hangfire / DI-resolved service that calls `IConfiguration["DatabaseSettings:ConnectionString"]`
+lazily at resolve time.
+
+---
+
+### Minimal file template
+
+```json
+{
+  "DatabaseSettings": {
+    "Provider": "PostgreSql",
+    "ConnectionString": "Host=localhost;Port=5432;Database={service}_test;Username=postgres;Password=your_real_password;Minimum Pool Size=5;Maximum Pool Size=50;Connection Idle Lifetime=300;Connection Pruning Interval=10;Pooling=true;"
+  },
+  "Redis": {
+    "Enabled": false
+  }
+}
+```
+
+---
+
+### Configuration load order (highest priority wins)
+
+| Priority | Source | Notes |
+| -------- | ------ | ----- |
+| 1 (highest) | `GetTestConfiguration()` in-memory dict | Always wins — set JWT, `MultiTenancy:Enabled`, `Logging:FilePath` here |
+| 2 | `appsettings.Test.json` | Real DB credentials, Redis toggle |
+| 3 | `appsettings.Testing.json` | Convention-based; loaded when `UseEnvironment("Testing")` is set |
+| 4 (lowest) | `appsettings.json` | Has `CHANGE_ME_DB_PASSWORD` placeholder |
+
+---
+
+### Available options
+
+Every key in `appsettings.json` can be overridden. Keys typically used in `appsettings.Test.json`:
+
+| Key | Purpose | Typical test value |
+| --- | ------- | ------------------ |
+| `DatabaseSettings:Provider` | DB engine | `"PostgreSql"` |
+| `DatabaseSettings:ConnectionString` | Real test DB password | `"...;Password=real_password;"` |
+| `Redis:Enabled` | Enable/disable Redis in-process | `false` for most services |
+| `Hangfire:Dashboard:Username` | Hangfire Basic Auth | Any string — dashboard is not hit by tests |
+| `Hangfire:Dashboard:Password` | Hangfire Basic Auth | Any string |
+
+Keys that belong in `GetTestConfiguration()` override instead (do NOT put these in `appsettings.Test.json`):
+
+| Key | Reason it belongs in `GetTestConfiguration()` |
+| --- | --------------------------------------------- |
+| `Logging:FilePath` | Must point to `Path.GetTempPath()` — base factory sets this automatically |
+| `MultiTenancy:Enabled` | Service-specific; set to `"false"` in the service `CustomWebApplicationFactory` |
+| `Jwt:Secret` | Service-specific; set in the service `CustomWebApplicationFactory` |
+| `RateLimiting:Enabled` | Service-specific; set to `"false"` in the service `CustomWebApplicationFactory` |
+
+---
+
+### Redis handling
+
+When `Redis:Enabled` is `true` in `appsettings.Test.json`, the shared factory **rejects the test run
+immediately** if Redis is not reachable on `localhost:6379`:
+
+```
+InvalidOperationException: Redis is required for this service's tests but Redis is not running
+on localhost:6379. Start Redis before running tests.
+```
+
+Set `Redis:Enabled: false` to skip Redis entirely — the factory replaces the real
+`IDistributedCache` with `MemoryDistributedCache` and registers an in-memory `ICacheService` stub.
+
+`run-all-tests.mjs` starts Redis automatically before any test suite begins, so this error only
+appears when running tests manually without Redis.
+
+---
+
+### The Hangfire timing problem (and fix)
+
+Hangfire calls `services.AddHangfire(config => ...)` during `Program.cs` startup — **before**
+`WebApplicationFactory.ConfigureAppConfiguration` callbacks run. If the connection string is
+captured directly from `IConfiguration` at that point, it still has `CHANGE_ME_DB_PASSWORD`.
+
+**Fix:** use the `(IServiceProvider, IGlobalConfiguration)` overload. This defers the
+connection-string read to DI resolve time, which happens after all configuration overrides
+(including `appsettings.Test.json`) have been applied:
+
+```csharp
+// ✅ Correct — lazy read at DI resolve time (after all config overrides)
+services.AddHangfire((sp, config) =>
+{
+    var connectionString = sp.GetRequiredService<IConfiguration>()
+        ["DatabaseSettings:ConnectionString"]
+        ?? throw new InvalidOperationException("DatabaseSettings:ConnectionString not configured");
+
+    config
+        .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UsePostgreSqlStorage(
+            options => options.UseNpgsqlConnection(connectionString),
+            new PostgreSqlStorageOptions { SchemaName = "hangfire_{service}" });
+});
+
+// ❌ Wrong — captures IConfiguration at registration time before test overrides apply
+services.AddHangfire(config =>
+{
+    config.UsePostgreSqlStorage(
+        options => options.UseNpgsqlConnection(configuration["DatabaseSettings:ConnectionString"]),
+        ...);
+});
+```
+
+Services that require this pattern: **Tenant, Category, FileManager, Notification**.
+
+---
+
+### Logging path timing problem (and fix)
+
+The same early-capture issue applies to `Logging:FilePath`. `appsettings.json` often contains a
+placeholder path like `C:\Users\YOUR_USERNAME\...` that resolves to a non-writable path.
+
+The shared `CustomWebApplicationFactory.GetTestConfiguration()` already overrides `Logging:FilePath`
+to `Path.GetTempPath() + "MicroservicesTestLogs"`. For this to work, `LoggingExtensions` must
+read the path **lazily** inside the factory lambda instead of at registration time:
+
+```csharp
+// ✅ Correct — reads path lazily inside the factory lambda
+services.AddSingleton<ILoggerManager>(serviceProvider =>
+{
+    var conf = serviceProvider.GetRequiredService<IConfiguration>();
+    var logsPath = conf["Logging:FilePath"] ?? "Logs";
+    return new LoggerManager(logger, logsPath);
+});
+
+// ❌ Wrong — captures configuration["Logging:FilePath"] at registration time
+var logsPath = configuration["Logging:FilePath"] ?? "Logs";
+services.AddSingleton<ILoggerManager>(new LoggerManager(logger, logsPath));
+```
+
+---
+
+## 3. Create the Infrastructure Folder
 
 Three files always go in `Infrastructure/`:
 
@@ -209,7 +374,7 @@ public abstract class IntegrationTestBase :
 
 ---
 
-## 3. Create Test Files
+## 4. Create Test Files
 
 ### File naming
 
@@ -301,7 +466,7 @@ public async Task CreateChild_ShouldIncrementParentChildCount()
 
 ---
 
-## 4. Add Project to Solution
+## 5. Add Project to Solution
 
 Run from the `MicroservicesArchitecture/` folder:
 
@@ -314,7 +479,7 @@ for this service (e.g. `"Nasheed"`, `"Identity"`, `"Tenant"`).
 
 ---
 
-## 5. Build and Verify
+## 6. Build and Verify
 
 ```powershell
 cd MicroservicesArchitecture
@@ -332,7 +497,7 @@ Fix all errors before running tests. Common issues:
 
 ---
 
-## 6. Create README.md in the Test Project
+## 7. Create README.md in the Test Project
 
 Every test project must have a `README.md` covering:
 
@@ -349,13 +514,15 @@ See `src/Apps/Nasheed/Nasheed.API.Tests/README.md` as the canonical example.
 
 ## Reference: Existing Test Projects
 
-| Service     | Test project                                      | DB         | Notable stubs                                                                                 |
-| ----------- | ------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------- |
-| Identity    | `src/Services/Identity/Identity.API.Tests/`       | SQLite     | None (simple service)                                                                         |
-| Tenant      | `src/Services/Tenant/Tenant.API.Tests/`           | PostgreSQL | None                                                                                          |
-| FileManager | `src/Services/FileManager/FileManager.API.Tests/` | PostgreSQL | None                                                                                          |
-| Translation | `src/Services/Translation/Translation.API.Tests/` | PostgreSQL | None                                                                                          |
-| Nasheed     | `src/Apps/Nasheed/Nasheed.API.Tests/`             | PostgreSQL | `NasheedTenantLoaderService`, `NasheedIngestionWorker`, `IAiApiClient`, `INasheedTenantCache` |
+| Service      | Test project                                        | DB         | `appsettings.Test.json` | Notable stubs |
+| ------------ | --------------------------------------------------- | ---------- | ----------------------- | ------------- |
+| Identity     | `src/Services/Identity/Identity.API.Tests/`         | PostgreSQL | Yes — DB credentials    | None |
+| Tenant       | `src/Services/Tenant/Tenant.API.Tests/`             | PostgreSQL | Yes — DB credentials    | Hangfire uses `(sp, config)` lazy overload |
+| FileManager  | `src/Services/FileManager/FileManager.API.Tests/`   | PostgreSQL | Yes — DB credentials    | Hangfire uses `(sp, config)` lazy overload |
+| Translation  | `src/Services/Translation/Translation.API.Tests/`   | PostgreSQL | Yes — DB credentials    | None |
+| Notification | `src/Services/Notification/Notification.API.Tests/` | PostgreSQL | Yes — DB credentials    | Hangfire uses `(sp, config)` lazy overload |
+| Category     | `src/Services/Category/Category.API.Tests/`         | PostgreSQL | Yes — DB credentials    | Hangfire uses `(sp, config)` lazy overload; `IFileManagerServiceClient` mocked; Redis disabled |
+| Nasheed      | `src/Apps/Nasheed/Nasheed.API.Tests/`               | PostgreSQL | Yes — DB credentials    | `NasheedTenantLoaderService`, `NasheedIngestionWorker`, `IAiApiClient`, `INasheedTenantCache` |
 
 ---
 

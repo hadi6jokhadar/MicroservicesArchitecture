@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Identity.API.Filters;
 using Identity.API.Handlers;
 using Identity.Application.Commands;
@@ -17,7 +18,9 @@ public static class EndpointMappingExtensions
     /// </summary>
     public static WebApplication MapUserEndpoints(this WebApplication app)
     {
-        var userGroup = app.MapGroup("/api/user")
+        var v1 = app.NewVersionedApi("User");
+        var userGroup = v1.MapGroup("/api/v{version:apiVersion}/user")
+            .HasApiVersion(1)
             .WithTags("Profile Management")
             .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"))
             .WithMetadata(new OptionalTenantAttribute());
@@ -51,7 +54,9 @@ public static class EndpointMappingExtensions
     /// </summary>
     public static WebApplication MapAuthEndpoints(this WebApplication app)
     {
-        var authGroup = app.MapGroup("/api/auth")
+        var v1 = app.NewVersionedApi("Authentication");
+        var authGroup = v1.MapGroup("/api/v{version:apiVersion}/auth")
+            .HasApiVersion(1)
             .WithTags("Authentication")
             .WithMetadata(new OptionalTenantAttribute());
 
@@ -151,7 +156,9 @@ public static class EndpointMappingExtensions
     /// </summary>
     public static WebApplication MapAdminEndpoints(this WebApplication app)
     {
-        var adminGroup = app.MapGroup("/api/admin")
+        var v1 = app.NewVersionedApi("Admin");
+        var adminGroup = v1.MapGroup("/api/v{version:apiVersion}/admin")
+            .HasApiVersion(1)
             .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin")) // Require Admin role
             .WithTags("Admin User Management")
             .WithMetadata(new OptionalTenantAttribute());
@@ -211,7 +218,9 @@ public static class EndpointMappingExtensions
     /// </summary>
     public static WebApplication MapRoleEndpoints(this WebApplication app)
     {
-        var roleGroup = app.MapGroup("/api/admin/roles")
+        var v1 = app.NewVersionedApi("Roles");
+        var roleGroup = v1.MapGroup("/api/v{version:apiVersion}/admin/roles")
+            .HasApiVersion(1)
             .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"))
             .WithTags("Role Management")
             .WithMetadata(new OptionalTenantAttribute());
@@ -279,7 +288,9 @@ public static class EndpointMappingExtensions
     /// </summary>
     public static WebApplication MapClaimEndpoints(this WebApplication app)
     {
-        var claimGroup = app.MapGroup("/api/admin/claims")
+        var v1 = app.NewVersionedApi("Claims");
+        var claimGroup = v1.MapGroup("/api/v{version:apiVersion}/admin/claims")
+            .HasApiVersion(1)
             .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"))
             .WithTags("Claim Management")
             .WithMetadata(new OptionalTenantAttribute());
@@ -330,7 +341,9 @@ public static class EndpointMappingExtensions
     /// </summary>
     public static WebApplication MapDeviceTokenEndpoints(this WebApplication app)
     {
-        var deviceTokenGroup = app.MapGroup("/api/device-tokens")
+        var v1 = app.NewVersionedApi("DeviceTokens");
+        var deviceTokenGroup = v1.MapGroup("/api/v{version:apiVersion}/device-tokens")
+            .HasApiVersion(1)
             .WithTags("Device Token Management")
             .RequireAuthorization(policy => policy.RequireRole("Service", "User", "Admin", "SuperAdmin"))
             .WithMetadata(new OptionalTenantAttribute());

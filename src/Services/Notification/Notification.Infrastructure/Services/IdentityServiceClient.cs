@@ -52,7 +52,7 @@ public class IdentityServiceClient : IIdentityServiceClient
         {
             var request = new HttpRequestMessage(
                 HttpMethod.Get,
-                $"/api/device-tokens/user/{userId}");
+                $"/api/v1/device-tokens/user/{userId}");
 
             // Add tenant header if provided
             if (!string.IsNullOrWhiteSpace(tenantId))
@@ -120,7 +120,7 @@ public class IdentityServiceClient : IIdentityServiceClient
         {
             var request = new HttpRequestMessage(
                 HttpMethod.Delete,
-                $"/api/device-tokens/{tokenId}");
+                $"/api/v1/device-tokens/{tokenId}");
 
             // Add tenant header if provided
             if (!string.IsNullOrWhiteSpace(tenantId))
@@ -176,7 +176,7 @@ public class IdentityServiceClient : IIdentityServiceClient
         {
             var request = new HttpRequestMessage(
                 HttpMethod.Post,
-                "/api/device-tokens/batch")
+                "/api/v1/device-tokens/batch")
             {
                 Content = JsonContent.Create(new { userIds })
             };
@@ -245,7 +245,7 @@ public class IdentityServiceClient : IIdentityServiceClient
         {
             var request = new HttpRequestMessage(
                 HttpMethod.Delete,
-                "/api/device-tokens/batch")
+                "/api/v1/device-tokens/batch")
             {
                 Content = JsonContent.Create(new { tokenIds })
             };
@@ -302,7 +302,7 @@ public class IdentityServiceClient : IIdentityServiceClient
         {
             var request = new HttpRequestMessage(
                 HttpMethod.Get,
-                "/api/device-tokens/tenant");
+                "/api/v1/device-tokens/tenant");
 
             // Add tenant header
             request.Headers.Add("x-tenant-id", tenantId);

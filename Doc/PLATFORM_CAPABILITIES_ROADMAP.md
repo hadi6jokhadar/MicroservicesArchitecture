@@ -19,7 +19,7 @@
 | 4   | Circuit Breaker / Resilience Patterns | 1    | ✅ Done        |
 | 5   | Audit Logging Service                 | 1    | ✅ Done        |
 | 6   | Background Job / Scheduling Service   | 2    | ✅ Done        |
-| 7   | API Versioning Standard               | 2    | ⬜ Not started |
+| 7   | API Versioning Standard               | 2    | ✅ Done        |
 | 8   | Feature Flags Service                 | 2    | ⬜ Not started |
 | 9   | Database Backup & Recovery            | 2    | ⬜ Not started |
 | 10  | Search Service                        | 3    | ⬜ Not started |
@@ -106,31 +106,31 @@ The AI Python service has two endpoint types that need different route configura
     "Routes": {
       "identity-route": {
         "ClusterId": "identity",
-        "Match": { "Path": "/api/auth/{**catch-all}" }
+        "Match": { "Path": "/api/v1/auth/{**catch-all}" }
       },
       "tenant-route": {
         "ClusterId": "tenant",
-        "Match": { "Path": "/api/tenant/{**catch-all}" }
+        "Match": { "Path": "/api/v1/tenant/{**catch-all}" }
       },
       "filemanager-route": {
         "ClusterId": "filemanager",
-        "Match": { "Path": "/api/filemanager/{**catch-all}" }
+        "Match": { "Path": "/api/v1/filemanager/{**catch-all}" }
       },
       "notification-route": {
         "ClusterId": "notification",
-        "Match": { "Path": "/api/notifications/{**catch-all}" }
+        "Match": { "Path": "/api/v1/notifications/{**catch-all}" }
       },
       "translation-route": {
         "ClusterId": "translation",
-        "Match": { "Path": "/api/translations/{**catch-all}" }
+        "Match": { "Path": "/api/v1/translations/{**catch-all}" }
       },
       "category-route": {
         "ClusterId": "category",
-        "Match": { "Path": "/api/categories/{**catch-all}" }
+        "Match": { "Path": "/api/v1/categories/{**catch-all}" }
       },
       "nasheed-route": {
         "ClusterId": "nasheed",
-        "Match": { "Path": "/api/nasheed/{**catch-all}" }
+        "Match": { "Path": "/api/v1/nasheed/{**catch-all}" }
       },
 
       "ai-route": {
@@ -878,13 +878,13 @@ v2Group.MapGet("/", GetCategoriesV2);
 
 ### Implementation Checklist
 
-- [ ] Add `Asp.Versioning.Http` to all .NET service projects
-- [ ] Add `AddPlatformApiVersioning()` extension to `IhsanDev.Shared.Infrastructure`
-- [ ] Call it in every service's Program.cs
-- [ ] Rename all existing endpoints from `/api/...` to `/api/v1/...`
-- [ ] Update gateway routing table to include the `v1` segment
-- [ ] Update all frontend API calls and service-to-service clients to use `/api/v1/...`
-- [ ] Document the deprecation policy in this file and in `DOCUMENTATION_GUIDELINES.md`
+- [x] Add `Asp.Versioning.Http` to all .NET service projects (Identity, Tenant, Notification, FileManager, Translation, Category, Nasheed — 7 services total)
+- [x] Add `AddPlatformApiVersioning()` extension to `IhsanDev.Shared.Infrastructure`
+- [x] Call it in every service's Program.cs
+- [x] Rename all existing endpoints from `/api/...` to `/api/v1/...` (internal `/api/filemanager/internal/...` kept unversioned)
+- [x] Update gateway routing table to include the `v1` segment
+- [x] Update all frontend API calls and service-to-service clients to use `/api/v1/...`
+- [x] Document the deprecation policy in this file and in `DOCUMENTATION_GUIDELINES.md`
 
 ---
 
@@ -993,7 +993,7 @@ $backupDir = "C:\Backups\PostgreSQL\$(Get-Date -Format 'yyyy-MM-dd')"
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
 
 # Get all tenant connection strings from Tenant Service API
-$tenants = Invoke-RestMethod -Uri "http://localhost:5002/api/admin/tenant" `
+$tenants = Invoke-RestMethod -Uri "http://localhost:5002/api/v1/admin/tenant" `
     -Headers @{ Authorization = "Bearer $env:ADMIN_TOKEN" }
 
 foreach ($tenant in $tenants.items) {

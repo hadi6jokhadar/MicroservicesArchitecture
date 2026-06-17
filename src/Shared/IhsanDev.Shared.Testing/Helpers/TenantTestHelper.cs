@@ -51,7 +51,7 @@ public static class TenantTestHelper
             Data = "{\"Jwt\":{\"Secret\":\"test-secret-key\",\"Issuer\":\"TestTenant\"}}"
         };
         
-        var response = await httpClient.PostAsJsonAsync("/api/tenants", createTenantRequest);
+        var response = await httpClient.PostAsJsonAsync("/api/v1/admin/tenant", createTenantRequest);
         response.EnsureSuccessStatusCode();
         
         var result = await response.Content.ReadFromJsonAsync<CreateTenantResponse>();
@@ -69,7 +69,7 @@ public static class TenantTestHelper
         HttpClient httpClient,
         string tenantId)
     {
-        var response = await httpClient.GetAsync($"/api/tenants/{tenantId}");
+        var response = await httpClient.GetAsync($"/api/v1/tenant/{tenantId}");
         
         if (!response.IsSuccessStatusCode)
         {
@@ -92,7 +92,7 @@ public static class TenantTestHelper
         try
         {
             // Try to access tenant endpoint - if it exists, tenant is enabled
-            var response = await httpClient.GetAsync("/api/tenants");
+            var response = await httpClient.GetAsync("/api/v1/admin/tenant");
             // 200 OK, 401 Unauthorized, or 404 NotFound all indicate tenant endpoint exists
             return response.IsSuccessStatusCode || 
                    response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||

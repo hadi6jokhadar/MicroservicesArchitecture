@@ -39,7 +39,7 @@ public class TenantServiceClient : ITenantServiceClient
             {
                 var request = new HttpRequestMessage(
                     HttpMethod.Get,
-                    $"/api/admin/tenant?pageNumber={pageNumber}&pageSize={pageSize}");
+                    $"/api/v1/admin/tenant?pageNumber={pageNumber}&pageSize={pageSize}");
 
                 var response = await _httpClient.SendAsync(request, cancellationToken);
 

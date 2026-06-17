@@ -90,8 +90,8 @@ public abstract class BaseDbContext : DbContext
             }
         }
 
-        // 3. Capture connection string before the save (available once context is configured)
-        var connectionString = Database.GetConnectionString() ?? string.Empty;
+        // 3. Capture connection string before the save — GetConnectionString() is relational-only.
+        var connectionString = Database.IsRelational() ? (Database.GetConnectionString() ?? string.Empty) : string.Empty;
 
         // 4. Save business data only — audit rows go through the background channel
         var result = await base.SaveChangesAsync(cancellationToken);

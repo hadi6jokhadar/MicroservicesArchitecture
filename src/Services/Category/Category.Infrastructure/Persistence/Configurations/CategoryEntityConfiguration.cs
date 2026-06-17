@@ -23,7 +23,8 @@ public class CategoryEntityConfiguration : IEntityTypeConfiguration<CategoryEnti
             .HasColumnName("path")
             .IsRequired()
             .HasMaxLength(1000)
-            .HasDefaultValue("/");
+            .HasDefaultValue("/")
+            .ValueGeneratedNever();
 
         builder.Property(e => e.Depth)
             .HasColumnName("depth")

@@ -77,13 +77,13 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
         if (request.ParentId.HasValue)
             entity.SetHierarchy(request.ParentId, parentPath!, parentDepth);
 
-        await _repository.AddAsync(entity, cancellationToken);
-
-        // Recalculate path using Uri after entity is persisted
+        // Calculate the materialized path before INSERT so the DB row has the correct path
+        // from the start. Uri is already set at this point — no need to wait for the Id.
         entity.RecalculatePath(parentPath);
 
-        // Queue the outbox event BEFORE UpdateAsync so both the path update and the
-        // outbox row are committed in the same SaveChangesAsync call — true atomicity.
+        await _repository.AddAsync(entity, cancellationToken);
+
+        // Queue the outbox event and persist it atomically with any remaining entity updates.
         await _eventPublisher.PublishAsync(entity, CategoryEventType.Created, _tenantContext.TenantId, cancellationToken);
         await _repository.UpdateAsync(entity, cancellationToken);
 

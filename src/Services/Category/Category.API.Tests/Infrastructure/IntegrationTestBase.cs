@@ -2,6 +2,7 @@ using Category.Domain.Entities;
 using Category.Infrastructure.Persistence;
 using IhsanDev.Shared.Kernel.Dto;
 using IhsanDev.Shared.Testing.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Category.API.Tests.Infrastructure;
@@ -40,6 +41,18 @@ public abstract class IntegrationTestBase :
                 nameTranslations: LocalizedMapping.From(translations),
                 parentId: parentId
             );
+
+            // Compute the materialized path before INSERT — mirrors what CreateCategoryCommandHandler does.
+            string? parentPath = null;
+            if (parentId.HasValue)
+            {
+                var parent = await context.Categories.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == parentId.Value);
+                parentPath = parent?.Path;
+                if (parent != null)
+                    entity.SetHierarchy(parentId, parent.Path, parent.Depth);
+            }
+            entity.RecalculatePath(parentPath);
 
             context.Categories.Add(entity);
             await context.SaveChangesAsync();

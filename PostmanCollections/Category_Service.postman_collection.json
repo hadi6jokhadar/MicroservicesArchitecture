@@ -6,33 +6,12 @@
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5007", "type": "string" },
-    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "tenantId", "value": "", "type": "string" },
     { "key": "authToken", "value": "", "type": "string" },
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "serviceSecret", "value": "", "type": "string" }
   ],
   "item": [
-    {
-      "name": "Public",
-      "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
-          }
-        },
-        {
-          "name": "Health Readiness",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
-          }
-        }
-      ]
-    },
     {
       "name": "Authenticated",
       "item": [
@@ -44,7 +23,11 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/categories/tree", "host": ["{{baseUrl}}"], "path": ["api", "categories", "tree"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/tree",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", "tree"]
+            }
           }
         },
         {
@@ -56,22 +39,27 @@
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/categories/?page=1&pageSize=20",
+              "raw": "{{baseUrl}}/api/v1/categories/?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "categories", ""],
+              "path": ["api", "v1", "categories", ""],
               "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
             }
           }
         },
         {
-          "name": "Get Category by ID",
+          "name": "Get Category By ID",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -83,11 +71,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", ""]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Electronics\",\n  \"parentId\": null,\n  \"order\": 1\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/categories/", "host": ["{{baseUrl}}"], "path": ["api", "categories", ""] }
+            }
           }
         },
         {
@@ -99,11 +91,16 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Consumer Electronics\",\n  \"order\": 2\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              "raw": "{\n  \"name\": \"Electronics Updated\",\n  \"order\": 2\n}"
+            }
           }
         },
         {
@@ -115,11 +112,16 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/:id/move",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", ":id", "move"],
+              "variable": [{ "key": "id", "value": "1" }]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"newParentId\": 2,\n  \"order\": 1\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/categories/:id/move", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id", "move"], "variable": [{ "key": "id", "value": "1" }] }
+              "raw": "{\n  \"newParentId\": 2\n}"
+            }
           }
         },
         {
@@ -130,41 +132,12 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "categories", ":id"], "variable": [{ "key": "id", "value": "1" }] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Audit Logs",
-      "item": [
-        {
-          "name": "Get Audit Logs",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{authToken}}" },
-              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — OptionalTenantAttribute" }
-            ],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/audit-logs",
+              "raw": "{{baseUrl}}/api/v1/categories/:id",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "audit-logs"],
-              "query": [
-                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
-                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type (e.g. User, CategoryEntity)" },
-                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring (e.g. Deleted, Updated)" },
-                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user who made the change" },
-                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
-                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp, e.g. 2026-01-01T00:00:00Z" },
-                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
-                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
-                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
-                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based (default: 1)" },
-                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100 (default: 20)" }
-              ]
-            },
-            "description": "Returns PaginatedList<AuditLogDto>. Requires Admin or SuperAdmin role."
+              "path": ["api", "v1", "categories", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         }
       ]
@@ -173,26 +146,45 @@
       "name": "Admin",
       "item": [
         {
-          "name": "Get Category Tree (Admin)",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{authToken}}" }
-            ],
-            "url": { "raw": "{{baseUrl}}/api/admin/categories/tree", "host": ["{{baseUrl}}"], "path": ["api", "admin", "categories", "tree"] }
-          }
-        },
-        {
-          "name": "Get Category List (Admin)",
+          "name": "Admin Get Category Tree",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/categories/?page=1&pageSize=20",
+              "raw": "{{baseUrl}}/api/v1/admin/categories/tree",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "categories", ""],
+              "path": ["api", "v1", "admin", "categories", "tree"]
+            }
+          }
+        },
+        {
+          "name": "Admin Get Category List",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/categories/?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "categories", ""],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+            }
+          }
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit-logs?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "audit-logs"],
               "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
             }
           }
@@ -203,14 +195,18 @@
       "name": "Internal",
       "item": [
         {
-          "name": "Get Category Snapshot (Internal)",
+          "name": "Get Category Snapshot",
           "request": {
             "method": "GET",
             "header": [
               { "key": "X-Service-Secret", "value": "{{serviceSecret}}" },
-              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — scopes result to a specific tenant" }
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional - scope by tenant" }
             ],
-            "url": { "raw": "{{baseUrl}}/internal/categories/snapshot", "host": ["{{baseUrl}}"], "path": ["internal", "categories", "snapshot"] }
+            "url": {
+              "raw": "{{baseUrl}}/internal/categories/snapshot",
+              "host": ["{{baseUrl}}"],
+              "path": ["internal", "categories", "snapshot"]
+            }
           }
         }
       ]

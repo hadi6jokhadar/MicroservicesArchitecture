@@ -6,7 +6,7 @@
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5001", "type": "string" },
-    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "tenantId", "value": "", "type": "string" },
     { "key": "authToken", "value": "", "type": "string" },
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "serviceSecret", "value": "", "type": "string" }
@@ -16,22 +16,6 @@
       "name": "Public",
       "item": [
         {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
-          }
-        },
-        {
-          "name": "Health Readiness",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
-          }
-        },
-        {
           "name": "Login",
           "request": {
             "method": "POST",
@@ -39,11 +23,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+            }
           }
         },
         {
@@ -54,11 +42,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] }
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}"
+            }
           }
         },
         {
@@ -69,11 +61,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "forgot-password"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"user@example.com\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "forgot-password"] }
+            }
           }
         },
         {
@@ -84,101 +80,129 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "auth", "refresh"] }
+            }
           }
         },
         {
-          "name": "Get Verification Code by Phone",
+          "name": "Get Verification Code By Phone",
           "request": {
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/get-verification-code-by-phone",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "get-verification-code-by-phone"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"phoneNumber\": \"+1234567890\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/auth/get-verification-code-by-phone", "host": ["{{baseUrl}}"], "path": ["api", "auth", "get-verification-code-by-phone"] }
+            }
           }
         },
         {
-          "name": "Get Verification Code by Email",
+          "name": "Get Verification Code By Email",
           "request": {
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/get-verification-code-by-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "get-verification-code-by-email"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"user@example.com\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/auth/get-verification-code-by-email", "host": ["{{baseUrl}}"], "path": ["api", "auth", "get-verification-code-by-email"] }
+            }
           }
         },
         {
-          "name": "Login with Code by Phone",
+          "name": "Login With Code By Phone",
           "request": {
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login-with-code-by-phone",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login-with-code-by-phone"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"phoneNumber\": \"+1234567890\",\n  \"code\": \"12345\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/auth/login-with-code-by-phone", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login-with-code-by-phone"] }
+            }
           }
         },
         {
-          "name": "Login with Code by Email",
+          "name": "Login With Code By Email",
           "request": {
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login-with-code-by-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login-with-code-by-email"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"code\": \"12345\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/auth/login-with-code-by-email", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login-with-code-by-email"] }
+            }
           }
         },
         {
-          "name": "Register with Code by Phone",
+          "name": "Register With Code By Phone",
           "request": {
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register-with-code-by-phone",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register-with-code-by-phone"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"phoneNumber\": \"+1234567890\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/auth/register-with-code-by-phone", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register-with-code-by-phone"] }
+            }
           }
         },
         {
-          "name": "Register with Code by Email",
+          "name": "Register With Code By Email",
           "request": {
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register-with-code-by-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register-with-code-by-email"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"user@example.com\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/auth/register-with-code-by-email", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register-with-code-by-email"] }
+            }
           }
         }
       ]
@@ -194,7 +218,11 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
           }
         },
         {
@@ -205,7 +233,11 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/user/profile", "host": ["{{baseUrl}}"], "path": ["api", "user", "profile"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/user/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "user", "profile"]
+            }
           }
         },
         {
@@ -217,22 +249,30 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/user/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "user", "profile"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phoneNumber\": \"+1234567890\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/user/profile", "host": ["{{baseUrl}}"], "path": ["api", "user", "profile"] }
+            }
           }
         },
         {
-          "name": "Delete My Account",
+          "name": "Delete Own Account",
           "request": {
             "method": "DELETE",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/user/me", "host": ["{{baseUrl}}"], "path": ["api", "user", "me"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/user/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "user", "me"]
+            }
           }
         },
         {
@@ -244,22 +284,31 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/device-tokens/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "device-tokens", ""]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"device-fcm-token-here\",\n  \"platform\": \"Android\",\n  \"userId\": 1\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/device-tokens/", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", ""] }
+              "raw": "{\n  \"token\": \"fcm-device-token-here\",\n  \"platform\": 1\n}"
+            }
           }
         },
         {
-          "name": "Get Device Token by ID",
+          "name": "Get Device Token By ID",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/device-tokens/:id", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/device-tokens/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "device-tokens", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -270,11 +319,16 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/device-tokens/user/:userId", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", "user", ":userId"], "variable": [{ "key": "userId", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/device-tokens/user/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "device-tokens", "user", ":userId"],
+              "variable": [{ "key": "userId", "value": "1" }]
+            }
           }
         },
         {
-          "name": "Get User Device Tokens by Platform",
+          "name": "Get User Device Tokens By Platform",
           "request": {
             "method": "GET",
             "header": [
@@ -282,23 +336,12 @@
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/device-tokens/user/:userId/platform?platform=Android",
+              "raw": "{{baseUrl}}/api/v1/device-tokens/user/:userId/platform?platform=1",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "device-tokens", "user", ":userId", "platform"],
-              "query": [{ "key": "platform", "value": "Android" }],
-              "variable": [{ "key": "userId", "value": "1" }]
+              "path": ["api", "v1", "device-tokens", "user", ":userId", "platform"],
+              "variable": [{ "key": "userId", "value": "1" }],
+              "query": [{ "key": "platform", "value": "1" }]
             }
-          }
-        },
-        {
-          "name": "Get Tenant Device Tokens",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{authToken}}" },
-              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
-            ],
-            "url": { "raw": "{{baseUrl}}/api/device-tokens/tenant", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", "tenant"] }
           }
         },
         {
@@ -310,11 +353,16 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/device-tokens/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "device-tokens", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"updated-fcm-token\",\n  \"platform\": \"iOS\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/device-tokens/:id", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              "raw": "{\n  \"token\": \"new-fcm-token\",\n  \"platform\": 1\n}"
+            }
           }
         },
         {
@@ -325,7 +373,12 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/device-tokens/:id", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/device-tokens/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "device-tokens", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -336,7 +389,12 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/device-tokens/user/:userId", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", "user", ":userId"], "variable": [{ "key": "userId", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/device-tokens/user/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "device-tokens", "user", ":userId"],
+              "variable": [{ "key": "userId", "value": "1" }]
+            }
           }
         },
         {
@@ -348,11 +406,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/device-tokens/batch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "device-tokens", "batch"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"userIds\": [1, 2, 3]\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/device-tokens/batch", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", "batch"] }
+            }
           }
         },
         {
@@ -364,45 +426,30 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/device-tokens/batch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "device-tokens", "batch"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"tokenIds\": [1, 2, 3]\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/device-tokens/batch", "host": ["{{baseUrl}}"], "path": ["api", "device-tokens", "batch"] }
+            }
           }
-        }
-      ]
-    },
-    {
-      "name": "Audit Logs",
-      "item": [
+        },
         {
-          "name": "Get Audit Logs",
+          "name": "Get Tenant Device Tokens",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
-              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — OptionalTenantAttribute" }
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/audit-logs",
+              "raw": "{{baseUrl}}/api/v1/device-tokens/tenant",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "audit-logs"],
-              "query": [
-                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
-                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type (e.g. User, CategoryEntity)" },
-                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring (e.g. Deleted, Updated)" },
-                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user who made the change" },
-                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
-                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp, e.g. 2026-01-01T00:00:00Z" },
-                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
-                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
-                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
-                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based (default: 1)" },
-                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100 (default: 20)" }
-              ]
-            },
-            "description": "Returns PaginatedList<AuditLogDto>. Requires Admin or SuperAdmin role."
+              "path": ["api", "v1", "device-tokens", "tenant"]
+            }
           }
         }
       ]
@@ -419,22 +466,27 @@
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/users?page=1&pageSize=20",
+              "raw": "{{baseUrl}}/api/v1/admin/users?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "users"],
+              "path": ["api", "v1", "admin", "users"],
               "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
             }
           }
         },
         {
-          "name": "Get User by ID",
+          "name": "Get User By ID",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/users/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -446,11 +498,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/admin/users", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users"] }
+              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\"\n}"
+            }
           }
         },
         {
@@ -462,11 +518,16 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"email\": \"jane@example.com\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/admin/users/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Name\"\n}"
+            }
           }
         },
         {
@@ -477,7 +538,12 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/users/:id/toggle-status", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", ":id", "toggle-status"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/:id/toggle-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", ":id", "toggle-status"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -488,7 +554,12 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/users/:id/toggle-archive", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", ":id", "toggle-archive"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/:id/toggle-archive",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", ":id", "toggle-archive"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -499,7 +570,12 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/users/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -510,18 +586,27 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/roles/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ""] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/roles/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles", ""]
+            }
           }
         },
         {
-          "name": "Get Role by ID",
+          "name": "Get Role By ID",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/roles/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/roles/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -533,11 +618,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/roles/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles", ""]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Editor\",\n  \"description\": \"Can edit content\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/admin/roles/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ""] }
+            }
           }
         },
         {
@@ -549,11 +638,16 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/roles/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Editor\",\n  \"description\": \"Updated description\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/admin/roles/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              "raw": "{\n  \"name\": \"EditorUpdated\"\n}"
+            }
           }
         },
         {
@@ -564,11 +658,16 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/roles/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/roles/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
-          "name": "Assign Claims to Role",
+          "name": "Assign Claims To Role",
           "request": {
             "method": "POST",
             "header": [
@@ -576,15 +675,20 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/roles/:id/claims",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles", ":id", "claims"],
+              "variable": [{ "key": "id", "value": "1" }]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"claimIds\": [1, 2, 3]\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/admin/roles/:id/claims", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", ":id", "claims"], "variable": [{ "key": "id", "value": "1" }] }
+            }
           }
         },
         {
-          "name": "Assign Roles to User",
+          "name": "Assign Roles To User",
           "request": {
             "method": "POST",
             "header": [
@@ -592,11 +696,16 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/roles/user/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles", "user", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"roleIds\": [1, 2]\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/admin/roles/user/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "roles", "user", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            }
           }
         },
         {
@@ -607,18 +716,27 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/claims/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "claims", ""] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/claims/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "claims", ""]
+            }
           }
         },
         {
-          "name": "Get Claim by ID",
+          "name": "Get Claim By ID",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/claims/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "claims", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/claims/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "claims", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -630,11 +748,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/claims/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "claims", ""]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"permission\",\n  \"value\": \"posts:write\",\n  \"description\": \"Can write posts\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/admin/claims/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "claims", ""] }
+              "raw": "{\n  \"type\": \"permission\",\n  \"value\": \"articles:write\"\n}"
+            }
           }
         },
         {
@@ -646,11 +768,16 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/claims/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "claims", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"permission\",\n  \"value\": \"posts:write\",\n  \"description\": \"Updated description\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/admin/claims/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "claims", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              "raw": "{\n  \"type\": \"permission\",\n  \"value\": \"articles:read\"\n}"
+            }
           }
         },
         {
@@ -661,7 +788,28 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/claims/:id", "host": ["{{baseUrl}}"], "path": ["api", "admin", "claims", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/claims/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "claims", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
+          }
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit-logs?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "audit-logs"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+            }
           }
         }
       ]

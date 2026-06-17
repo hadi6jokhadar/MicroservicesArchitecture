@@ -6,7 +6,7 @@
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5002", "type": "string" },
-    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "tenantId", "value": "", "type": "string" },
     { "key": "authToken", "value": "", "type": "string" },
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "serviceSecret", "value": "", "type": "string" }
@@ -16,27 +16,16 @@
       "name": "Public",
       "item": [
         {
-          "name": "Health Check",
+          "name": "Get Tenant By ID",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
-          }
-        },
-        {
-          "name": "Health Readiness",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
-          }
-        },
-        {
-          "name": "Get Tenant by ID",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/tenant/:tenantId", "host": ["{{baseUrl}}"], "path": ["api", "tenant", ":tenantId"], "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenant/:tenantId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenant", ":tenantId"],
+              "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
           }
         }
       ]
@@ -45,62 +34,33 @@
       "name": "Authenticated",
       "item": [
         {
-          "name": "Get Tenant Config",
+          "name": "Get Tenant Config (Service Only)",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/tenant/config/:tenantId", "host": ["{{baseUrl}}"], "path": ["api", "tenant", "config", ":tenantId"], "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenant/config/:tenantId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenant", "config", ":tenantId"],
+              "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
           }
         },
         {
-          "name": "Get All Active Tenants with Config",
+          "name": "Get All Active Tenants With Config (Service Only)",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/tenant/config?page=1&pageSize=20",
+              "raw": "{{baseUrl}}/api/v1/tenant/config?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "tenant", "config"],
+              "path": ["api", "v1", "tenant", "config"],
               "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Audit Logs",
-      "item": [
-        {
-          "name": "Get Audit Logs",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{authToken}}" },
-              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — OptionalTenantAttribute" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/audit-logs",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "audit-logs"],
-              "query": [
-                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
-                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type (e.g. User, CategoryEntity)" },
-                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring (e.g. Deleted, Updated)" },
-                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user who made the change" },
-                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
-                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp, e.g. 2026-01-01T00:00:00Z" },
-                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
-                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
-                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
-                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based (default: 1)" },
-                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100 (default: 20)" }
-              ]
-            },
-            "description": "Returns PaginatedList<AuditLogDto>. Requires Admin or SuperAdmin role."
           }
         }
       ]
@@ -116,21 +76,26 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/tenant/?page=1&pageSize=20",
+              "raw": "{{baseUrl}}/api/v1/admin/tenant/?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "tenant", ""],
+              "path": ["api", "v1", "admin", "tenant", ""],
               "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
             }
           }
         },
         {
-          "name": "Get Tenant by User ID",
+          "name": "Get Tenant By User",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/tenant/user/:userId", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", "user", ":userId"], "variable": [{ "key": "userId", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tenant/user/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tenant", "user", ":userId"],
+              "variable": [{ "key": "userId", "value": "1" }]
+            }
           }
         },
         {
@@ -141,11 +106,15 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tenant/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tenant", ""]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Corp\",\n  \"identifier\": \"acme\",\n  \"databaseProvider\": \"PostgreSql\",\n  \"connectionString\": \"Host=localhost;Database=acme_db;Username=user;Password=pass\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/admin/tenant/", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", ""] }
+              "raw": "{\n  \"name\": \"Acme Corp\",\n  \"identifier\": \"acme\",\n  \"allowedOrigins\": [\"https://app.acme.com\"]\n}"
+            }
           }
         },
         {
@@ -156,11 +125,16 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tenant/:tenantId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tenant", ":tenantId"],
+              "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Corporation\",\n  \"allowedOrigins\": [\"https://acme.example.com\"]\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/admin/tenant/:tenantId", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", ":tenantId"], "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }] }
+              "raw": "{\n  \"name\": \"Acme Corp Updated\",\n  \"allowedOrigins\": [\"https://app.acme.com\", \"https://admin.acme.com\"]\n}"
+            }
           }
         },
         {
@@ -170,7 +144,12 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/tenant/:tenantId", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", ":tenantId"], "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tenant/:tenantId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tenant", ":tenantId"],
+              "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
           }
         },
         {
@@ -180,7 +159,27 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/admin/tenant/:tenantId/toggle-archive", "host": ["{{baseUrl}}"], "path": ["api", "admin", "tenant", ":tenantId", "toggle-archive"], "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tenant/:tenantId/toggle-archive",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tenant", ":tenantId", "toggle-archive"],
+              "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit-logs?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "audit-logs"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+            }
           }
         }
       ]
