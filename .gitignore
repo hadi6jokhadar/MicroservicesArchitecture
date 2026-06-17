@@ -476,6 +476,7 @@ temp/
 # Application specific
 appsettings.local.json
 *.Development.json
+*.Test.json
 *.Production.json
 *.Staging.json
 
@@ -671,6 +672,7 @@ temp/
 # Application specific
 appsettings.local.json
 *.Development.json
+*.Test.json
 *.Production.json
 *.Staging.json
 
