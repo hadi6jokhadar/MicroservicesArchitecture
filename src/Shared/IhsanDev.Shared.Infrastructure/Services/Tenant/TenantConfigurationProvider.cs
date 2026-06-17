@@ -56,7 +56,7 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
         try
         {
             // Fetch from Tenant Service API
-            var response = await _httpClient.GetAsync($"/api/tenant/config/{tenantId}", cancellationToken);
+            var response = await _httpClient.GetAsync($"/api/v1/tenant/config/{tenantId}", cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {

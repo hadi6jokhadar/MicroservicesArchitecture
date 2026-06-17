@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Translation.API.Filters;
@@ -13,17 +14,21 @@ public static class EndpointMappingExtensions
 {
     public static void MapTranslationEndpoints(this IEndpointRouteBuilder app)
     {
-        var publicGroup = app.MapGroup("/api/translations")
+        var v1 = app.NewVersionedApi("Translations");
+
+        var publicGroup = v1.MapGroup("/api/v{version:apiVersion}/translations")
+            .HasApiVersion(1)
             .WithTags("Translations - Public");
 
-        var adminGroup = app.MapGroup("/api/translations")
+        var adminGroup = v1.MapGroup("/api/v{version:apiVersion}/translations")
+            .HasApiVersion(1)
             .WithTags("Translations - Admin")
             .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"));
 
         // ============================================
         // Public Endpoints (Anyone can access)
         // ============================================
-        
+
         /// <summary>
         /// Get translations for a specific language
         /// Supports optional tenant-specific overrides via x-tenant-id header
@@ -36,11 +41,11 @@ public static class EndpointMappingExtensions
         .WithName("GetTranslations")
         .WithDescription("Get all translations for a language. If tenantId header is absent, returns only global translations. If present, returns global + tenant-specific overrides.")
         .Produces<TranslationsDto>();
-        
+
         // ============================================
         // Admin Endpoints (Require Admin/SuperAdmin Role)
         // ============================================
-        
+
         /// <summary>
         /// Get paginated list of translation keys
         /// </summary>
@@ -48,7 +53,7 @@ public static class EndpointMappingExtensions
         .WithName("GetTranslationKeys")
         .WithDescription("Get paginated list of translation keys with optional filtering by category and search term (admin only)")
         .Produces<PaginatedList<TranslationKeyDto>>();
-        
+
         /// <summary>
         /// Create a new translation key
         /// </summary>
@@ -58,7 +63,7 @@ public static class EndpointMappingExtensions
         .Produces<TranslationKeyDto>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
         .AddEndpointFilter<ValidationFilter<CreateTranslationKeyCommand>>();
-        
+
         /// <summary>
         /// Update a translation key
         /// </summary>
@@ -70,7 +75,7 @@ public static class EndpointMappingExtensions
         .Produces(StatusCodes.Status404NotFound)
         .ProducesValidationProblem()
         .AddEndpointFilter<ValidationFilter<UpdateTranslationKeyCommand>>();
-        
+
         /// <summary>
         /// Delete a translation key
         /// </summary>
@@ -88,7 +93,7 @@ public static class EndpointMappingExtensions
         .WithDescription("Archive or unarchive translation key (admin only)")
         .Produces<TranslationKeyDto>()
         .Produces(StatusCodes.Status404NotFound);
-        
+
         /// <summary>
         /// Set or update a translation value
         /// If TenantId is null in command, it's a global translation
@@ -100,7 +105,7 @@ public static class EndpointMappingExtensions
         .Produces<TranslationValueDto>()
         .ProducesValidationProblem()
         .AddEndpointFilter<ValidationFilter<SetTranslationCommand>>();
-        
+
         /// <summary>
         /// Delete a specific translation value
         /// </summary>
@@ -109,7 +114,7 @@ public static class EndpointMappingExtensions
         .WithDescription("Delete a specific translation value (admin only)")
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status404NotFound);
-        
+
         /// <summary>
         /// Bulk import translations from JSON
         /// </summary>

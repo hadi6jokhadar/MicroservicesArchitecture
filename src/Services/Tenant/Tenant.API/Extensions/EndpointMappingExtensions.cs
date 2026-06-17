@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Tenant.API.Handlers;
 using Tenant.API.Filters;
 using Tenant.Application.Commands.Tenant;
@@ -13,7 +14,9 @@ public static class EndpointMappingExtensions
     {
         // Public tenant configuration endpoint (for Identity Service to fetch config)
         // Allow both anonymous access and service authentication
-        var publicGroup = app.MapGroup("/api/tenant")
+        var v1 = app.NewVersionedApi("Tenant");
+        var publicGroup = v1.MapGroup("/api/v{version:apiVersion}/tenant")
+            .HasApiVersion(1)
             .WithTags("Tenant Configuration");
 
         // This endpoint is used by other services to fetch tenant configuration
@@ -47,7 +50,9 @@ public static class EndpointMappingExtensions
             .Produces(404);
 
         // Tenant management endpoints (Admin only)
-        var adminGroup = app.MapGroup("/api/admin/tenant")
+        var v1Admin = app.NewVersionedApi("TenantAdmin");
+        var adminGroup = v1Admin.MapGroup("/api/v{version:apiVersion}/admin/tenant")
+            .HasApiVersion(1)
             .RequireAuthorization(policy => policy.RequireRole("SuperAdmin"))
             .WithTags("Tenant Management (Super Admin)");
 

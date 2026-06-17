@@ -6,33 +6,12 @@
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5009", "type": "string" },
-    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "tenantId", "value": "", "type": "string" },
     { "key": "authToken", "value": "", "type": "string" },
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "serviceSecret", "value": "", "type": "string" }
   ],
   "item": [
-    {
-      "name": "Public",
-      "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
-          }
-        },
-        {
-          "name": "Health Readiness",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
-          }
-        }
-      ]
-    },
     {
       "name": "Authenticated",
       "item": [
@@ -48,22 +27,27 @@
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/artists/?page=1&pageSize=20",
+                  "raw": "{{baseUrl}}/api/v1/artists/?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "artists", ""],
+                  "path": ["api", "v1", "artists", ""],
                   "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
               }
             },
             {
-              "name": "Get Artist by ID",
+              "name": "Get Artist By ID",
               "request": {
                 "method": "GET",
                 "header": [
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/artists/:id", "host": ["{{baseUrl}}"], "path": ["api", "artists", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/artists/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "artists", ":id"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
               }
             },
             {
@@ -75,11 +59,15 @@
                   { "key": "Content-Type", "value": "application/json" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/artists/",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "artists", ""]
+                },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Artist Name\",\n  \"bio\": \"Artist biography\",\n  \"profileImageId\": null\n}"
-                },
-                "url": { "raw": "{{baseUrl}}/api/artists/", "host": ["{{baseUrl}}"], "path": ["api", "artists", ""] }
+                  "raw": "{\n  \"name\": \"Maher Zain\",\n  \"bio\": \"Swedish-Lebanese singer\"\n}"
+                }
               }
             },
             {
@@ -91,11 +79,16 @@
                   { "key": "Content-Type", "value": "application/json" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/artists/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "artists", ":id"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Updated Artist Name\",\n  \"bio\": \"Updated biography\"\n}"
-                },
-                "url": { "raw": "{{baseUrl}}/api/artists/:id", "host": ["{{baseUrl}}"], "path": ["api", "artists", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+                  "raw": "{\n  \"name\": \"Maher Zain\",\n  \"bio\": \"Updated bio\"\n}"
+                }
               }
             },
             {
@@ -106,7 +99,12 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/artists/:id", "host": ["{{baseUrl}}"], "path": ["api", "artists", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/artists/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "artists", ":id"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
               }
             }
           ]
@@ -123,22 +121,27 @@
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/songs/?page=1&pageSize=20",
+                  "raw": "{{baseUrl}}/api/v1/songs/?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ""],
+                  "path": ["api", "v1", "songs", ""],
                   "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
               }
             },
             {
-              "name": "Get Song by ID",
+              "name": "Get Song By ID",
               "request": {
                 "method": "GET",
                 "header": [
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/songs/:id", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ":id"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
               }
             },
             {
@@ -149,7 +152,12 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/songs/:id/analysis", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id", "analysis"], "variable": [{ "key": "id", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/:id/analysis",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ":id", "analysis"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
               }
             },
             {
@@ -161,11 +169,11 @@
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/songs/:id/similar?topN=10",
+                  "raw": "{{baseUrl}}/api/v1/songs/:id/similar?topN=10",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "songs", ":id", "similar"],
-                  "query": [{ "key": "topN", "value": "10" }],
-                  "variable": [{ "key": "id", "value": "1" }]
+                  "path": ["api", "v1", "songs", ":id", "similar"],
+                  "variable": [{ "key": "id", "value": "1" }],
+                  "query": [{ "key": "topN", "value": "10" }]
                 }
               }
             },
@@ -178,11 +186,15 @@
                   { "key": "Content-Type", "value": "application/json" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ""]
+                },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"title\": \"Song Title\",\n  \"artistId\": 1,\n  \"audioFileId\": 1,\n  \"lyrics\": \"Song lyrics here\"\n}"
-                },
-                "url": { "raw": "{{baseUrl}}/api/songs/", "host": ["{{baseUrl}}"], "path": ["api", "songs", ""] }
+                  "raw": "{\n  \"title\": \"Rahmatun Lil Alameen\",\n  \"artistId\": 1,\n  \"audioFileId\": 1,\n  \"language\": \"ar\"\n}"
+                }
               }
             },
             {
@@ -194,11 +206,16 @@
                   { "key": "Content-Type", "value": "application/json" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ":id"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"title\": \"Updated Song Title\",\n  \"lyrics\": \"Updated lyrics\"\n}"
-                },
-                "url": { "raw": "{{baseUrl}}/api/songs/:id", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+                  "raw": "{\n  \"title\": \"Updated Title\",\n  \"artistId\": 1\n}"
+                }
               }
             },
             {
@@ -209,7 +226,12 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/songs/:id", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ":id"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
               }
             }
           ]
@@ -225,7 +247,12 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/songs/:songId/favorites", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "favorites"], "variable": [{ "key": "songId", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/:songId/favorites",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ":songId", "favorites"],
+                  "variable": [{ "key": "songId", "value": "1" }]
+                }
               }
             },
             {
@@ -236,7 +263,12 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/songs/:songId/favorites", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "favorites"], "variable": [{ "key": "songId", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/:songId/favorites",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ":songId", "favorites"],
+                  "variable": [{ "key": "songId", "value": "1" }]
+                }
               }
             },
             {
@@ -248,11 +280,16 @@
                   { "key": "Content-Type", "value": "application/json" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/:songId/ratings",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ":songId", "ratings"],
+                  "variable": [{ "key": "songId", "value": "1" }]
+                },
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"score\": 5\n}"
-                },
-                "url": { "raw": "{{baseUrl}}/api/songs/:songId/ratings", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "ratings"], "variable": [{ "key": "songId", "value": "1" }] }
+                }
               }
             },
             {
@@ -263,7 +300,12 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/songs/:songId/play", "host": ["{{baseUrl}}"], "path": ["api", "songs", ":songId", "play"], "variable": [{ "key": "songId", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/:songId/play",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ":songId", "play"],
+                  "variable": [{ "key": "songId", "value": "1" }]
+                }
               }
             }
           ]
@@ -280,9 +322,9 @@
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/search/?q=nasheed&topN=10",
+                  "raw": "{{baseUrl}}/api/v1/search/?q=nasheed&topN=10",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "search", ""],
+                  "path": ["api", "v1", "search", ""],
                   "query": [{ "key": "q", "value": "nasheed" }, { "key": "topN", "value": "10" }]
                 }
               }
@@ -301,22 +343,27 @@
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/ingestion/?page=1&pageSize=20",
+                  "raw": "{{baseUrl}}/api/v1/ingestion/?page=1&pageSize=20",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "ingestion", ""],
+                  "path": ["api", "v1", "ingestion", ""],
                   "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
                 }
               }
             },
             {
-              "name": "Get Ingestion Job by ID",
+              "name": "Get Ingestion Job By ID",
               "request": {
                 "method": "GET",
                 "header": [
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/ingestion/:id", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/ingestion/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "ingestion", ":id"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
               }
             },
             {
@@ -327,18 +374,12 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/ingestion/:id/retry", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", ":id", "retry"], "variable": [{ "key": "id", "value": "1" }] }
-              }
-            },
-            {
-              "name": "Reindex Song",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
-                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
-                ],
-                "url": { "raw": "{{baseUrl}}/api/ingestion/songs/:songId/reindex", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", "songs", ":songId", "reindex"], "variable": [{ "key": "songId", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/ingestion/:id/retry",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "ingestion", ":id", "retry"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
               }
             },
             {
@@ -349,44 +390,31 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/ingestion/:id", "host": ["{{baseUrl}}"], "path": ["api", "ingestion", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/ingestion/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "ingestion", ":id"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
+              }
+            },
+            {
+              "name": "Reindex Song",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/ingestion/songs/:songId/reindex",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "ingestion", "songs", ":songId", "reindex"],
+                  "variable": [{ "key": "songId", "value": "1" }]
+                }
               }
             }
           ]
-        }
-      ]
-    },
-    {
-      "name": "Audit Logs",
-      "item": [
-        {
-          "name": "Get Audit Logs",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{authToken}}" },
-              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — OptionalTenantAttribute" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/audit-logs",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "audit-logs"],
-              "query": [
-                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
-                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type (e.g. User, CategoryEntity)" },
-                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring (e.g. Deleted, Updated)" },
-                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user who made the change" },
-                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
-                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp, e.g. 2026-01-01T00:00:00Z" },
-                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
-                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
-                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
-                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based (default: 1)" },
-                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100 (default: 20)" }
-              ]
-            },
-            "description": "Returns PaginatedList<AuditLogDto>. Requires Admin or SuperAdmin role."
-          }
         }
       ]
     },
@@ -402,11 +430,30 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/generation/lyrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "generation", "lyrics"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"theme\": \"gratitude\",\n  \"language\": \"ar\",\n  \"style\": \"traditional\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/generation/lyrics", "host": ["{{baseUrl}}"], "path": ["api", "generation", "lyrics"] }
+              "raw": "{\n  \"theme\": \"gratitude\",\n  \"language\": \"ar\",\n  \"style\": \"classical\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit-logs?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "audit-logs"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+            }
           }
         }
       ]

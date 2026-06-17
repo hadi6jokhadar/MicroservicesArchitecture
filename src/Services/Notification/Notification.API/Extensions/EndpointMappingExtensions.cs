@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Notification.API.Handlers;
 using Notification.API.Filters;
 using Notification.Application.Commands;
@@ -14,6 +15,8 @@ public static class EndpointMappingExtensions
     /// </summary>
     public static WebApplication MapNotificationEndpoints(this WebApplication app)
     {
+        var v1 = app.NewVersionedApi("Notifications");
+
         // =============================================================================
         // GROUP 1: Service/SuperAdmin Endpoints (Global Access)
         // =============================================================================
@@ -22,7 +25,8 @@ public static class EndpointMappingExtensions
         // - Tenant Context: NOT required (bypasses tenant middleware)
         // - Use Case: System services and administrators managing notifications across all tenants
         // =============================================================================
-        var serviceAdminGroup = app.MapGroup("/api/notifications")
+        var serviceAdminGroup = v1.MapGroup("/api/v{version:apiVersion}/notifications")
+            .HasApiVersion(1)
             .WithTags("Notifications - Service/Admin")
             .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"));
 
@@ -76,7 +80,8 @@ public static class EndpointMappingExtensions
         // - Tenant Context: REQUIRED (must provide x-tenant-id header)
         // - Use Case: Regular users accessing their own notifications within their tenant
         // =============================================================================
-        var userGroup = app.MapGroup("/api/notifications")
+        var userGroup = v1.MapGroup("/api/v{version:apiVersion}/notifications")
+            .HasApiVersion(1)
             .WithTags("Notifications - User")
             .RequireAuthorization(policy => policy.RequireRole("User", "Admin", "SuperAdmin"));
 

@@ -6,7 +6,7 @@
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5008", "type": "string" },
-    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "tenantId", "value": "", "type": "string" },
     { "key": "authToken", "value": "", "type": "string" },
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "serviceSecret", "value": "", "type": "string" }
@@ -20,7 +20,11 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
           }
         }
       ]
@@ -37,12 +41,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/stream",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chat", "stream"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"settingsKey\": \"default\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Hello, how can you help me?\" }\n  ],\n  \"sessionId\": null,\n  \"generateSessionTitle\": true\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/v1/chat/stream", "host": ["{{baseUrl}}"], "path": ["api", "v1", "chat", "stream"] },
-            "description": "Server-Sent Events streaming response. Returns text/event-stream."
+              "raw": "{\n  \"settingsKey\": \"default\",\n  \"message\": \"Hello, how are you?\",\n  \"sessionId\": null,\n  \"generate_session_title\": true\n}"
+            }
           }
         },
         {
@@ -54,11 +61,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/single",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chat", "single"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"settingsKey\": \"default\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Hello, how can you help me?\" }\n  ],\n  \"sessionId\": null,\n  \"generateSessionTitle\": false\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/v1/chat/single", "host": ["{{baseUrl}}"], "path": ["api", "v1", "chat", "single"] }
+              "raw": "{\n  \"settingsKey\": \"default\",\n  \"message\": \"What is the capital of France?\",\n  \"sessionId\": null,\n  \"generate_session_title\": false\n}"
+            }
           }
         },
         {
@@ -70,11 +81,15 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/embedding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "embedding"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"settingsKey\": \"embedding-default\",\n  \"text\": \"Text to embed\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/v1/embedding", "host": ["{{baseUrl}}"], "path": ["api", "v1", "embedding"] }
+            }
           }
         }
       ]
@@ -102,25 +117,35 @@
               }
             },
             {
-              "name": "Get Setting by Key",
+              "name": "Get Setting By Key",
               "request": {
                 "method": "GET",
                 "header": [
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/v1/settings/by-key/:key", "host": ["{{baseUrl}}"], "path": ["api", "v1", "settings", "by-key", ":key"], "variable": [{ "key": "key", "value": "default" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/settings/by-key/:key",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "settings", "by-key", ":key"],
+                  "variable": [{ "key": "key", "value": "default" }]
+                }
               }
             },
             {
-              "name": "Get Setting by ID",
+              "name": "Get Setting By ID",
               "request": {
                 "method": "GET",
                 "header": [
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/v1/settings/:setting_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "settings", ":setting_id"], "variable": [{ "key": "setting_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/settings/:settingId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "settings", ":settingId"],
+                  "variable": [{ "key": "settingId", "value": "00000000-0000-0000-0000-000000000000" }]
+                }
               }
             },
             {
@@ -132,11 +157,15 @@
                   { "key": "Content-Type", "value": "application/json" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/settings/",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "settings", ""]
+                },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"Key\": \"default\",\n  \"ModelType\": \"Chat\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-your-api-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": null\n}"
-                },
-                "url": { "raw": "{{baseUrl}}/api/v1/settings/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "settings", ""] }
+                  "raw": "{\n  \"Key\": \"default\",\n  \"ModelType\": \"Chat\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-...\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": null,\n  \"Temperature\": 0.7,\n  \"Stream\": true,\n  \"MaxCompletionTokens\": 2048\n}"
+                }
               }
             },
             {
@@ -148,11 +177,16 @@
                   { "key": "Content-Type", "value": "application/json" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/settings/:settingId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "settings", ":settingId"],
+                  "variable": [{ "key": "settingId", "value": "00000000-0000-0000-0000-000000000000" }]
+                },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"Key\": \"default\",\n  \"ModelType\": \"Chat\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-updated-api-key\",\n  \"ModelName\": \"gpt-4o\",\n  \"TenantId\": null\n}"
-                },
-                "url": { "raw": "{{baseUrl}}/api/v1/settings/:setting_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "settings", ":setting_id"], "variable": [{ "key": "setting_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+                  "raw": "{\n  \"Key\": \"default\",\n  \"ModelType\": \"Chat\",\n  \"Provider\": \"openai\",\n  \"ApiKey\": \"sk-...\",\n  \"ModelName\": \"gpt-4o-mini\",\n  \"Temperature\": 0.5\n}"
+                }
               }
             },
             {
@@ -163,7 +197,12 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/v1/settings/:setting_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "settings", ":setting_id"], "variable": [{ "key": "setting_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/settings/:settingId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "settings", ":settingId"],
+                  "variable": [{ "key": "settingId", "value": "00000000-0000-0000-0000-000000000000" }]
+                }
               }
             }
           ]
@@ -188,14 +227,19 @@
               }
             },
             {
-              "name": "Get System Prompt by ID",
+              "name": "Get System Prompt By ID",
               "request": {
                 "method": "GET",
                 "header": [
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/v1/prompts/:prompt_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "prompts", ":prompt_id"], "variable": [{ "key": "prompt_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/prompts/:promptId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "prompts", ":promptId"],
+                  "variable": [{ "key": "promptId", "value": "00000000-0000-0000-0000-000000000000" }]
+                }
               }
             },
             {
@@ -207,11 +251,15 @@
                   { "key": "Content-Type", "value": "application/json" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/prompts/",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "prompts", ""]
+                },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"Name\": \"Customer Support\",\n  \"PromptText\": \"You are a helpful customer support agent.\",\n  \"TenantId\": null,\n  \"ResponseFormat\": null\n}"
-                },
-                "url": { "raw": "{{baseUrl}}/api/v1/prompts/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "prompts", ""] }
+                  "raw": "{\n  \"Name\": \"Default Assistant\",\n  \"PromptText\": \"You are a helpful assistant.\",\n  \"TenantId\": null,\n  \"ResponseFormat\": null\n}"
+                }
               }
             },
             {
@@ -223,11 +271,16 @@
                   { "key": "Content-Type", "value": "application/json" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/prompts/:promptId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "prompts", ":promptId"],
+                  "variable": [{ "key": "promptId", "value": "00000000-0000-0000-0000-000000000000" }]
+                },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"Name\": \"Customer Support Updated\",\n  \"PromptText\": \"You are a friendly customer support agent.\",\n  \"TenantId\": null,\n  \"ResponseFormat\": null\n}"
-                },
-                "url": { "raw": "{{baseUrl}}/api/v1/prompts/:prompt_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "prompts", ":prompt_id"], "variable": [{ "key": "prompt_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+                  "raw": "{\n  \"Name\": \"Updated Assistant\",\n  \"PromptText\": \"You are a concise and helpful assistant.\",\n  \"TenantId\": null\n}"
+                }
               }
             },
             {
@@ -238,7 +291,12 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/v1/prompts/:prompt_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "prompts", ":prompt_id"], "variable": [{ "key": "prompt_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/prompts/:promptId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "prompts", ":promptId"],
+                  "variable": [{ "key": "promptId", "value": "00000000-0000-0000-0000-000000000000" }]
+                }
               }
             }
           ]
@@ -258,7 +316,12 @@
                   "raw": "{{baseUrl}}/api/v1/chat-sessions/?skip=0&limit=50",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "v1", "chat-sessions", ""],
-                  "query": [{ "key": "skip", "value": "0" }, { "key": "limit", "value": "50" }]
+                  "query": [
+                    { "key": "skip", "value": "0" },
+                    { "key": "limit", "value": "50" },
+                    { "key": "user_id", "value": "", "disabled": true },
+                    { "key": "title", "value": "", "disabled": true }
+                  ]
                 }
               }
             },
@@ -271,11 +334,16 @@
                   { "key": "Content-Type", "value": "application/json" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat-sessions/:sessionId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "chat-sessions", ":sessionId"],
+                  "variable": [{ "key": "sessionId", "value": "00000000-0000-0000-0000-000000000000" }]
+                },
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"title\": \"My Chat Session\"\n}"
-                },
-                "url": { "raw": "{{baseUrl}}/api/v1/chat-sessions/:session_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "chat-sessions", ":session_id"], "variable": [{ "key": "session_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+                }
               }
             },
             {
@@ -286,7 +354,12 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/v1/chat-sessions/:session_id", "host": ["{{baseUrl}}"], "path": ["api", "v1", "chat-sessions", ":session_id"], "variable": [{ "key": "session_id", "value": "00000000-0000-0000-0000-000000000000" }] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat-sessions/:sessionId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "chat-sessions", ":sessionId"],
+                  "variable": [{ "key": "sessionId", "value": "00000000-0000-0000-0000-000000000000" }]
+                }
               }
             }
           ]
@@ -306,9 +379,10 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "v1", "chat-messages", ""],
                   "query": [
-                    { "key": "session_id", "value": "", "disabled": true },
                     { "key": "skip", "value": "0" },
-                    { "key": "limit", "value": "50" }
+                    { "key": "limit", "value": "50" },
+                    { "key": "session_id", "value": "", "disabled": true },
+                    { "key": "role", "value": "", "disabled": true }
                   ]
                 }
               }
@@ -329,7 +403,12 @@
                   "raw": "{{baseUrl}}/api/v1/chat-message-files/?skip=0&limit=50",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "v1", "chat-message-files", ""],
-                  "query": [{ "key": "skip", "value": "0" }, { "key": "limit", "value": "50" }]
+                  "query": [
+                    { "key": "skip", "value": "0" },
+                    { "key": "limit", "value": "50" },
+                    { "key": "message_id", "value": "", "disabled": true },
+                    { "key": "file_id", "value": "", "disabled": true }
+                  ]
                 }
               }
             }
@@ -350,7 +429,12 @@
                   "raw": "{{baseUrl}}/api/v1/token-usage-logs/?skip=0&limit=50",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "v1", "token-usage-logs", ""],
-                  "query": [{ "key": "skip", "value": "0" }, { "key": "limit", "value": "50" }]
+                  "query": [
+                    { "key": "skip", "value": "0" },
+                    { "key": "limit", "value": "50" },
+                    { "key": "model_name", "value": "", "disabled": true },
+                    { "key": "endpoint", "value": "", "disabled": true }
+                  ]
                 }
               }
             },
@@ -362,7 +446,11 @@
                   { "key": "Authorization", "value": "Bearer {{authToken}}" },
                   { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
                 ],
-                "url": { "raw": "{{baseUrl}}/api/v1/token-usage-logs/stats", "host": ["{{baseUrl}}"], "path": ["api", "v1", "token-usage-logs", "stats"] }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/token-usage-logs/stats",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "token-usage-logs", "stats"]
+                }
               }
             }
           ]

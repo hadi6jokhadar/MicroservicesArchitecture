@@ -62,7 +62,7 @@ Use `BypassTenantAttribute` when:
 Used for human admin operations (Category admin tree, FileManager admin delete, Notification send). The caller must present a **global JWT** (issued without a tenant scope) with the appropriate role.
 
 ```csharp
-app.MapGet("/api/admin/categories/tree", handler)
+app.MapGet("/api/v1/admin/categories/tree", handler)
     .WithMetadata(new BypassTenantAttribute())
     .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"));
 ```
@@ -354,7 +354,7 @@ adminGroup.MapPost("/files", async (
 Use when admin endpoint should work with OR without tenant:
 
 ```csharp
-var adminGroup = app.MapGroup("/api/admin")
+var adminGroup = app.MapGroup("/api/v1/admin")
     .WithTags("Admin")
     .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"));
 
@@ -382,7 +382,7 @@ adminGroup.MapPost("/files", async (
 
     var command = new SaveFileCommand(file);
     var result = await mediator.Send(command, ct);
-    return Results.Created($"/api/admin/files/{result.Id}", result);
+    return Results.Created($"/api/v1/admin/files/{result.Id}", result);
 })
 .WithMetadata(new BypassTenantAttribute())
 .WithName("SaveFileAdmin");
@@ -392,11 +392,11 @@ adminGroup.MapPost("/files", async (
 
 ```http
 # Upload to specific tenant
-POST /api/admin/files?tenantId=ihsandev
+POST /api/v1/admin/files?tenantId=ihsandev
 Authorization: Bearer <global-jwt>
 
 # Upload to global database
-POST /api/admin/files
+POST /api/v1/admin/files
 Authorization: Bearer <global-jwt>
 ```
 
@@ -724,7 +724,7 @@ public static class FileManagerEndpoints
         this IEndpointRouteBuilder app)
     {
         // Tenant user endpoints (require x-tenant-id header)
-        var tenantGroup = app.MapGroup("/api/filemanager")
+        var tenantGroup = app.MapGroup("/api/v1/filemanager")
             .WithTags("FileManager");
 
         tenantGroup.MapPost("/files", async (
@@ -734,14 +734,14 @@ public static class FileManagerEndpoints
         {
             var command = new SaveFileCommand(file);
             var result = await mediator.Send(command, ct);
-            return Results.Created($"/api/filemanager/files/{result.Id}", result);
+            return Results.Created($"/api/v1/filemanager/files/{result.Id}", result);
         })
         .RequireAuthorization(policy =>
             policy.RequireRole("User", "Admin", "SuperAdmin"))
         .WithName("SaveFile");
 
         // Admin endpoints (optional tenant context)
-        var adminGroup = app.MapGroup("/api/filemanager/admin")
+        var adminGroup = app.MapGroup("/api/v1/filemanager/admin")
             .WithTags("FileManager - Admin");
 
         adminGroup.MapPost("/files", async (
@@ -769,7 +769,7 @@ public static class FileManagerEndpoints
 
             var command = new SaveFileCommand(file);
             var result = await mediator.Send(command, ct);
-            return Results.Created($"/api/filemanager/admin/files/{result.Id}", result);
+            return Results.Created($"/api/v1/filemanager/admin/files/{result.Id}", result);
         })
         .RequireAuthorization(policy =>
             policy.RequireRole("Service", "SuperAdmin"))
@@ -863,7 +863,7 @@ public class AdminEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         content.Add(fileContent, "file", "test.txt");
 
         // Act - No tenantId parameter
-        var response = await _client.PostAsync("/api/filemanager/admin/files", content);
+        var response = await _client.PostAsync("/api/v1/filemanager/admin/files", content);
 
         // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -886,7 +886,7 @@ public class AdminEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 
         // Act - With tenantId parameter
         var response = await _client.PostAsync(
-            $"/api/filemanager/admin/files?tenantId={tenantId}",
+            $"/api/v1/filemanager/admin/files?tenantId={tenantId}",
             content);
 
         // Assert

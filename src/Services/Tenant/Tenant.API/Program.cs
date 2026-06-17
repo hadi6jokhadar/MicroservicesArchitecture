@@ -32,6 +32,7 @@ builder.Services.AddMediatR(cfg =>
 });
 builder.Services.AddValidatorsFromAssembly(applicationAssembly);
 builder.Services.AddGlobalExceptionHandler();
+builder.Services.AddPlatformApiVersioning();
 
 // ============================================
 // Localization

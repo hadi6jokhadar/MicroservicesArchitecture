@@ -66,7 +66,7 @@ public class CategoryEndpointsTests : IntegrationTestBase
         // Assert
         result.ParentId.Should().Be(parent.Id);
         result.Depth.Should().Be(1);
-        result.Path.Should().Contain(parent.Id.ToString());
+        result.Path.Should().Contain(parent.Uri);
     }
 
     [Fact]
@@ -306,7 +306,7 @@ public class CategoryEndpointsTests : IntegrationTestBase
 
         // Assert
         result.ParentId.Should().Be(parentB.Id);
-        result.Path.Should().Contain(parentB.Id.ToString());
+        result.Path.Should().Contain(parentB.Uri);
     }
 
     [Fact]

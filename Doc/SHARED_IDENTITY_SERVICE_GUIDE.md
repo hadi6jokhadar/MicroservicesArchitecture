@@ -134,11 +134,11 @@
 │                         (Port 5001)                                  │
 │                                                                       │
 │  Endpoints:                                                          │
-│  • POST /api/auth/register      - Create new user                   │
-│  • POST /api/auth/login         - Get JWT token                     │
-│  • POST /api/auth/refresh       - Refresh expired token             │
-│  • GET  /api/user/profile       - Get current user info             │
-│  • PUT  /api/user/profile       - Update user info                  │
+│  • POST /api/v1/auth/register   - Create new user                   │
+│  • POST /api/v1/auth/login      - Get JWT token                     │
+│  • POST /api/v1/auth/refresh    - Refresh expired token             │
+│  • GET  /api/v1/user/profile    - Get current user info             │
+│  • PUT  /api/v1/user/profile    - Update user info                  │
 │                                                                       │
 │  Database: PostgreSQL (User accounts, roles, refresh tokens)        │
 └───────────────────────────┬─────────────────────────────────────────┘
@@ -784,10 +784,10 @@ Tenant Service B:
 │                         (Port 5002)                               │
 │                                                                    │
 │  Endpoints:                                                       │
-│  • GET  /api/tenants/{tenantId}  - Get tenant configuration      │
-│  • POST /api/tenants             - Create new tenant (admin only) │
-│  • PUT  /api/tenants/{id}        - Update tenant settings         │
-│  • DELETE /api/tenants/{id}      - Disable tenant                 │
+│  • GET  /api/v1/tenant/{tenantId}      - Get tenant configuration │
+│  • POST /api/v1/admin/tenant           - Create new tenant        │
+│  • PUT  /api/v1/admin/tenant/{id}      - Update tenant settings   │
+│  • DELETE /api/v1/admin/tenant/{id}    - Disable tenant           │
 │                                                                    │
 │  Database: tenant (PostgreSQL)                                    │
 └───────────────────────────┬──────────────────────────────────────┘
@@ -1045,7 +1045,7 @@ public async Task<TenantConfiguration?> GetTenantConfigurationAsync(string tenan
     }
 
     // Cache miss - call Tenant Service API
-    var config = await _httpClient.GetFromJsonAsync<TenantConfiguration>($"/api/tenants/{tenantId}");
+    var config = await _httpClient.GetFromJsonAsync<TenantConfiguration>($"/api/v1/tenant/{tenantId}");
 
     // Store in cache for 5 minutes
     _cache.Set(cacheKey, config, TimeSpan.FromMinutes(5));
@@ -1524,7 +1524,7 @@ var token = new JwtSecurityToken(
 **1. Get JWT Token from Identity Service:**
 
 ```bash
-curl -X POST https://identity-api.com/api/auth/login \
+curl -X POST https://identity-api.com/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"john@example.com","password":"SecurePass123!"}'
 

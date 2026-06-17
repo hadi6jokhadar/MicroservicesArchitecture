@@ -1,7 +1,9 @@
+using Asp.Versioning;
 using FileManager.API.Handlers;
 using FileManager.Application.Commands;
 using FileManager.Application.DTOs;
-using FileManager.Application.Queries;using IhsanDev.Shared.Application.Localization;
+using FileManager.Application.Queries;
+using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Attributes;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using MediatR;
@@ -42,13 +44,15 @@ public static class FileManagerEndpoints
 
     public static IEndpointRouteBuilder MapFileManagerEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/filemanager")
+        var v1 = app.NewVersionedApi("FileManager");
+        var group = v1.MapGroup("/api/v{version:apiVersion}/filemanager")
+            .HasApiVersion(1)
             .WithTags("FileManager");
 
         // ============================================
         // TENANT USER ENDPOINTS (require x-tenant-id)
         // ============================================
-        
+
         // Save file (Upload) - Tenant Users
         group.MapPost("/files", FileManagerApiHandlers.SaveFile)
         .WithMetadata(new OptionalTenantAttribute())
@@ -63,11 +67,13 @@ public static class FileManagerEndpoints
         // GLOBAL ADMIN ENDPOINTS (no x-tenant-id required)
         // ============================================
 
-        var adminGroup = app.MapGroup("/api/filemanager/admin")
+        var v1Admin = app.NewVersionedApi("FileManagerAdmin");
+        var adminGroup = v1Admin.MapGroup("/api/v{version:apiVersion}/filemanager/admin")
+            .HasApiVersion(1)
             .WithTags("FileManager - Admin");
 
         // ... (Keep admin endpoints logic here or move to handlers if you wish, but for now focus on tenant)
-        
+
         // ...
 
         // Get file by ID - Tenant Users
@@ -119,16 +125,16 @@ public static class FileManagerEndpoints
         {
             var scopeResult = await CreateScopeWithTenantAsync(
                 serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
-            
+
             using var scope = scopeResult.scope;
             var tenantContext = scopeResult.tenantContext;
 
             if (!string.IsNullOrWhiteSpace(tenantId) && tenantContext?.CurrentTenant == null)
             {
-                return Results.NotFound(new 
-                { 
+                return Results.NotFound(new
+                {
                     error = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound),
-                    message = $"Tenant '{tenantId}' not found" 
+                    message = $"Tenant '{tenantId}' not found"
                 });
             }
 
@@ -175,8 +181,9 @@ public static class FileManagerEndpoints
 
         // ============================================
         // INTERNAL SERVICE ENDPOINTS (service-to-service only, bypasses rate limiting)
+        // Internal endpoints intentionally unversioned — service-to-service contracts
         // ============================================
-        
+
         var internalGroup = app.MapGroup("/api/filemanager/internal")
             .WithTags("FileManager - Internal")
             .DisableRateLimiting() // Skip rate limiting for service-to-service communication
@@ -205,15 +212,15 @@ public static class FileManagerEndpoints
             // Create scope with tenant context set before resolving dependencies
             var scopeResult = await CreateScopeWithTenantAsync(
                 serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
-            
+
             using var scope = scopeResult.scope;
-            
+
             // Resolve MediatR from the new scope - DbContext will be fresh and see the tenant context
             var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-            
+
             var query = new GetFileByIdQuery(id);
             var result = await mediator.Send(query, cancellationToken);
-            
+
             // Return null instead of 404 for graceful error handling
             return Results.Ok(result);
         })
@@ -254,15 +261,15 @@ public static class FileManagerEndpoints
             // Create scope with tenant context set BEFORE DbContext resolution
             var scopeResult = await CreateScopeWithTenantAsync(
                 serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
-            
+
             using var scope = scopeResult.scope;
-            
+
             // Resolve MediatR from the new scope
             var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-            
+
             var query = new GetFilesByIdsQuery(fileIds);
             var result = await mediator.Send(query, cancellationToken);
-            
+
             return Results.Ok(result);
         })
         .WithName("GetFilesByIdsInternal")
@@ -301,13 +308,13 @@ public static class FileManagerEndpoints
             // Create scope with tenant context set BEFORE DbContext resolution
             var scopeResult = await CreateScopeWithTenantAsync(
                 serviceProvider, tenantId, tenantConfigProvider, cancellationToken);
-            
+
             using var scope = scopeResult.scope;
             var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-            
+
             var command = new UpdateFileTempStatusCommand(id, usageArea, rowId, isNew);
             var result = await mediator.Send(command, cancellationToken);
-            
+
             return Results.Ok(result);
         })
         .WithName("ChangeTempStatusInternal")
@@ -325,14 +332,14 @@ public static class FileManagerEndpoints
         {
             var query = new GetFileByIdQuery(id);
             var fileMetadata = await mediator.Send(query, cancellationToken);
-            
+
             if (fileMetadata == null)
                 return Results.NotFound();
 
             // Construct physical path from storage root + relative path
             var storageRoot = configuration["FileManagerOptions:FilesSavePath"] ?? "C:/FileStorage";
             var physicalPath = Path.Combine(storageRoot, fileMetadata.Path.Replace("/", "\\"));
-            
+
             if (!File.Exists(physicalPath))
                 return Results.NotFound(new { error = localizationService.GetString(LocalizationKeys.Exceptions.FileNotFoundOnDisk), path = physicalPath });
 
@@ -491,5 +498,3 @@ public static class FileManagerEndpoints
         };
     }
 }
-
-

@@ -6,33 +6,12 @@
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5004", "type": "string" },
-    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "tenantId", "value": "", "type": "string" },
     { "key": "authToken", "value": "", "type": "string" },
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "serviceSecret", "value": "", "type": "string" }
   ],
   "item": [
-    {
-      "name": "Public",
-      "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
-          }
-        },
-        {
-          "name": "Health Readiness",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
-          }
-        }
-      ]
-    },
     {
       "name": "Authenticated",
       "item": [
@@ -44,52 +23,27 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/notifications/user", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "user"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/user",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "user"]
+            }
           }
         },
         {
-          "name": "Mark Notification as Read",
+          "name": "Mark Notification As Read",
           "request": {
             "method": "PUT",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/notifications/:id/read", "host": ["{{baseUrl}}"], "path": ["api", "notifications", ":id", "read"], "variable": [{ "key": "id", "value": "1" }] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Audit Logs",
-      "item": [
-        {
-          "name": "Get Audit Logs",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{authToken}}" },
-              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — OptionalTenantAttribute" }
-            ],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/audit-logs",
+              "raw": "{{baseUrl}}/api/v1/notifications/:id/read",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "audit-logs"],
-              "query": [
-                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
-                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type (e.g. User, CategoryEntity)" },
-                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring (e.g. Deleted, Updated)" },
-                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user who made the change" },
-                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
-                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp, e.g. 2026-01-01T00:00:00Z" },
-                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
-                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
-                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
-                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based (default: 1)" },
-                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100 (default: 20)" }
-              ]
-            },
-            "description": "Returns PaginatedList<AuditLogDto>. Requires Admin or SuperAdmin role."
+              "path": ["api", "v1", "notifications", ":id", "read"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         }
       ]
@@ -105,11 +59,15 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "send"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": 1,\n  \"tenantId\": \"{{tenantId}}\",\n  \"title\": \"Test Notification\",\n  \"message\": \"This is a test notification\",\n  \"type\": \"Info\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/notifications/send", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "send"] }
+              "raw": "{\n  \"userId\": 1,\n  \"tenantId\": \"{{tenantId}}\",\n  \"title\": \"Hello!\",\n  \"body\": \"You have a new message.\",\n  \"deliveryType\": 1\n}"
+            }
           }
         },
         {
@@ -119,7 +77,12 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/notifications/status/:id", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "status", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/status/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "status", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -130,9 +93,9 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/notifications/queue?page=1&pageSize=20",
+              "raw": "{{baseUrl}}/api/v1/notifications/queue?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "notifications", "queue"],
+              "path": ["api", "v1", "notifications", "queue"],
               "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
             }
           }
@@ -144,31 +107,27 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/notifications/queue/:id/toggle-archive", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "queue", ":id", "toggle-archive"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/queue/:id/toggle-archive",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "queue", ":id", "toggle-archive"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
-        }
-      ]
-    },
-    {
-      "name": "Internal",
-      "item": [
+        },
         {
-          "name": "SignalR Hub (WebSocket)",
+          "name": "Get Audit Logs",
           "request": {
             "method": "GET",
             "header": [
-              { "key": "x-service-secret", "value": "{{serviceSecret}}" }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/hubs/notifications?access_token={{authToken}}&tenantId={{tenantId}}",
+              "raw": "{{baseUrl}}/api/admin/audit-logs?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["hubs", "notifications"],
-              "query": [
-                { "key": "access_token", "value": "{{authToken}}" },
-                { "key": "tenantId", "value": "{{tenantId}}" }
-              ]
-            },
-            "description": "SignalR WebSocket hub. Connect via a SignalR client, not plain HTTP. Token passed as query string for WebSocket upgrade."
+              "path": ["api", "admin", "audit-logs"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+            }
           }
         }
       ]

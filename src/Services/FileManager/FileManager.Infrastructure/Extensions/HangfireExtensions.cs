@@ -15,16 +15,20 @@ public static class HangfireExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration["DatabaseSettings:ConnectionString"]
-            ?? throw new InvalidOperationException("DatabaseSettings:ConnectionString not configured");
-
-        services.AddHangfire(config => config
-            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-            .UseSimpleAssemblyNameTypeSerializer()
-            .UseRecommendedSerializerSettings()
-            .UsePostgreSqlStorage(options =>
-                options.UseNpgsqlConnection(connectionString),
-                new PostgreSqlStorageOptions { SchemaName = "hangfire_filemanager" }));
+        // Use (IServiceProvider, IGlobalConfiguration) overload so the connection string is
+        // read lazily at DI resolve time — after WebApplicationFactory test overrides apply.
+        services.AddHangfire((sp, config) =>
+        {
+            var connectionString = sp.GetRequiredService<IConfiguration>()["DatabaseSettings:ConnectionString"]
+                ?? throw new InvalidOperationException("DatabaseSettings:ConnectionString not configured");
+            config
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UsePostgreSqlStorage(options =>
+                    options.UseNpgsqlConnection(connectionString),
+                    new PostgreSqlStorageOptions { SchemaName = "hangfire_filemanager" });
+        });
 
         services.AddHangfireServer(options =>
         {

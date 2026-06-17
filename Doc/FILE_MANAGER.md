@@ -225,7 +225,7 @@ In the tenant's `Configuration` field, add a `BlobStorage` block following the s
 
 ## API Endpoints
 
-### Tenant Endpoints (`/api/filemanager/*`)
+### Tenant Endpoints (`/api/v1/filemanager/*`)
 
 **Authentication:** Requires JWT + `x-tenant-id` header  
 **Authorization:** User, Admin, SuperAdmin roles
@@ -244,7 +244,7 @@ In the tenant's `Configuration` field, add a `BlobStorage` block following the s
 **Upload File Example:**
 
 ```http
-POST https://localhost:5005/api/filemanager/files
+POST https://localhost:5005/api/v1/filemanager/files
 Authorization: Bearer {tenant-jwt}
 x-tenant-id: ihsandev
 Content-Type: multipart/form-data
@@ -339,7 +339,7 @@ Example container configuration:
 
 If FFmpeg is missing in the container, `.webm` upload conversion will fail.
 
-### Admin Endpoints (`/api/filemanager/admin/*`)
+### Admin Endpoints (`/api/v1/filemanager/admin/*`)
 
 **Authentication:** Requires JWT (no `x-tenant-id` header)  
 **Authorization:** Service, SuperAdmin roles
@@ -359,7 +359,7 @@ If FFmpeg is missing in the container, `.webm` upload conversion will fail.
 **Upload to Global Database:**
 
 ```http
-POST https://localhost:5005/api/filemanager/admin/files
+POST https://localhost:5005/api/v1/filemanager/admin/files
 Authorization: Bearer {global-jwt}
 Content-Type: multipart/form-data
 
@@ -373,7 +373,7 @@ Form Data:
 **Upload to Specific Tenant:**
 
 ```http
-POST https://localhost:5005/api/filemanager/admin/files?tenantId=ihsandev
+POST https://localhost:5005/api/v1/filemanager/admin/files?tenantId=ihsandev
 Authorization: Bearer {global-jwt}
 
 # SuperAdmin uploads to tenant "ihsandev"
@@ -645,7 +645,7 @@ else
 **Manual Trigger (Admin Endpoint):**
 
 ```http
-DELETE https://localhost:5005/api/filemanager/admin/files/temp/old?days=30
+DELETE https://localhost:5005/api/v1/filemanager/admin/files/temp/old?days=30
 Authorization: Bearer {global-jwt}
 ```
 
@@ -1117,7 +1117,7 @@ dotnet run
 **2. Upload File (Postman):**
 
 ```http
-POST https://localhost:5005/api/filemanager/files
+POST https://localhost:5005/api/v1/filemanager/files
 Authorization: Bearer {token-from-identity-service}
 x-tenant-id: ihsandev
 Content-Type: multipart/form-data
@@ -1202,7 +1202,7 @@ else
 
 **Solution:**
 
-- Use admin endpoints: `/api/filemanager/admin/files`
+- Use admin endpoints: `/api/v1/filemanager/admin/files`
 - Ensure `[BypassTenant]` attribute is applied
 - Admin endpoints work WITHOUT `x-tenant-id` header
 

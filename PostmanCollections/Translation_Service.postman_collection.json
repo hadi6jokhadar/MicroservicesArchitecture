@@ -6,7 +6,7 @@
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5006", "type": "string" },
-    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "tenantId", "value": "", "type": "string" },
     { "key": "authToken", "value": "", "type": "string" },
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "serviceSecret", "value": "", "type": "string" }
@@ -16,68 +16,18 @@
       "name": "Public",
       "item": [
         {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
-          }
-        },
-        {
-          "name": "Health Readiness",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
-          }
-        },
-        {
-          "name": "Get Translations",
+          "name": "Get Translations By Language",
           "request": {
             "method": "GET",
             "header": [
-              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — returns tenant overrides when provided" }
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional - includes tenant overrides when provided" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/translations/:language",
+              "raw": "{{baseUrl}}/api/v1/translations/:language",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "translations", ":language"],
+              "path": ["api", "v1", "translations", ":language"],
               "variable": [{ "key": "language", "value": "en" }]
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Audit Logs",
-      "item": [
-        {
-          "name": "Get Audit Logs",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{authToken}}" },
-              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — OptionalTenantAttribute" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/admin/audit-logs",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "audit-logs"],
-              "query": [
-                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
-                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type (e.g. User, CategoryEntity)" },
-                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring (e.g. Deleted, Updated)" },
-                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user who made the change" },
-                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
-                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp, e.g. 2026-01-01T00:00:00Z" },
-                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
-                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
-                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
-                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based (default: 1)" },
-                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100 (default: 20)" }
-              ]
-            },
-            "description": "Returns PaginatedList<AuditLogDto>. Requires Admin or SuperAdmin role."
           }
         }
       ]
@@ -93,10 +43,15 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/translations/keys?page=1&pageSize=20",
+              "raw": "{{baseUrl}}/api/v1/translations/keys?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "translations", "keys"],
-              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+              "path": ["api", "v1", "translations", "keys"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "category", "value": "", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
             }
           }
         },
@@ -108,11 +63,15 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/translations/keys",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "translations", "keys"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"key\": \"common.save\",\n  \"category\": \"common\",\n  \"description\": \"Save button label\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/translations/keys", "host": ["{{baseUrl}}"], "path": ["api", "translations", "keys"] }
+            }
           }
         },
         {
@@ -123,11 +82,16 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/translations/keys/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "translations", "keys", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Updated description for save button\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/translations/keys/:id", "host": ["{{baseUrl}}"], "path": ["api", "translations", "keys", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              "raw": "{\n  \"description\": \"Updated description\"\n}"
+            }
           }
         },
         {
@@ -137,7 +101,12 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/translations/keys/:id", "host": ["{{baseUrl}}"], "path": ["api", "translations", "keys", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/translations/keys/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "translations", "keys", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -147,7 +116,12 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/translations/keys/:id/toggle-archive", "host": ["{{baseUrl}}"], "path": ["api", "translations", "keys", ":id", "toggle-archive"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/translations/keys/:id/toggle-archive",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "translations", "keys", ":id", "toggle-archive"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -158,11 +132,15 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/translations/values",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "translations", "values"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"key\": \"common.save\",\n  \"language\": \"en\",\n  \"value\": \"Save\",\n  \"tenantId\": null\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/translations/values", "host": ["{{baseUrl}}"], "path": ["api", "translations", "values"] }
+              "raw": "{\n  \"keyId\": 1,\n  \"language\": \"en\",\n  \"value\": \"Save\",\n  \"tenantId\": null\n}"
+            }
           }
         },
         {
@@ -172,7 +150,12 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/translations/values/:id", "host": ["{{baseUrl}}"], "path": ["api", "translations", "values", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/translations/values/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "translations", "values", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -183,11 +166,30 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/translations/import",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "translations", "import"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"language\": \"en\",\n  \"translations\": {\n    \"common.save\": \"Save\",\n    \"common.cancel\": \"Cancel\"\n  },\n  \"tenantId\": null\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/translations/import", "host": ["{{baseUrl}}"], "path": ["api", "translations", "import"] }
+              "raw": "{\n  \"language\": \"en\",\n  \"translations\": {\n    \"common.save\": \"Save\",\n    \"common.cancel\": \"Cancel\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit-logs?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "audit-logs"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+            }
           }
         }
       ]

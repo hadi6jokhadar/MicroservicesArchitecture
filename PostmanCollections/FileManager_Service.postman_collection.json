@@ -6,41 +6,12 @@
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5005", "type": "string" },
-    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "tenantId", "value": "", "type": "string" },
     { "key": "authToken", "value": "", "type": "string" },
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "serviceSecret", "value": "", "type": "string" }
   ],
   "item": [
-    {
-      "name": "Public",
-      "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
-          }
-        },
-        {
-          "name": "Health Readiness",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health/ready", "host": ["{{baseUrl}}"], "path": ["health", "ready"] }
-          }
-        },
-        {
-          "name": "Download File",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id/download", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id", "download"], "variable": [{ "key": "id", "value": "1" }] }
-          }
-        }
-      ]
-    },
     {
       "name": "Authenticated",
       "item": [
@@ -52,25 +23,33 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/filemanager/files",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "filemanager", "files"]
+            },
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "file", "type": "file", "src": "" },
-                { "key": "category", "value": "documents", "type": "text" }
+                { "key": "file", "type": "file", "src": "" }
               ]
-            },
-            "url": { "raw": "{{baseUrl}}/api/filemanager/files", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files"] }
+            }
           }
         },
         {
-          "name": "Get File by ID",
+          "name": "Get File By ID",
           "request": {
             "method": "GET",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/filemanager/files/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "filemanager", "files", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
@@ -82,9 +61,9 @@
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/filemanager/files?page=1&pageSize=20",
+              "raw": "{{baseUrl}}/api/v1/filemanager/files?page=1&pageSize=20",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "filemanager", "files"],
+              "path": ["api", "v1", "filemanager", "files"],
               "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
             }
           }
@@ -98,11 +77,16 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/filemanager/files/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "filemanager", "files", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"updated-filename\",\n  \"category\": \"images\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+              "raw": "{\n  \"name\": \"updated-filename\",\n  \"description\": \"Updated description\"\n}"
+            }
           }
         },
         {
@@ -113,63 +97,59 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/filemanager/files/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "filemanager", "files", ":id"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
-          "name": "Upload File to Blob",
+          "name": "Download File",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/filemanager/files/:id/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "filemanager", "files", ":id", "download"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
+          }
+        },
+        {
+          "name": "Upload File To Blob",
           "request": {
             "method": "POST",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id/upload-to-blob", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id", "upload-to-blob"], "variable": [{ "key": "id", "value": "1" }] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/filemanager/files/:id/upload-to-blob",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "filemanager", "files", ":id", "upload-to-blob"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         },
         {
-          "name": "Remove File from Blob",
+          "name": "Remove File From Blob",
           "request": {
             "method": "DELETE",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" },
               { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/filemanager/files/:id/remove-from-blob", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "files", ":id", "remove-from-blob"], "variable": [{ "key": "id", "value": "1" }] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Audit Logs",
-      "item": [
-        {
-          "name": "Get Audit Logs",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{authToken}}" },
-              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional — OptionalTenantAttribute" }
-            ],
             "url": {
-              "raw": "{{baseUrl}}/api/admin/audit-logs",
+              "raw": "{{baseUrl}}/api/v1/filemanager/files/:id/remove-from-blob",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "audit-logs"],
-              "query": [
-                { "key": "tenantId",   "value": "", "disabled": true, "description": "Filter by tenant ID" },
-                { "key": "entityType", "value": "", "disabled": true, "description": "Filter by entity type (e.g. User, CategoryEntity)" },
-                { "key": "action",     "value": "", "disabled": true, "description": "Filter by action substring (e.g. Deleted, Updated)" },
-                { "key": "userId",     "value": "", "disabled": true, "description": "Filter by user who made the change" },
-                { "key": "userEmail",  "value": "", "disabled": true, "description": "Filter by user email substring" },
-                { "key": "fromDate",   "value": "", "disabled": true, "description": "ISO 8601 UTC start timestamp, e.g. 2026-01-01T00:00:00Z" },
-                { "key": "toDate",     "value": "", "disabled": true, "description": "ISO 8601 UTC end timestamp" },
-                { "key": "sortBy",     "value": "OccurredAt", "disabled": true, "description": "OccurredAt | Action | EntityType | EntityId | UserId" },
-                { "key": "sortDesc",   "value": "true", "disabled": true, "description": "Sort direction (default: true)" },
-                { "key": "page",       "value": "1", "disabled": true, "description": "Page number, 1-based (default: 1)" },
-                { "key": "pageSize",   "value": "20", "disabled": true, "description": "Items per page, max 100 (default: 20)" }
-              ]
-            },
-            "description": "Returns PaginatedList<AuditLogDto>. Requires Admin or SuperAdmin role."
+              "path": ["api", "v1", "filemanager", "files", ":id", "remove-from-blob"],
+              "variable": [{ "key": "id", "value": "1" }]
+            }
           }
         }
       ]
@@ -185,11 +165,11 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/filemanager/admin/files/:id?tenantId={{tenantId}}",
+              "raw": "{{baseUrl}}/api/v1/filemanager/admin/files/:id?tenantId={{tenantId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "filemanager", "admin", "files", ":id"],
-              "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }],
-              "variable": [{ "key": "id", "value": "1" }]
+              "path": ["api", "v1", "filemanager", "admin", "files", ":id"],
+              "variable": [{ "key": "id", "value": "1" }],
+              "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }]
             }
           }
         },
@@ -200,7 +180,11 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
-            "url": { "raw": "{{baseUrl}}/api/filemanager/admin/files/temp/all", "host": ["{{baseUrl}}"], "path": ["api", "filemanager", "admin", "files", "temp", "all"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/filemanager/admin/files/temp/all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "filemanager", "admin", "files", "temp", "all"]
+            }
           }
         },
         {
@@ -211,42 +195,57 @@
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/filemanager/admin/files/temp/old?olderThanDays=7",
+              "raw": "{{baseUrl}}/api/v1/filemanager/admin/files/temp/old?olderThanDays=7",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "filemanager", "admin", "files", "temp", "old"],
+              "path": ["api", "v1", "filemanager", "admin", "files", "temp", "old"],
               "query": [{ "key": "olderThanDays", "value": "7" }]
             }
           }
         },
         {
-          "name": "Upload File to Blob (Admin)",
+          "name": "Upload File To Blob (Admin)",
           "request": {
             "method": "POST",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/filemanager/admin/files/:id/upload-to-blob?tenantId={{tenantId}}",
+              "raw": "{{baseUrl}}/api/v1/filemanager/admin/files/:id/upload-to-blob?tenantId={{tenantId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "filemanager", "admin", "files", ":id", "upload-to-blob"],
-              "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }],
-              "variable": [{ "key": "id", "value": "1" }]
+              "path": ["api", "v1", "filemanager", "admin", "files", ":id", "upload-to-blob"],
+              "variable": [{ "key": "id", "value": "1" }],
+              "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }]
             }
           }
         },
         {
-          "name": "Remove File from Blob (Admin)",
+          "name": "Remove File From Blob (Admin)",
           "request": {
             "method": "DELETE",
             "header": [
               { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/filemanager/admin/files/:id/remove-from-blob?tenantId={{tenantId}}",
+              "raw": "{{baseUrl}}/api/v1/filemanager/admin/files/:id/remove-from-blob?tenantId={{tenantId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "filemanager", "admin", "files", ":id", "remove-from-blob"],
-              "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }],
-              "variable": [{ "key": "id", "value": "1" }]
+              "path": ["api", "v1", "filemanager", "admin", "files", ":id", "remove-from-blob"],
+              "variable": [{ "key": "id", "value": "1" }],
+              "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }]
+            }
+          }
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit-logs?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "audit-logs"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
             }
           }
         }
@@ -256,7 +255,7 @@
       "name": "Internal",
       "item": [
         {
-          "name": "Get File by ID (Internal)",
+          "name": "Get File By ID (Internal)",
           "request": {
             "method": "GET",
             "header": [
@@ -266,27 +265,26 @@
               "raw": "{{baseUrl}}/api/filemanager/internal/files/:id?tenantId={{tenantId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "filemanager", "internal", "files", ":id"],
-              "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }],
-              "variable": [{ "key": "id", "value": "1" }]
+              "variable": [{ "key": "id", "value": "1" }],
+              "query": [{ "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }]
             }
           }
         },
         {
-          "name": "Get Files by IDs (Internal Batch)",
+          "name": "Get Files By IDs Batch (Internal)",
           "request": {
             "method": "GET",
             "header": [
               { "key": "X-Service-Secret", "value": "{{serviceSecret}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/filemanager/internal/files/batch?tenantId={{tenantId}}&fileIds=1&fileIds=2&fileIds=3",
+              "raw": "{{baseUrl}}/api/filemanager/internal/files/batch?fileIds=1&fileIds=2&tenantId={{tenantId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "filemanager", "internal", "files", "batch"],
               "query": [
-                { "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" },
                 { "key": "fileIds", "value": "1" },
                 { "key": "fileIds", "value": "2" },
-                { "key": "fileIds", "value": "3" }
+                { "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }
               ]
             }
           }
@@ -299,16 +297,16 @@
               { "key": "X-Service-Secret", "value": "{{serviceSecret}}" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/filemanager/internal/files/:id/temp-status?usageArea=Nasheed&rowId=42&isNew=true&tenantId={{tenantId}}",
+              "raw": "{{baseUrl}}/api/filemanager/internal/files/:id/temp-status?usageArea=Songs&rowId=123&isNew=true&tenantId={{tenantId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "filemanager", "internal", "files", ":id", "temp-status"],
+              "variable": [{ "key": "id", "value": "1" }],
               "query": [
-                { "key": "usageArea", "value": "Nasheed" },
-                { "key": "rowId", "value": "42" },
+                { "key": "usageArea", "value": "Songs" },
+                { "key": "rowId", "value": "123" },
                 { "key": "isNew", "value": "true" },
                 { "key": "tenantId", "value": "{{tenantId}}", "description": "Optional" }
-              ],
-              "variable": [{ "key": "id", "value": "1" }]
+              ]
             }
           }
         }

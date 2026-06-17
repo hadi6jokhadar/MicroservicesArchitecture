@@ -124,13 +124,15 @@ Files are organized by category. Each entry includes:
 
 ### SERVICE_INTEGRATION_TEST_GUIDE.md
 
-**Description:** Step-by-step recipe for creating integration tests for any service. Covers project creation, `CustomWebApplicationFactory` pattern, MediatR handler testing (why HTTP layer is bypassed), test file structure, all test patterns (happy path / not-found / validation / side-effects), adding to solution, and README requirements.  
+**Description:** Step-by-step recipe for creating integration tests for any service. Covers project creation, `appsettings.Test.json` setup (real credentials, config load order, available options, Redis fail-fast), `CustomWebApplicationFactory` pattern, the Hangfire `(sp, config)` lazy-overload fix, MediatR handler testing (why HTTP layer is bypassed), test file structure, all test patterns (happy path / not-found / validation / side-effects), adding to solution, and README requirements.  
 **Read When:**
 
 - Adding integration tests to a service for the first time
 - Following up on a "create tests" request
 - Deciding what to stub vs what to test
 - Looking for test code pattern examples
+- Tests fail because of `CHANGE_ME_DB_PASSWORD` or Hangfire connection string errors
+- Understanding why Hangfire must use the `(sp, config)` lazy overload in testable services
 
 ---
 
@@ -581,7 +583,7 @@ Files are organized by category. Each entry includes:
 | Service-to-service call  | SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md, SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md      |
 | Database issue           | DATABASE_PER_TENANT_ARCHITECTURE.md, AUTOMATIC_DATABASE_MIGRATION.md                          |
 | Understand AI service    | AI_SERVICE_OVERVIEW.md, AI_SERVICE_MIGRATION_GUIDE.md, PYTHON_SHARED_LIBRARY_GUIDE.md         |
-| Write tests              | SHARED_TESTING_FILES.md                                                                       |
+| Write tests              | SERVICE_INTEGRATION_TEST_GUIDE.md, SHARED_TESTING_FILES.md                                    |
 | Understand multi-tenancy | MULTI_TENANCY_GUIDE.md, DATABASE_PER_TENANT_ARCHITECTURE.md, TENANT_MIDDLEWARE_EXPLAINED.md   |
 
 ---
@@ -661,5 +663,5 @@ cd Doc
 
 ---
 
-**Last Updated:** June 15, 2026  
+**Last Updated:** June 17, 2026  
 **Maintained By:** AI agents following DOCUMENTATION_GUIDELINES.md

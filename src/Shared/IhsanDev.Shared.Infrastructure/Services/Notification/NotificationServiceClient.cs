@@ -49,7 +49,7 @@ public class NotificationServiceClient : INotificationServiceClient
             };
 
             // Prepare request with tenant header
-            var request = new HttpRequestMessage(HttpMethod.Post, "/api/notifications/send");
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/notifications/send");
             request.Headers.Add("x-tenant-id", tenantId);
             request.Content = JsonContent.Create(payload);
 
@@ -104,7 +104,7 @@ public class NotificationServiceClient : INotificationServiceClient
                 priority = "Immediate"
             };
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "/api/notifications/send");
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/notifications/send");
             request.Headers.Add("x-tenant-id", tenantId);
             request.Content = JsonContent.Create(payload);
 
@@ -157,7 +157,7 @@ public class NotificationServiceClient : INotificationServiceClient
                 priority = "Immediate"
             };
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "/api/notifications/send");
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/notifications/send");
             request.Content = JsonContent.Create(payload);
 
             var response = await client.SendAsync(request, cancellationToken);

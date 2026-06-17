@@ -39,7 +39,7 @@ public class TenantServiceClient : ITenantServiceClient
             while (hasMorePages)
             {
                 var response = await _httpClient.GetAsync(
-                    $"/api/tenant/config?pageNumber={pageNumber}&pageSize={pageSize}",
+                    $"/api/v1/tenant/config?pageNumber={pageNumber}&pageSize={pageSize}",
                     cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
