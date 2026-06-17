@@ -96,11 +96,13 @@ public class CategoryEntityConfiguration : IEntityTypeConfiguration<CategoryEnti
 
         builder.HasIndex(e => e.Slug)
             .IsUnique()
-            .HasDatabaseName("ix_categories_slug_unique");
+            .HasDatabaseName("ix_categories_slug_unique")
+            .HasFilter("\"IsArchived\" = false");
 
         builder.HasIndex(e => e.Uri)
             .IsUnique()
-            .HasDatabaseName("ix_categories_uri_unique");
+            .HasDatabaseName("ix_categories_uri_unique")
+            .HasFilter("\"IsArchived\" = false");
 
         builder.HasIndex(e => e.Depth)
             .HasDatabaseName("ix_categories_depth");
