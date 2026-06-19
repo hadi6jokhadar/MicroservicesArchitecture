@@ -58,6 +58,7 @@ builder.Services.AddMultiTenancy(builder.Configuration);
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddAuditService();
 builder.Services.AddAuditLogQueries<NasheedDbContext>();
+builder.Services.AddFeatureFlagService();
 
 // ============================================
 // Service-to-Service HTTP Clients

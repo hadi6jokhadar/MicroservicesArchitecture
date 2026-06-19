@@ -9,6 +9,7 @@ using Nasheed.Domain.Entities;
 using Nasheed.Domain.Enums;
 using Nasheed.Domain.Interfaces;
 using Polly.CircuitBreaker;
+using SharedFeatureFlags = IhsanDev.Shared.Application.Constants.FeatureFlags;
 
 namespace Nasheed.Infrastructure.Workers;
 
@@ -52,7 +53,14 @@ public class NasheedIngestionWorker : BackgroundService
         {
             try
             {
-                await ProcessPendingJobsAsync(stoppingToken);
+                if (IsIngestionEnabled())
+                {
+                    await ProcessPendingJobsAsync(stoppingToken);
+                }
+                else
+                {
+                    _logger.LogDebug("Nasheed ingestion is disabled by feature flag for tenant {TenantId}.", _tenantCache.Tenant?.TenantId);
+                }
             }
             catch (Exception ex)
             {
@@ -246,6 +254,12 @@ public class NasheedIngestionWorker : BackgroundService
 
         job.MarkCompleted();
         await jobRepo.UpdateAsync(job, cancellationToken);
+    }
+
+    private bool IsIngestionEnabled()
+    {
+        var flags = _tenantCache.Tenant?.Configuration?.FeatureFlags;
+        return flags is null || !flags.TryGetValue(SharedFeatureFlags.NasheedIngestionEnabled, out var enabled) || enabled;
     }
 
     private string GetTenantId() => _tenantCache.Tenant!.TenantId;

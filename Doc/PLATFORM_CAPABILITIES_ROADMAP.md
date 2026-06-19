@@ -20,7 +20,7 @@
 | 5   | Audit Logging Service                 | 1    | ✅ Done        |
 | 6   | Background Job / Scheduling Service   | 2    | ✅ Done        |
 | 7   | API Versioning Standard               | 2    | ✅ Done        |
-| 8   | Feature Flags Service                 | 2    | ⬜ Not started |
+| 8   | Feature Flags Service                 | 2    | ✅ Done        |
 | 9   | Database Backup & Recovery            | 2    | ⬜ Not started |
 | 10  | Search Service                        | 3    | ⬜ Not started |
 | 11  | CDN / Media Delivery                  | 3    | ⬜ Not started |
@@ -964,14 +964,18 @@ if (!_featureFlags.IsEnabled(FeatureFlags.AiChatEnabled))
 
 ### Implementation Checklist
 
-- [ ] Add `FeatureFlags` dictionary to `TenantConfiguration` in Shared.Kernel
-- [ ] Add `IFeatureFlagService` and `TenantFeatureFlagService` to Shared
-- [ ] Register as Scoped in shared DI
-- [ ] Add `FeatureFlags` static class with flag name constants (one per service)
-- [ ] Gate the AI chat endpoints in Nasheed behind `aiChatEnabled`
-- [ ] Gate the Nasheed ingestion pipeline behind `nasheedIngestionEnabled`
-- [ ] Update Tenant admin API docs to document the `featureFlags` payload structure
+- [x] Add `FeatureFlags` dictionary to `TenantConfiguration` in Shared.Kernel
+- [x] Add `IFeatureFlagService` and `TenantFeatureFlagService` to Shared (`IhsanDev.Shared.Application` + `IhsanDev.Shared.Infrastructure`)
+- [x] Register as Scoped via `AddFeatureFlagService()` in `InfrastructureServiceExtensions`
+- [x] Add `FeatureFlags` static class with flag name constants (`IhsanDev.Shared.Application/Constants/FeatureFlags.cs`)
+- [x] Add `FeatureNotEnabled` localization key to `LocalizationKeys` + `en.json` + `ar.json`
+- [x] Gate `GenerateLyricsCommandHandler` (Nasheed) behind `aiChatEnabled` (default: true — 403 if explicitly disabled)
+- [x] Gate `NasheedIngestionWorker` poll cycle behind `nasheedIngestionEnabled` (default: true — skips processing if explicitly disabled)
+- [x] Register `AddFeatureFlagService()` in Nasheed `Program.cs`
+- [x] Create `Doc/FEATURE_FLAGS_GUIDE.md` with full usage guide
 - [ ] Add flag checks to any other experimental endpoints
+
+> **Full guide:** `Doc/FEATURE_FLAGS_GUIDE.md`
 
 ---
 

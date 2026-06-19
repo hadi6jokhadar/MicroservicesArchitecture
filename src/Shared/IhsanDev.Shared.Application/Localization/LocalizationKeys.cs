@@ -65,6 +65,9 @@ public static class LocalizationKeys
 
         // Audit exceptions
         public const string AuditLogNotFound = "exception_audit_log_not_found";
+
+        // Feature flag exceptions
+        public const string FeatureNotEnabled = "exception_feature_not_enabled";
     }
 
     /// <summary>

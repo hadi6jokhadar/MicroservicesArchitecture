@@ -6,6 +6,7 @@ using IhsanDev.Shared.Infrastructure.Handlers.Audit;
 using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Audit;
+using IhsanDev.Shared.Infrastructure.Services.FeatureFlags;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Caching.Memory;
@@ -57,6 +58,16 @@ public static class InfrastructureServiceExtensions
     {
         services.AddScoped<IRequestHandler<GetAuditLogsQuery, PaginatedList<AuditLogDto>>,
             GetAuditLogsQueryHandler<TDbContext>>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the feature flag service backed by the current tenant's configuration.
+    /// Call from every service's Program.cs that uses multi-tenancy.
+    /// </summary>
+    public static IServiceCollection AddFeatureFlagService(this IServiceCollection services)
+    {
+        services.AddScoped<IFeatureFlagService, TenantFeatureFlagService>();
         return services;
     }
 
