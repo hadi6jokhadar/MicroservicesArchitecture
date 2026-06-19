@@ -6,6 +6,10 @@ using Nasheed.Application.Commands;
 using Nasheed.Application.Constants;
 using Nasheed.Application.DTOs;
 using Nasheed.Application.Interfaces;
+using IhsanDev.Shared.Application.Services;
+using IhsanDev.Shared.Application.Constants;
+using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Application.Exceptions;
 
 namespace Nasheed.Application.Handlers.GenerateLyrics;
 
@@ -13,15 +17,23 @@ public class GenerateLyricsCommandHandler : IRequestHandler<GenerateLyricsComman
 {
     private readonly IAiApiClient _aiClient;
     private readonly ILogger<GenerateLyricsCommandHandler> _logger;
+    private readonly IFeatureFlagService _featureFlags;
 
-    public GenerateLyricsCommandHandler(IAiApiClient aiClient, ILogger<GenerateLyricsCommandHandler> logger)
+    public GenerateLyricsCommandHandler(
+        IAiApiClient aiClient,
+        ILogger<GenerateLyricsCommandHandler> logger,
+        IFeatureFlagService featureFlags)
     {
         _aiClient = aiClient;
         _logger = logger;
+        _featureFlags = featureFlags;
     }
 
     public async Task<GenerateLyricsResponseDto> Handle(GenerateLyricsCommand request, CancellationToken cancellationToken)
     {
+        if (!_featureFlags.IsEnabled(FeatureFlags.AiChatEnabled, defaultValue: true))
+            throw new ForbiddenException(LocalizationKeys.Exceptions.FeatureNotEnabled);
+
         var userMessage = BuildUserMessage(request);
 
         string response;

@@ -3,8 +3,8 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** June 15, 2026  
-**Total Files:** 40
+**Last Updated:** June 20, 2026  
+**Total Files:** 41
 
 ---
 
@@ -182,12 +182,22 @@ Files are organized by category. Each entry includes:
 
 ### PLATFORM_CAPABILITIES_ROADMAP.md
 
-**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing ✅ including health checks + correlation ID, Secrets Management, Circuit Breaker, Audit Logging ✅), Tier 2 (Background Jobs ✅, API Versioning, Feature Flags, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
+**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing ✅ including health checks + correlation ID, Secrets Management, Circuit Breaker, Audit Logging ✅), Tier 2 (Background Jobs ✅, API Versioning ✅, Feature Flags ✅, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
 **Read When:**
 
 - Planning new infrastructure work
 - Deciding what to build next for production readiness
 - Starting implementation of any of the 12 capabilities listed
+
+### FEATURE_FLAGS_GUIDE.md
+
+**Description:** Tenant-configuration-driven feature flags. Covers `TenantConfiguration.FeatureFlags` dictionary, `IFeatureFlagService` interface, `TenantFeatureFlagService` implementation, DI registration (`AddFeatureFlagService()`), flag name constants (`FeatureFlags` static class), usage in request handlers vs background services, current gates (aiChatEnabled → GenerateLyricsCommandHandler, nasheedIngestionEnabled → NasheedIngestionWorker), and steps for adding new flags.  
+**Read When:**
+
+- Adding a feature flag to gate a new capability per tenant
+- Enabling or disabling a feature for a specific tenant
+- Understanding how `featureFlags` fits inside the tenant configuration payload
+- Debugging 403 responses caused by a disabled feature flag
 
 ### OBSERVABILITY_GUIDE.md
 
@@ -564,6 +574,7 @@ Files are organized by category. Each entry includes:
 
 | Task                     | Files to Read                                                                                 |
 | ------------------------ | --------------------------------------------------------------------------------------------- |
+| Feature flags            | FEATURE_FLAGS_GUIDE.md                                                                        |
 | Gateway routing          | API_GATEWAY_GUIDE.md                                                                          |
 | Health checks            | API_GATEWAY_GUIDE.md (aggregate), OBSERVABILITY_GUIDE.md (per-service)                        |
 | Correlation ID tracing   | API_GATEWAY_GUIDE.md, OBSERVABILITY_GUIDE.md                                                  |

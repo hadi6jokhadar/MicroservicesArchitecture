@@ -41,6 +41,7 @@ public class TenantConfiguration
     public CorsSettings? Cors { get; set; }
     public OtpSettings? Otp { get; set; }
     public BlobStorageSettings? BlobStorage { get; set; }
+    public Dictionary<string, bool> FeatureFlags { get; set; } = new();
 }
 
 /// <summary>

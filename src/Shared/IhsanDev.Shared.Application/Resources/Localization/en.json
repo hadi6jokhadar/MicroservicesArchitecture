@@ -37,6 +37,7 @@
   "exception_token_tenant_header_missing": "Your authentication token is associated with a tenant, but no tenant header was provided.",
   "exception_token_tenant_mismatch": "Access denied. Your authentication token is for tenant '{0}', but you are trying to access tenant '{1}'.",
   "exception_audit_log_not_found": "Audit log entry not found",
+  "exception_feature_not_enabled": "This feature is not enabled for your account",
 
   "validation_required": "{0} is required",
   "validation_email_invalid": "Invalid email address",
