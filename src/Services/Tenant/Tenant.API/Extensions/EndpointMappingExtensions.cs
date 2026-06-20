@@ -41,6 +41,14 @@ public static class EndpointMappingExtensions
             .Produces(401)
             .Produces(403);
 
+        // Public feature flags endpoint — safe to call without auth, returns tenant-specific or default flags
+        publicGroup.MapGet("/feature-flags", TenantApiHandlers.GetTenantFeatureFlagsHandler)
+            .AllowAnonymous()
+            .WithName("GetTenantFeatureFlags")
+            .WithSummary("Get feature flags (public)")
+            .WithDescription("Returns feature flags for the given tenantId, or system defaults when tenantId is omitted. Safe to call from any app without authentication.")
+            .Produces<Dictionary<string, bool>>(200);
+
         // Public tenant info endpoint (without sensitive data)
         publicGroup.MapGet("/{tenantId}", TenantApiHandlers.GetTenantByIdHandler)
             .WithName("GetTenantById")

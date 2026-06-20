@@ -61,6 +61,9 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, T
             var cacheKey = $"tenant_config_{tenant.TenantId}";
             await _cacheService.RemoveAsync(cacheKey, cancellationToken);
 
+            // Invalidate feature flags cache so updated flags are served on next request
+            await _cacheService.RemoveAsync($"tenant_feature_flags_{tenant.TenantId}", cancellationToken);
+
             // Invalidate paginated tenant list cache (tenant data changed)
             await _cacheService.RemoveByPatternAsync("all_active_tenants_with_config_*", cancellationToken);
 

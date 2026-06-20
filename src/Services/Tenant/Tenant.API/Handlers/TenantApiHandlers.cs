@@ -139,6 +139,20 @@ public static class TenantApiHandlers
     }
 
     /// <summary>
+    /// Get feature flags for a tenant (public endpoint).
+    /// TenantId is optional — returns system defaults when omitted.
+    /// </summary>
+    public static async Task<IResult> GetTenantFeatureFlagsHandler(
+        IMediator mediator,
+        string? tenantId = null,
+        CancellationToken ct = default)
+    {
+        var query = new GetTenantFeatureFlagsQuery(tenantId);
+        var result = await mediator.Send(query, ct);
+        return Results.Ok(result);
+    }
+
+    /// <summary>
     /// Get all active tenants with configuration (Service/SuperAdmin only)
     /// </summary>
     public static async Task<IResult> GetAllActiveTenantsWithConfigHandler(

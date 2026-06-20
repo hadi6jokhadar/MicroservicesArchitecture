@@ -72,6 +72,11 @@ public class GetAllActiveTenantsQueryValidator : LocalizedValidator<GetAllActive
 /// </summary>
 public record GetAllActiveTenantsWithConfigQuery(int PageNumber = 1, int PageSize = 100) : IRequest<PaginatedList<TenantConfigDto>>;
 
+/// <summary>
+/// Public query to get feature flags for a tenant. TenantId is optional — returns defaults when omitted.
+/// </summary>
+public record GetTenantFeatureFlagsQuery(string? TenantId) : IRequest<Dictionary<string, bool>>;
+
 public class GetAllActiveTenantsWithConfigQueryValidator : LocalizedValidator<GetAllActiveTenantsWithConfigQuery>
 {
     public GetAllActiveTenantsWithConfigQueryValidator(ILocalizationService localizationService) : base(localizationService)
