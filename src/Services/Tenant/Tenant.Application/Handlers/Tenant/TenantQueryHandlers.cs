@@ -1,11 +1,14 @@
 using IhsanDev.Shared.Application.Common.Mappings;
 using IhsanDev.Shared.Application.Common.Models;
+using IhsanDev.Shared.Application.Constants;
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
+using IhsanDev.Shared.Kernel.Dto.Tenant;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Application.DTOs;
 using Tenant.Domain.Repositories;
@@ -270,6 +273,104 @@ public class GetAllActiveTenantsWithConfigQueryHandler : IRequestHandler<GetAllA
         {
             _logger.LogError(ex, "An error occurred while getting all active tenants with config");
             throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+        }
+    }
+}
+
+/// <summary>
+/// Returns feature flags for a tenant, merged with system defaults.
+/// When no tenantId is provided, returns the default flag set.
+/// Never throws — falls back to defaults on any error.
+/// </summary>
+public class GetTenantFeatureFlagsQueryHandler : IRequestHandler<GetTenantFeatureFlagsQuery, Dictionary<string, bool>>
+{
+    private readonly ITenantRepository _tenantRepository;
+    private readonly ICacheService _cacheService;
+    private readonly ILogger<GetTenantFeatureFlagsQueryHandler> _logger;
+
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public GetTenantFeatureFlagsQueryHandler(
+        ITenantRepository tenantRepository,
+        ICacheService cacheService,
+        ILogger<GetTenantFeatureFlagsQueryHandler> logger)
+    {
+        _tenantRepository = tenantRepository;
+        _cacheService = cacheService;
+        _logger = logger;
+    }
+
+    public async Task<Dictionary<string, bool>> Handle(GetTenantFeatureFlagsQuery request, CancellationToken cancellationToken)
+    {
+        var defaults = GetDefaultFlags();
+
+        if (string.IsNullOrWhiteSpace(request.TenantId))
+            return defaults;
+
+        var cacheKey = $"tenant_feature_flags_{request.TenantId}";
+
+        var cached = await _cacheService.GetAsync<Dictionary<string, bool>>(cacheKey, cancellationToken);
+        if (cached != null)
+        {
+            _logger.LogDebug("Cache HIT for feature flags of tenant {TenantId}", request.TenantId);
+            return cached;
+        }
+
+        try
+        {
+            var tenant = await _tenantRepository.GetByTenantIdAsync(request.TenantId, cancellationToken);
+            if (tenant == null)
+                return defaults;
+
+            var tenantFlags = DeserializeFeatureFlags(tenant.Data);
+
+            Dictionary<string, bool> result;
+            if (tenantFlags == null || tenantFlags.Count == 0)
+            {
+                result = defaults;
+            }
+            else
+            {
+                // Tenant values override defaults; unknown keys from the tenant are included as-is.
+                result = new Dictionary<string, bool>(defaults);
+                foreach (var (key, value) in tenantFlags)
+                    result[key] = value;
+            }
+
+            await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromDays(7), cancellationToken);
+            _logger.LogDebug("Cached feature flags for tenant {TenantId} for 7 days", request.TenantId);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load feature flags for tenant {TenantId}, returning defaults", request.TenantId);
+            return defaults;
+        }
+    }
+
+    private static Dictionary<string, bool> GetDefaultFlags() => new()
+    {
+        [FeatureFlags.AiChatEnabled] = true,
+        [FeatureFlags.NasheedIngestionEnabled] = true,
+        [FeatureFlags.IsBackgroundJobPageEnabled] = true,
+        [FeatureFlags.IsAuditLogPageEnabled] = true,
+    };
+
+    private static Dictionary<string, bool>? DeserializeFeatureFlags(string? data)
+    {
+        if (string.IsNullOrWhiteSpace(data)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<TenantConfiguration>(data, _jsonOptions)?.FeatureFlags;
+        }
+        catch
+        {
+            return null;
         }
     }
 }

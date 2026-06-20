@@ -101,6 +101,8 @@ builder.Services.AddFeatureFlagService();
 |---|---|---|
 | `aiChatEnabled` | `true` | `GenerateLyricsCommandHandler` — returns 403 if disabled |
 | `nasheedIngestionEnabled` | `true` | `NasheedIngestionWorker` — skips the poll cycle if disabled |
+| `isBackgroundJobPageEnabled` | `true` | Frontend only — hides sidebar jobs group when disabled |
+| `isAuditLogPageEnabled` | `true` | Frontend only — hides sidebar item and blocks `/audit-log` route |
 
 ---
 
