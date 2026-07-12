@@ -61,18 +61,23 @@ public static class FileManagerServiceExtensions
         .AddHttpMessageHandler<CorrelationIdForwardingHandler>()
         .AddStandardResilienceHandler(options =>
         {
-            // FileManager is a fast internal call — keep retries tight
-            options.Retry.MaxRetryAttempts = 3;
+            // FileManager is a fast internal call — keep retries tight. This call sits inline
+            // in user-facing request paths (e.g. profile picture enrichment on every
+            // /api/v1/user/profile call), so a slow/unhealthy FileManager must fail fast rather
+            // than hold the caller's request thread/connection open for many seconds — under
+            // concurrent load, many simultaneous callers blocked here is what turns a FileManager
+            // slowdown into the *caller* service becoming unresponsive too.
+            options.Retry.MaxRetryAttempts = 2;
             options.Retry.Delay = TimeSpan.FromMilliseconds(100);
             options.Retry.BackoffType = DelayBackoffType.Exponential;
 
             options.CircuitBreaker.FailureRatio = 0.5;
-            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(10);
             options.CircuitBreaker.MinimumThroughput = 5;
             options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
 
-            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(4);
-            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(15);
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(1);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(3);
         });
 
         return services;

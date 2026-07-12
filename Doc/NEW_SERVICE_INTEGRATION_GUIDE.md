@@ -578,7 +578,7 @@ curl -X GET "https://localhost:5002/api/orders?tenantId=customer-abc-12345" \
 For admin endpoints that bypass tenant context, you MUST implement:
 
 1. **JWT Mode Consistency**: Match `MultiTenancy:JwtMode` across ALL services
-2. **JWT Validation Pattern**: Use `ITenantConfigurationProvider` in `OnMessageReceived` event
+2. **JWT Validation**: Just call `builder.Services.AddJwtAuthentication(builder.Configuration)` — it already handles `PerTenant` mode correctly via `IssuerSigningKeyResolver`/`IssuerValidator`/`AudienceValidator`. Never hand-roll `JwtBearerEvents` that mutates `context.Options.TokenValidationParameters` — that object is shared across every concurrent request; see `BYPASS_TENANT_ENDPOINTS_GUIDE.md`'s "JWT Validation Pattern" section
 3. **DbContext Fallback**: Fall back to global database when no tenant context
 4. **Dual Database Migration**: Migrate both global and tenant databases
 5. **Optional Tenant Parameter**: Make `tenantId` query parameter optional
@@ -595,9 +595,9 @@ Before implementing admin endpoints, complete this checklist:
 
 #### Authentication (Program.cs)
 
-- [ ] JWT `OnMessageReceived` event uses `ITenantConfigurationProvider`
-- [ ] Dynamic `TokenValidationParameters` created per-request
-- [ ] Global JWT parameters explicitly set when no `x-tenant-id` header
+- [ ] `builder.Services.AddJwtAuthentication(builder.Configuration)` called — no custom `JwtBearerEvents` mutating shared `TokenValidationParameters`
+- [ ] `MultiTenancy:JwtMode` set and matches Identity Service
+- [ ] (Handled automatically by `AddJwtAuthentication`) Global JWT fallback when no `x-tenant-id` header / no `ITenantContext.CurrentTenant`
 
 #### Database (DbContext)
 
@@ -1285,30 +1285,11 @@ Your service is **resilient** and won't crash if Tenant Service is unavailable.
 
 ### Q7: Can I use different JWT secrets per tenant?
 
-**A: Yes, that's one of the main benefits of multi-tenancy.**
+**A: Yes, that's one of the main benefits of multi-tenancy — set `MultiTenancy:JwtMode: "PerTenant"` and it just works, no code needed.**
 
-When tenant context is available, JWT validation automatically uses tenant-specific secrets:
+`AddJwtAuthentication(builder.Configuration)` (called once in every service's `Program.cs`) reads `JwtMode` and, when `PerTenant`, wires up `TokenValidationParameters.IssuerSigningKeyResolver`/`IssuerValidator`/`AudienceValidator` — stateless, per-validation callbacks (set once at startup, never mutated per-request) that read `ITenantContext.CurrentTenant` (already resolved earlier in the same request by `UseTenantResolution`) via `IHttpContextAccessor` and return the tenant-specific key/issuer/audience alongside the global ones as fallback candidates. See `IhsanDev.Shared.Infrastructure/Extensions/JwtAuthenticationExtensions.cs` for the implementation and `MULTI_TENANCY_GUIDE.md`'s Troubleshooting section for why this must never be done by mutating `context.Options.TokenValidationParameters` from inside a `JwtBearerEvents` handler.
 
-```csharp
-// In Identity Service Program.cs (already implemented)
-options.Events = new JwtBearerEvents
-{
-    OnMessageReceived = context =>
-    {
-        var tenantContext = context.HttpContext.RequestServices.GetService<ITenantContext>();
-        if (tenantContext?.HasTenant == true)
-        {
-            // Use tenant-specific JWT secret
-            var tenantJwt = tenantContext.CurrentTenant.Configuration.Jwt;
-            context.Options.TokenValidationParameters.IssuerSigningKey =
-                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tenantJwt.Secret));
-        }
-        return Task.CompletedTask;
-    }
-};
-```
-
-This is **already implemented** in the shared infrastructure for Identity Service.
+This is **already implemented** in the shared infrastructure — you never write JWT validation code per service.
 
 ### Q8: How do I know which shared libraries to reference?
 
@@ -1392,7 +1373,7 @@ The default implementation uses the `x-tenant-id` header. To use subdomain:
 - ✅ Ensure JWT secret is **exactly the same** in all services
 - ✅ Check secret is at least 32 characters long
 - ✅ Verify `Issuer` and `Audience` match Identity Service configuration
-- ✅ **CRITICAL**: If using `JwtMode: "PerTenant"`, ensure JWT validation uses `ITenantConfigurationProvider` in `OnMessageReceived` event
+- ✅ If using `JwtMode: "PerTenant"`, confirm the service calls `AddJwtAuthentication(builder.Configuration)` (not a hand-rolled `AddJwtBearer`) — see Issue 6 below if failures are intermittent rather than constant
 
 ### Issue 4: User ID Not Found in Token
 
@@ -1418,13 +1399,18 @@ The default implementation uses the `x-tenant-id` header. To use subdomain:
 
 ### Issue 6: JWT Validation Fails for Tenant Users in PerTenant Mode
 
-**Symptom**: Tenant users get 401 Unauthorized when `JwtMode: "PerTenant"` is enabled
+**Symptom (constant)**: Tenant users always get 401 Unauthorized when `JwtMode: "PerTenant"` is enabled.
 
 **Solutions**:
 
-- ✅ **JWT OnMessageReceived Event**: Use `ITenantConfigurationProvider.GetTenantConfigurationAsync()` to fetch tenant JWT secret
-- ✅ **Dynamic TokenValidationParameters**: Create fresh parameters per-request with tenant-specific secret
-- ✅ **Global Fallback**: Always explicitly set global JWT params when no tenant header
+- ✅ Confirm the service calls `builder.Services.AddJwtAuthentication(builder.Configuration)` — this is the ONLY correct way to wire up JWT auth; it reads `JwtMode` and handles `PerTenant` resolution internally
+- ✅ Confirm `MultiTenancy:JwtMode` matches Identity Service's value exactly
+- ✅ Confirm the tenant actually has a `Jwt.Secret` configured in Tenant Service (`GET /api/v1/tenant/config/{tenantId}`) — if empty/null, validation correctly falls back to the global secret, which won't match a token signed with a tenant-specific secret (if one was expected)
+
+**Symptom (intermittent, only under concurrent load)**: `401` with `error="invalid_token"`, `error_description="The signature key was not found"` — happens rarely at low traffic, much more often as concurrency increases, with the *same* token that succeeds most of the time.
+
+**Root cause (fixed July 2026)**: an earlier version of `JwtAuthenticationExtensions.cs` resolved the tenant's signing key inside `OnMessageReceived` and assigned it to `context.Options.TokenValidationParameters` — the single `JwtBearerOptions` instance shared by every concurrent request. Under load, one request's validation could run against a different, concurrently in-flight request's freshly-overwritten parameters. **If you ever see this symptom, it means some code (custom or reintroduced) is mutating `context.Options.TokenValidationParameters` from inside a `JwtBearerEvents` handler — search for that pattern and remove it.** The correct approach is `IssuerSigningKeyResolver`/`IssuerValidator`/`AudienceValidator`, which are pure per-validation callbacks with no shared mutable state. Full writeup: `MULTI_TENANCY_GUIDE.md` Troubleshooting section and `LOAD_TESTING_GUIDE.md`.
+
 - ✅ See [BYPASS_TENANT_ENDPOINTS_GUIDE.md](BYPASS_TENANT_ENDPOINTS_GUIDE.md) section "JWT Validation Pattern"
 
 ---

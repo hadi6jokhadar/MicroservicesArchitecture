@@ -1086,15 +1086,21 @@ Middleware reads JWT → Sets ITenantContext.TenantId
 
 ### **2. Connection Pool Management**
 
-```csharp
-// Problem: N tenants × M projects = N×M connection pools (memory leak!)
+**⚠️ Do NOT use `AddDbContextPool` for per-tenant DbContexts in this codebase.** The example that used to be here (`services.AddDbContextPool<IdentityDbContext>(...)`) was wrong and was never actually implemented — good thing, because it would have caused cross-tenant data leakage. `AddDbContextPool` reuses DbContext *instances* across requests, and the configuration callback only runs once, when an instance is first created and added to the pool — not on every rental. This codebase resolves the tenant connection string dynamically per-request inside `OnConfiguring` (reading `ITenantContext`). Pool the context, and a connection string resolved for tenant A when its instance was first created gets silently reused for tenant B's request later when that same pooled instance is rented again.
 
-// Solution: Use connection string pooling
-services.AddDbContextPool<IdentityDbContext>(options =>
-{
-    options.UseNpgsql(connectionString);
-}, poolSize: 128);
+```csharp
+// Problem: N tenants × M services = N×M Npgsql connection pools, each defaulting to
+// Npgsql's own 100-connection ceiling if the stored connection string doesn't specify one.
+
+// Solution actually implemented (IdentityDbContext, FileManagerDbContext, CategoryDbContext,
+// TenantNotificationDbContext, NasheedDbContext — all OnConfiguring, tenant branch only):
+// cap the Npgsql-level pool size on the resolved connection string itself, not the DbContext.
+var maxPoolSizePerTenant = _configuration?.GetValue("DatabaseSettings:MaxPoolSizePerTenant", 20) ?? 20;
+connectionString = NpgsqlConnectionStringHelper.WithBoundedPoolSize(tenantDb.ConnectionString, maxPoolSizePerTenant);
+optionsBuilder.UseNpgsql(connectionString, ...);
 ```
+
+`NpgsqlConnectionStringHelper` lives in `IhsanDev.Shared.Infrastructure/Persistence/`. This keeps the DbContext registration as plain `AddDbContext` (correct for dynamic per-tenant resolution) while making the *total* connection count a bounded, plannable number: `active tenants × services × MaxPoolSizePerTenant`. Only applied to the tenant-specific branch — the global-fallback and non-multi-tenant branches reuse one static connection string, so they aren't part of the N×M multiplication problem.
 
 ### **3. Caching Tenant Configuration**
 

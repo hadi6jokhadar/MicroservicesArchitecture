@@ -22,28 +22,65 @@ builder.Services.AddHttpClient("downstream-health", client =>
     client.Timeout = TimeSpan.FromSeconds(5);
 });
 
+// Token bucket, not fixed window: a fixed window lets a client spend its whole quota in the
+// last instant of one window and again in the first instant of the next (up to 2x the intended
+// rate in a short burst). A token bucket absorbs real traffic spikes smoothly instead — burst up
+// to TokenLimit immediately, then throttle to a steady TokensPerPeriod/ReplenishmentPeriod rate.
+int GetInt(string key, int fallback) => builder.Configuration.GetValue(key, fallback);
+
+var globalTokenLimit = GetInt("RateLimiting:Global:TokenLimit", 20_000);
+var globalTokensPerPeriod = GetInt("RateLimiting:Global:TokensPerPeriod", 5_000);
+var globalReplenishSeconds = GetInt("RateLimiting:Global:ReplenishmentSeconds", 1);
+
+var perIpTokenLimit = GetInt("RateLimiting:PerIp:TokenLimit", 200);
+var perIpTokensPerPeriod = GetInt("RateLimiting:PerIp:TokensPerPeriod", 50);
+var perIpReplenishSeconds = GetInt("RateLimiting:PerIp:ReplenishmentSeconds", 1);
+
+// Auth gets its own, separate per-IP bucket so a burst of unrelated API traffic from a shared
+// NAT/office IP can never exhaust the budget that login/register/refresh depend on.
+var authTokenLimit = GetInt("RateLimiting:PerIpAuth:TokenLimit", 20);
+var authTokensPerPeriod = GetInt("RateLimiting:PerIpAuth:TokensPerPeriod", 5);
+var authReplenishSeconds = GetInt("RateLimiting:PerIpAuth:ReplenishmentSeconds", 1);
+
 builder.Services.AddRateLimiter(options =>
 {
-    // Global: total request cap across all clients — gateway-wide protection
+    // Global: total request cap across all clients — platform-wide circuit breaker against a
+    // runaway or catastrophic-overload scenario, not meant to bottleneck legitimate scale-up.
+    // Applies to every request through UseRateLimiter(), including endpoints with no named
+    // policy attached — infrastructure endpoints (/health, /health/aggregate) explicitly
+    // opt out via .DisableRateLimiting() below so LB/k8s probes never compete with real traffic.
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
-        RateLimitPartition.GetFixedWindowLimiter("global", _ => new FixedWindowRateLimiterOptions
+        RateLimitPartition.GetTokenBucketLimiter("global", _ => new TokenBucketRateLimiterOptions
         {
-            PermitLimit = 10_000,
-            Window = TimeSpan.FromMinutes(1),
+            TokenLimit = globalTokenLimit,
+            TokensPerPeriod = globalTokensPerPeriod,
+            ReplenishmentPeriod = TimeSpan.FromSeconds(globalReplenishSeconds),
             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-            QueueLimit = 0
+            QueueLimit = 0,
+            AutoReplenishment = true
         }));
 
-    // PerIP: only the gateway sees the real client IP — services see the gateway's loopback address
+    // PerIP: only the gateway sees the real client IP — services see the gateway's loopback address.
+    // Auth routes are partitioned into their own bucket per IP (separate token count) so general
+    // API traffic can never starve login/register/refresh of their budget.
     options.AddPolicy("per-ip", context =>
     {
         var ip = context.Connection.RemoteIpAddress ?? IPAddress.Loopback;
-        return RateLimitPartition.GetFixedWindowLimiter(ip.ToString(), _ => new FixedWindowRateLimiterOptions
+        var isAuthPath = context.Request.Path.StartsWithSegments("/api/v1/auth");
+        var partitionKey = $"{ip}:{(isAuthPath ? "auth" : "api")}";
+
+        var (tokenLimit, tokensPerPeriod, replenishSeconds) = isAuthPath
+            ? (authTokenLimit, authTokensPerPeriod, authReplenishSeconds)
+            : (perIpTokenLimit, perIpTokensPerPeriod, perIpReplenishSeconds);
+
+        return RateLimitPartition.GetTokenBucketLimiter(partitionKey, _ => new TokenBucketRateLimiterOptions
         {
-            PermitLimit = 500,
-            Window = TimeSpan.FromMinutes(1),
+            TokenLimit = tokenLimit,
+            TokensPerPeriod = tokensPerPeriod,
+            ReplenishmentPeriod = TimeSpan.FromSeconds(replenishSeconds),
             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-            QueueLimit = 0
+            QueueLimit = 0,
+            AutoReplenishment = true
         });
     });
 
@@ -66,7 +103,8 @@ app.Use(async (ctx, next) =>
 // Health check (lightweight — gateway only)
 // ============================================
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "Gateway.API", timestamp = DateTimeOffset.UtcNow }))
-   .AllowAnonymous();
+   .AllowAnonymous()
+   .DisableRateLimiting();
 
 // ============================================
 // Aggregate health check — calls all downstream /health endpoints in parallel
@@ -109,7 +147,8 @@ app.MapGet("/health/aggregate", async (IHttpClientFactory httpClientFactory, ICo
         timestamp = DateTimeOffset.UtcNow,
         services = results.ToDictionary(r => r.Name, r => r.status)
     });
-}).AllowAnonymous();
+}).AllowAnonymous()
+  .DisableRateLimiting();
 
 app.UseRateLimiter();
 

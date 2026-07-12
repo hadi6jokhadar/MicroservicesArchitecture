@@ -338,10 +338,9 @@ ORDER BY u.Created DESC;
 
 ## 🔗 Related Documentation
 
-- [PROFILE_PICTURE_BATCH_OPTIMIZATION.md](PROFILE_PICTURE_BATCH_OPTIMIZATION.md) - N+1 query prevention
-- [DYNAMIC_ROLES_AND_CLAIMS_MIGRATION_SUMMARY.md](DYNAMIC_ROLES_AND_CLAIMS_MIGRATION_SUMMARY.md) - Role system migration
-- [BOTTLENECKS_COMPLETION_SUMMARY.md](BOTTLENECKS_COMPLETION_SUMMARY.md) - Overall performance improvements
-- [AUTOMAPPER_REMOVAL_SUMMARY.md](AUTOMAPPER_REMOVAL_SUMMARY.md) - Manual mapping patterns
+- [PROFILE_PICTURE_COMPLETE_GUIDE.md](PROFILE_PICTURE_COMPLETE_GUIDE.md) - N+1 query prevention via batch fetching
+- [ROLES_AND_CLAIMS_GUIDE.md](ROLES_AND_CLAIMS_GUIDE.md) - Role and claims system
+- [LOAD_TESTING_GUIDE.md](LOAD_TESTING_GUIDE.md) - k6 scripts for measuring query performance under load
 
 ---
 

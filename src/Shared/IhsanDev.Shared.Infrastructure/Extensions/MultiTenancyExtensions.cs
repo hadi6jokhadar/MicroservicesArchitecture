@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
+using Polly;
 
 namespace IhsanDev.Shared.Infrastructure.Extensions;
 
@@ -52,15 +54,15 @@ public static class MultiTenancyExtensions
             client.BaseAddress = new Uri(tenantServiceUrl);
             client.Timeout = TimeSpan.FromSeconds(10);
             client.DefaultRequestHeaders.Add("Accept", "application/json");
-            
+
             // Add service authentication headers for service-to-service communication
             var serviceSecret = configuration["ServiceCommunication:SharedSecret"];
             if (!string.IsNullOrEmpty(serviceSecret))
             {
                 client.DefaultRequestHeaders.Add("X-Service-Secret", serviceSecret);
-                
+
                 // Determine service name from current service configuration or default
-                var serviceName = configuration["ServiceCommunication:ServiceName"] 
+                var serviceName = configuration["ServiceCommunication:ServiceName"]
                     ?? configuration["ApplicationName"]
                     ?? "UnknownService";
                 client.DefaultRequestHeaders.Add("X-Service-Name", serviceName);
@@ -69,16 +71,36 @@ public static class MultiTenancyExtensions
         .ConfigurePrimaryHttpMessageHandler(() =>
         {
             var handler = new HttpClientHandler();
-            
+
             // In development, bypass SSL certificate validation for self-signed certificates
             // This is necessary for local HTTPS development with self-signed certificates
             if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
             {
-                handler.ServerCertificateCustomValidationCallback = 
+                handler.ServerCertificateCustomValidationCallback =
                     HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             }
-            
+
             return handler;
+        })
+        // This client is called from TenantConfigurationProvider, invoked by TenantMiddleware on
+        // EVERY tenant-scoped request across every multi-tenant service whenever the 30-minute
+        // Redis cache misses (cold start, cache flush, first request for a tenant). It must fail
+        // fast, not just eventually succeed — previously this had no resilience handler at all
+        // (just a flat 10s client.Timeout, no circuit breaker), so repeated failures never tripped
+        // open and every miss paid the same ~10s penalty indefinitely.
+        .AddStandardResilienceHandler(options =>
+        {
+            options.Retry.MaxRetryAttempts = 2;
+            options.Retry.Delay = TimeSpan.FromMilliseconds(100);
+            options.Retry.BackoffType = DelayBackoffType.Exponential;
+
+            options.CircuitBreaker.FailureRatio = 0.5;
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(10);
+            options.CircuitBreaker.MinimumThroughput = 5;
+            options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
+
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(2);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(4);
         });
 
         return services;

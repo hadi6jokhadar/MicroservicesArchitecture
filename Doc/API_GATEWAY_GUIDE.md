@@ -25,46 +25,48 @@ The API Gateway is the single entry point for all client-to-service traffic. It 
 
 | Service      | Port | Gateway route prefix(es)                                                                                                      |
 | ------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Identity     | 5001 | `/api/auth/...`, `/api/user/...`, `/api/roles/...`, `/api/claims/...`, `/api/device-tokens/...`, `/api/admin/...` (catch-all) |
-| Tenant       | 5002 | `/api/tenant/...`, `/api/admin/tenant/...`                                                                                    |
-| Notification | 5004 | `/api/notifications/...`                                                                                                      |
-| FileManager  | 5005 | `/api/filemanager/...`                                                                                                        |
-| Translation  | 5006 | `/api/translations/...`                                                                                                       |
-| Category     | 5007 | `/api/categories/...`, `/api/admin/categories/...`                                                                            |
+| Identity     | 5001 | `/api/v1/auth/...`, `/api/v1/user/...`, `/api/v1/roles/...`, `/api/v1/claims/...`, `/api/v1/device-tokens/...`, `/api/v1/admin/...` (catch-all) |
+| Tenant       | 5002 | `/api/v1/tenant/...`, `/api/v1/admin/tenant/...`                                                                              |
+| Notification | 5004 | `/api/v1/notifications/...`                                                                                                   |
+| FileManager  | 5005 | `/api/v1/filemanager/...`                                                                                                     |
+| Translation  | 5006 | `/api/v1/translations/...`                                                                                                    |
+| Category     | 5007 | `/api/v1/categories/...`, `/api/v1/admin/categories/...`                                                                      |
 | AI (Python)  | 5008 | `/api/v1/ai/...` → proxied as `/api/v1/...`                                                                                   |
-| Nasheed      | 5009 | `/api/artists/...`, `/api/songs/...`, `/api/ingestion/...`, `/api/search/...`, `/api/generation/...`                          |
+| Nasheed      | 5009 | `/api/v1/artists/...`, `/api/v1/songs/...`, `/api/v1/ingestion/...`, `/api/v1/search/...`, `/api/v1/generation/...`           |
+
+**Note:** All routes are versioned (`/api/v1/...`) per the API Versioning Standard (Section 7 of `PLATFORM_CAPABILITIES_ROADMAP.md`). Unversioned service-to-service internal endpoints (e.g. `/api/filemanager/internal/...`) and the audit-log endpoint (`/api/admin/audit-logs`) are the only exceptions — see the Admin Endpoint Routing section below.
 
 ---
 
 ## Admin Endpoint Routing
 
-Several services expose endpoints under `/api/admin/`. YARP resolves these by route priority (lower `Order` number = higher priority):
+Several services expose endpoints under `/api/v1/admin/`. YARP resolves these by route priority (lower `Order` number = higher priority):
 
 | Route                        | Order | Forwards to                                                     |
 | ---------------------------- | ----- | --------------------------------------------------------------- |
-| `/api/admin/tenant/audit-logs`      | 4 | Tenant (5002) — path rewritten to `/api/admin/audit-logs`      |
-| `/api/admin/filemanager/audit-logs` | 4 | FileManager (5005) — path rewritten to `/api/admin/audit-logs` |
-| `/api/admin/notifications/audit-logs` | 4 | Notification (5004) — path rewritten to `/api/admin/audit-logs` |
-| `/api/admin/translations/audit-logs`  | 4 | Translation (5006) — path rewritten to `/api/admin/audit-logs` |
-| `/api/admin/categories/audit-logs`  | 4 | Category (5007) — path rewritten to `/api/admin/audit-logs`    |
-| `/api/admin/nasheed/audit-logs`     | 4 | Nasheed (5009) — path rewritten to `/api/admin/audit-logs`     |
-| `/api/admin/tenant/{**}`     | 5     | Tenant (5002)                                                   |
-| `/api/admin/categories/{**}` | 5     | Category (5007)                                                 |
-| `/api/admin/{**}`            | 20    | Identity (5001) — catch-all; also serves Identity audit-logs at `/api/admin/audit-logs` |
+| `/api/v1/admin/tenant/audit-logs`      | 4 | Tenant (5002) — path rewritten to `/api/admin/audit-logs`      |
+| `/api/v1/admin/filemanager/audit-logs` | 4 | FileManager (5005) — path rewritten to `/api/admin/audit-logs` |
+| `/api/v1/admin/notifications/audit-logs` | 4 | Notification (5004) — path rewritten to `/api/admin/audit-logs` |
+| `/api/v1/admin/translations/audit-logs`  | 4 | Translation (5006) — path rewritten to `/api/admin/audit-logs` |
+| `/api/v1/admin/categories/audit-logs`  | 4 | Category (5007) — path rewritten to `/api/admin/audit-logs`    |
+| `/api/v1/admin/nasheed/audit-logs`     | 4 | Nasheed (5009) — path rewritten to `/api/admin/audit-logs`     |
+| `/api/v1/admin/tenant/{**}`     | 5     | Tenant (5002)                                                   |
+| `/api/v1/admin/categories/{**}` | 5     | Category (5007)                                                 |
+| `/api/v1/admin/{**}`            | 20    | Identity (5001) — catch-all; also serves Identity audit-logs at `/api/admin/audit-logs` |
 
 ### Audit Log Endpoints
 
-Every service exposes `GET /api/admin/audit-logs` internally. The gateway maps each service to a unique public path using YARP path rewriting (`PathPattern` transform). Query string parameters (`page`, `pageSize`, `tenantId`, etc.) are forwarded automatically.
+Every service exposes `GET /api/admin/audit-logs` internally (unversioned — shared infrastructure endpoint, stays stable). The gateway maps each service to a unique versioned public path using YARP path rewriting (`PathPattern` transform). Query string parameters (`page`, `pageSize`, `tenantId`, etc.) are forwarded automatically.
 
-| Frontend calls (via gateway)                | Service queried  |
-| ------------------------------------------- | ---------------- |
-| `GET /api/admin/audit-logs`                 | Identity (5001)  |
-| `GET /api/admin/tenant/audit-logs`          | Tenant (5002)    |
-| `GET /api/admin/notifications/audit-logs`   | Notification (5004) |
-| `GET /api/admin/filemanager/audit-logs`     | FileManager (5005) |
-| `GET /api/admin/translations/audit-logs`    | Translation (5006) |
-| `GET /api/admin/categories/audit-logs`      | Category (5007)  |
-| `GET /api/admin/nasheed/audit-logs`         | Nasheed (5009)   |
+| Frontend calls (via gateway)                   | Service queried  |
+| ----------------------------------------------- | ---------------- |
+| `GET /api/v1/admin/audit-logs`                 | Identity (5001)  |
+| `GET /api/v1/admin/tenant/audit-logs`          | Tenant (5002)    |
+| `GET /api/v1/admin/notifications/audit-logs`   | Notification (5004) |
+| `GET /api/v1/admin/filemanager/audit-logs`     | FileManager (5005) |
+| `GET /api/v1/admin/translations/audit-logs`    | Translation (5006) |
+| `GET /api/v1/admin/categories/audit-logs`      | Category (5007)  |
+| `GET /api/v1/admin/nasheed/audit-logs`         | Nasheed (5009)   |
 
 All routes require `Admin` or `SuperAdmin` role. See `NEW_SERVICE_INTEGRATION_GUIDE.md` for the full query parameter reference.
 
@@ -148,10 +150,21 @@ Rate limiting is split by concern: the gateway owns what only it can enforce, se
 
 ### Gateway policies (`src/Gateway/Gateway.API/Program.cs`)
 
-- **GlobalLimiter** — 10,000 requests/minute across all clients combined (platform-wide cap)
-- **per-ip** policy — 500 requests/minute per client IP address
+All three gateway-level limiters use a **token bucket** algorithm, not a fixed window — a fixed window lets a client spend its whole quota in the last instant of one window and again in the first instant of the next (up to 2x the intended rate in a short burst). A token bucket allows an immediate burst up to `TokenLimit`, then throttles to a steady `TokensPerPeriod` / `ReplenishmentSeconds` rate — better behavior for real traffic, which is spiky, not uniform.
+
+| Policy | Partition | `TokenLimit` (burst) | `TokensPerPeriod` (sustained rate) | Config key |
+|---|---|---|---|---|
+| GlobalLimiter | platform-wide, single bucket | 20,000 | 5,000/s | `RateLimiting:Global` |
+| per-ip (general API) | per client IP | 200 | 50/s | `RateLimiting:PerIp` |
+| per-ip (auth) | per client IP, **separate** bucket from general API | 20 | 5/s | `RateLimiting:PerIpAuth` |
 
 Rejection returns HTTP `429 Too Many Requests`.
+
+**`GlobalLimiter` applies to every request through `UseRateLimiter()` by default — there is no opt-in required, unlike the named `per-ip` policy.** Any endpoint that should never compete with real API traffic for that budget (health probes, metrics scraping) must explicitly call `.DisableRateLimiting()`. `/health` and `/health/aggregate` do this. A load test in July 2026 found that without it, `/health` shared the same global budget as proxied API traffic and started returning 429s above a moderate sustained rate — see `LOAD_TESTING_GUIDE.md` for the full investigation. When adding any new infrastructure/probe endpoint to the gateway, remember to call `.DisableRateLimiting()` on it.
+
+**Auth has its own per-IP bucket, separate from general API traffic** (`RateLimiting:PerIpAuth`), keyed by `{ip}:auth` vs `{ip}:api` inside the same `"per-ip"` named policy (branches on whether `context.Request.Path` starts with `/api/v1/auth`). This means a burst of unrelated API calls from a shared NAT/office IP can throttle general traffic without ever affecting that IP's ability to log in — verified by a concurrent load test: hammering a general endpoint at 3x its sustained rate produced ~58% 429s on that endpoint while 100% of simultaneous login attempts from the same IP succeeded.
+
+The `Global`/`PerIp`/`PerIpAuth` numbers above are a starting point sized to comfortably absorb high legitimate traffic (the Global burst alone covers 20,000 requests instantly, with 5,000/s sustained after) while still bounding a genuine runaway/DDoS scenario — they are not derived from a measured backend capacity ceiling. Re-tune after load-testing the per-tenant database connection pooling fix (see `LOAD_TESTING_GUIDE.md`), which is currently the more likely real ceiling once rate limiting stops masking it.
 
 ### Service policies (Identity, Category, FileManager, Tenant, Notification)
 
@@ -178,7 +191,7 @@ GET http://localhost:5000/health
 { "status": "healthy", "service": "Gateway.API", "timestamp": "2026-06-05T..." }
 ```
 
-Lightweight — gateway process only. Always fast. Safe to use as a load-balancer liveness probe.
+Lightweight — gateway process only. Always fast. Safe to use as a load-balancer liveness probe — explicitly exempt from `GlobalLimiter` via `.DisableRateLimiting()`, so LB/k8s probes never compete with real API traffic for the rate-limit budget.
 
 ### Aggregate downstream health (`/health/aggregate`)
 
@@ -186,7 +199,7 @@ Lightweight — gateway process only. Always fast. Safe to use as a load-balance
 GET http://localhost:5000/health/aggregate
 ```
 
-Calls all 8 downstream `/health` endpoints in parallel (5-second timeout each). Reads cluster addresses from the YARP `ReverseProxy:Clusters` config, so it stays in sync with the routing table automatically.
+Calls all 8 downstream `/health` endpoints in parallel (5-second timeout each). Reads cluster addresses from the YARP `ReverseProxy:Clusters` config, so it stays in sync with the routing table automatically. Also exempt from `GlobalLimiter` via `.DisableRateLimiting()` — but note this endpoint fans out to 8 downstream calls per single incoming request, so it should still not be polled at high frequency regardless of rate-limit exemption.
 
 ```json
 {

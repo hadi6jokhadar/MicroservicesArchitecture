@@ -16,7 +16,7 @@ const services = [
     color: "#646464ff",
     title: "Redis",
     path: join(__dirname, "..", ".."),
-    command: "redis-server.lnk",
+    command: "docker compose -f docker-compose.redis.yml up",
   },
   {
     color: "#FFFF00",

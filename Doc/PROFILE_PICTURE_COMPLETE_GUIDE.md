@@ -4,7 +4,7 @@
 **Status:** ✅ Production Ready  
 **Version:** 2.1 - Batch Optimization Included
 
-> **⚡ Performance Note:** Version 2.1 includes batch fetching optimization that provides **20-50x performance improvement** for lists. See [PROFILE_PICTURE_BATCH_OPTIMIZATION.md](PROFILE_PICTURE_BATCH_OPTIMIZATION.md) for details.
+> **⚡ Performance Note:** Version 2.1 includes batch fetching optimization that provides **20-50x performance improvement** for lists (see the "Batch Fetching" section below).
 
 ---
 
@@ -954,11 +954,7 @@ Error: Column 'ProfilePictureUrl' does not exist
 
 ## Related Documentation
 
-- **[PROFILE_PICTURE_BATCH_OPTIMIZATION.md](PROFILE_PICTURE_BATCH_OPTIMIZATION.md)** - 🚀 **N+1 query prevention & batch fetching (20-50x faster)**
-- [PROFILE_PICTURE_QUICK_REFERENCE.md](PROFILE_PICTURE_QUICK_REFERENCE.md) - Quick API reference
-- [PROFILE_PICTURE_ENRICHMENT_COMPLETE.md](PROFILE_PICTURE_ENRICHMENT_COMPLETE.md) - Handler implementation summary
-- [FILE_MANAGER_SERVICE_GUIDE.md](FILE_MANAGER_SERVICE_GUIDE.md) - FileManager architecture
-- [FILE_MANAGER_QUICK_REFERENCE.md](FILE_MANAGER_QUICK_REFERENCE.md) - FileManager API reference
+- [FILE_MANAGER.md](FILE_MANAGER.md) - FileManager architecture and API reference
 - [BYPASS_TENANT_ENDPOINTS_GUIDE.md](BYPASS_TENANT_ENDPOINTS_GUIDE.md) - Internal endpoint patterns
 - [SHARED_IDENTITY_SERVICE_GUIDE.md](SHARED_IDENTITY_SERVICE_GUIDE.md) - Identity service
 - [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md) - Multi-tenancy concepts

@@ -76,6 +76,11 @@ builder.Services.AddRateLimiter(options =>
         o.Window = TimeSpan.FromMinutes(1);
     });
 });
+```
+
+> **⚠️ Superseded (July 2026):** this was the original design sketch. The actual implementation in `src/Gateway/Gateway.API/Program.cs` uses a **token bucket** limiter, not fixed window — a fixed window lets a client spend its whole quota in the last instant of one window and again in the first instant of the next (up to 2x the intended rate in a short burst), which a load test caught. It also splits `/api/v1/auth/*` into its own separate per-IP bucket (`RateLimiting:PerIpAuth`) so general API traffic can never starve login/register/refresh, and explicitly exempts `/health`/`/health/aggregate` via `.DisableRateLimiting()`. See `API_GATEWAY_GUIDE.md`'s Rate Limiting section and `LOAD_TESTING_GUIDE.md` for the current config and the investigation that led to it — don't use the `AddFixedWindowLimiter`/`PermitLimit=10_000` numbers above as current.
+
+```csharp
 
 var app = builder.Build();
 

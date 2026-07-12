@@ -599,6 +599,7 @@ public class MyDbContext : BaseDbContext
 - Tenant-specific JWT secrets
 - Tenant ID included in token claims
 - Token validation uses tenant-specific keys
+- **Implementation note (July 2026):** per-tenant signing-key/issuer/audience resolution is implemented via `TokenValidationParameters.IssuerSigningKeyResolver`/`IssuerValidator`/`AudienceValidator` in `JwtAuthenticationExtensions.cs`, registered once via DI-aware options configuration (`services.AddOptions<JwtBearerOptions>(...).Configure<IHttpContextAccessor>(...)`) — **not** by mutating `JwtBearerOptions.TokenValidationParameters` from inside `OnMessageReceived`. That object is a single instance shared by every concurrent request; mutating it per-request caused a genuine race under load (see Troubleshooting below). The resolver/validators are pure, stateless callbacks that read the already-resolved, request-scoped `ITenantContext` (populated earlier in the same request's pipeline by `UseTenantResolution`, which runs before `UseAuthentication`) via `IHttpContextAccessor` — no extra I/O, no shared mutable state, no race.
 
 ### 3. Configuration Storage
 
@@ -674,6 +675,16 @@ Error fetching tenant configuration for 'tenant-id'
 - Tenant configuration not cached/fetched
 
 **Solution**: Ensure token was generated with the same tenant configuration.
+
+### JWT Validation Intermittently Fails Under Load — `"The signature key was not found"` (fixed, July 2026)
+
+**Symptom**: a valid, non-expired token gets rejected with `401` and error `invalid_token`, `error_description="The signature key was not found"` — but only sometimes, and only under concurrent load (e.g. k6). The same request succeeds most of the time. Affects only `JwtMode: PerTenant` services (Identity, FileManager, Category); `Shared` mode is unaffected.
+
+**Root cause**: the old implementation resolved the tenant-specific signing key inside `OnMessageReceived` and assigned it directly to `context.Options.TokenValidationParameters` — but `Options` is the single `JwtBearerOptions` instance **shared by every concurrent request**, not a per-request object. Under concurrency, one request's validation could run against a different, concurrently in-flight request's freshly-overwritten parameters, causing legitimate tokens to fail. It also called `ITenantConfigurationProvider.GetTenantConfigurationAsync(...).GetAwaiter().GetResult()` — a blocking sync-over-async call inside the hot request path, which worsened thread-pool contention under load and made the race more likely to hit. Found via k6 load testing (`authenticated-flow.js`, `PEAK_RATE=500`): failure rate scaled from ~0.05% to ~22% purely as a function of concurrent load, with no code change in between — see `LOAD_TESTING_GUIDE.md`.
+
+**Fix**: replaced the per-request mutation with `TokenValidationParameters.IssuerSigningKeyResolver`/`IssuerValidator`/`AudienceValidator`, registered once at startup via `services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme).Configure<IHttpContextAccessor>(...)`. These are pure, stateless, per-validation callbacks — no shared state to race on — and they read `ITenantContext.CurrentTenant` (already resolved earlier in the same request by `UseTenantResolution`) instead of re-fetching tenant config, eliminating the blocking call too. Verified with the same k6 test at the same load: 100% success, zero signature errors.
+
+**Lesson**: never mutate `JwtBearerOptions`/`TokenValidationParameters` from inside a `JwtBearerEvents` handler (`OnMessageReceived`, etc.) to implement per-request/per-tenant behavior — those objects are shared singletons. Use `IssuerSigningKeyResolver`, `IssuerValidator`, or `AudienceValidator` instead; they're designed to be called per-validation without mutating shared state.
 
 ---
 

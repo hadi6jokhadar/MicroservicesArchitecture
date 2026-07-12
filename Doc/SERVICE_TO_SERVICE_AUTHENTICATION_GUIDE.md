@@ -88,6 +88,20 @@ app.UseAuthentication();
 app.UseAuthorization();
 ```
 
+### ⚠️ The `AllowedServices` whitelist is the #1 source of silent failures
+
+Every multi-tenant service (Identity, FileManager, Category, Notification, Nasheed — anything calling `AddMultiTenancy()`) automatically calls Tenant Service's `/config/{tenantId}` on every cache miss via the shared `TenantServiceClient`. **This means Tenant Service's `AllowedServices` list must include every single multi-tenant service's `ServiceName` — not just the two or three you're actively thinking about.**
+
+This was missed for both `CategoryService` and `NasheedService` (July 2026) — both were correctly sending `X-Service-Secret` and the right `X-Service-Name`, but Tenant's whitelist only listed `IdentityService`, `NotificationService`, `FileManagerService`. `ServiceAuthenticationMiddleware` doesn't reject the request outright when a name isn't whitelisted — it silently skips setting the `Service`/`SuperAdmin` claims and lets the request continue unauthenticated, so the *actual* failure surfaces later as a plain 401 from the endpoint's own role check, with a `[Warning] Service '<name>' is not in the allowed services list` line easy to miss in the logs. Worse, this can hide for a long time: the 30-minute tenant-config cache means the bug only surfaces on a cache miss (cold start, cache flush, first request for a tenant) — it can look like everything works fine for hours.
+
+**When adding a new multi-tenant service, add its `ServiceName` to Tenant Service's `AllowedServices` in both `appsettings.json` and `appsettings.Development.json` — this is easy to forget because nothing fails until the cache goes cold.**
+
+### ⚠️ A missing `SharedSecret` override in `appsettings.Development.json` fails the exact same way
+
+`ServiceAuthenticationMiddleware` treats "secret mismatch" and "service not whitelisted" identically — both silently skip the `Service`/`SuperAdmin` claims instead of rejecting the request outright. This means a service whose base `appsettings.json` only has the placeholder `SharedSecret: "CHANGE_ME_..."`, with no real value supplied via `appsettings.Development.json` (or environment variables), produces the **same symptom** as an `AllowedServices` gap: a confusing 401 (or, for Tenant's `/config/{tenantId}` specifically, a downstream "Tenant not found or inactive" 404 once `TenantConfigurationProvider` degrades the failed call to `null`).
+
+Found for `NasheedService` (July 2026): its `AllowedServices` gap in Tenant Service was fixed first, but tenant resolution still failed — `Nasheed.API/appsettings.Development.json` had no `ServiceCommunication` section at all, so the placeholder secret from the base `appsettings.json` was genuinely in effect at runtime. Fixed by adding the real shared secret to `appsettings.Development.json`. **When scaffolding a new service, verify both halves — the whitelist entry on the receiving side AND the real secret override on the calling side — since either one missing produces the same symptom and neither one fails at startup.**
+
 ### Automatic Service Authentication for Tenant Service Client
 
 When using multi-tenancy, the `TenantServiceClient` is **automatically configured** with service authentication headers by the `AddMultiTenancy()` extension method.
@@ -506,12 +520,22 @@ _logger.LogInformation(
 
 ## 📊 Service Communication Matrix
 
-| From Service | To Service   | Endpoint                            | Purpose                    |
-| ------------ | ------------ | ----------------------------------- | -------------------------- |
-| Identity     | Notification | `POST /api/notifications/send`      | Send user notifications    |
-| Identity     | Tenant       | `GET /api/tenant/config/{tenantId}` | Fetch tenant configuration |
-| Notification | Tenant       | `GET /api/tenant/config/{tenantId}` | Fetch tenant configuration |
-| Tenant       | Notification | `POST /api/notifications/send`      | Send admin notifications   |
+| From Service | To Service   | Endpoint                               | Purpose                                              |
+| ------------ | ------------ | --------------------------------------- | ------------------------------------------------------ |
+| Identity     | Notification | `POST /api/notifications/send`         | Send user notifications                               |
+| Identity     | FileManager  | `GET /api/filemanager/internal/...`    | Profile picture enrichment                            |
+| Identity     | Tenant       | `GET /api/v1/tenant/config/{tenantId}` | Fetch tenant configuration (via `AddMultiTenancy()`)  |
+| FileManager  | Tenant       | `GET /api/v1/tenant/config/{tenantId}` | Fetch tenant configuration (via `AddMultiTenancy()`)  |
+| FileManager  | Tenant       | (typed client)                          | Background jobs (`TempFileCleanupJob`)                |
+| Category     | FileManager  | `GET /api/filemanager/internal/...`    | Icon/image enrichment                                 |
+| Category     | Tenant       | `GET /api/v1/tenant/config/{tenantId}` | Fetch tenant configuration (via `AddMultiTenancy()`)  |
+| Notification | Identity     | (typed client)                          | Background jobs (`NotificationProcessor`)             |
+| Notification | Tenant       | `GET /api/v1/tenant/config/{tenantId}` | Fetch tenant configuration (via `AddMultiTenancy()`)  |
+| Nasheed      | FileManager  | `GET /api/filemanager/internal/...`    | File enrichment                                       |
+| Nasheed      | Tenant       | `GET /api/v1/tenant/config/{tenantId}` | Fetch tenant configuration (via `AddMultiTenancy()`)  |
+| Tenant       | Notification | `POST /api/notifications/send`         | Send admin notifications                              |
+
+**Every multi-tenant service → Tenant row above shares the same `TenantServiceClient` code path** (`MultiTenancyExtensions.cs`) — see the whitelist warning above. Routes are versioned `/api/v1/...` per the API Versioning Standard; internal-only endpoints (`/api/filemanager/internal/...`) stay unversioned by design.
 
 ---
 
@@ -526,6 +550,7 @@ _logger.LogInformation(
 - [ ] Add `app.UseServiceAuthentication()` before `UseAuthentication()`
 - [ ] Create service client class (e.g., `NotificationServiceClient`)
 - [ ] Register service client in DI container
+- [ ] **If this is a new multi-tenant service (`AddMultiTenancy()`): add its `ServiceName` to Tenant Service's `AllowedServices` in both `appsettings.json` and `appsettings.Development.json`.** This is the step that's easy to forget — nothing fails at startup, and the 30-min tenant-config cache can hide the gap for a long time until it goes cold.
 
 ### For Called Service (e.g., Notification)
 
@@ -630,9 +655,10 @@ client.DefaultRequestHeaders.Add("X-Service-Name", "IdentityService");
 
 - [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md) - Multi-tenancy patterns
 - [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md) - Notification service details
-- [JWT_SECRET_AND_VALIDATION_FLOW.md](JWT_SECRET_AND_VALIDATION_FLOW.md) - JWT authentication
+- [SHARED_IDENTITY_SERVICE_GUIDE.md](SHARED_IDENTITY_SERVICE_GUIDE.md) - JWT authentication flow
+- [LOAD_TESTING_GUIDE.md](LOAD_TESTING_GUIDE.md) - How the missing-`AllowedServices` bug for Category/Nasheed was found via load testing
 
 ---
 
-**Last Updated:** November 7, 2025  
-**Version:** 1.0.0
+**Last Updated:** July 2026  
+**Version:** 1.2.0 (Added missing-`SharedSecret`-override pitfall found for Nasheed; Service Communication Matrix corrected to match actual code; `AllowedServices` whitelist pitfall added; fixed dead link to non-existent JWT_SECRET_AND_VALIDATION_FLOW.md)

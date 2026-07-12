@@ -39,7 +39,7 @@ This guide consolidates the patterns that unlocked 25x throughput and 100k+ Sign
 | Database            | Apply migration `AddNextRetryAtAndOptimizedIndexes`     | ✅     |
 | Database Pool       | Increase MaxPoolSize to 200-300 for parallel operations | ✅     |
 | Cleanup             | Run `CleanupService` every 5 minutes with 5k batch size | ✅     |
-| Parallel Processing | Review PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md      | ✅     |
+| Parallel Processing | Tune `MaxParallelTenants` per tenant, monitor DB CPU     | ✅     |
 | Monitoring          | Track queue depth, CPU, and Redis latency               | ✅     |
 
 ---
@@ -68,8 +68,6 @@ This guide consolidates the patterns that unlocked 25x throughput and 100k+ Sign
 
 ## Supporting Documents
 
-- [BOTTLENECKS_COMPLETION_SUMMARY.md](BOTTLENECKS_COMPLETION_SUMMARY.md)
-- [PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md](PARALLEL_PROCESSING_OPTIMIZATION_SUMMARY.md)
 - [DATABASE_REPLICATION_SETUP_GUIDE.md](DATABASE_REPLICATION_SETUP_GUIDE.md)
 - [NOTIFICATION_SERVICE_README.md](NOTIFICATION_SERVICE_README.md)
-- [NOTIFICATION_HUB_GUIDE.md](NOTIFICATION_HUB_GUIDE.md)
+- [LOAD_TESTING_GUIDE.md](LOAD_TESTING_GUIDE.md) — k6 scripts and empirically-measured bottlenecks (gateway connection ceiling, per-IP rate limit, per-tenant DB pooling) that this guide's capacity targets should be validated against

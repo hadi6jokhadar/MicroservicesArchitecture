@@ -85,8 +85,12 @@ public class TenantNotificationDbContext : BaseDbContext
                         $"Tenant '{_tenantContext.CurrentTenant.TenantId}' does not have a database connection string configured.");
                 }
 
-                connectionString = tenantDb.ConnectionString;
                 provider = tenantDb.Provider ?? "PostgreSql";
+
+                var maxPoolSizePerTenant = _configuration?.GetValue("DatabaseSettings:MaxPoolSizePerTenant", 20) ?? 20;
+                connectionString = provider == "PostgreSql"
+                    ? NpgsqlConnectionStringHelper.WithBoundedPoolSize(tenantDb.ConnectionString, maxPoolSizePerTenant)
+                    : tenantDb.ConnectionString;
 
                 _logger?.LogInformation(
                     "Using tenant-specific database connection for tenant: {TenantId}",

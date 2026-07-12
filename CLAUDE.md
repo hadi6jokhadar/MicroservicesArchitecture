@@ -127,6 +127,7 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 | `Doc/DATABASE_PER_TENANT_ARCHITECTURE.md` | Multi-tenancy DB architecture |
 | `Doc/MULTI_TENANCY_GUIDE.md` | Multi-tenancy setup |
 | `Doc/PERFORMANCE_OPTIMIZATION_GUIDE.md` | Performance optimizations |
+| `Doc/LOAD_TESTING_GUIDE.md` | k6 load testing setup and measured bottlenecks |
 | `Doc/TENANT_TIMEZONE_GUIDE.md` | Per-tenant business timezone (`TimeZoneId`), UTC fallback, background job usage |
 | `Directory.Packages.props` | Centralized NuGet package versions |
 
@@ -140,7 +141,8 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 | Manual `dotnet ef database update` in prod | System auto-creates DBs on first request |
 | Hardcoded text | Always use `LocalizationKeys` |
 | AutoMapper | Static `MapFrom()` methods only |
-| JWT validation using `ITenantContext` in `OnMessageReceived` | Use `ITenantConfigurationProvider` directly |
+| Per-tenant JWT validation logic placed in `OnMessageReceived`/`OnTokenValidated` (mutating `JwtBearerOptions.TokenValidationParameters`) | That object is a singleton shared by every concurrent request — use `TokenValidationParameters.IssuerSigningKeyResolver`/`IssuerValidator`/`AudienceValidator` instead (stateless, per-validation, read `ITenantContext` via `IHttpContextAccessor`). See `Doc/MULTI_TENANCY_GUIDE.md` Troubleshooting |
+| `Users_Id_seq` (or any identity-column sequence) desynced from table's actual max `Id`, causing every insert to fail with a Postgres PK collision until the sequence catches up | Resync with `SELECT setval('"Users_Id_seq"', (SELECT COALESCE(MAX("Id"), 1) FROM "Users"))` — data-preserving, safe to run any time. Usually caused by rows inserted with explicit `Id` values (seed data, manual inserts) that bypassed the sequence |
 
 ## Technology Stack
 

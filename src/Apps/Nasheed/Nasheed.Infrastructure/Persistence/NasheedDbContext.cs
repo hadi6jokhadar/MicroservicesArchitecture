@@ -53,13 +53,17 @@ public class NasheedDbContext : BaseDbContext
         string connectionString;
         string provider;
 
+        var maxPoolSizePerTenant = _configuration?.GetValue("DatabaseSettings:MaxPoolSizePerTenant", 20) ?? 20;
+
         // Priority 1: HTTP request — tenant context set by UseTenantResolution middleware
         if (_tenantContext?.HasTenant == true &&
             _tenantContext.CurrentTenant?.Configuration?.DatabaseSettings?.ConnectionString != null)
         {
             var tenantDb = _tenantContext.CurrentTenant.Configuration.DatabaseSettings;
-            connectionString = tenantDb.ConnectionString!;
             provider = tenantDb.Provider ?? "PostgreSql";
+            connectionString = provider.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase)
+                ? NpgsqlConnectionStringHelper.WithBoundedPoolSize(tenantDb.ConnectionString!, maxPoolSizePerTenant)
+                : tenantDb.ConnectionString!;
             _logger?.LogDebug("Using tenant DB for tenant '{TenantId}' (request context)", _tenantContext.TenantId);
         }
         // Priority 2: Background/startup — singleton cache populated by NasheedTenantLoaderService
@@ -67,8 +71,10 @@ public class NasheedDbContext : BaseDbContext
                  _nasheedTenantCache.Tenant?.Configuration?.DatabaseSettings?.ConnectionString != null)
         {
             var tenantDb = _nasheedTenantCache.Tenant.Configuration.DatabaseSettings;
-            connectionString = tenantDb.ConnectionString!;
             provider = tenantDb.Provider ?? "PostgreSql";
+            connectionString = provider.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase)
+                ? NpgsqlConnectionStringHelper.WithBoundedPoolSize(tenantDb.ConnectionString!, maxPoolSizePerTenant)
+                : tenantDb.ConnectionString!;
             _logger?.LogDebug("Using cached tenant DB (background context)");
         }
         // Priority 3: Design-time only — EF migrations tooling reads from appsettings.Development.json

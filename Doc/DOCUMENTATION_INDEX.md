@@ -4,7 +4,7 @@
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
 **Last Updated:** July 12, 2026  
-**Total Files:** 42
+**Total Files:** 44
 
 ---
 
@@ -458,6 +458,16 @@ Files are organized by category. Each entry includes:
 - N+1 query issues
 - Database performance
 
+### LOAD_TESTING_GUIDE.md
+
+**Description:** k6 load-testing setup (`LoadTests/k6/`). Covers install, the anonymous health-baseline script vs the realistic authenticated-flow script, environment variables, and empirically-measured bottlenecks (gateway connection ceiling vs backend services, the 500 req/min per-IP rate limit hitting all `/api/v1/...` traffic including auth).  
+**Read When:**
+
+- Running or writing a load test
+- Investigating "how many requests can this handle"
+- Deciding what to fix first for high-volume/scaling work
+- Debugging why load-test auth setup fails (rate limiting)
+
 ---
 
 ## 🗄️ Database & Infrastructure
@@ -488,13 +498,15 @@ Files are organized by category. Each entry includes:
 
 ### SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md
 
-**Description:** Authentication between microservices using shared secrets. X-Service-Secret header, securing internal endpoints.  
+**Description:** Authentication between microservices using shared secrets. X-Service-Secret header, securing internal endpoints. Covers the corrected Service Communication Matrix (all 8 services) and the `AllowedServices` whitelist pitfall — every multi-tenant service must be whitelisted in Tenant Service's config, or requests silently fail with a 401 that can hide for a long time behind the 30-min tenant-config cache.  
 **Read When:**
 
 - Securing internal endpoints
 - Service authentication
 - Internal API security
 - Preventing unauthorized service calls
+- Adding a new multi-tenant service (must whitelist it in Tenant Service's `AllowedServices`)
+- Debugging a service-to-service call that returns 401 despite a matching shared secret
 
 ### PROJECT_ISOLATION_STRATEGY_GUIDE.md
 
@@ -600,7 +612,8 @@ Files are organized by category. Each entry includes:
 | Work on Nasheed service  | src/Apps/Nasheed/Doc/OVERVIEW.md, ENTITIES_AND_DATA_MODEL.md, API_ENDPOINTS.md                |
 | Work on Category service | CATEGORY_SERVICE_GUIDE.md                                                                     |
 | Work with roles          | ROLES_AND_CLAIMS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                                   |
-| Fix performance          | PERFORMANCE_OPTIMIZATION_GUIDE.md, USER_QUERY_OPTIMIZATION_IQUERYABLE.md                      |
+| Fix performance          | PERFORMANCE_OPTIMIZATION_GUIDE.md, USER_QUERY_OPTIMIZATION_IQUERYABLE.md, LOAD_TESTING_GUIDE.md |
+| Load testing / scaling   | LOAD_TESTING_GUIDE.md                                                                          |
 | Add translations         | TRANSLATION_SERVICE_GUIDE.md, LOCALIZATION_GUIDE.md                                           |
 | Service-to-service call  | SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md, SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md      |
 | Database issue           | DATABASE_PER_TENANT_ARCHITECTURE.md, AUTOMATIC_DATABASE_MIGRATION.md                          |
@@ -632,7 +645,7 @@ AI agents: Do NOT reference or create these files - they have been removed:
 
 ## 📊 Documentation Statistics
 
-- **Total Files:** 42 (all in `MicroservicesArchitecture/Doc/`)
+- **Total Files:** 44 (all in `MicroservicesArchitecture/Doc/`)
 
 **Average file size:** Comprehensive (each file contains complete information on its topic)
 

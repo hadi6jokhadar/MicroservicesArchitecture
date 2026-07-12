@@ -145,10 +145,19 @@ public class MyServiceDbContext : BaseDbContext
             else
             {
                 var tenantDb = _tenantContext.CurrentTenant.Configuration.DatabaseSettings;
-                connectionString = tenantDb.ConnectionString
+                var tenantConnectionString = tenantDb.ConnectionString
                     ?? throw new InvalidOperationException(
                         $"Tenant '{_tenantContext.TenantId}' has no database connection string configured");
                 provider = tenantDb.Provider ?? "PostgreSql";
+
+                // Cap the Npgsql pool size on this tenant's connection string — without this,
+                // N tenants x M services multiplies into an ungoverned number of connection
+                // pools. Only the tenant branch needs this; the global-fallback and
+                // non-multi-tenant branches below reuse one static connection string already.
+                var maxPoolSizePerTenant = _configuration?.GetValue("DatabaseSettings:MaxPoolSizePerTenant", 20) ?? 20;
+                connectionString = provider.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase)
+                    ? NpgsqlConnectionStringHelper.WithBoundedPoolSize(tenantConnectionString, maxPoolSizePerTenant)
+                    : tenantConnectionString;
             }
         }
         else

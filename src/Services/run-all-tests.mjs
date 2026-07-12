@@ -52,7 +52,7 @@ spawn(
     "Redis (Tests)",
     "cmd.exe",
     "/k",
-    `cd /d "${join(__dirname, "..", "..")}" && redis-server.lnk`,
+    `cd /d "${join(__dirname, "..", "..")}" && docker compose -f docker-compose.redis.yml up`,
   ],
   {
     detached: true,

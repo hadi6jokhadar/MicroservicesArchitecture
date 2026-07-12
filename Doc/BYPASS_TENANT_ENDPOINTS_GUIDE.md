@@ -4,7 +4,7 @@
 
 This guide explains how to implement endpoints that work **without tenant context** (global/admin endpoints) in a multi-tenant system. These are advanced patterns that require careful implementation to avoid database access errors.
 
-**Last Updated**: November 2025  
+**Last Updated**: July 2026 (JWT validation sections corrected — the previous `OnMessageReceived`/`ITenantConfigurationProvider` pattern shown here was the actual root cause of an intermittent-under-load auth bug; replaced with the real, currently-implemented `IssuerSigningKeyResolver` pattern — see `MULTI_TENANCY_GUIDE.md` and `LOAD_TESTING_GUIDE.md`)  
 **Applies To**: Services with multi-tenancy enabled that need admin/global endpoints
 
 ---
@@ -134,65 +134,21 @@ app.MapDelete("/api/admin/cleanup", handler)
 
 **⚠️ PITFALL**: If Identity Service uses `JwtMode: "PerTenant"` but your service uses `"Shared"`, tenant users get **401 Unauthorized**!
 
-### 2. JWT Validation Event Pattern
+### 2. JWT Validation Pattern (Corrected — July 2026)
 
-**CRITICAL**: Use `ITenantConfigurationProvider` in `OnMessageReceived`, NOT `ITenantContext`!
+**CRITICAL**: Do NOT mutate `JwtBearerOptions.TokenValidationParameters` from inside `OnMessageReceived` (or any other `JwtBearerEvents` handler) to implement per-tenant validation. That object is a **single instance shared by every concurrent request** — an earlier version of this codebase did exactly this (fetching tenant config via `ITenantConfigurationProvider.GetTenantConfigurationAsync(...).GetAwaiter().GetResult()` inside `OnMessageReceived` and assigning the result to `context.Options.TokenValidationParameters`), and under concurrent load it caused a real race: one request's validation could run against a different, concurrently in-flight request's freshly-overwritten parameters, intermittently rejecting valid tokens with `"signature key was not found"`. Found via k6 load testing — see `LOAD_TESTING_GUIDE.md` and `MULTI_TENANCY_GUIDE.md`'s Troubleshooting section for the full writeup.
+
+**Don't hand-roll this at all** — every service calls the shared `AddJwtAuthentication()` extension (`IhsanDev.Shared.Infrastructure/Extensions/JwtAuthenticationExtensions.cs`), which already implements per-tenant JWT support correctly for both `Shared` and `PerTenant` modes:
 
 ```csharp
-// ❌ WRONG - ITenantContext not populated yet
-options.Events = new JwtBearerEvents
-{
-    OnMessageReceived = context =>
-    {
-        var tenantContext = context.HttpContext.RequestServices.GetService<ITenantContext>();
-        // This will be null/empty!
-    }
-};
-
-// ✅ CORRECT - Fetch directly from provider
-options.Events = new JwtBearerEvents
-{
-    OnMessageReceived = context =>
-    {
-        var tenantId = context.HttpContext.Request.Headers["x-tenant-id"].FirstOrDefault();
-
-        if (!string.IsNullOrEmpty(tenantId))
-        {
-            var provider = context.HttpContext.RequestServices
-                .GetService<ITenantConfigurationProvider>();
-            var tenant = provider.GetTenantConfigurationAsync(tenantId, ct)
-                .GetAwaiter().GetResult();
-
-            // Use tenant-specific JWT secret
-            context.Options.TokenValidationParameters = new TokenValidationParameters
-            {
-                IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(tenant.Configuration.Jwt.Secret)
-                ),
-                // ... other settings
-            };
-            return Task.CompletedTask;
-        }
-
-        // ✅ ALWAYS explicitly set global JWT params when no tenant
-        context.Options.TokenValidationParameters = new TokenValidationParameters
-        {
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(globalSecret)
-            ),
-            // ... other settings
-        };
-
-        return Task.CompletedTask;
-    }
-};
+// Program.cs — this is the ENTIRE JWT setup needed; PerTenant vs Shared is
+// read automatically from MultiTenancy:JwtMode
+builder.Services.AddJwtAuthentication(builder.Configuration);
 ```
 
-**Why This Matters:**
+**How it actually resolves the correct key per request** (no shared mutable state involved): `AddJwtAuthentication` sets `TokenValidationParameters.IssuerSigningKeyResolver` / `IssuerValidator` / `AudienceValidator` — pure, stateless, per-validation callbacks registered **once at startup** via `services.AddOptions<JwtBearerOptions>(scheme).Configure<IHttpContextAccessor>(...)`, not inside an event handler. Each callback reads `ITenantContext.CurrentTenant` off the *current* request's `HttpContext` (via `IHttpContextAccessor`, which is `AsyncLocal`-backed so every concurrent request gets its own correct instance) and returns candidate keys/issuers/audiences (tenant-specific + global fallback). By the time this runs, `ITenantContext.CurrentTenant` is already populated — `UseTenantResolution` runs earlier in the same request's pipeline, before `UseAuthentication` — so there's no extra fetch and no blocking call either.
 
-- `OnMessageReceived` runs **BEFORE** `TenantMiddleware`
-- JWT validation needs tenant config to determine correct secret
-- Without explicit fallback, global users get token validation errors
+**Why this matters for BypassTenant endpoints specifically**: when there's no `x-tenant-id` header (or `[BypassTenant]` skips tenant resolution), `ITenantContext.CurrentTenant` is simply `null` for that request, so the resolver/validators fall back to the global key/issuer/audience automatically — exactly the behavior a global SuperAdmin/Service JWT needs, with no special-casing required in application code.
 
 ### 3. DbContext Fallback Pattern
 
@@ -498,125 +454,13 @@ This example shows the complete implementation of a service with both tenant and
 
 #### 2. Program.cs - Authentication Setup
 
+Don't hand-roll `AddAuthentication`/`AddJwtBearer` per service — call the shared extension, which reads `MultiTenancy:JwtMode` automatically and handles both `Shared` and `PerTenant` modes internally:
+
 ```csharp
-// JWT Mode configuration
-var jwtModeString = builder.Configuration["MultiTenancy:JwtMode"] ?? "Shared";
-var jwtMode = Enum.Parse<JwtMode>(jwtModeString, ignoreCase: true);
-var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSettings["Secret"];
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-.AddJwtBearer(options =>
-{
-    // Default global JWT parameters
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-        ValidateIssuer = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidateAudience = true,
-        ValidAudience = jwtSettings["Audience"],
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
-    };
-
-    // PerTenant mode: Dynamic JWT validation
-    if (jwtMode == JwtMode.PerTenant)
-    {
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                var logger = context.HttpContext.RequestServices
-                    .GetRequiredService<ILogger<Program>>();
-                var tenantId = context.HttpContext.Request.Headers["x-tenant-id"]
-                    .FirstOrDefault();
-
-                // Tenant-specific JWT validation
-                if (!string.IsNullOrEmpty(tenantId))
-                {
-                    try
-                    {
-                        var provider = context.HttpContext.RequestServices
-                            .GetService<ITenantConfigurationProvider>();
-
-                        var tenant = provider.GetTenantConfigurationAsync(
-                            tenantId, context.HttpContext.RequestAborted)
-                            .GetAwaiter().GetResult();
-
-                        if (tenant?.Configuration?.Jwt != null)
-                        {
-                            var tenantJwt = tenant.Configuration.Jwt;
-                            if (!string.IsNullOrEmpty(tenantJwt.Secret))
-                            {
-                                // Override with tenant-specific params
-                                context.Options.TokenValidationParameters =
-                                    new TokenValidationParameters
-                                {
-                                    ValidateIssuer = true,
-                                    ValidateAudience = true,
-                                    ValidateLifetime = true,
-                                    ValidateIssuerSigningKey = true,
-                                    ValidIssuer = tenantJwt.Issuer,
-                                    ValidAudience = tenantJwt.Audience,
-                                    IssuerSigningKey = new SymmetricSecurityKey(
-                                        Encoding.UTF8.GetBytes(tenantJwt.Secret)),
-                                    ClockSkew = TimeSpan.Zero
-                                };
-
-                                logger.LogInformation(
-                                    "Using tenant-specific JWT for {TenantId}",
-                                    tenantId);
-                                return Task.CompletedTask;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex,
-                            "Failed to fetch tenant config, using global JWT");
-                    }
-                }
-
-                // ✅ CRITICAL: Always set global JWT params as fallback
-                logger.LogInformation("Using global JWT validation");
-                context.Options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(secretKey)),
-                    ValidateIssuer = true,
-                    ValidIssuer = jwtSettings["Issuer"],
-                    ValidateAudience = true,
-                    ValidAudience = jwtSettings["Audience"],
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero
-                };
-
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = context =>
-            {
-                var logger = context.HttpContext.RequestServices
-                    .GetRequiredService<ILogger<Program>>();
-                var userId = context.Principal?
-                    .FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                logger.LogInformation("JWT validated - User: {UserId}", userId);
-                return Task.CompletedTask;
-            },
-            OnAuthenticationFailed = context =>
-            {
-                var logger = context.HttpContext.RequestServices
-                    .GetRequiredService<ILogger<Program>>();
-                logger.LogError("JWT auth failed: {Error}",
-                    context.Exception.Message);
-                return Task.CompletedTask;
-            }
-        };
-    }
-});
+builder.Services.AddJwtAuthentication(builder.Configuration);
 ```
+
+That's the entire setup. See `IhsanDev.Shared.Infrastructure/Extensions/JwtAuthenticationExtensions.cs` for the implementation — per-tenant key/issuer/audience resolution is done via `TokenValidationParameters.IssuerSigningKeyResolver`/`IssuerValidator`/`AudienceValidator` (stateless, per-validation callbacks reading `ITenantContext` through `IHttpContextAccessor`), **not** by mutating `context.Options.TokenValidationParameters` inside a `JwtBearerEvents` handler — see the "JWT Validation Pattern" section above for why that distinction matters. Global fallback (no tenant header, `[BypassTenant]` endpoints) is handled automatically: when `ITenantContext.CurrentTenant` is `null`, the resolver/validators fall back to the global key/issuer/audience with no extra code needed.
 
 #### 3. Program.cs - Database Migration Setup
 
@@ -939,10 +783,9 @@ Use this checklist when implementing admin/global endpoints:
 
 ### Authentication
 
-- [ ] JWT authentication configured in Program.cs
-- [ ] `OnMessageReceived` event uses `ITenantConfigurationProvider`
-- [ ] Global JWT parameters explicitly set when no tenant
-- [ ] `OnTokenValidated` and `OnAuthenticationFailed` events added for debugging
+- [ ] `builder.Services.AddJwtAuthentication(builder.Configuration)` called in Program.cs — do NOT hand-roll `AddJwtBearer`/`JwtBearerEvents` per service
+- [ ] `MultiTenancy:JwtMode` set correctly (`Shared` or `PerTenant`) and matches Identity Service
+- [ ] No custom code mutates `context.Options.TokenValidationParameters` from inside a `JwtBearerEvents` handler (shared singleton — see "JWT Validation Pattern" above)
 
 ### Database
 

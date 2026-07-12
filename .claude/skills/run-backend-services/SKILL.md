@@ -31,7 +31,7 @@ All services expose `/health` (HTTP GET, 200 = healthy).
 - **Node.js 18+** — `node --version` (for the smoke driver and `.mjs` launchers)
 - **Python venv** for the AI service — already set up at `src/Services/AI/AI.API/venv/`
 - **PostgreSQL** running locally (services connect on startup; no connection = startup failure)
-- **Redis** running (Notification and others use it; absence causes runtime errors, not startup crash)
+- **Redis** running via Docker Compose (`docker compose -f docker-compose.redis.yml up -d` from the backend root) — Notification and others use it; absence causes runtime errors, not startup crash
 
 ## Agent path — smoke driver
 

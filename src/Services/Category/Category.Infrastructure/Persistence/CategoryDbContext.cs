@@ -62,10 +62,16 @@ public class CategoryDbContext : BaseDbContext
             else
             {
                 var tenantDb = _tenantContext.CurrentTenant.Configuration.DatabaseSettings;
-                connectionString = tenantDb.ConnectionString
+                var tenantConnectionString = tenantDb.ConnectionString
                     ?? throw new InvalidOperationException(
                         $"Tenant '{_tenantContext.TenantId}' has no database connection string configured");
                 provider = tenantDb.Provider ?? "PostgreSql";
+
+                var maxPoolSizePerTenant = _configuration?.GetValue("DatabaseSettings:MaxPoolSizePerTenant", 20) ?? 20;
+                connectionString = provider.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase)
+                    ? NpgsqlConnectionStringHelper.WithBoundedPoolSize(tenantConnectionString, maxPoolSizePerTenant)
+                    : tenantConnectionString;
+
                 _logger?.LogInformation("Using tenant DB for tenant '{TenantId}'", _tenantContext.TenantId);
             }
         }
