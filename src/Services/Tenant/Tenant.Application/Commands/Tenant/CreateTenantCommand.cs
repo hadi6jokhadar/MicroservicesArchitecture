@@ -2,6 +2,7 @@ using FluentValidation;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Application.Validation;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
+using IhsanDev.Shared.Kernel.Utilities;
 using MediatR;
 using Tenant.Application.DTOs;
 
@@ -45,5 +46,10 @@ public class CreateTenantCommandValidator : LocalizedValidator<CreateTenantComma
 
         RuleFor(x => x.Data)
             .NotNull().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.ConfigurationData)));
+
+        RuleFor(x => x.Data!.TimeZoneId)
+            .Must(id => string.IsNullOrWhiteSpace(id) || TenantTimeZoneResolver.IsValidTimeZoneId(id))
+            .WithMessage(L(LocalizationKeys.Validation.InvalidTimeZone, L(LocalizationKeys.Fields.TimeZoneId)))
+            .When(x => x.Data != null);
     }
 }

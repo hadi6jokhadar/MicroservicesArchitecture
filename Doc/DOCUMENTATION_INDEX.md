@@ -3,8 +3,8 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** June 20, 2026  
-**Total Files:** 41
+**Last Updated:** July 12, 2026  
+**Total Files:** 42
 
 ---
 
@@ -198,6 +198,16 @@ Files are organized by category. Each entry includes:
 - Enabling or disabling a feature for a specific tenant
 - Understanding how `featureFlags` fits inside the tenant configuration payload
 - Debugging 403 responses caused by a disabled feature flag
+
+### TENANT_TIMEZONE_GUIDE.md
+
+**Description:** Tenant-configuration-driven business timezone. Covers `TenantConfiguration.TimeZoneId` (IANA id, e.g. `"Europe/Istanbul"`), the dependency-free `TenantTimeZoneResolver` static utility used by background jobs looping over multiple tenants, the request-scoped `ITenantTimeService`/`TenantTimeService` wrapper (DI: `AddTenantTimeService()`), UTC fallback behavior when a tenant has no timezone configured or the id is invalid, and validation on tenant create/update.  
+**Read When:**
+
+- Converting UTC to a tenant's local wall-clock time for business-rule evaluation
+- Building a background job that needs to know "what time is it for this tenant"
+- Understanding how `timeZoneId` fits inside the tenant configuration payload
+- Distinguishing tenant business timezone (server-side) from the end user's device timezone (frontend display)
 
 ### OBSERVABILITY_GUIDE.md
 
@@ -575,6 +585,7 @@ Files are organized by category. Each entry includes:
 | Task                     | Files to Read                                                                                 |
 | ------------------------ | --------------------------------------------------------------------------------------------- |
 | Feature flags            | FEATURE_FLAGS_GUIDE.md                                                                        |
+| Tenant timezone / tenant-local time | TENANT_TIMEZONE_GUIDE.md                                                             |
 | Gateway routing          | API_GATEWAY_GUIDE.md                                                                          |
 | Health checks            | API_GATEWAY_GUIDE.md (aggregate), OBSERVABILITY_GUIDE.md (per-service)                        |
 | Correlation ID tracing   | API_GATEWAY_GUIDE.md, OBSERVABILITY_GUIDE.md                                                  |
@@ -621,7 +632,7 @@ AI agents: Do NOT reference or create these files - they have been removed:
 
 ## 📊 Documentation Statistics
 
-- **Total Files:** 40 (all in `MicroservicesArchitecture/Doc/`)
+- **Total Files:** 42 (all in `MicroservicesArchitecture/Doc/`)
 
 **Average file size:** Comprehensive (each file contains complete information on its topic)
 

@@ -7,6 +7,7 @@ using IhsanDev.Shared.Infrastructure.Middleware;
 using IhsanDev.Shared.Infrastructure.Persistence;
 using IhsanDev.Shared.Infrastructure.Services.Audit;
 using IhsanDev.Shared.Infrastructure.Services.FeatureFlags;
+using IhsanDev.Shared.Infrastructure.Services.Tenant;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Caching.Memory;
@@ -68,6 +69,17 @@ public static class InfrastructureServiceExtensions
     public static IServiceCollection AddFeatureFlagService(this IServiceCollection services)
     {
         services.AddScoped<IFeatureFlagService, TenantFeatureFlagService>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the tenant timezone service backed by the current tenant's configuration.
+    /// Falls back to UTC when the tenant has no timezone configured.
+    /// Call from every service's Program.cs that uses multi-tenancy.
+    /// </summary>
+    public static IServiceCollection AddTenantTimeService(this IServiceCollection services)
+    {
+        services.AddScoped<ITenantTimeService, TenantTimeService>();
         return services;
     }
 

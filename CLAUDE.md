@@ -127,6 +127,7 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 | `Doc/DATABASE_PER_TENANT_ARCHITECTURE.md` | Multi-tenancy DB architecture |
 | `Doc/MULTI_TENANCY_GUIDE.md` | Multi-tenancy setup |
 | `Doc/PERFORMANCE_OPTIMIZATION_GUIDE.md` | Performance optimizations |
+| `Doc/TENANT_TIMEZONE_GUIDE.md` | Per-tenant business timezone (`TimeZoneId`), UTC fallback, background job usage |
 | `Directory.Packages.props` | Centralized NuGet package versions |
 
 ## Common Pitfalls

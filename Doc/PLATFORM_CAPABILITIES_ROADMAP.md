@@ -25,6 +25,7 @@
 | 10  | Search Service                        | 3    | ⬜ Not started |
 | 11  | CDN / Media Delivery                  | 3    | ⬜ Not started |
 | 12  | Usage Metering / Billing Hooks        | 3    | ⬜ Not started |
+| 13  | Tenant Timezone Support                | 2    | ✅ Done        |
 
 ---
 
@@ -1062,6 +1063,100 @@ restore_command = 'cp /var/lib/postgresql/wal-archive/%f %p'
 - [ ] Document backup location and admin token rotation in Secrets Management
 - [ ] Add backup verification job (restore + row count check on random tenant)
 - [ ] Set up offsite backup destination (Azure Blob / S3)
+
+---
+
+## 13. Tenant Timezone Support
+
+### Why It's Needed
+
+Every DateTime in the system is stored and transmitted as UTC (see `DateTime Standardization` in the backend `CLAUDE.md`), which is correct for storage but not sufficient on its own: business logic that needs to reason about a tenant's local wall-clock (e.g. "is it business hours for this tenant", "run this tenant's daily digest at their local 8am") has no way to know what timezone a tenant is actually in. Frontend clients already convert UTC → the device's local timezone for display, but that is the *viewer's* timezone, not the tenant's *business* timezone — the two are different concepts and must not be conflated.
+
+### Recommended Approach: IANA timezone ID stored in tenant configuration, resolved with UTC fallback
+
+Following the same pattern as Feature Flags (Tier 2, #8): no new service, table, or infrastructure. The tenant's timezone lives inside the existing `data` JSON blob (`TenantConfiguration.TimeZoneId`), the same object already cached by `TenantCacheRefreshJob` and read through `ITenantContext`. A new shared, dependency-free static resolver (`TenantTimeZoneResolver`) provides one fallback path used by both per-request code and background jobs that loop over multiple tenants without a "current" tenant context.
+
+Store IANA identifiers (e.g. `"Europe/Istanbul"`), not Windows IDs (e.g. `"Turkey Standard Time"`) — .NET 6+ resolves IANA IDs cross-platform via the bundled ICU data, so this stays portable if any service ever runs on Linux/containers.
+
+### What to Build
+
+#### 1. Add `TimeZoneId` to `TenantConfiguration` (`IhsanDev.Shared.Kernel`)
+
+```csharp
+public class TenantConfiguration
+{
+    // ...existing Jwt, DatabaseSettings, Cors, Otp, BlobStorage, FeatureFlags...
+    public string? TimeZoneId { get; set; } // IANA id, e.g. "Europe/Istanbul". Null → UTC fallback.
+}
+```
+
+#### 2. Static fallback-safe resolver (`IhsanDev.Shared.Kernel/Utilities/TenantTimeZoneResolver.cs`)
+
+```csharp
+public static class TenantTimeZoneResolver
+{
+    public const string DefaultTimeZoneId = "UTC";
+
+    public static TimeZoneInfo Resolve(string? timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId)) return TimeZoneInfo.Utc;
+        try { return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId); }
+        catch (TimeZoneNotFoundException) { return TimeZoneInfo.Utc; }
+        catch (InvalidTimeZoneException) { return TimeZoneInfo.Utc; }
+    }
+
+    public static DateTime ConvertUtcToTenantLocal(DateTime utc, string? timeZoneId) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Resolve(timeZoneId));
+
+    public static bool IsValidTimeZoneId(string timeZoneId)
+    {
+        try { TimeZoneInfo.FindSystemTimeZoneById(timeZoneId); return true; }
+        catch { return false; }
+    }
+}
+```
+
+No DI, no tenant context dependency — this is what background jobs use directly per tenant (`TenantTimeZoneResolver.ConvertUtcToTenantLocal(DateTime.UtcNow, tenant.Configuration?.TimeZoneId)`), since a job looping over many tenants has no single "current" tenant.
+
+#### 3. Scoped convenience wrapper for request-time code (`ITenantTimeService` / `TenantTimeService`)
+
+```csharp
+public interface ITenantTimeService
+{
+    string TimeZoneId { get; }
+    TimeZoneInfo TimeZone { get; }
+    DateTime ConvertUtcToTenantLocal(DateTime utc);
+    DateTime ConvertTenantLocalToUtc(DateTime local);
+}
+```
+
+Reads `ITenantContext.CurrentTenant?.Configuration?.TimeZoneId`, falls back to `TenantTimeZoneResolver.DefaultTimeZoneId` ("UTC") when the tenant hasn't configured one. Registered via `AddTenantTimeService()` — same DI shape as `AddFeatureFlagService()`.
+
+#### 4. Validate at tenant create/update time
+
+Reject an invalid timezone ID up front (`CreateTenantCommandValidator` / `UpdateTenantCommandValidator`) using `TenantTimeZoneResolver.IsValidTimeZoneId` — this catches typos at write time instead of silently falling back to UTC at read time.
+
+### Fallback Behavior (explicit)
+
+| Condition | Result |
+|---|---|
+| Tenant has no `timeZoneId` set | Falls back to `"UTC"` |
+| Tenant's `timeZoneId` is an invalid/unknown IANA id | Rejected at create/update time by the validator; if bad data still exists at read time, resolver falls back to `"UTC"` rather than throwing |
+| Multi-tenancy disabled / no tenant context | `ITenantTimeService.TimeZoneId` returns `"UTC"` |
+
+### Implementation Checklist
+
+- [x] Add `TimeZoneId` to `TenantConfiguration` in `IhsanDev.Shared.Kernel`
+- [x] Add `TenantTimeZoneResolver` static utility to `IhsanDev.Shared.Kernel`
+- [x] Add `ITenantTimeService` to `IhsanDev.Shared.Application`
+- [x] Implement `TenantTimeService` in `IhsanDev.Shared.Infrastructure`, register via `AddTenantTimeService()`
+- [x] Add `TimeZoneId` validation to `CreateTenantCommandValidator` / `UpdateTenantCommandValidator`
+- [x] Add `InvalidTimeZone` validation key + `TimeZoneId` field key to `LocalizationKeys.cs`, `en.json`, `ar.json`
+- [x] Create `Doc/TENANT_TIMEZONE_GUIDE.md`
+- [ ] Wire a real tenant-local-time-gated background job as the first consumer once one is needed (no existing job currently requires per-tenant local time)
+- [ ] Add a `timeZoneId` field to the frontend tenant admin form (currently backend-only)
+
+> **Full guide:** `Doc/TENANT_TIMEZONE_GUIDE.md`
 
 ---
 

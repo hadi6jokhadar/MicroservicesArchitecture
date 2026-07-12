@@ -42,6 +42,14 @@ public class TenantConfiguration
     public OtpSettings? Otp { get; set; }
     public BlobStorageSettings? BlobStorage { get; set; }
     public Dictionary<string, bool> FeatureFlags { get; set; } = new();
+
+    /// <summary>
+    /// IANA time zone identifier for this tenant's business timezone (e.g. "Europe/Istanbul").
+    /// Used to reason about the tenant's local wall-clock time server-side (background jobs,
+    /// business-rule evaluation) — distinct from the end user's device timezone used for display.
+    /// Null/empty falls back to UTC via <see cref="Utilities.TenantTimeZoneResolver"/>.
+    /// </summary>
+    public string? TimeZoneId { get; set; }
 }
 
 /// <summary>

@@ -109,6 +109,7 @@ public static class LocalizationKeys
         public const string VerificationCodeDigitsOnly = "validation_verification_code_digits_only";
         public const string GroupInvalid = "validation_group_invalid";
         public const string SortColumnInvalid = "validation_sort_column_invalid";
+        public const string InvalidTimeZone = "validation_invalid_time_zone";
     }
 
     /// <summary>
@@ -142,6 +143,7 @@ public static class LocalizationKeys
         public const string StartDate = "field_start_date";
         public const string ExpireDate = "field_expire_date";
         public const string ConfigurationData = "field_configuration_data";
+        public const string TimeZoneId = "field_time_zone_id";
         
         // Notification fields
         public const string Title = "field_title";
