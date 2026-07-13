@@ -156,6 +156,31 @@ The 27-48 `filemanager`-only failures in the two runs above were **misdiagnosed*
 
 **Lesson**: a low, stable-looking failure percentage (0.05%) under one load level can hide a bug whose failure rate is actually a function of concurrency, not randomness — worth deliberately re-testing at higher concurrency (or adding failure-detail logging) before writing off a small failure count as "expected" resilience behavior.
 
+### Second regression found and fixed: synchronous, globally-locked file logging serialized every concurrent request (July 2026)
+
+After the JWT fix above, a full 5-minute `PEAK_RATE=500` run showed **100% correctness but badly regressed latency** — median jumped from ~49ms to ~950ms-1.37s (reproduced identically across two separate full service restarts, ruling out a one-off cold-start blip), `p(95)` up to 5-6s, throughput actually *dropping* slightly (309→~280-290 req/s) at the same target rate.
+
+**Diagnosis**: CPU on every affected process was low (a few percent, not saturated), Postgres was confirmed idle (29 connections, 0 active, no locks, no long-running queries) and Redis was fast (0.08ms latency, 451 ops/sec) during a live sample at peak load — ruling out both the database and the cache as the bottleneck. Low CPU + healthy backends + high latency under concurrency is the classic signature of blocking I/O or lock contention *inside* the .NET process itself, not an external dependency.
+
+**Root cause**: `LoggerManager.WriteLogToFile` (`IhsanDev.Shared.Infrastructure/Services/Logging/LoggerManager.cs`) took a single `lock` object and, while holding it, synchronously opened a fresh `FileStream` in append mode, wrote one line, and closed it — for *every* log call, on the *calling* thread. This class is registered as a singleton (`AddCustomLogging`) and is called **twice per MediatR request** by `LoggingBehavior` ("Handling X" / "Handled X in Yms") — meaning literally every authenticated request (profile, categories, translations, filemanager — anything going through MediatR) serialized on this one lock, with the calling thread blocked for the duration of each file open/write/close. Under low concurrency this is barely noticeable; under sustained concurrent load, every request queues behind the same lock, and slower turnaround means more requests pile up concurrently (Little's Law), which increases lock contention further — a self-reinforcing spiral that, once tipped over, doesn't recover for the rest of a sustained run. Not introduced by anything this session changed — it's a structural issue that existed in `LoggerManager.cs` the whole time; it only started fully manifesting once `PEAK_RATE=500` full-length runs pushed concurrency high enough to hit it consistently.
+
+**Fix**: rewrote `LoggerManager` so the calling thread never touches the console or disk — `LogInfo`/`LogWarn`/`LogDebug`/`LogError` just format a record and enqueue it (non-blocking hand-off via `System.Threading.Channels.Channel`), and a single background task drains the queue, doing the actual `Console.WriteLine` and file append (keeping the file's `StreamWriter` open across calls instead of reopening per line, only rotating when the date changes). No shared lock on the hot path at all.
+
+**Verification**: same full 5-minute `PEAK_RATE=500` test after rebuilding and restarting all services —
+
+| Metric | Before (buggy logger) | After (async logger) |
+|---|---|---|
+| p95 latency | 5.06s-6.11s | **4.73ms** |
+| Median latency | ~950ms-1.37s | **1.57ms** |
+| Throughput @ 500 target | 280-290 req/s | **312 req/s, full target rate sustained, no dropped iterations** |
+| Max concurrent VUs needed | 1500 (exhausted) | **3** |
+| `p(95)<800ms` threshold | ✗ failed | **✓ passed** |
+| Success rate | 100% | 100% |
+
+The drop in max-VUs-needed (1500 → 3) is itself strong confirmation: it means the target rate was never actually the problem — the system just needed ~2ms per request instead of ~1s to keep up. Real capacity on this machine is comfortably above 500 req/s now; a follow-up at a higher `PEAK_RATE` would be needed to find where it actually tops out.
+
+**Lesson**: a custom logging abstraction that looks synchronous and "just writes a line" can become the dominant bottleneck in a system once request volume rises, precisely because it's easy to overlook — it doesn't show up as slow DB queries or high CPU, just unexplained latency with everything else looking healthy. Any shared logging/telemetry sink called on every request must be non-blocking from the caller's perspective (queue-and-return, with a background consumer doing the actual I/O).
+
 Remaining, in order of expected impact:
 
 1. **Add real load balancing across gateway/service replicas when you actually run more than one instance.** `ReverseProxy:Clusters` in `appsettings.json` defines exactly one destination per cluster today — this doesn't block a single-instance deployment from handling high throughput (confirmed: the gateway itself has no meaningful connection-level ceiling), but it does block *horizontal* scaling once one instance isn't enough.

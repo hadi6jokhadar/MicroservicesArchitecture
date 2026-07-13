@@ -41,6 +41,9 @@ public static class ObservabilityExtensions
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
+                    // LoggerManager's dropped-entries counter (Information/Debug entries
+                    // dropped when its low-priority channel is full — see LoggerManager.cs).
+                    .AddMeter("IhsanDev.LoggerManager")
                     .AddPrometheusExporter();
             });
 
