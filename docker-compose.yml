@@ -14,8 +14,12 @@
 #   docker compose up -d
 #
 # Usage on PC1 (build + push, normally done via the Nx target instead — see docker/build-and-push.mjs):
-#   docker compose build
-#   docker compose push
+#   docker compose build --push
+# Note: every custom service builds for linux/amd64 AND linux/arm64 (PC2 is Apple Silicon).
+# Multi-platform images can't be built to the local Docker engine and pushed separately —
+# `--push` is required in the same step, or docker errors with "cannot load: this image is
+# multi-platform". `docker compose build` (no --push) still works for local single-arch
+# testing on PC1, it just doesn't produce a usable multi-arch manifest on Docker Hub.
 
 services:
   postgres:
@@ -61,6 +65,9 @@ services:
     build:
       context: .
       dockerfile: src/Services/Identity/Identity.API/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-identity:latest
     container_name: identity
     depends_on:
@@ -68,6 +75,7 @@ services:
       redis: { condition: service_healthy }
     volumes:
       - ./src/Services/Identity/Identity.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+      - ./docker/logs/identity:/app/Logs
     ports:
       - "5001:5001"
     restart: unless-stopped
@@ -78,6 +86,9 @@ services:
     build:
       context: .
       dockerfile: src/Services/Tenant/Tenant.API/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-tenant:latest
     container_name: tenant
     depends_on:
@@ -85,6 +96,7 @@ services:
       redis: { condition: service_healthy }
     volumes:
       - ./src/Services/Tenant/Tenant.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+      - ./docker/logs/tenant:/app/Logs
     ports:
       - "5002:5002"
     restart: unless-stopped
@@ -95,12 +107,16 @@ services:
     build:
       context: .
       dockerfile: src/Services/Notification/Notification.API/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-notification:latest
     container_name: notification
     depends_on:
       postgres: { condition: service_healthy }
     volumes:
       - ./src/Services/Notification/Notification.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+      - ./docker/logs/notification:/app/Logs
     ports:
       - "5004:5004"
     restart: unless-stopped
@@ -111,6 +127,9 @@ services:
     build:
       context: .
       dockerfile: src/Services/FileManager/FileManager.API/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-filemanager:latest
     container_name: filemanager
     depends_on:
@@ -119,6 +138,7 @@ services:
     volumes:
       - ./src/Services/FileManager/FileManager.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
       - ihsandev_filestorage:/app/FileStorage
+      - ./docker/logs/filemanager:/app/Logs
     ports:
       - "5005:5005"
     restart: unless-stopped
@@ -129,6 +149,9 @@ services:
     build:
       context: .
       dockerfile: src/Services/Translation/Translation.API/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-translation:latest
     container_name: translation
     depends_on:
@@ -136,6 +159,7 @@ services:
       redis: { condition: service_healthy }
     volumes:
       - ./src/Services/Translation/Translation.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+      - ./docker/logs/translation:/app/Logs
     ports:
       - "5006:5006"
     restart: unless-stopped
@@ -146,12 +170,16 @@ services:
     build:
       context: .
       dockerfile: src/Services/Category/Category.API/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-category:latest
     container_name: category
     depends_on:
       postgres: { condition: service_healthy }
     volumes:
       - ./src/Services/Category/Category.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+      - ./docker/logs/category:/app/Logs
     ports:
       - "5007:5007"
     restart: unless-stopped
@@ -162,6 +190,9 @@ services:
     build:
       context: .
       dockerfile: src/Services/AI/AI.API/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-ai:latest
     container_name: ai
     depends_on:
@@ -169,6 +200,9 @@ services:
       filemanager: { condition: service_started }
     volumes:
       - ./src/Services/AI/AI.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+      # AI's WORKDIR is /src/src/Services/AI/AI.API (not /app like the .NET services) — its
+      # relative "Logs" FilePath resolves there.
+      - ./docker/logs/ai:/src/src/Services/AI/AI.API/Logs
     ports:
       - "5008:5008"
     restart: unless-stopped
@@ -179,6 +213,9 @@ services:
     build:
       context: .
       dockerfile: src/Apps/Nasheed/Nasheed.API/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-nasheed:latest
     container_name: nasheed
     depends_on:
@@ -186,6 +223,7 @@ services:
       tenant: { condition: service_started }
     volumes:
       - ./src/Apps/Nasheed/Nasheed.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+      - ./docker/logs/nasheed:/app/Logs
     ports:
       - "5009:5009"
     restart: unless-stopped
@@ -196,6 +234,9 @@ services:
     build:
       context: .
       dockerfile: src/Gateway/Gateway.API/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-gateway:latest
     container_name: gateway
     depends_on:
@@ -219,6 +260,9 @@ services:
     build:
       context: ../MicroservicesArchitecture-Web
       dockerfile: apps/admin/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-admin:latest
     container_name: admin
     depends_on:
@@ -233,6 +277,9 @@ services:
     build:
       context: ../MicroservicesArchitecture-Web
       dockerfile: apps/nasheed/admin/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-nasheed-admin:latest
     container_name: nasheed-admin
     depends_on:
@@ -247,6 +294,9 @@ services:
     build:
       context: ../MicroservicesArchitecture-Web
       dockerfile: apps/nasheed/web/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
     image: ${DOCKERHUB_USERNAME}/ihsandev-nasheed-web:latest
     container_name: nasheed-web
     depends_on:

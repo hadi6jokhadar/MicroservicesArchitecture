@@ -30,11 +30,12 @@ function run(command) {
 }
 
 try {
-  console.log('Building all images (backend services + frontend apps)...');
-  run('docker compose build');
-
-  console.log('\nPushing all images to Docker Hub...');
-  run('docker compose push');
+  // Every custom service builds for linux/amd64 + linux/arm64 (docker-compose.yml's
+  // build.platforms). Multi-platform images can't be built to the local Docker engine and
+  // pushed separately — they must be pushed in the same step as the build, or Docker errors
+  // with "cannot load: this image is multi-platform".
+  console.log('Building and pushing all images (multi-arch: amd64 + arm64)...');
+  run('docker compose build --push');
 
   console.log('\nDone. On PC2, run: docker compose pull && docker compose up -d');
 } catch (error) {
