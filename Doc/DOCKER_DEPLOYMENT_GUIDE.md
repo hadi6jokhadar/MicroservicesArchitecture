@@ -4,6 +4,97 @@
 
 ---
 
+## Quick Start: Deploying On a Fresh Server Pair
+
+Follow this in order for a brand-new PC1/PC2 pair (or re-read it as a checklist if something's not working — most failures so far were silent, so re-verifying each step explicitly is worth it).
+
+### 1. One-time setup on PC1 (the build machine)
+
+1. Install Docker Desktop. Confirm multi-platform build support: `docker buildx ls` should list `linux/amd64` and `linux/arm64` under available platforms (Docker Desktop bundles QEMU for this automatically).
+2. Clone **both** repos as sibling folders under the same parent directory (`docker-compose.yml` assumes this layout via `../MicroservicesArchitecture-Web`):
+   ```
+   SomeParentFolder/
+     MicroservicesArchitecture/          (backend — this repo)
+     MicroservicesArchitecture-Web/      (frontend)
+   ```
+3. In the backend repo root: copy `.env.example` → `.env`, fill in `DOCKERHUB_USERNAME` plus the Postgres/PgAdmin/Grafana credentials.
+4. `docker login` with your Docker Hub account.
+5. **If you want internet access, decide the hostname now, before building anything** — see step 6. `environment.docker.ts` (frontend) bakes the hostname in at build time; changing it later means a rebuild.
+
+### 2. One-time setup on PC2 (the host machine)
+
+1. Install Docker Desktop.
+2. Clone **only the backend repo** — PC2 never builds anything, only pulls pre-built images, so the frontend repo isn't needed there at all.
+3. **Transfer the gitignored files manually** (scp/AirDrop/USB — never `git pull`, since these are intentionally excluded from git and always will be):
+   - `.env` (same one from PC1, or PC2-specific if credentials differ)
+   - Every `appsettings.Docker.json` — one per backend service + Gateway (9 files total: Identity, Tenant, Notification, FileManager, Translation, Category, AI, Nasheed, Gateway)
+   - Verify all 9 landed: `find . -name "appsettings.Docker.json" | wc -l` should print `9`. Missing one means that service silently runs on the base `appsettings.json`'s placeholder defaults with no startup error (see the AI bind-mount pitfall below for exactly this failure mode).
+4. `docker login` (optional — raises the free-tier pull-rate limit above the ~100/hr anonymous ceiling, worth doing since this stack pulls ~17 images).
+5. **Give PC2 a static/reserved LAN IP** (DHCP reservation on the router) before setting up any port forwarding — a rule pointing at a Wi-Fi-assigned IP will silently break if the lease changes.
+6. **macOS-specific:**
+   - Disable **AirPlay Receiver** (System Settings → General → AirDrop & Handoff) — it squats on port 5000, which Gateway needs. Without this, `docker compose up -d` fails with `address already in use` on port 5000.
+   - **Do `docker login`/`docker compose pull` from an actual Terminal.app session, not SSH** — a non-interactive SSH session can't unlock the macOS Keychain, which Docker's credential helper needs even for anonymous/public pulls, producing `keychain cannot be accessed because the current session does not allow user interaction`. If you must do it over SSH anyway, see "SSH + Docker Hub credential workaround" below.
+
+### 3. Build and push (from PC1)
+
+```powershell
+nx run docker:build-push-all      # first deploy — builds and pushes all 12 images
+nx run docker:build-changed       # routine deploys — only rebuilds services that actually changed (git diff-based)
+nx run docker:build-identity      # one specific image — see tools/docker/project.json for the full list
+```
+
+First-time builds take a while — the AI image alone can take 20+ minutes for its arm64 variant (PyTorch install under QEMU emulation). Routine rebuilds are much faster since Docker's layer cache skips anything unchanged.
+
+### 4. Deploy (on PC2)
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+### 5. Verify — `docker compose ps` showing `Up` is NOT proof it works
+
+Two of the four real bugs found during this deployment (ICU crash-loop, hardcoded `localhost` binding) both showed a completely normal `Up` status and unremarkable CPU in `docker compose ps`/`docker stats`, while being **entirely non-functional**. Always follow up with an actual request:
+
+```bash
+docker stats --no-stream                                            # CPU pinned near 100% on a .NET service = something's wrong even if status says Up
+curl -sS -o /dev/null -w 'HTTP %{http_code}\n' http://localhost:5000/health   # repeat per service port
+docker logs <service> --tail 30                                     # check for anything after "Application started"
+```
+
+### 6. Expose to the internet (optional)
+
+1. Get a hostname pointed at PC2's public IP — either a real domain, or a free DDNS service (this deployment uses one) if you don't have a domain yet.
+2. **Before building**, set that hostname in `environment.docker.ts` for `admin` and `nasheed-admin` (`MicroservicesArchitecture-Web/apps/{admin,nasheed/admin}/src/environments/environment.docker.ts`) — it's baked into the compiled JS at build time.
+3. Forward these ports on your router to PC2's static LAN IP: **80, 5000–5009, 8081, 8082** (see "Known limitations" below for why every backend port needs forwarding, not just the Gateway's).
+4. Test from **outside** your local network (e.g. phone on cellular data, not the same Wi-Fi) — a LAN-only test won't catch a missing port-forward rule.
+
+### SSH + Docker Hub credential workaround (macOS, if you can't use Terminal.app directly)
+
+If you must run `docker compose pull`/`build`/`push` over SSH on a Mac and hit the Keychain error above, point Docker at a temporary, credential-free config instead of fighting the Keychain:
+
+```bash
+mkdir -p /tmp/docker-nocreds-bin && cat > /tmp/docker-nocreds-bin/docker-credential-none <<'EOF'
+#!/bin/sh
+echo 'credentials not found in native keychain' >&2
+exit 1
+EOF
+chmod +x /tmp/docker-nocreds-bin/docker-credential-none
+mkdir -p /tmp/docker-nocreds/cli-plugins
+ln -sf /Applications/Docker.app/Contents/Resources/cli-plugins/docker-compose /tmp/docker-nocreds/cli-plugins/docker-compose
+echo '{"credsStore":"none"}' > /tmp/docker-nocreds/config.json
+export PATH=/tmp/docker-nocreds-bin:/usr/local/bin:$PATH
+export DOCKER_CONFIG=/tmp/docker-nocreds
+docker compose pull   # or build/push
+```
+This works because the images are public — no real credentials are ever needed, just something that answers "not found" instead of the real Keychain-backed helper failing outright. **Note:** even with this workaround, pulls occasionally still report a confusing empty-output error on the first attempt but succeed anyway (or need one retry) — verify success with `docker images` (check timestamps) rather than trusting the printed exit status alone.
+
+### If a fresh pull/build behaves inexplicably: suspect a corrupted local layer cache
+
+If an image is verified correct on Docker Hub (matching digest, valid file contents when tested by pulling fresh on a different machine) but a specific machine still behaves as if running the broken old version, its local Docker layer cache may have a corrupted layer (this happened on PC2 after a disk-full incident corrupted a shared base-image layer, which then kept getting silently reused across every subsequent build with a different top-level tag). Fix: `docker compose down`, `docker system prune -a --force`, then `docker compose pull` again for a completely fresh download of every layer.
+
+---
+
 ## Architecture
 
 - PC1 (Windows) builds every image and pushes it to Docker Hub.
@@ -61,9 +152,27 @@ docker compose up -d
 - The existing `docker-compose.redis.yml` / `docker-compose.postgres-replication.yml` / `docker-compose.observability.yml` are separate, host-level dev-time compose files — do not run them alongside `docker-compose.yml` (container name collisions: both define `jaeger`/`prometheus`/`grafana`/`redis`-equivalent containers). `docker-compose.yml` is the fully-containerized equivalent for PC2; the three host-level files stay useful on PC1 for running the observability/DB stack next to services started via `dotnet run`.
 - Grafana's default credentials in `.env` (`admin`/`admin`) are fine since Grafana is bound to `127.0.0.1` only, but change them before ever publishing that port beyond loopback.
 
+## Pitfall: every .NET service's tracked `appsettings.json` hardcodes `"Urls": "http://localhost:{port}"`
+
+All 8 .NET services (Identity, Tenant, Notification, FileManager, Translation, Category, Nasheed, Gateway) have `"Urls": "http://localhost:{port}"` baked into their tracked, image-shipped `appsettings.json` (meant for convenient single-machine local dev). This value **wins over** the `ENV ASPNETCORE_URLS=http://+:{port}` set in each Dockerfile — the exact precedence mechanism isn't fully pinned down, but the observed effect is unambiguous: Kestrel logs `Now listening on: http://localhost:{port}`, meaning it's bound only to the container's own loopback interface, not all interfaces. Docker's port-forwarding still *accepts* the incoming TCP connection from outside the container (so `curl` connects successfully), but nothing is listening on the interface the connection actually lands on, so it gets reset immediately (`Recv failure: Connection reset by peer`) — this happened identically on every one of the 8 services, all showing `Up` and normal CPU in `docker compose ps`/`docker stats`, giving no indication anything was wrong short of actually trying to hit an endpoint.
+
+**Fix:** every service's `appsettings.Docker.json` explicitly sets `"Urls": "http://+:{port}"` — since it's loaded after the base `appsettings.json` in the same configuration provider chain, it reliably overrides the same key through the exact mechanism the app already uses (rather than relying on environment-variable precedence, which doesn't win here for reasons not fully understood). **This requires no image rebuild** — `appsettings.Docker.json` is bind-mounted at runtime, not baked into the image, so a `git pull` on PC2 plus a container restart is enough. AI is unaffected (its Python entrypoint hardcodes `--host 0.0.0.0` directly in the `uvicorn` command, not read from `appsettings.json`). When adding a new .NET service to this pattern, set `"Urls": "http://+:{port}"` in its `appsettings.Docker.json` from the start — don't assume the `ENV ASPNETCORE_URLS` in the Dockerfile is sufficient.
+
+## Pitfall: every .NET service needs `libicu-dev` in its final stage on arm64
+
+`mcr.microsoft.com/dotnet/aspnet:10.0`'s **arm64** variant is missing ICU (globalization) libraries. Without them, .NET's `CultureInfo` static initialization `FailFast`s at startup with `Couldn't find a valid ICU package installed on the system. Please install libicu (or icu-libs)...` — but the container doesn't just exit and get restarted (which would be obvious from `docker compose ps`): it kept showing `Up`, pinned at ~100% CPU, accepting TCP connections but resetting them immediately (`curl: Recv failure: Connection reset by peer`), which is a much more confusing failure mode than a clean crash-loop. **This hit all 8 .NET services identically** (Identity, Tenant, Notification, FileManager, Translation, Category, Nasheed, Gateway) the first time they ran on PC2 (Apple Silicon) — none of it showed up during PC1's amd64-only build/push cycle, since amd64's `aspnet:10.0` variant has ICU fine.
+
+**Fix:** every .NET service's final stage installs `libicu-dev` via `apt-get`, right after the `FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final` line. Deliberately **not** using the alternative fix (`ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true`, which sidesteps the crash by disabling globalization entirely) — that would risk breaking this project's Arabic/English culture-aware string comparisons and formatting, given how central i18n is here. When adding a new .NET service to this pattern, copy the `libicu-dev` install into its final stage too — this base image gap won't be obvious from a same-architecture (amd64-only) test.
+
 ## Pitfall: AI's `appsettings.Docker.json` bind mount path must NOT be `/app/...`
 
 Every .NET service's `appsettings.Docker.json` is bind-mounted at `/app/appsettings.Docker.json`, since `/app` is their `WORKDIR`. **AI is different** — its Python config loader (`core/config.py`) resolves the file relative to its own script location, which lands at `/src/src/Services/AI/AI.API`, not `/app`. Copy-pasting the `.NET` mount path for AI means the file silently never gets found: no startup error, no crash — `load_json_settings()` just doesn't find a `Docker.json` to merge and falls back entirely to `appsettings.json`'s base defaults (`CHANGE_ME_DB_PASSWORD`, `CHANGE_ME_JWT_SECRET`, `CHANGE_ME_SHARED_SECRET`, `http://localhost:...` endpoints). The container can still start and appear healthy — the failure only surfaces once something tries to actually use one of those broken values (DB connection, a service-to-service call, trace export). Confirmed via a log line reading `OpenTelemetry tracing initialised → http://localhost:4317` instead of the configured `http://jaeger:4317`. **Fixed** — AI's mount target is `/src/src/Services/AI/AI.API/appsettings.Docker.json`, matching its actual `WORKDIR`, same as its log volume already correctly did. When adding a new Python service to this pattern, always verify its bind-mount target against its own `WORKDIR`/base directory — don't assume it matches the .NET services' `/app` convention.
+
+## Pitfall: `Cors.AllowedOrigins` in `appsettings.Docker.json` must match the frontend's ACTUAL hostname, not an old one
+
+Identity, Tenant, Translation, and FileManager's `appsettings.Docker.json` were found (checked during a documentation pass) still pointing `Cors.AllowedOrigins` at `http://anashid.ddnsfree.com` — an earlier DDNS hostname — while the frontend (`environment.docker.ts` for both `admin` and `nasheed-admin`) has actually been building against `ihsandev.gleeze.com` for a while. This class of bug is dangerous precisely because it's invisible to the verification method used everywhere else in this guide: `curl`/server-to-server calls never send an `Origin` header, so they succeed identically whether CORS is configured correctly or not — only an actual browser-based request (real admin panel usage) trips the mismatch, coming back as an opaque CORS error in the browser console with no corresponding server-side symptom.
+
+**Fix:** every service's `Cors.AllowedOrigins` must list every real frontend origin that calls it — `http://ihsandev.gleeze.com` (admin, port 80, no port in the Origin header) and `http://ihsandev.gleeze.com:8081` (nasheed-admin). **This requires no rebuild** — same as the `Urls` fix, `appsettings.Docker.json` is bind-mounted, not baked in, so a `scp` + `docker compose restart <service>` on PC2 is enough. **When the DDNS hostname (or a real domain) ever changes, `Cors.AllowedOrigins` must be updated in every affected `appsettings.Docker.json` at the same time as `environment.docker.ts`** — they're two independent, easy-to-forget places carrying the same hostname, and only one of them (`environment.docker.ts`) is git-tracked, so the other is easy to silently miss during a hostname migration.
 
 ## Image size notes
 
