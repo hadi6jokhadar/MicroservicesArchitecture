@@ -105,6 +105,8 @@ The correlation ID also appears in every Jaeger span as the `X-Correlation-Id` a
 
 ## Start the Observability Stack
 
+> This section is for host-level dev, where services run via `dotnet run`/`run-development-instance.bat` directly on the host and Prometheus reaches them via `host.docker.internal`. For the fully-containerized deployment (all services as containers, PC1 → Docker Hub → PC2), Jaeger/Prometheus/Grafana are already part of the root `docker-compose.yml` instead — see `DOCKER_DEPLOYMENT_GUIDE.md`. Don't run both at once (container name collisions).
+
 From the repo root (`MicroservicesArchitecture/`):
 
 ```powershell

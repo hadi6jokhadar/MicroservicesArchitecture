@@ -3,8 +3,8 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** July 12, 2026  
-**Total Files:** 44
+**Last Updated:** July 13, 2026  
+**Total Files:** 45
 
 ---
 
@@ -482,6 +482,17 @@ Files are organized by category. Each entry includes:
 - Read scaling
 - Production deployment
 
+### DOCKER_DEPLOYMENT_GUIDE.md
+
+**Description:** How to build, push (Docker Hub), and run the full stack (9 backend services + 3 frontend apps) as Docker containers — PC1 (Windows dev) builds and pushes, PC2 (Mac) pulls and runs via `docker compose`. Covers `appsettings.Docker.json` per service (gitignored, bind-mounted, never baked into an image), the one-click `docker/build-and-push.mjs` script wired into Nx (`nx run admin:docker-build-push`), and the steps to add a new service to this pattern.  
+**Read When:**
+
+- Building or pushing Docker images for any service
+- Setting up or modifying `docker-compose.yml`
+- Adding a new service and needing to Dockerize it
+- Debugging why a container can't reach Postgres/Redis/another service (hostname mismatch)
+- Understanding why ports 5000-5009 are all published instead of only the Gateway's
+
 ---
 
 ## 🔧 Development Patterns
@@ -617,6 +628,7 @@ Files are organized by category. Each entry includes:
 | Add translations         | TRANSLATION_SERVICE_GUIDE.md, LOCALIZATION_GUIDE.md                                           |
 | Service-to-service call  | SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md, SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md      |
 | Database issue           | DATABASE_PER_TENANT_ARCHITECTURE.md, AUTOMATIC_DATABASE_MIGRATION.md                          |
+| Docker build/push/deploy | DOCKER_DEPLOYMENT_GUIDE.md                                                                    |
 | Understand AI service    | AI_SERVICE_OVERVIEW.md, AI_SERVICE_MIGRATION_GUIDE.md, PYTHON_SHARED_LIBRARY_GUIDE.md         |
 | Write tests              | SERVICE_INTEGRATION_TEST_GUIDE.md, SHARED_TESTING_FILES.md                                    |
 | Understand multi-tenancy | MULTI_TENANCY_GUIDE.md, DATABASE_PER_TENANT_ARCHITECTURE.md, TENANT_MIDDLEWARE_EXPLAINED.md   |

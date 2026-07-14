@@ -479,8 +479,11 @@ appsettings.local.json
 *.Test.json
 *.Production.json
 *.Staging.json
+*.Docker.json
 
 # Secrets
+.env
+!.env.example
 secrets.json
 *.pfx
 *.p12
@@ -675,8 +678,11 @@ appsettings.local.json
 *.Test.json
 *.Production.json
 *.Staging.json
+*.Docker.json
 
 # Secrets
+.env
+!.env.example
 secrets.json
 *.pfx
 *.p12

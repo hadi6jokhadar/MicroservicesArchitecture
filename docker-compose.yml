@@ -1,0 +1,317 @@
+# Full containerized deployment: Postgres + Redis + Jaeger + Prometheus + Grafana + all 9
+# backend services + 3 frontend apps. This is separate from docker-compose.redis.yml /
+# docker-compose.postgres-replication.yml / docker-compose.observability.yml, which are
+# host-level dev-time infra for services started via `dotnet run` — do not run both stacks
+# at once (container name collisions on redis/jaeger/prometheus/grafana).
+#
+# Assumes MicroservicesArchitecture-Web is cloned as a sibling folder to this repo (same
+# layout as PC1): ../MicroservicesArchitecture-Web
+#
+# Requires a .env file next to this compose file with DOCKERHUB_USERNAME set (see .env.example).
+#
+# Usage on PC2 (pull pre-built images and run):
+#   docker compose pull
+#   docker compose up -d
+#
+# Usage on PC1 (build + push, normally done via the Nx target instead — see docker/build-and-push.mjs):
+#   docker compose build
+#   docker compose push
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ihsandev-postgres
+    environment:
+      # Must match the Password= value hardcoded in every appsettings.Docker.json's
+      # ConnectionString below — those are plain copies of dev values, not templated,
+      # so rotating this requires editing each appsettings.Docker.json too.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "2230222"
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ihsandev_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ihsandev-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - ihsandev_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  identity:
+    build:
+      context: .
+      dockerfile: src/Services/Identity/Identity.API/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-identity:latest
+    container_name: identity
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    volumes:
+      - ./src/Services/Identity/Identity.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  tenant:
+    build:
+      context: .
+      dockerfile: src/Services/Tenant/Tenant.API/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-tenant:latest
+    container_name: tenant
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    volumes:
+      - ./src/Services/Tenant/Tenant.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+    ports:
+      - "5002:5002"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  notification:
+    build:
+      context: .
+      dockerfile: src/Services/Notification/Notification.API/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-notification:latest
+    container_name: notification
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes:
+      - ./src/Services/Notification/Notification.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+    ports:
+      - "5004:5004"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  filemanager:
+    build:
+      context: .
+      dockerfile: src/Services/FileManager/FileManager.API/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-filemanager:latest
+    container_name: filemanager
+    depends_on:
+      postgres: { condition: service_healthy }
+      tenant: { condition: service_started }
+    volumes:
+      - ./src/Services/FileManager/FileManager.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+      - ihsandev_filestorage:/app/FileStorage
+    ports:
+      - "5005:5005"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  translation:
+    build:
+      context: .
+      dockerfile: src/Services/Translation/Translation.API/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-translation:latest
+    container_name: translation
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    volumes:
+      - ./src/Services/Translation/Translation.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+    ports:
+      - "5006:5006"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  category:
+    build:
+      context: .
+      dockerfile: src/Services/Category/Category.API/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-category:latest
+    container_name: category
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes:
+      - ./src/Services/Category/Category.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+    ports:
+      - "5007:5007"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  ai:
+    build:
+      context: .
+      dockerfile: src/Services/AI/AI.API/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-ai:latest
+    container_name: ai
+    depends_on:
+      postgres: { condition: service_healthy }
+      filemanager: { condition: service_started }
+    volumes:
+      - ./src/Services/AI/AI.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+    ports:
+      - "5008:5008"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  nasheed:
+    build:
+      context: .
+      dockerfile: src/Apps/Nasheed/Nasheed.API/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-nasheed:latest
+    container_name: nasheed
+    depends_on:
+      postgres: { condition: service_healthy }
+      tenant: { condition: service_started }
+    volumes:
+      - ./src/Apps/Nasheed/Nasheed.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+    ports:
+      - "5009:5009"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  gateway:
+    build:
+      context: .
+      dockerfile: src/Gateway/Gateway.API/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-gateway:latest
+    container_name: gateway
+    depends_on:
+      - identity
+      - tenant
+      - notification
+      - filemanager
+      - translation
+      - category
+      - ai
+      - nasheed
+    volumes:
+      - ./src/Gateway/Gateway.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  admin:
+    build:
+      context: ../MicroservicesArchitecture-Web
+      dockerfile: apps/admin/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-admin:latest
+    container_name: admin
+    depends_on:
+      - gateway
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  nasheed-admin:
+    build:
+      context: ../MicroservicesArchitecture-Web
+      dockerfile: apps/nasheed/admin/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-nasheed-admin:latest
+    container_name: nasheed-admin
+    depends_on:
+      - gateway
+    ports:
+      - "8081:80"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  nasheed-web:
+    build:
+      context: ../MicroservicesArchitecture-Web
+      dockerfile: apps/nasheed/web/Dockerfile
+    image: ${DOCKERHUB_USERNAME}/ihsandev-nasheed-web:latest
+    container_name: nasheed-web
+    depends_on:
+      - gateway
+    ports:
+      - "8082:80"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  # ── Observability (Jaeger/Prometheus/Grafana) — official images, not built by us.
+  # Bound to 127.0.0.1 only: these are ops dashboards, not meant to be internet-exposed,
+  # even if the router happened to forward these ports.
+  jaeger:
+    image: jaegertracing/jaeger:latest
+    container_name: jaeger
+    ports:
+      - "127.0.0.1:16686:16686"   # Jaeger UI
+      - "4317:4317"               # OTLP gRPC — every backend container exports traces here
+      - "4318:4318"               # OTLP HTTP
+    volumes:
+      - ./jaeger-v2.yml:/etc/jaeger/config.yml:ro
+    command: ["--config=/etc/jaeger/config.yml"]
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      # docker/prometheus.yml targets containers by service name (identity:5001, etc.) —
+      # NOT the root prometheus.yml, which targets host.docker.internal for host-level dev.
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "127.0.0.1:3100:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ihsandev_grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - jaeger
+    restart: unless-stopped
+    networks:
+      - ihsandev-network
+
+networks:
+  ihsandev-network:
+    driver: bridge
+
+volumes:
+  ihsandev_postgres_data:
+  ihsandev_redis_data:
+  ihsandev_filestorage:
+  ihsandev_grafana_data:

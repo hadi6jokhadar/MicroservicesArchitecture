@@ -11,6 +11,10 @@ builder.Services
     .AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
+// Per-route "Timeout" values in appsettings (e.g. ai-stream-route) are enforced by the
+// ASP.NET Core Request Timeouts middleware — YARP just reads the policy, it doesn't apply it.
+builder.Services.AddRequestTimeouts();
+
 // ============================================
 // Rate Limiting
 // ============================================
@@ -151,6 +155,10 @@ app.MapGet("/health/aggregate", async (IHttpClientFactory httpClientFactory, ICo
   .DisableRateLimiting();
 
 app.UseRateLimiter();
+
+// Must sit between routing and endpoint execution — required for any YARP route that sets
+// a "Timeout" value (see ai-stream-route in appsettings.json), or YARP throws at request time.
+app.UseRequestTimeouts();
 
 // RequireRateLimiting("per-ip") enforces the named per-IP policy on every proxied request.
 // The GlobalLimiter runs automatically; named policies only fire when explicitly required.

@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Docker-network variant of the root prometheus.yml: targets containers by their
+  # docker-compose service name instead of host.docker.internal — the root prometheus.yml
+  # is for the host-level dev setup (docker-compose.observability.yml) where services run
+  # via `dotnet run` directly on the host, not as containers on this network.
+  - job_name: "microservices"
+    static_configs:
+      - targets:
+          - "identity:5001"
+          - "tenant:5002"
+          - "notification:5004"
+          - "filemanager:5005"
+          - "translation:5006"
+          - "category:5007"
+          - "ai:5008"
+    metrics_path: /metrics
+    scrape_timeout: 10s
