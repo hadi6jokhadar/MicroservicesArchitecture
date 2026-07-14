@@ -129,6 +129,7 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 | `Doc/PERFORMANCE_OPTIMIZATION_GUIDE.md` | Performance optimizations |
 | `Doc/LOAD_TESTING_GUIDE.md` | k6 load testing setup and measured bottlenecks |
 | `Doc/TENANT_TIMEZONE_GUIDE.md` | Per-tenant business timezone (`TimeZoneId`), UTC fallback, background job usage |
+| `Doc/DOCKER_DEPLOYMENT_GUIDE.md` | Docker build/push/deploy — PC1 builds & pushes to Docker Hub, PC2 pulls & runs via `docker compose` |
 | `Directory.Packages.props` | Centralized NuGet package versions |
 
 ## Common Pitfalls
