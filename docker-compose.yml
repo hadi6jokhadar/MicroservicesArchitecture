@@ -199,9 +199,12 @@ services:
       postgres: { condition: service_healthy }
       filemanager: { condition: service_started }
     volumes:
-      - ./src/Services/AI/AI.API/appsettings.Docker.json:/app/appsettings.Docker.json:ro
-      # AI's WORKDIR is /src/src/Services/AI/AI.API (not /app like the .NET services) — its
-      # relative "Logs" FilePath resolves there.
+      # AI's config loader (core/config.py) resolves relative to its own WORKDIR
+      # (/src/src/Services/AI/AI.API), NOT /app like the .NET services — mounting this at
+      # /app/appsettings.Docker.json (the .NET path) meant AI never found it at all and
+      # silently ran on appsettings.json's base defaults instead (CHANGE_ME_* placeholders,
+      # localhost endpoints) with zero startup error.
+      - ./src/Services/AI/AI.API/appsettings.Docker.json:/src/src/Services/AI/AI.API/appsettings.Docker.json:ro
       - ./docker/logs/ai:/src/src/Services/AI/AI.API/Logs
     ports:
       - "5008:5008"
