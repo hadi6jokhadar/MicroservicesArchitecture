@@ -473,6 +473,9 @@ jspm_packages/
 tmp/
 temp/
 
+# Docker deployment runtime logs (bind-mounted per service, PC2-local only)
+docker/logs/
+
 # Application specific
 appsettings.local.json
 *.Development.json
@@ -671,6 +674,9 @@ jspm_packages/
 # Temporary folders
 tmp/
 temp/
+
+# Docker deployment runtime logs (bind-mounted per service, PC2-local only)
+docker/logs/
 
 # Application specific
 appsettings.local.json
