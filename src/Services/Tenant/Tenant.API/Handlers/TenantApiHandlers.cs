@@ -23,6 +23,21 @@ public static class TenantApiHandlers
     }
 
     /// <summary>
+    /// Get tenant configuration by tenant ID, including archived tenants (Admin only)
+    /// </summary>
+    public static async Task<IResult> GetTenantConfigForAdminHandler(
+        string tenantId,
+        IMediator mediator,
+        ILocalizationService localizationService,
+        CancellationToken ct = default)
+    {
+        var query = new GetTenantConfigForAdminQuery(tenantId);
+        var result = await mediator.Send(query, ct);
+
+        return result != null ? Results.Ok(result) : Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound, tenantId) });
+    }
+
+    /// <summary>
     /// Get tenant by tenant ID (excludes sensitive Data field)
     /// </summary>
     public static async Task<IResult> GetTenantByIdHandler(
@@ -125,8 +140,8 @@ public static class TenantApiHandlers
         ITenantRepository tenantRepository,
         CancellationToken ct = default)
     {
-        // Need to find by tenant ID to get integer ID
-        var tenant = await tenantRepository.GetByTenantIdAsync(tenantId, ct);
+        // Need to find by tenant ID to get integer ID (must include archived tenants so unarchiving works)
+        var tenant = await tenantRepository.GetByTenantIdIncludingArchivedAsync(tenantId, ct);
         if (tenant == null)
         {
             return Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound, tenantId) });

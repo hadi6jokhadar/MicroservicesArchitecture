@@ -591,6 +591,21 @@
           }
         },
         {
+          "name": "Get Tenant Config (Admin, Includes Archived)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tenant/:tenantId/config",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tenant", ":tenantId", "config"],
+              "variable": [{ "key": "tenantId", "value": "{{tenantId}}" }]
+            }
+          }
+        },
+        {
           "name": "Create Tenant",
           "request": {
             "method": "POST",

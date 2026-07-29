@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\IhsanDev.Shared.Kernel\IhsanDev.Shared.Kernel.csproj" />
+    <!-- Mirrors Identity.Domain's reference shape — needed so ICurrentUserService flows
+         transitively into Backup.Application without a direct Application->Infrastructure
+         reference. See TriggerBackupCommandHandler / TriggerRestoreCommandHandler. -->
+    <ProjectReference Include="..\..\..\Shared\IhsanDev.Shared.Infrastructure\IhsanDev.Shared.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

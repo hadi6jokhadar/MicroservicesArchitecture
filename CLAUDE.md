@@ -130,6 +130,7 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 | `Doc/LOAD_TESTING_GUIDE.md` | k6 load testing setup and measured bottlenecks |
 | `Doc/TENANT_TIMEZONE_GUIDE.md` | Per-tenant business timezone (`TimeZoneId`), UTC fallback, background job usage |
 | `Doc/DOCKER_DEPLOYMENT_GUIDE.md` | Docker build/push/deploy — PC1 builds & pushes to Docker Hub, PC2 pulls & runs via `docker compose` |
+| `Doc/BACKUP_SERVICE_GUIDE.md` | Centralized PostgreSQL backup/restore microservice (targets, scheduling, retention, restore, R2 upload) |
 | `Directory.Packages.props` | Centralized NuGet package versions |
 
 ## Common Pitfalls
@@ -144,6 +145,8 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 | AutoMapper | Static `MapFrom()` methods only |
 | Per-tenant JWT validation logic placed in `OnMessageReceived`/`OnTokenValidated` (mutating `JwtBearerOptions.TokenValidationParameters`) | That object is a singleton shared by every concurrent request — use `TokenValidationParameters.IssuerSigningKeyResolver`/`IssuerValidator`/`AudienceValidator` instead (stateless, per-validation, read `ITenantContext` via `IHttpContextAccessor`). See `Doc/MULTI_TENANCY_GUIDE.md` Troubleshooting |
 | `Users_Id_seq` (or any identity-column sequence) desynced from table's actual max `Id`, causing every insert to fail with a Postgres PK collision until the sequence catches up | Resync with `SELECT setval('"Users_Id_seq"', (SELECT COALESCE(MAX("Id"), 1) FROM "Users"))` — data-preserving, safe to run any time. Usually caused by rows inserted with explicit `Id` values (seed data, manual inserts) that bypassed the sequence |
+| A toggle/restore endpoint's own lookup uses a repository method that filters out the soft-deleted/archived state it needs to find (e.g. Tenant's `toggle-archive` used `GetByTenantIdAsync` which excludes `IsArchived` rows, so unarchiving 404'd even though the command handler underneath was correct) | Give toggle/restore endpoints a repository method with no `IsArchived`/`IsDeleted` filter (e.g. `GetByTenantIdIncludingArchivedAsync`) — audit every repository call in the endpoint's path, not just the final handler. See Dotnet.instructions.md pitfall #17 |
+| A command/query with an enum property bound directly from a JSON request body fails with a 400 (`JsonException`) since no global string-enum converter is registered on this platform | Add `[property: JsonConverter(typeof(JsonStringEnumConverter))]` on that property (e.g. Backup's `TriggerBackupCommand.Scope`) — every other enum is only ever a string on the *output*/DTO side via manual `.ToString()`. See Dotnet.instructions.md pitfall #18 |
 
 ## Technology Stack
 

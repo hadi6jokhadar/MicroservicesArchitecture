@@ -38,6 +38,9 @@
   "exception_token_tenant_mismatch": "تم رفض الوصول. رمز المصادقة الخاص بك لمستأجر '{0}'، ولكنك تحاول الوصول إلى المستأجر '{1}'.",
   "exception_audit_log_not_found": "سجل المراجعة غير موجود",
   "exception_feature_not_enabled": "هذه الميزة غير مفعّلة لحسابك",
+  "exception_backup_target_not_found": "هدف النسخ الاحتياطي غير موجود",
+  "exception_backup_run_not_found": "عملية النسخ الاحتياطي غير موجودة",
+  "exception_backup_process_failed": "فشلت عملية النسخ الاحتياطي/الاستعادة. راجع سجلات الخادم للتفاصيل",
 
   "validation_required": "{0} مطلوب",
   "validation_email_invalid": "عنوان البريد الإلكتروني غير صالح",
@@ -62,6 +65,7 @@
   "validation_page_size_exceeded": "حجم الصفحة يتجاوز الحد المسموح",
   "validation_tenant_id_format": "معرف المستأجر يمكن أن يحتوي فقط على أحرف صغيرة وأرقام وشرطات",
   "validation_invalid_time_zone": "{0} ليس معرف منطقة زمنية IANA صالحًا (مثال: \"Europe/Istanbul\")",
+  "validation_confirmation_required": "يجب تعيين Confirm إلى true للمتابعة في هذه العملية",
   "validation_must_be_after": "{0} يجب أن يكون بعد {1}",
   "validation_first_name_letters_only": "الاسم الأول يجب أن يحتوي على أحرف ومسافات فقط",
   "validation_last_name_letters_only": "اسم العائلة يجب أن يحتوي على أحرف ومسافات فقط",

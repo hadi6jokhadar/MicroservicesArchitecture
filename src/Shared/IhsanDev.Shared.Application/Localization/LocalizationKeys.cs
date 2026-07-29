@@ -68,6 +68,11 @@ public static class LocalizationKeys
 
         // Feature flag exceptions
         public const string FeatureNotEnabled = "exception_feature_not_enabled";
+
+        // Backup service exceptions
+        public const string BackupTargetNotFound = "exception_backup_target_not_found";
+        public const string BackupRunNotFound = "exception_backup_run_not_found";
+        public const string BackupProcessFailed = "exception_backup_process_failed";
     }
 
     /// <summary>
@@ -110,6 +115,7 @@ public static class LocalizationKeys
         public const string GroupInvalid = "validation_group_invalid";
         public const string SortColumnInvalid = "validation_sort_column_invalid";
         public const string InvalidTimeZone = "validation_invalid_time_zone";
+        public const string ConfirmationRequired = "validation_confirmation_required";
     }
 
     /// <summary>

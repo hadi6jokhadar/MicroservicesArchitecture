@@ -3,8 +3,8 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** July 13, 2026  
-**Total Files:** 45
+**Last Updated:** July 30, 2026  
+**Total Files:** 46
 
 ---
 
@@ -14,7 +14,7 @@ The `src/` directory has two distinct sub-folders:
 
 | Folder          | Role                                                                   | Current projects                                             |
 | --------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `src/Services/` | Core platform microservices. Foundational — other Apps depend on them. | Identity, Tenant, FileManager, Notification, Translation, Category, AI |
+| `src/Services/` | Core platform microservices. Foundational — other Apps depend on them. | Identity, Tenant, FileManager, Notification, Translation, Category, AI, Backup |
 | `src/Apps/`     | Domain-specific application projects that consume platform Services.   | Nasheed                                                      |
 
 **Every project in `src/Apps/` must have its own `Doc/` folder** with at minimum: `DOCUMENTATION_INDEX.md`, `OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md`. See `NEW_SERVICE_INTEGRATION_GUIDE.md` for the full required file list.
@@ -167,14 +167,25 @@ Files are organized by category. Each entry includes:
 
 ### HANGFIRE_JOBS_GUIDE.md
 
-**Description:** Complete guide for Hangfire background jobs across Category, FileManager, Notification, and Tenant services. Covers per-service schema isolation, dashboard URLs and Basic Auth credentials, `HangfireBasicAuthFilter` implementation, `TenantMiddleware` bypass for `/admin/jobs`, recurring job schedules, why `NotificationProcessor` stays as a `BackgroundService`, frontend `BackgroundJobsService` integration, and troubleshooting.  
+**Description:** Complete guide for Hangfire background jobs across Category, FileManager, Notification, Tenant, and Backup services. Covers per-service schema isolation, dashboard URLs and Basic Auth credentials, `HangfireBasicAuthFilter` implementation, `TenantMiddleware` bypass for `/admin/jobs`, recurring job schedules, why `NotificationProcessor` stays as a `BackgroundService`, frontend `BackgroundJobsService` integration, and troubleshooting.  
 **Read When:**
 
 - Accessing or configuring a Hangfire dashboard
-- Adding or modifying a recurring job in any of the four services
+- Adding or modifying a recurring job in any of the five services
 - Debugging 401 / tenant-middleware errors on `/admin/jobs/*` paths
 - Understanding why dashboards bypass the YARP gateway
 - Implementing Basic Auth for a new Hangfire dashboard
+
+### BACKUP_SERVICE_GUIDE.md
+
+**Description:** Centralized PostgreSQL backup/restore microservice (`src/Services/Backup/`, port 5010, Strategy A). Covers why one dump per tenant is sufficient (shared per-tenant database across services), the domain model (`BackupTargetEntity`/`BackupRunEntity`/`RestoreRunEntity`, dual `LocalStatus`/`CloudStatus`), the scheduled-backup flow (`BackupSchedulerJob` → `TenantTargetSyncJob` → `RunBackupJob`), retention (`BackupRetentionCleanupJob`), restore (`RunRestoreJob`, requires `confirm: true`), the full admin API, and required configuration (`Backup:GlobalTargets`, `BlobStorage:CloudflareR2`, Tenant Service `AllowedServices` whitelisting).  
+**Read When:**
+
+- Triggering, inspecting, or restoring a database backup
+- Adding a new service's global database as a backup target
+- Debugging why a backup's `CloudStatus` stays `Disabled` or `Failed`
+- Understanding why Backup only needs one dump per tenant, not one per service per tenant
+- Configuring `pg_dump`/`pg_restore` paths or Cloudflare R2 credentials for backups
 
 ---
 
@@ -182,7 +193,7 @@ Files are organized by category. Each entry includes:
 
 ### PLATFORM_CAPABILITIES_ROADMAP.md
 
-**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing ✅ including health checks + correlation ID, Secrets Management, Circuit Breaker, Audit Logging ✅), Tier 2 (Background Jobs ✅, API Versioning ✅, Feature Flags ✅, DB Backup), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
+**Description:** Actionable implementation guide for 12 missing platform capabilities, organized in three priority tiers: Tier 1 (API Gateway ✅, Distributed Tracing ✅ including health checks + correlation ID, Secrets Management, Circuit Breaker, Audit Logging ✅), Tier 2 (Background Jobs ✅, API Versioning ✅, Feature Flags ✅, DB Backup ✅ — implemented as the Backup microservice, port 5010), Tier 3 (Search, CDN, Usage Metering). Each item includes NuGet packages, code samples, affected services, and a checklist.  
 **Read When:**
 
 - Planning new infrastructure work
@@ -620,6 +631,7 @@ Files are organized by category. Each entry includes:
 | Add caching              | CACHING_STRATEGY_COMPARISON.md                                                                |
 | Create admin endpoint    | BYPASS_TENANT_ENDPOINTS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                            |
 | Hangfire dashboards      | HANGFIRE_JOBS_GUIDE.md                                                                        |
+| Database backup / restore | BACKUP_SERVICE_GUIDE.md                                                                      |
 | Work on Nasheed service  | src/Apps/Nasheed/Doc/OVERVIEW.md, ENTITIES_AND_DATA_MODEL.md, API_ENDPOINTS.md                |
 | Work on Category service | CATEGORY_SERVICE_GUIDE.md                                                                     |
 | Work with roles          | ROLES_AND_CLAIMS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                                   |
@@ -657,7 +669,7 @@ AI agents: Do NOT reference or create these files - they have been removed:
 
 ## 📊 Documentation Statistics
 
-- **Total Files:** 44 (all in `MicroservicesArchitecture/Doc/`)
+- **Total Files:** 45 (all in `MicroservicesArchitecture/Doc/`)
 
 **Average file size:** Comprehensive (each file contains complete information on its topic)
 
@@ -710,5 +722,5 @@ cd Doc
 
 ---
 
-**Last Updated:** June 17, 2026  
+**Last Updated:** July 30, 2026  
 **Maintained By:** AI agents following DOCUMENTATION_GUIDELINES.md

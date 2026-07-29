@@ -38,6 +38,9 @@
   "exception_token_tenant_mismatch": "Access denied. Your authentication token is for tenant '{0}', but you are trying to access tenant '{1}'.",
   "exception_audit_log_not_found": "Audit log entry not found",
   "exception_feature_not_enabled": "This feature is not enabled for your account",
+  "exception_backup_target_not_found": "Backup target not found",
+  "exception_backup_run_not_found": "Backup run not found",
+  "exception_backup_process_failed": "The backup/restore process failed. See server logs for details",
 
   "validation_required": "{0} is required",
   "validation_email_invalid": "Invalid email address",
@@ -62,6 +65,7 @@
   "validation_page_size_exceeded": "Page size exceeds maximum allowed",
   "validation_tenant_id_format": "Tenant ID can only contain lowercase letters, numbers, and hyphens",
   "validation_invalid_time_zone": "{0} is not a valid IANA time zone identifier (e.g. \"Europe/Istanbul\")",
+  "validation_confirmation_required": "You must set Confirm to true to proceed with this operation",
   "validation_must_be_after": "{0} must be after {1}",
   "validation_first_name_letters_only": "First name must contain only letters and spaces",
   "validation_last_name_letters_only": "Last name must contain only letters and spaces",

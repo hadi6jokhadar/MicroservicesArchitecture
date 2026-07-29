@@ -1,11 +1,11 @@
 ---
 name: run-backend-services
-description: Run, start, launch, smoke-test, or check the health of backend microservices — Identity, Tenant, Notification, FileManager, Translation, Category, AI, Nasheed, Gateway. Use for "start a service", "is the backend running", "run the backend", "launch the services", "test the API".
+description: Run, start, launch, smoke-test, or check the health of backend microservices — Identity, Tenant, Notification, FileManager, Translation, Category, AI, Nasheed, Backup, Gateway. Use for "start a service", "is the backend running", "run the backend", "launch the services", "test the API".
 ---
 
 # Run Backend Services
 
-Nine services make up the backend stack. Each has its own process and port. They are launched individually via `run-development-instance.mjs` (or `.bat`) files inside each service's API folder. A smoke-test driver — `smoke.mjs` — lives alongside this skill and provides a programmatic health-probe harness.
+Ten services make up the backend stack. Each has its own process and port. They are launched individually via `run-development-instance.mjs` (or `.bat`) files inside each service's API folder. A smoke-test driver — `smoke.mjs` — lives alongside this skill and provides a programmatic health-probe harness.
 
 All paths below are relative to `MicroservicesArchitecture/` (the .NET backend root).
 
@@ -22,6 +22,7 @@ All paths below are relative to `MicroservicesArchitecture/` (the .NET backend r
 | category      | 5007 | .NET   | `src/Services/Category/Category.API`                         |
 | ai            | 5008 | Python | `src/Services/AI/AI.API`                                     |
 | nasheed       | 5009 | .NET   | `src/Apps/Nasheed/Nasheed.API`                               |
+| backup        | 5010 | .NET   | `src/Services/Backup/Backup.API`                             |
 
 All services expose `/health` (HTTP GET, 200 = healthy).
 
@@ -51,7 +52,7 @@ Output: one line per service showing UP/DOWN and HTTP status code. Exits 0 if al
 node ".claude/skills/run-backend-services/smoke.mjs" identity tenant
 ```
 
-This starts `identity` and `tenant` in-process (output prefixed with `[identity]` / `[tenant]`), waits 15 s for startup, probes all nine health endpoints, then kills the started children. Use this to verify a change didn't break startup.
+This starts `identity` and `tenant` in-process (output prefixed with `[identity]` / `[tenant]`), waits 15 s for startup, probes all ten health endpoints, then kills the started children. Use this to verify a change didn't break startup.
 
 ### Start services and probe only those services
 
@@ -64,7 +65,7 @@ Same as above but only probes the named services instead of all nine.
 ### Valid service names
 
 ```
-identity  tenant  notification  filemanager  translation  category  nasheed  gateway
+identity  tenant  notification  filemanager  translation  category  nasheed  backup  gateway
 ```
 
 **`ai` is listed in the map but start-via-driver is not recommended** — the Python venv activation is fragile inside the Node subprocess chain. Start AI manually (see below).

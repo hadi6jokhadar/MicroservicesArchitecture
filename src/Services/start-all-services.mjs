@@ -61,6 +61,12 @@ const services = [
     command: "run-development-instance.bat",
   },
   {
+    color: "#9933FF",
+    title: "Backup Service",
+    path: join(__dirname, "Backup", "Backup.API"),
+    command: "run-development-instance.bat",
+  },
+  {
     color: "#FF0055",
     title: "Gateway API",
     path: join(__dirname, "..", "Gateway", "Gateway.API"),

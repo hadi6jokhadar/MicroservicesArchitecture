@@ -13,5 +13,6 @@ scrape_configs:
           - "host.docker.internal:5006"   # TranslationService
           - "host.docker.internal:5007"   # CategoryService
           - "host.docker.internal:5008"   # AIService (Python /metrics via prometheus-fastapi-instrumentator)
+          - "host.docker.internal:5010"   # BackupService
     metrics_path: /metrics
     scrape_timeout: 10s

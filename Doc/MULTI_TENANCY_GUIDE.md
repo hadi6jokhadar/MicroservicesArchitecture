@@ -433,20 +433,24 @@ Uses tenant-specific configuration from Tenant Service.
 
 ### Public Endpoints
 
-| Method | Endpoint                        | Description                              |
-| ------ | ------------------------------- | ---------------------------------------- |
-| `GET`  | `/api/tenant/config/{tenantId}` | Get tenant configuration (includes Data) |
-| `GET`  | `/api/tenant/{tenantId}`        | Get tenant info (excludes Data)          |
+| Method | Endpoint                            | Description                                                                            |
+| ------ | ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `GET`  | `/api/v1/tenant/config/{tenantId}` | Get tenant configuration (includes Data). **Service/SuperAdmin role only** — excludes archived tenants (used for live tenant resolution, e.g. `TenantMiddleware` — an archived tenant must 404 here) |
+| `GET`  | `/api/v1/tenant/{tenantId}`        | Get tenant info (excludes Data) — excludes archived tenants                              |
 
-### Admin Endpoints (Requires Admin Role)
+### Admin Endpoints (Requires SuperAdmin Role)
 
-| Method   | Endpoint                          | Description                        |
-| -------- | --------------------------------- | ---------------------------------- |
-| `GET`    | `/api/admin/tenant`               | Get all active tenants (paginated) |
-| `GET`    | `/api/admin/tenant/user/{userId}` | Get tenant by user ID              |
-| `POST`   | `/api/admin/tenant`               | Create new tenant                  |
-| `PUT`    | `/api/admin/tenant/{tenantId}`    | Update tenant settings             |
-| `DELETE` | `/api/admin/tenant/{tenantId}`    | Delete tenant                      |
+| Method   | Endpoint                                   | Description                                                          |
+| -------- | -------------------------------------------- | ----------------------------------------------------------------------- |
+| `GET`    | `/api/v1/admin/tenant`                     | Get all active tenants (paginated, `isArchived` filter optional)     |
+| `GET`    | `/api/v1/admin/tenant/user/{userId}`       | Get tenant by user ID                                                |
+| `GET`    | `/api/v1/admin/tenant/{tenantId}/config`   | Get tenant configuration **including archived tenants** — used by the admin dashboard's edit dialog/config sheet so an archived tenant's config can still be viewed/edited/unarchived |
+| `POST`   | `/api/v1/admin/tenant`                     | Create new tenant                                                    |
+| `PUT`    | `/api/v1/admin/tenant/{tenantId}`          | Update tenant settings                                               |
+| `DELETE` | `/api/v1/admin/tenant/{tenantId}`          | Delete tenant                                                        |
+| `PATCH`  | `/api/v1/admin/tenant/{tenantId}/toggle-archive` | Archive/unarchive a tenant — looks the tenant up **including archived tenants** so unarchiving works |
+
+> **Why two config endpoints exist:** `/tenant/config/{tenantId}` is shared by every multi-tenant service's `TenantMiddleware` to resolve a tenant on each cache miss, and must keep excluding archived tenants (that's what makes archiving actually disable a tenant's apps). The admin dashboard needs to view/edit a tenant's config regardless of archive status, so it uses the separate `/admin/tenant/{tenantId}/config` endpoint instead of widening the shared one. See `.claude/instructions/Dotnet.instructions.md` pitfall #18.
 
 ---
 

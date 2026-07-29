@@ -56,11 +56,12 @@ for (const file of backendChanges) {
   else if (file.startsWith('src/Services/Category/')) services.add('category');
   else if (file.startsWith('src/Services/AI/')) services.add('ai');
   else if (file.startsWith('src/Apps/Nasheed/')) services.add('nasheed');
+  else if (file.startsWith('src/Services/Backup/')) services.add('backup');
   else if (file.startsWith('src/Gateway/')) services.add('gateway');
   else if (file.startsWith('src/Shared/ihsandev_shared/')) services.add('ai');
   else if (file.startsWith('src/Shared/')) {
     // A .NET shared library changed — every .NET service + Gateway consumes these.
-    ['identity', 'tenant', 'notification', 'filemanager', 'translation', 'category', 'nasheed', 'gateway'].forEach(
+    ['identity', 'tenant', 'notification', 'filemanager', 'translation', 'category', 'nasheed', 'backup', 'gateway'].forEach(
       (s) => services.add(s)
     );
   }

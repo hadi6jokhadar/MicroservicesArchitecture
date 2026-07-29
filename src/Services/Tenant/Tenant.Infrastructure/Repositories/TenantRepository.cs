@@ -19,6 +19,13 @@ public class TenantRepository : Repository<TenantSettings>, ITenantRepository
             .FirstOrDefaultAsync(t => t.TenantId == tenantId && !t.IsArchived, cancellationToken);
     }
 
+    public async Task<TenantSettings?> GetByTenantIdIncludingArchivedAsync(string tenantId, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TenantId == tenantId, cancellationToken);
+    }
+
     public async Task<TenantSettings?> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
     {
         return await _dbSet

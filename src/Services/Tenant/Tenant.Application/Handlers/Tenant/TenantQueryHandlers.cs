@@ -52,6 +52,42 @@ public class GetTenantConfigQueryHandler : IRequestHandler<GetTenantConfigQuery,
 }
 
 /// <summary>
+/// Admin-only handler for getting tenant configuration by ID, including archived tenants (includes Data field)
+/// </summary>
+public class GetTenantConfigForAdminQueryHandler : IRequestHandler<GetTenantConfigForAdminQuery, TenantConfigDto?>
+{
+    private readonly ITenantRepository _tenantRepository;
+    private readonly ILogger<GetTenantConfigForAdminQueryHandler> _logger;
+
+    public GetTenantConfigForAdminQueryHandler(
+        ITenantRepository tenantRepository,
+        ILogger<GetTenantConfigForAdminQueryHandler> logger)
+    {
+        _tenantRepository = tenantRepository;
+        _logger = logger;
+    }
+
+    public async Task<TenantConfigDto?> Handle(GetTenantConfigForAdminQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var tenant = await _tenantRepository.GetByTenantIdIncludingArchivedAsync(request.TenantId, cancellationToken);
+            if (tenant == null)
+            {
+                return null;
+            }
+
+            return TenantConfigDto.MapFrom(tenant);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while getting admin config for tenant {TenantId}", request.TenantId);
+            throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+        }
+    }
+}
+
+/// <summary>
 /// Handler for getting tenant by ID (excludes Data field)
 /// </summary>
 public class GetTenantByIdQueryHandler : IRequestHandler<GetTenantByIdQuery, TenantDto?>

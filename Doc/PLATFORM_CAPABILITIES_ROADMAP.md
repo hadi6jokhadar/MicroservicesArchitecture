@@ -21,7 +21,7 @@
 | 6   | Background Job / Scheduling Service   | 2    | ✅ Done        |
 | 7   | API Versioning Standard               | 2    | ✅ Done        |
 | 8   | Feature Flags Service                 | 2    | ✅ Done        |
-| 9   | Database Backup & Recovery            | 2    | ⬜ Not started |
+| 9   | Database Backup & Recovery            | 2    | ✅ Done        |
 | 10  | Search Service                        | 3    | ⬜ Not started |
 | 11  | CDN / Media Delivery                  | 3    | ⬜ Not started |
 | 12  | Usage Metering / Billing Hooks        | 3    | ⬜ Not started |
@@ -987,9 +987,19 @@ if (!_featureFlags.IsEnabled(FeatureFlags.AiChatEnabled))
 
 ## 9. Database Backup & Recovery
 
-### Why It's Needed
+**Status: ✅ Implemented — dedicated Backup microservice (port 5010), not the PowerShell-script approach originally sketched below.**
 
-The database-per-tenant architecture means a backup strategy must cover dozens of databases, not just one. There is currently no documented backup schedule, no tested recovery procedure, and no point-in-time restore capability.
+Rather than standalone cron/Task Scheduler scripts, backup/restore is now a first-class microservice: `src/Services/Backup/` (`Backup.API`, `Backup.Application`, `Backup.Infrastructure`, `Backup.Domain`), Database Strategy A (single global DB, stores its own operational metadata — backup targets, backup run history, restore run history). It wraps the same `pg_dump`/`pg_restore` tools described below, but drives them from Hangfire recurring jobs and exposes admin CRUD/trigger endpoints instead of ad hoc scripts. This gives it audit logging, localized errors, SuperAdmin-gated HTTP endpoints, and a Hangfire dashboard for free — consistent with every other service on the platform, instead of being an unmonitored external script.
+
+Key differences from the original proposal:
+- **Trigger model**: `BackupSchedulerJob` (daily, `01:00 UTC`) runs `GlobalTargetSyncJob` + `TenantTargetSyncJob` (also run once at service startup, so the admin UI is never empty on a fresh deployment) then enqueues one `RunBackupJob` per enabled `BackupTargetEntity`, instead of a single flat script iterating all tenants inline. Admins can also manually trigger a run via `POST /api/v1/admin/backups/trigger` — if the target doesn't exist yet, it's created (enabled) in the same call, so triggering a backup for a database also adds it to the nightly schedule.
+- **Cloud copy**: uploads to Cloudflare R2 (`IBackupBlobStorage` — `CloudflareR2BackupStorage` or a graceful `NullBackupBlobStorage` no-op when unconfigured) instead of a generic "offsite destination" placeholder.
+- **Retention**: `BackupRetentionCleanupJob` (daily, `03:00 UTC`) deletes local files once uploaded to cloud storage and past retention (`BackupTargetEntity.RetentionDays` override, else `Backup:DefaultRetentionDays`, default 30) — same intent as the retention table below, enforced automatically rather than by a separate scheduled task.
+- **WAL archiving** for point-in-time recovery is *not* implemented by this service — it remains a `postgresql.conf`-level operational concern, still worth doing per the guidance below, but out of scope for the Backup microservice itself (which only does full `pg_dump`/`pg_restore` snapshots).
+- **Restore** requires `POST /api/v1/admin/backups/{id}/restore` with `Confirm: true` in the body — a destructive operation gated behind an explicit confirmation flag, not just a script argument.
+- **Admin UI**: a full Angular admin page ships with it (`MicroservicesArchitecture-Web/Doc/BACKUP_FEATURE_GUIDE.md`) — an Overview status table (one row per database, local/cloud status badges) and a filterable History log, not just raw HTTP endpoints.
+
+See the Backup service's own endpoint list and job descriptions in its `Program.cs`, `Backup.API/Endpoints/BackupEndpointMappingExtensions.cs`, and `Backup.Infrastructure/Jobs/` for the authoritative implementation. The original recommended approach (kept below for the WAL-archiving guidance, which is still unimplemented) was:
 
 ### Recommended Approach: pg_dump scripts + PostgreSQL WAL archiving
 
@@ -1060,14 +1070,13 @@ restore_command = 'cp /var/lib/postgresql/wal-archive/%f %p'
 
 ### Implementation Checklist
 
-- [ ] Write `scripts/backup-tenant-databases.ps1`
-- [ ] Write `scripts/restore-tenant-database.ps1`
-- [ ] Schedule daily backup (Task Scheduler / cron)
-- [ ] Configure WAL archiving in `postgresql.conf`
+- [x] Backup/restore trigger + scheduling — implemented as the Backup microservice (`BackupSchedulerJob`, `RunBackupJob`, `RunRestoreJob`) instead of standalone scripts
+- [x] Daily scheduled backup — Hangfire recurring job (`0 1 * * *` UTC), no external Task Scheduler/cron dependency
+- [ ] Configure WAL archiving in `postgresql.conf` — still not implemented; out of scope for the Backup microservice (full-snapshot `pg_dump`/`pg_restore` only)
 - [ ] Test restore from backup in a staging environment
 - [ ] Document backup location and admin token rotation in Secrets Management
 - [ ] Add backup verification job (restore + row count check on random tenant)
-- [ ] Set up offsite backup destination (Azure Blob / S3)
+- [x] Set up offsite backup destination — Cloudflare R2 via `IBackupBlobStorage` (graceful no-op when unconfigured)
 
 ---
 

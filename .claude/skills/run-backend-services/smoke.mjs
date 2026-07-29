@@ -9,7 +9,7 @@
  * them first (in background), then probe.
  *
  * Service names: identity, tenant, notification, filemanager,
- *                translation, category, gateway, nasheed
+ *                translation, category, gateway, nasheed, backup
  *                (ai is Python — start manually via its bat/mjs)
  *
  * Examples:
@@ -40,6 +40,7 @@ const SERVICE_MAP = {
   category:     { cwd: join(SERVICES_ROOT, "Category", "Category.API"),         port: 5007, type: "dotnet" },
   ai:           { cwd: join(SERVICES_ROOT, "AI", "AI.API"),                     port: 5008, type: "python" },
   nasheed:      { cwd: join(APPS_ROOT, "Nasheed", "Nasheed.API"),               port: 5009, type: "dotnet" },
+  backup:       { cwd: join(SERVICES_ROOT, "Backup", "Backup.API"),             port: 5010, type: "dotnet" },
   gateway:      { cwd: join(GATEWAY_ROOT, "Gateway.API"),                       port: 5000, type: "dotnet" },
 };
 

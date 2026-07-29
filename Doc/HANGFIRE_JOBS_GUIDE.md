@@ -2,7 +2,7 @@
 
 ## Overview
 
-Four platform services use Hangfire 1.8.x for scheduled background jobs: Category, FileManager, Notification, and Tenant. Each service has its own isolated Hangfire schema inside its PostgreSQL database (no shared schema). Dashboards are secured with HTTP Basic Auth and accessed directly per service — not through the API Gateway.
+Five platform services use Hangfire 1.8.x for scheduled background jobs: Category, FileManager, Notification, Tenant, and Backup. Each service has its own isolated Hangfire schema inside its PostgreSQL database (no shared schema). Dashboards are secured with HTTP Basic Auth and accessed directly per service — not through the API Gateway.
 
 ---
 
@@ -18,6 +18,7 @@ Hangfire stores job state in its own schema inside the service's **global** data
 | FileManager  | `filemanager` | `hangfire_filemanager`| `http://localhost:5005/admin/jobs/filemanager` |
 | Notification | `notification`| `hangfire_notification`| `http://localhost:5004/admin/jobs/notification` |
 | Tenant       | `tenant`      | `hangfire_tenant`     | `http://localhost:5002/admin/jobs/tenant` |
+| Backup       | `backup`      | `hangfire_backup`     | `http://localhost:5010/admin/jobs/backup` |
 
 Hangfire runs once per service process, not once per tenant. Jobs operate on all tenants (e.g., outbox processor publishes events for every tenant's outbox records in a single job run).
 
@@ -48,6 +49,7 @@ Each dashboard uses `HangfireBasicAuthFilter` (implements `IDashboardAuthorizati
 | FileManager  | `http://localhost:5005/admin/jobs/filemanager`    | `CHANGE_ME_HANGFIRE_PASSWORD`  |
 | Notification | `http://localhost:5004/admin/jobs/notification`   | `CHANGE_ME_HANGFIRE_PASSWORD` |
 | Tenant       | `http://localhost:5002/admin/jobs/tenant`         | `CHANGE_ME_HANGFIRE_PASSWORD`       |
+| Backup       | `http://localhost:5010/admin/jobs/backup`         | `CHANGE_ME_HANGFIRE_PASSWORD`       |
 
 Username for all services: `admin`
 
@@ -147,6 +149,12 @@ Without this bypass the tenant middleware would reject the request with a `Missi
 - **Schedule:** Every 30 minutes (`*/30 * * * *`)
 - **Purpose:** Proactively refreshes the Redis tenant config cache. Replaces the previous `TenantCacheRefreshService` polling loop.
 
+### Backup — Scheduler, Retention Cleanup
+
+- **Job classes:** `BackupSchedulerJob` (syncs tenant targets, enqueues one `RunBackupJob` per enabled target), `BackupRetentionCleanupJob`
+- **Schedule:** `BackupSchedulerJob` daily at 01:00 UTC (`0 1 * * *`); `BackupRetentionCleanupJob` daily at 03:00 UTC (`0 3 * * *`)
+- **Purpose:** Drives scheduled database backups and enforces local-file retention once a backup is confirmed uploaded to cloud storage. `RunBackupJob`/`RunRestoreJob` themselves are triggered on demand (scheduled or via the admin API), not registered as recurring jobs. See `Doc/BACKUP_SERVICE_GUIDE.md` for the full flow.
+
 ### NotificationProcessor — Kept as BackgroundService
 
 `NotificationProcessor` is **not** a Hangfire job. It is a sub-second real-time queue poller that must run continuously. Hangfire's minimum schedule granularity is 1 minute — unsuitable for latency-sensitive queue processing.
@@ -207,7 +215,7 @@ openDashboard(target: BackgroundJobsService_Target): void {
 }
 ```
 
-Targets: `'category'`, `'filemanager'`, `'notification'`, `'tenant'`.
+Targets: `'category'`, `'filemanager'`, `'notification'`, `'tenant'`, `'backup'` (Backup's dashboard target is not wired into the frontend yet — no admin UI consumes the Backup service today, see `Doc/BACKUP_SERVICE_GUIDE.md`'s "Known limitations" section).
 
 URLs are built from `ENVIRONMENT.apiUrls.*` — never hardcoded.
 

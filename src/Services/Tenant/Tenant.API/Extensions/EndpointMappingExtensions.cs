@@ -77,6 +77,13 @@ public static class EndpointMappingExtensions
             .Produces<object>(200)
             .Produces(404);
 
+        adminGroup.MapGet("/{tenantId}/config", TenantApiHandlers.GetTenantConfigForAdminHandler)
+            .WithName("GetTenantConfigForAdmin")
+            .WithSummary("Get tenant configuration, including archived tenants")
+            .WithDescription("Get tenant-specific configuration including settings data, regardless of archived status (SuperAdmin only)")
+            .Produces<object>(200)
+            .Produces(404);
+
         adminGroup.MapPost("/", TenantApiHandlers.CreateTenantHandler)
             .WithName("CreateTenant")
             .WithSummary("Create new tenant")

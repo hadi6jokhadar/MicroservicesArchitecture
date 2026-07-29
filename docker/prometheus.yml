@@ -17,5 +17,6 @@ scrape_configs:
           - "translation:5006"
           - "category:5007"
           - "ai:5008"
+          - "backup:5010"
     metrics_path: /metrics
     scrape_timeout: 10s

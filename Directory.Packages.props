@@ -15,6 +15,8 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
+    <!-- Transitive pin: fixes CVE-2025-6965 (SQLite < 3.50.2) bundled by EF Core Sqlite provider -->
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <PackageVersion Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
@@ -69,6 +71,7 @@
     <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
     <!-- Hangfire -->
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.20" />
+    <PackageVersion Include="Hangfire.Core" Version="1.8.20" />
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.20.10" />
     <!-- OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />

@@ -10,7 +10,7 @@
 
 ## Overview
 
-The API Gateway is the single entry point for all client-to-service traffic. It replaces the need for clients to know 8 different base URLs and provides:
+The API Gateway is the single entry point for all client-to-service traffic. It replaces the need for clients to know 9 different base URLs and provides:
 
 - **Unified base URL** — all clients use `http://localhost:5000` (dev) or the production domain
 - **Request routing** — path-based forwarding to the correct downstream service
@@ -33,6 +33,7 @@ The API Gateway is the single entry point for all client-to-service traffic. It 
 | Category     | 5007 | `/api/v1/categories/...`, `/api/v1/admin/categories/...`                                                                      |
 | AI (Python)  | 5008 | `/api/v1/ai/...` → proxied as `/api/v1/...`                                                                                   |
 | Nasheed      | 5009 | `/api/v1/artists/...`, `/api/v1/songs/...`, `/api/v1/ingestion/...`, `/api/v1/search/...`, `/api/v1/generation/...`           |
+| Backup       | 5010 | `/api/v1/admin/backup-targets/...`, `/api/v1/admin/backups/...`, `/api/v1/admin/restores/...`                                |
 
 **Note:** All routes are versioned (`/api/v1/...`) per the API Versioning Standard (Section 7 of `PLATFORM_CAPABILITIES_ROADMAP.md`). Unversioned service-to-service internal endpoints (e.g. `/api/filemanager/internal/...`) and the audit-log endpoint (`/api/admin/audit-logs`) are the only exceptions — see the Admin Endpoint Routing section below.
 
@@ -50,8 +51,12 @@ Several services expose endpoints under `/api/v1/admin/`. YARP resolves these by
 | `/api/v1/admin/translations/audit-logs`  | 4 | Translation (5006) — path rewritten to `/api/admin/audit-logs` |
 | `/api/v1/admin/categories/audit-logs`  | 4 | Category (5007) — path rewritten to `/api/admin/audit-logs`    |
 | `/api/v1/admin/nasheed/audit-logs`     | 4 | Nasheed (5009) — path rewritten to `/api/admin/audit-logs`     |
+| `/api/v1/admin/backup/audit-logs`      | 4 | Backup (5010) — path rewritten to `/api/admin/audit-logs`       |
 | `/api/v1/admin/tenant/{**}`     | 5     | Tenant (5002)                                                   |
 | `/api/v1/admin/categories/{**}` | 5     | Category (5007)                                                 |
+| `/api/v1/admin/backup-targets/{**}` | 5 | Backup (5010)                                                  |
+| `/api/v1/admin/backups/{**}`    | 5     | Backup (5010)                                                   |
+| `/api/v1/admin/restores/{**}`   | 5     | Backup (5010)                                                   |
 | `/api/v1/admin/{**}`            | 20    | Identity (5001) — catch-all; also serves Identity audit-logs at `/api/admin/audit-logs` |
 
 ### Audit Log Endpoints
@@ -67,6 +72,7 @@ Every service exposes `GET /api/admin/audit-logs` internally (unversioned — sh
 | `GET /api/v1/admin/translations/audit-logs`    | Translation (5006) |
 | `GET /api/v1/admin/categories/audit-logs`      | Category (5007)  |
 | `GET /api/v1/admin/nasheed/audit-logs`         | Nasheed (5009)   |
+| `GET /api/v1/admin/backup/audit-logs`          | Backup (5010)    |
 
 All routes require `Admin` or `SuperAdmin` role. See `NEW_SERVICE_INTEGRATION_GUIDE.md` for the full query parameter reference.
 
@@ -199,7 +205,7 @@ Lightweight — gateway process only. Always fast. Safe to use as a load-balance
 GET http://localhost:5000/health/aggregate
 ```
 
-Calls all 8 downstream `/health` endpoints in parallel (5-second timeout each). Reads cluster addresses from the YARP `ReverseProxy:Clusters` config, so it stays in sync with the routing table automatically. Also exempt from `GlobalLimiter` via `.DisableRateLimiting()` — but note this endpoint fans out to 8 downstream calls per single incoming request, so it should still not be polled at high frequency regardless of rate-limit exemption.
+Calls all 9 downstream `/health` endpoints in parallel (5-second timeout each). Reads cluster addresses from the YARP `ReverseProxy:Clusters` config, so it stays in sync with the routing table automatically. Also exempt from `GlobalLimiter` via `.DisableRateLimiting()` — but note this endpoint fans out to 9 downstream calls per single incoming request, so it should still not be polled at high frequency regardless of rate-limit exemption.
 
 ```json
 {
@@ -214,7 +220,8 @@ Calls all 8 downstream `/health` endpoints in parallel (5-second timeout each). 
     "translation":  "healthy",
     "category":     "healthy",
     "nasheed":      "healthy",
-    "ai":           "healthy"
+    "ai":           "healthy",
+    "backup":       "healthy"
   }
 }
 ```
@@ -273,7 +280,7 @@ The gateway is included at the end of the startup sequence (labeled **Gateway AP
 src/Gateway/
 └── Gateway.API/
     ├── Program.cs                    # YARP + rate limiter + correlation ID middleware
-    ├── appsettings.json              # Full YARP routing table for all 8 services
+    ├── appsettings.json              # Full YARP routing table for all 9 services
     ├── appsettings.Development.json  # Dev overrides (empty by default)
     ├── Gateway.API.csproj
     ├── run-development-instance.bat

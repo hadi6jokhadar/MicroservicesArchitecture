@@ -22,6 +22,20 @@ public class GetTenantConfigQueryValidator : LocalizedValidator<GetTenantConfigQ
 }
 
 /// <summary>
+/// Admin-only query to get tenant configuration by tenant ID, including archived tenants (includes Data field)
+/// </summary>
+public record GetTenantConfigForAdminQuery(string TenantId) : IRequest<TenantConfigDto?>;
+
+public class GetTenantConfigForAdminQueryValidator : LocalizedValidator<GetTenantConfigForAdminQuery>
+{
+    public GetTenantConfigForAdminQueryValidator(ILocalizationService localizationService) : base(localizationService)
+    {
+        RuleFor(x => x.TenantId)
+            .NotEmpty().WithMessage(L(LocalizationKeys.Validation.Required, L(LocalizationKeys.Fields.TenantId)));
+    }
+}
+
+/// <summary>
 /// Query to get tenant by tenant ID (excludes Data field)
 /// </summary>
 public record GetTenantByIdQuery(string TenantId) : IRequest<TenantDto?>;

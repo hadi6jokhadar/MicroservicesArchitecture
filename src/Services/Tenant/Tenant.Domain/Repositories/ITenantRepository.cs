@@ -14,6 +14,11 @@ public interface ITenantRepository : IRepository<TenantSettings>
     Task<TenantSettings?> GetByTenantIdAsync(string tenantId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Get tenant settings by tenant ID, including archived tenants
+    /// </summary>
+    Task<TenantSettings?> GetByTenantIdIncludingArchivedAsync(string tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Get tenant settings by user ID
     /// </summary>
     Task<TenantSettings?> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default);
