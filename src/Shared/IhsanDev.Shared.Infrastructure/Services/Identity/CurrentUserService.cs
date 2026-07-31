@@ -22,6 +22,8 @@ public class CurrentUserService : ICurrentUserService
 
     public bool IsSuperAdmin => _httpContextAccessor.HttpContext?.User?.IsSuperAdmin() ?? false;
 
+    public string? TenantId => _httpContextAccessor.HttpContext?.User?.GetTenantId();
+
     public IEnumerable<string> Roles => _httpContextAccessor.HttpContext?.User?.GetRoles() 
         ?? Enumerable.Empty<string>();
 

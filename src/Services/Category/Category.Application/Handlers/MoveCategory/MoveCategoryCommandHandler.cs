@@ -86,7 +86,7 @@ public class MoveCategoryCommandHandler : IRequestHandler<MoveCategoryCommand, C
 
         await _cache.RemoveByPatternAsync("categories:tree*", cancellationToken);
         await _cache.RemoveByPatternAsync("categories:list*", cancellationToken);
-        await _cache.RemoveAsync($"categories:id:{request.Id}", cancellationToken);
+        await _cache.RemoveAsync($"categories:id:{request.Id}:{_tenantContext.TenantId ?? "global"}", cancellationToken);
 
         return CategoryDto.MapFrom(entity);
     }

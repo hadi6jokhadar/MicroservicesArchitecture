@@ -45,11 +45,13 @@ public class GetVerificationCodeByPhoneCommandHandler : IRequestHandler<GetVerif
             // Get OTP settings from tenant or appsettings
             var otpSettings = GetOtpSettings();
 
-            // Check if phone number exists
+            // Check if phone number exists. Always report success even when it doesn't (same
+            // anti-enumeration approach as ForgetPasswordCommandHandler) so a caller can't use
+            // this endpoint to probe which phone numbers are registered.
             var user = await _userRepository.GetByPhoneNumberAsync(request.PhoneNumber, cancellationToken);
             if (user == null)
             {
-                throw new NotFoundException(LocalizationKeys.Exceptions.UserNotFound);
+                return new VerificationCodeResponseDto { Success = true, Code = null };
             }
 
             if (!user.Status)

@@ -378,7 +378,7 @@ Soft-deletes a category (sets `is_archived = true`).
 
 Admin endpoints bypass tenant context (`BypassTenantAttribute`) and always use the global database.
 
-**Required role:** `Admin` or `SuperAdmin`
+**Required role:** `SuperAdmin` only. (Prior to a July 2026 security-audit fix this also accepted the `Admin` role — but `Admin` is an ordinary per-tenant role, so that let any tenant's own Admin reach every other tenant's data through these bypass routes. See `BYPASS_TENANT_ENDPOINTS_GUIDE.md` Pattern A.)
 
 | Method | Path                         | Description                           |
 | ------ | ---------------------------- | ------------------------------------- |

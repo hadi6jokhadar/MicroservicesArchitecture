@@ -37,6 +37,7 @@ public class TenantRepository : Repository<TenantSettings>, ITenantRepository
         int pageNumber = 1,
         int pageSize = 10,
         bool? isArchived = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default)
     {
         var query = _dbSet
@@ -47,6 +48,14 @@ public class TenantRepository : Repository<TenantSettings>, ITenantRepository
         if (isArchived.HasValue)
         {
             query = query.Where(t => t.IsArchived == isArchived.Value);
+        }
+
+        // Apply searchTerm filter against TenantId/TenantName if specified
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(t =>
+                EF.Functions.ILike(t.TenantId, $"%{searchTerm}%") ||
+                EF.Functions.ILike(t.TenantName, $"%{searchTerm}%"));
         }
 
         query = query.OrderByDescending(t => t.Created);

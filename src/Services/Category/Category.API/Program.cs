@@ -217,7 +217,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseResponseCompression();
 app.UseRateLimiter();
-app.UseCors();
+// Note: Standard UseCors() is NOT needed/used because TenantAwareCors (below) handles everything.
+// DO NOT call app.UseCors() here - it conflicts with TenantAwareCorsMiddleware.
 app.UseCorrelationId();
 app.UseLocalization();
 app.UseGlobalExceptionHandler();
@@ -232,7 +233,6 @@ app.UseDefaultDatabaseMigration<CategoryDbContext>();
 // Multi-tenancy (ORDER IS CRITICAL)
 app.UseTenantResolution(builder.Configuration);
 app.UseTenantAwareCors();
-app.UseJwtTenantVerification(builder.Configuration);
 
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled");
 
@@ -243,6 +243,10 @@ if (multiTenancyEnabled)
 
 app.UseServiceAuthentication();
 app.UseAuthentication();
+
+// MUST be AFTER UseAuthentication(): it reads context.User, which UseAuthentication() populates.
+app.UseJwtTenantVerification(builder.Configuration);
+
 app.UseAuthorization();
 
 // ============================================

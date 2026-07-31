@@ -320,6 +320,20 @@ Files are organized by category. Each entry includes:
 
 ---
 
+## 🛡️ Security
+
+### SECURITY_AUDIT_PENDING_DECISIONS.md
+
+**Description:** Tracks the 7 items from the July 2026 full-codebase security audit that were deliberately left unfixed because they need a product/architecture decision, not just a code change — FileManager's file-visibility model, Identity's token-lifetime/session-revocation tradeoff, the frontend's localStorage→httpOnly-cookie migration, FileManager's storage quota policy, gateway-level authentication's anonymous-route allowlist, rotating the Postgres password after a public git-history leak, and syncing other clones after that history rewrite. Each entry explains why it's blocked and what decision unblocks it.  
+**Read When:**
+
+- Deciding what to tackle next after the security audit remediation pass
+- Onboarding to understand why file downloads are still unauthenticated, tokens still live 15 days, or the gateway still has no auth of its own
+- Before touching FileManager's access control, Identity's token lifetime, or the Gateway's auth model
+- Setting up a second machine/clone of this repo after the July 2026 history rewrite
+
+---
+
 ## 🔒 Admin & Bypass Endpoints
 
 ### BYPASS_TENANT_ENDPOINTS_GUIDE.md

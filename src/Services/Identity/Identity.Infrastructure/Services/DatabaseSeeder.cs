@@ -1,6 +1,7 @@
 using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
 using Identity.Application.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 
@@ -15,6 +16,7 @@ public class DatabaseSeeder
     private readonly IUserRoleRepository _userRoleRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITenantContext _tenantContext;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<DatabaseSeeder> _logger;
 
     public DatabaseSeeder(
@@ -25,6 +27,7 @@ public class DatabaseSeeder
         IUserRoleRepository userRoleRepository,
         IPasswordHasher passwordHasher,
         ITenantContext tenantContext,
+        IConfiguration configuration,
         ILogger<DatabaseSeeder> logger)
     {
         _roleRepository = roleRepository;
@@ -34,6 +37,7 @@ public class DatabaseSeeder
         _userRoleRepository = userRoleRepository;
         _passwordHasher = passwordHasher;
         _tenantContext = tenantContext;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -181,8 +185,6 @@ public class DatabaseSeeder
             _logger.LogDebug("Creating SuperAdmin for global database with email '{Email}'", superAdminEmail);
         }
 
-        const string superAdminPassword = "@Test123";
-
         // Check if SuperAdmin user already exists
         var existingUser = await _userRepository.GetByEmailAsync(superAdminEmail, cancellationToken);
         if (existingUser != null)
@@ -192,6 +194,25 @@ public class DatabaseSeeder
             // Ensure SuperAdmin has the SuperAdmin role assigned
             await EnsureSuperAdminRoleAsync(existingUser.Id, cancellationToken);
             return;
+        }
+
+        // Never ship a literal password constant — every deployment (and every tenant DB)
+        // used to get the exact same hardcoded "@Test123" SuperAdmin password, giving anyone
+        // day-one SuperAdmin on any environment that hadn't been manually rotated. The password
+        // now comes from SeedData:SuperAdminPassword instead: the tracked appsettings.json only
+        // carries a CHANGE_ME_* placeholder (this repo's established secrets pattern — see
+        // Dotnet.instructions.md pitfall #16), and the real value is set per-environment in the
+        // gitignored appsettings.Development.json / appsettings.Docker.json. Fail fast rather
+        // than silently seeding a known-weak account if that hasn't been done.
+        var superAdminPassword = _configuration["SeedData:SuperAdminPassword"];
+        if (string.IsNullOrWhiteSpace(superAdminPassword) ||
+            string.Equals(superAdminPassword, "CHANGE_ME_SUPERADMIN_PASSWORD", StringComparison.OrdinalIgnoreCase) ||
+            superAdminPassword.Length < 8)
+        {
+            throw new InvalidOperationException(
+                "SeedData:SuperAdminPassword is not configured (or is still the CHANGE_ME_* placeholder / shorter " +
+                "than 8 characters). Set a real password in appsettings.Development.json / appsettings.Docker.json " +
+                "before the SuperAdmin account can be seeded.");
         }
 
         // Create SuperAdmin user

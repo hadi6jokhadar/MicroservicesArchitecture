@@ -4,7 +4,7 @@
 
 This guide explains how to implement endpoints that work **without tenant context** (global/admin endpoints) in a multi-tenant system. These are advanced patterns that require careful implementation to avoid database access errors.
 
-**Last Updated**: July 2026 (JWT validation sections corrected — the previous `OnMessageReceived`/`ITenantConfigurationProvider` pattern shown here was the actual root cause of an intermittent-under-load auth bug; replaced with the real, currently-implemented `IssuerSigningKeyResolver` pattern — see `MULTI_TENANCY_GUIDE.md` and `LOAD_TESTING_GUIDE.md`)  
+**Last Updated**: July 2026 (Pattern A corrected — this section previously showed `RequireRole("Admin", "SuperAdmin")` on Category's admin tree endpoint as the reference example. "Admin" is an ordinary **per-tenant** role, not a platform-level trust tier — that example was the actual root cause of a July 2026 security-audit finding: it let any tenant-scoped Admin reach `[BypassTenant]` cross-tenant endpoints meant for platform operators only. Corrected to `RequireRole("SuperAdmin")`, matching Tenant.API's own admin group. JWT validation sections corrected — the previous `OnMessageReceived`/`ITenantConfigurationProvider` pattern shown here was the actual root cause of an intermittent-under-load auth bug; replaced with the real, currently-implemented `IssuerSigningKeyResolver` pattern — see `MULTI_TENANCY_GUIDE.md` and `LOAD_TESTING_GUIDE.md`. Added Pitfall 5 — the shared `MapAuditLogEndpoints()` extension itself was missing `[BypassTenant]`, which broke every service's `/admin/audit-logs` route and surfaced in the browser as a CORS error rather than the real 400; fixed in `AuditLogEndpointExtensions.cs`)  
 **Applies To**: Services with multi-tenancy enabled that need admin/global endpoints
 
 ---
@@ -57,17 +57,19 @@ Use `BypassTenantAttribute` when:
 
 ### Two Authorization Patterns Used in This System
 
-#### Pattern A — Role-Based (Admin / SuperAdmin)
+#### Pattern A — Role-Based (SuperAdmin)
 
-Used for human admin operations (Category admin tree, FileManager admin delete, Notification send). The caller must present a **global JWT** (issued without a tenant scope) with the appropriate role.
+Used for human admin operations (Category admin tree, FileManager admin delete, Notification send). The caller must present a **global JWT** (issued without a tenant scope) with the `SuperAdmin` role.
 
 ```csharp
 app.MapGet("/api/v1/admin/categories/tree", handler)
     .WithMetadata(new BypassTenantAttribute())
-    .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"));
+    .RequireAuthorization(policy => policy.RequireRole("SuperAdmin"));
 ```
 
-The global JWT is issued by Identity Service at a non-tenant endpoint (no `x-tenant-id` header). It contains a `Role` claim of `SuperAdmin` or `Admin` and **no** `tenant_id` claim.
+> ⚠️ **Never include `"Admin"` in the role list for a `[BypassTenant]` group.** `"Admin"` is an ordinary **per-tenant** role (confirmed via `JwtTenantVerificationMiddleware` and Identity's seeded roles) — a user with that role still carries a `tenant_id` claim scoping them to their own tenant. Since `[BypassTenant]` routes skip tenant resolution entirely and query the global database directly, accepting `"Admin"` here lets any tenant's own Admin reach every other tenant's cross-tenant data. This was exactly the July 2026 security-audit finding in `Category.API/Endpoints/CategoryEndpoints.cs` — fixed by restricting that group to `RequireRole("SuperAdmin")` only. Only `SuperAdmin` (issued without any `tenant_id` claim) may satisfy Pattern A.
+
+The global JWT is issued by Identity Service at a non-tenant endpoint (no `x-tenant-id` header). It contains a `Role` claim of `SuperAdmin` and **no** `tenant_id` claim.
 
 #### Pattern B — Service-to-Service (X-Service-Secret)
 
@@ -300,6 +302,14 @@ adminGroup.MapPost("/files", async (
     // Handler executes with or without tenant context
 });
 ```
+
+### ❌ Pitfall 5: Shared Endpoint Missing `[BypassTenant]` Entirely — Surfaces as a Browser CORS Error, Not a 400
+
+**Symptom**: Browser console shows `No 'Access-Control-Allow-Origin' header is present` for a request that never had a CORS problem at all — e.g. the Angular admin app's `/audit-log` page calling `GET /api/v1/admin/audit-logs` through the Gateway.
+
+**Cause**: The shared `MapAuditLogEndpoints()` extension (`IhsanDev.Shared.Infrastructure/Extensions/AuditLogEndpointExtensions.cs`, used by every service) required `x-tenant-id` on a route the frontend's own `AuditLogService` never sends (its code comment already assumed the route was `[BypassTenant]`). Every service's pipeline runs `UseTenantResolution`/`TenantMiddleware` **before** `UseTenantAwareCors` (see `.claude/instructions/database-strategy.instructions.md` pipeline order) — so when tenant resolution rejects a request with 400 "x-tenant-id header is missing", that response is written before the CORS middleware ever runs and carries **no** `Access-Control-Allow-Origin` header. The browser then reports the failure as a CORS error, completely hiding the real 400. `curl`-ing the OPTIONS preflight directly still succeeds (preflight is unconditionally skipped by `TenantMiddleware`), which is what makes this pitfall easy to misdiagnose as a CORS/Gateway config problem instead of a missing `[BypassTenant]`.
+
+**Solution**: Any time a route is meant to be reachable without `x-tenant-id` (global/admin dashboards, SuperAdmin-only views), add `[BypassTenant]` — restricted to `RequireRole("SuperAdmin")` only per Pattern A above, never `"Admin"`. If a request to a route you expect to be tenant-optional comes back as a browser CORS error, check the actual response with `curl -i` (not the browser) before assuming it's a Gateway/CORS config issue — a non-2xx response with no `Access-Control-Allow-Origin` header is the real signature of this pitfall, not a misconfigured origin allowlist.
 
 ---
 

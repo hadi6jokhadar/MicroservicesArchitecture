@@ -489,6 +489,10 @@ secrets.json
 *.p12
 *SDK-Key.json
 Firebase*.json
+*.pem
+*.key
+*.crt
+id_rsa*
 
 # Database
 *.sqlite

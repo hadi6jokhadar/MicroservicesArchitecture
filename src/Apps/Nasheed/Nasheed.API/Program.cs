@@ -168,7 +168,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseResponseCompression();
-app.UseCors();
+// Note: Standard UseCors() is NOT needed/used because TenantAwareCors (below) handles everything.
+// DO NOT call app.UseCors() here - it conflicts with TenantAwareCorsMiddleware.
 app.UseCorrelationId();
 app.UseLocalization();
 app.UseGlobalExceptionHandler();
@@ -176,7 +177,6 @@ app.UseGlobalExceptionHandler();
 // Multi-tenancy (Strategy B)
 app.UseTenantResolution(builder.Configuration);
 app.UseTenantAwareCors();
-app.UseJwtTenantVerification(builder.Configuration);
 
 // NOTE: UseDefaultDatabaseMigration is intentionally NOT called here.
 // Nasheed has no global database — the DB connection comes from the single tenant's config.
@@ -190,6 +190,12 @@ if (multiTenancyEnabled)
 app.UseServiceAuthentication();
 
 app.UseAuthentication();
+
+// JWT tenant verification — MUST be AFTER UseAuthentication(): it reads context.User,
+// which UseAuthentication() populates. Prevents users from accessing other tenants by
+// changing the x-tenant-id header.
+app.UseJwtTenantVerification(builder.Configuration);
+
 app.UseAuthorization();
 
 // ============================================

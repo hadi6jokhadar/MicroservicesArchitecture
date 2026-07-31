@@ -103,10 +103,31 @@ public class NotificationService : INotificationService
         }
     }
 
-    public async Task<bool> AcknowledgeDeliveryAsync(int queueItemId, CancellationToken cancellationToken = default)
+    public async Task<bool> AcknowledgeDeliveryAsync(int queueItemId, int? requestingUserId, CancellationToken cancellationToken = default)
     {
         try
         {
+            var queueItem = await _queueRepository.GetByIdAsync(queueItemId, cancellationToken);
+
+            if (queueItem == null)
+            {
+                _logger.LogWarning("Queue item {QueueItemId} not found", queueItemId);
+                throw new IhsanDev.Shared.Application.Exceptions.NotFoundException($"Queue item with ID {queueItemId} was not found.");
+            }
+
+            // Sequential IDs make queueItemId alone guessable — items targeted at a specific
+            // user (UserId != null) may only be acknowledged by that same user. Broadcast items
+            // (UserId == null, tenant-wide/global) have no single owner, so any caller may ack.
+            if (queueItem.UserId.HasValue && queueItem.UserId != requestingUserId)
+            {
+                _logger.LogWarning(
+                    "User {RequestingUserId} attempted to acknowledge queue item {QueueItemId} owned by user {OwnerUserId}",
+                    requestingUserId,
+                    queueItemId,
+                    queueItem.UserId);
+                return false;
+            }
+
             var result = await _queueRepository.UpdateStatusAsync(queueItemId, QueueStatus.Sent, null, cancellationToken);
 
             if (!result)

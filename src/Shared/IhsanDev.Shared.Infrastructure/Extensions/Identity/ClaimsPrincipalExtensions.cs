@@ -41,4 +41,13 @@ public static class ClaimsPrincipalExtensions
         var userId = principal.GetUserId();
         return int.TryParse(userId, out var id) ? id : null;
     }
+
+    /// <summary>
+    /// The caller's own tenant, from the same "tenant_id" claim JwtTenantVerificationMiddleware
+    /// checks against the x-tenant-id header. Null for a global user (SuperAdmin/Service).
+    /// </summary>
+    public static string? GetTenantId(this ClaimsPrincipal principal)
+    {
+        return principal.FindFirst("tenant_id")?.Value;
+    }
 }

@@ -24,7 +24,7 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
 
         // Use PostgreSQL so FK constraints and EF migrations behave like production
         UsePostgreSQL = true;
-        PostgreSqlConnectionString = "Host=localhost;Port=5432;Database=nasheed_testdb;Username=postgres;Password=CHANGE_ME_DB_PASSWORD;" +
+        PostgreSqlConnectionString = "Host=localhost;Port=5432;Database=nasheed_testdb;Username=postgres;Password=2230222;" +
                                      "Minimum Pool Size=2;Maximum Pool Size=20;Connection Idle Lifetime=300;Pooling=true;";
     }
 

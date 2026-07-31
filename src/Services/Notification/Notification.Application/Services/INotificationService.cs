@@ -19,9 +19,11 @@ public interface INotificationService
     Task<bool> MarkAsReadAsync(int notificationId, int userId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Acknowledge notification delivery
+    /// Acknowledge notification delivery. <paramref name="requestingUserId"/> must match the
+    /// queue item's owning user (queue items with no owner, i.e. tenant/global broadcasts, have
+    /// no ownership check) — see Notification.API.Hubs.NotificationHub.AcknowledgeDelivery.
     /// </summary>
-    Task<bool> AcknowledgeDeliveryAsync(int queueItemId, CancellationToken cancellationToken = default);
+    Task<bool> AcknowledgeDeliveryAsync(int queueItemId, int? requestingUserId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get queue item status

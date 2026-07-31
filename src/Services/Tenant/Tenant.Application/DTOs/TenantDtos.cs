@@ -119,3 +119,41 @@ public class TenantDto : BaseDto
         }
     }
 }
+
+/// <summary>
+/// Tenant response DTO for the fully public, unauthenticated `GET /api/v1/tenant/{tenantId}` lookup.
+/// Deliberately narrower than <see cref="TenantDto"/>: excludes <c>UserId</c>, which would otherwise
+/// let anyone resolve a tenant slug straight to its owning user's numeric Identity ID — a free
+/// enumeration primitive feeding directly into cross-tenant/account-takeover attacks elsewhere.
+/// <see cref="TenantDto"/> itself is intentionally left unchanged (still includes UserId) since it
+/// also backs SuperAdmin-only admin queries (GetTenantByUserQuery, GetAllActiveTenantsQuery) that
+/// legitimately need it.
+/// </summary>
+public class PublicTenantDto : BaseDto
+{
+    public string TenantId { get; set; } = string.Empty;
+    public string TenantName { get; set; } = string.Empty;
+    public string StartDate { get; set; } = string.Empty;
+    public string ExpireDate { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public bool IsExpired { get; set; }
+    public bool BlobConfigured { get; set; }
+
+    public static PublicTenantDto MapFrom(TenantDto tenant)
+    {
+        return new PublicTenantDto
+        {
+            Id = tenant.Id,
+            TenantId = tenant.TenantId,
+            TenantName = tenant.TenantName,
+            StartDate = tenant.StartDate,
+            ExpireDate = tenant.ExpireDate,
+            IsActive = tenant.IsActive,
+            IsExpired = tenant.IsExpired,
+            IsArchived = tenant.IsArchived,
+            Created = tenant.Created,
+            LastModified = tenant.LastModified,
+            BlobConfigured = tenant.BlobConfigured
+        };
+    }
+}

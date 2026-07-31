@@ -1,5 +1,7 @@
 using Identity.Application.Commands.DeviceToken;
+using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Services.Identity;
 using IhsanDev.Shared.Kernel.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -13,11 +15,14 @@ public static class DeviceTokenApiHandlers
     /// </summary>
     public static async Task<IResult> AddDeviceToken(
         [FromBody] AddDeviceTokenRequest request,
+        ICurrentUserService currentUserService,
         IMediator mediator,
         CancellationToken cancellationToken = default)
     {
+        var userId = ResolveTargetUserId(currentUserService, request.UserId);
+
         var command = new AddDeviceTokenCommand(
-            request.UserId,
+            userId,
             request.Token,
             request.Platform,
             request.DeviceIdentifier,
@@ -32,6 +37,7 @@ public static class DeviceTokenApiHandlers
     /// </summary>
     public static async Task<IResult> GetDeviceTokenById(
         int id,
+        ICurrentUserService currentUserService,
         IMediator mediator,
         ILocalizationService localizationService,
         CancellationToken cancellationToken = default)
@@ -39,9 +45,13 @@ public static class DeviceTokenApiHandlers
         var query = new GetDeviceTokenByIdQuery(id);
         var result = await mediator.Send(query, cancellationToken);
 
-        return result == null
-            ? Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.NotFound) })
-            : Results.Ok(result);
+        if (result == null)
+            return Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.NotFound) });
+
+        if (!IsPrivilegedCaller(currentUserService) && !OwnsResource(currentUserService, result.UserId))
+            throw new ForbiddenException(LocalizationKeys.Exceptions.Forbidden);
+
+        return Results.Ok(result);
     }
 
     /// <summary>
@@ -49,10 +59,12 @@ public static class DeviceTokenApiHandlers
     /// </summary>
     public static async Task<IResult> GetUserDeviceTokens(
         int userId,
+        ICurrentUserService currentUserService,
         IMediator mediator,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetUserDeviceTokensQuery(userId);
+        var resolvedUserId = ResolveTargetUserId(currentUserService, userId);
+        var query = new GetUserDeviceTokensQuery(resolvedUserId);
         var result = await mediator.Send(query, cancellationToken);
         return Results.Ok(result);
     }
@@ -63,10 +75,12 @@ public static class DeviceTokenApiHandlers
     public static async Task<IResult> GetUserDeviceTokensByPlatform(
         int userId,
         [FromQuery] Platform platform,
+        ICurrentUserService currentUserService,
         IMediator mediator,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetUserDeviceTokensByPlatformQuery(userId, platform);
+        var resolvedUserId = ResolveTargetUserId(currentUserService, userId);
+        var query = new GetUserDeviceTokensByPlatformQuery(resolvedUserId, platform);
         var result = await mediator.Send(query, cancellationToken);
         return Results.Ok(result);
     }
@@ -77,9 +91,12 @@ public static class DeviceTokenApiHandlers
     public static async Task<IResult> UpdateDeviceToken(
         int id,
         [FromBody] UpdateDeviceTokenRequest request,
+        ICurrentUserService currentUserService,
         IMediator mediator,
         CancellationToken cancellationToken = default)
     {
+        await EnsureOwnershipOrPrivilegedAsync(id, currentUserService, mediator, cancellationToken);
+
         var command = new UpdateDeviceTokenCommand(
             id,
             request.Token,
@@ -95,9 +112,12 @@ public static class DeviceTokenApiHandlers
     /// </summary>
     public static async Task<IResult> DeleteDeviceToken(
         int id,
+        ICurrentUserService currentUserService,
         IMediator mediator,
         CancellationToken cancellationToken = default)
     {
+        await EnsureOwnershipOrPrivilegedAsync(id, currentUserService, mediator, cancellationToken);
+
         var command = new DeleteDeviceTokenCommand(id);
         var result = await mediator.Send(command, cancellationToken);
         return Results.NoContent();
@@ -108,12 +128,56 @@ public static class DeviceTokenApiHandlers
     /// </summary>
     public static async Task<IResult> DeleteAllUserDeviceTokens(
         int userId,
+        ICurrentUserService currentUserService,
         IMediator mediator,
         CancellationToken cancellationToken = default)
     {
-        var command = new DeleteAllUserDeviceTokensCommand(userId);
+        var resolvedUserId = ResolveTargetUserId(currentUserService, userId);
+        var command = new DeleteAllUserDeviceTokensCommand(resolvedUserId);
         var result = await mediator.Send(command, cancellationToken);
         return Results.NoContent();
+    }
+
+    /// <summary>
+    /// Callers with role Service/Admin/SuperAdmin may act on any user's device tokens (as the
+    /// route already requires); a plain "User" caller can only ever act as themselves — the
+    /// route parameter/body userId is ignored rather than trusted for that role.
+    /// </summary>
+    private static int ResolveTargetUserId(ICurrentUserService currentUserService, int requestedUserId)
+    {
+        if (IsPrivilegedCaller(currentUserService))
+            return requestedUserId;
+
+        return int.TryParse(currentUserService.UserId, out var ownUserId) ? ownUserId : 0;
+    }
+
+    private static bool OwnsResource(ICurrentUserService currentUserService, int resourceUserId)
+    {
+        return int.TryParse(currentUserService.UserId, out var ownUserId) && ownUserId == resourceUserId;
+    }
+
+    private static bool IsPrivilegedCaller(ICurrentUserService currentUserService)
+    {
+        return currentUserService.HasRole("Service") || currentUserService.HasRole("Admin") || currentUserService.HasRole("SuperAdmin");
+    }
+
+    /// <summary>
+    /// For id-based routes (no userId in the URL/body to redirect), the owning user must be
+    /// looked up before the mutation runs — otherwise a non-owner could still delete/update
+    /// someone else's token before any check happens.
+    /// </summary>
+    private static async Task EnsureOwnershipOrPrivilegedAsync(
+        int deviceTokenId,
+        ICurrentUserService currentUserService,
+        IMediator mediator,
+        CancellationToken cancellationToken)
+    {
+        if (IsPrivilegedCaller(currentUserService))
+            return;
+
+        var existing = await mediator.Send(new GetDeviceTokenByIdQuery(deviceTokenId), cancellationToken);
+        if (existing != null && !OwnsResource(currentUserService, existing.UserId))
+            throw new ForbiddenException(LocalizationKeys.Exceptions.Forbidden);
     }
 
     /// <summary>

@@ -40,7 +40,8 @@
   "exception_feature_not_enabled": "هذه الميزة غير مفعّلة لحسابك",
   "exception_backup_target_not_found": "هدف النسخ الاحتياطي غير موجود",
   "exception_backup_run_not_found": "عملية النسخ الاحتياطي غير موجودة",
-  "exception_backup_process_failed": "فشلت عملية النسخ الاحتياطي/الاستعادة. راجع سجلات الخادم للتفاصيل",
+  "exception_backup_tool_not_found": "لم يتم العثور على الملف التنفيذي '{0}'. قم بتثبيت أدوات عميل PostgreSQL أو تهيئة مساره في إعدادات خدمة النسخ الاحتياطي",
+  "exception_backup_process_failed_with_details": "فشلت أداة {0} لقاعدة البيانات '{1}' (رمز الخروج {2}): {3}",
 
   "validation_required": "{0} مطلوب",
   "validation_email_invalid": "عنوان البريد الإلكتروني غير صالح",
@@ -185,5 +186,6 @@
   "field_value": "القيمة",
   "field_category": "الفئة",
   "field_translations": "الترجمات",
-  "field_translation_count": "عدد الترجمات"
+  "field_translation_count": "عدد الترجمات",
+  "field_target_connection_override": "تجاوز اتصال الهدف"
 }

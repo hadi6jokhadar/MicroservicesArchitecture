@@ -46,20 +46,16 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task GetVerificationCodeByPhone_WithNonExistentPhone_ShouldThrowNotFoundException()
+    public async Task GetVerificationCodeByPhone_WithNonExistentPhone_ShouldReturnGenericSuccess()
     {
-        // Arrange
+        // An unregistered phone must get the same generic success response as a registered
+        // one — anti-enumeration fix (matches ForgetPasswordCommandHandler's approach).
         var request = new GetVerificationCodeByPhoneCommand("+9999999999");
 
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<NotFoundException>(
-            async () => await SendAsync(request)
-        );
+        var result = await SendAsync(request);
 
-        // Check for localization key or English message
-        exception.Message.Should().Match(msg => 
-            msg.Contains("exception_user_not_found") || 
-            msg.Contains("No user found"));
+        result.Success.Should().BeTrue();
+        result.Code.Should().BeNull();
     }
 
     [Fact]
@@ -159,20 +155,16 @@ public class OtpAuthEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task GetVerificationCodeByEmail_WithNonExistentEmail_ShouldThrowNotFoundException()
+    public async Task GetVerificationCodeByEmail_WithNonExistentEmail_ShouldReturnGenericSuccess()
     {
-        // Arrange
+        // An unregistered email must get the same generic success response as a registered
+        // one — anti-enumeration fix (matches ForgetPasswordCommandHandler's approach).
         var request = new GetVerificationCodeByEmailCommand("nonexistent@example.com");
 
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<NotFoundException>(
-            async () => await SendAsync(request)
-        );
+        var result = await SendAsync(request);
 
-        // Check for localization key or English message
-        exception.Message.Should().Match(msg => 
-            msg.Contains("exception_user_not_found") || 
-            msg.Contains("No user found"));
+        result.Success.Should().BeTrue();
+        result.Code.Should().BeNull();
     }
 
     [Fact]

@@ -834,6 +834,15 @@ Client acknowledges receipt of notification.
 await connection.invoke("AcknowledgeDelivery", 456);
 ```
 
+**Ownership check (July 2026 security audit):** the queue item ID is sequential and therefore
+guessable, so `NotificationHub.AcknowledgeDelivery` resolves the caller's own user ID from
+`Context.User` and passes it through as `AcknowledgeNotificationCommand.RequestingUserId`.
+`NotificationService.AcknowledgeDeliveryAsync` rejects (no-ops, returns `false`, no exception) any
+acknowledgement where the target `NotificationQueueItem.UserId` is set and doesn't match the
+caller — a client can no longer mark another user's queued notification as delivered by guessing
+its ID. Broadcast items (`UserId == null`, tenant-wide/global) have no single owner and may still
+be acknowledged by any authenticated caller.
+
 ### Connection Groups
 
 Clients are automatically added to groups based on authentication:

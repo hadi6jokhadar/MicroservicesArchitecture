@@ -1,6 +1,7 @@
 using FileManager.Application.Commands;
 using FileManager.Application.DTOs;
 using FileManager.Application.Queries;
+using IhsanDev.Shared.Infrastructure.Services.Identity;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -14,10 +15,24 @@ public static class FileManagerApiHandlers
         [FromForm] int? group,
         [FromForm] int? userId,
         IMediator mediator,
+        ICurrentUserService currentUserService,
         CancellationToken ct)
     {
         if (group == null) group = 1;
-        var command = new SaveFileCommand(file, (Domain.Enums.FileGroup)group, userId);
+
+        // The uploader's identity must come from the authenticated caller, not the client-supplied
+        // form field — otherwise any caller can tag an upload as belonging to a different user.
+        // Service/Admin/SuperAdmin callers keep the ability to upload on behalf of another user
+        // (service-to-service uploads); a plain User-role caller always gets their own JWT-derived ID.
+        var isPrivilegedCaller = currentUserService.HasRole("Service")
+            || currentUserService.HasRole("Admin")
+            || currentUserService.IsSuperAdmin;
+
+        var effectiveUserId = isPrivilegedCaller
+            ? userId
+            : (int.TryParse(currentUserService.UserId, out var authenticatedUserId) ? authenticatedUserId : null);
+
+        var command = new SaveFileCommand(file, (Domain.Enums.FileGroup)group, effectiveUserId);
         var result = await mediator.Send(command, ct);
         return Results.Created($"/api/filemanager/files/{result.Id}", result);
     }

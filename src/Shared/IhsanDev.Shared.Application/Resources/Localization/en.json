@@ -40,7 +40,8 @@
   "exception_feature_not_enabled": "This feature is not enabled for your account",
   "exception_backup_target_not_found": "Backup target not found",
   "exception_backup_run_not_found": "Backup run not found",
-  "exception_backup_process_failed": "The backup/restore process failed. See server logs for details",
+  "exception_backup_tool_not_found": "The '{0}' executable was not found. Install the PostgreSQL client tools or configure its path in the Backup service settings",
+  "exception_backup_process_failed_with_details": "{0} failed for database '{1}' (exit code {2}): {3}",
 
   "validation_required": "{0} is required",
   "validation_email_invalid": "Invalid email address",
@@ -185,5 +186,6 @@
   "field_value": "Value",
   "field_category": "Category",
   "field_translations": "Translations",
-  "field_translation_count": "Translation count"
+  "field_translation_count": "Translation count",
+  "field_target_connection_override": "Target connection override"
 }

@@ -106,6 +106,19 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 50
             }));
 
+    // Per-IP rate limiting for GET /api/v1/tenant/{tenantId} — this route is fully public
+    // (no auth, no x-tenant-id partition to key off), so unlike PerTenant above it must be
+    // partitioned by caller IP to actually bound a tenant-ID enumeration attempt.
+    options.AddPolicy("PublicTenantLookup", context =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: partition => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PerIP:PermitLimit", 200),
+                Window = TimeSpan.FromMinutes(builder.Configuration.GetValue<int>("RateLimiting:PerIP:WindowMinutes", 1)),
+                QueueLimit = 0
+            }));
+
     // Rejection status code
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 

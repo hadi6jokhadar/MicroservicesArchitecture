@@ -61,10 +61,15 @@ public static class CategoryEndpoints
 
         // ── ADMIN ENDPOINTS (bypass tenant) ──────────────────────────────────
         var v1Admin = app.NewVersionedApi("CategoriesAdmin");
+        // "Admin" is a per-tenant role (see JwtTenantVerificationMiddleware / Identity's seeded
+        // roles) — it must never satisfy a [BypassTenant] group, since that would let a
+        // tenant-scoped Admin reach every tenant's global/cross-tenant data. Only SuperAdmin
+        // (a true platform-level role, carrying no tenant_id claim) may pass here. Matches
+        // Tenant.API's own admin group in EndpointMappingExtensions.cs.
         var adminGroup = v1Admin.MapGroup("/api/v{version:apiVersion}/admin/categories")
             .HasApiVersion(1)
             .WithTags("Category - Admin")
-            .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"));
+            .RequireAuthorization(policy => policy.RequireRole("SuperAdmin"));
 
         adminGroup.MapGet("/tree", CategoryApiHandlers.GetTree)
             .WithMetadata(new BypassTenantAttribute())

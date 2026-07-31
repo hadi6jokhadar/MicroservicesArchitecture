@@ -109,7 +109,6 @@ public class GetUsersCommandHandler : IRequestHandler<GetUsersCommand, Paginated
                 }).ToList() : new List<RoleDto>(),
                 ProfilePictureId = u.ProfilePictureId,
                 ProfilePicture = null,
-                VerificationCode = u.VerificationCode,
                 Data = u.Data
             });
 

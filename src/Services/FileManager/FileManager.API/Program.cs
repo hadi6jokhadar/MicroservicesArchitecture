@@ -293,10 +293,19 @@ app.UseStaticFiles(new StaticFileOptions
         ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
         // Cache static files for 1 day
         ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=86400");
+
+        // SVG (and any other non-raster-image type) renders as executable markup if opened
+        // directly in a browser tab — force download instead of inline rendering. Subresource
+        // loads (img/audio/video/fetch) are unaffected since they ignore Content-Disposition.
+        if (FileContentDispositionPolicy.RequiresAttachmentDisposition(Path.GetExtension(ctx.File.Name)))
+        {
+            ctx.Context.Response.Headers.Append("Content-Disposition", "attachment");
+        }
     }
 });
 
-app.UseCors();
+// Note: Standard UseCors() is NOT needed/used because TenantAwareCors (below) handles everything.
+// DO NOT call app.UseCors() here - it conflicts with TenantAwareCorsMiddleware.
 
 app.UseCorrelationId();
 
@@ -322,10 +331,6 @@ app.UseTenantResolution(builder.Configuration);
 // MUST be BEFORE JwtTenantVerification to handle OPTIONS preflight requests first
 app.UseTenantAwareCors();
 
-// JWT tenant verification (AFTER tenant resolution and CORS, BEFORE authentication)
-// Prevents users from accessing other tenants by changing x-tenant-id header
-app.UseJwtTenantVerification(builder.Configuration);
-
 if (multiTenancyEnabled)
 {
     // Also enable tenant-aware database migration for tenant-specific requests
@@ -336,6 +341,12 @@ if (multiTenancyEnabled)
 app.UseServiceAuthentication();
 
 app.UseAuthentication();
+
+// JWT tenant verification — MUST be AFTER UseAuthentication(): it reads context.User,
+// which UseAuthentication() populates. Prevents users from accessing other tenants by
+// changing the x-tenant-id header.
+app.UseJwtTenantVerification(builder.Configuration);
+
 app.UseAuthorization();
 
 // ============================================

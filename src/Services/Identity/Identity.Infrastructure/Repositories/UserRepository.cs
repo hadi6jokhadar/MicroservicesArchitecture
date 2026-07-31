@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
 using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +13,15 @@ public class UserRepository : Repository<User>, IUserRepository
 {
     public UserRepository(IdentityDbContext context) : base(context)
     {
+    }
+
+    // Refresh tokens are stored as SHA-256 hashes, never the raw value — matches how PasswordHasher
+    // treats PasswordHash. Both the write side (UpdateRefreshTokenAsync) and the read side
+    // (GetByRefreshTokenAsync) must hash with this same method, or every refresh silently fails.
+    private static string HashRefreshToken(string refreshToken)
+    {
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
+        return Convert.ToHexString(hashBytes);
     }
 
     public override async Task<User> UpdateAsync(User entity, CancellationToken cancellationToken = default)
@@ -38,7 +49,7 @@ public class UserRepository : Repository<User>, IUserRepository
             .FirstOrDefaultAsync(u => u.Id == id && !u.IsArchived, cancellationToken);
     }
 
-    public async Task<User?> GetByIdWithArchivedAsync(int id, CancellationToken cancellationToken = default)
+    public override async Task<User?> GetByIdWithArchivedAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .AsNoTracking()
@@ -64,6 +75,7 @@ public class UserRepository : Repository<User>, IUserRepository
 
     public async Task<User?> GetByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
+        var hashedToken = HashRefreshToken(refreshToken);
         return await _dbSet
             .AsNoTracking()
             .AsSplitQuery()
@@ -71,7 +83,7 @@ public class UserRepository : Repository<User>, IUserRepository
                 .ThenInclude(ur => ur.Role)
                     .ThenInclude(r => r.RoleClaims)
                         .ThenInclude(rc => rc.Claim)
-            .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken && !u.IsArchived, cancellationToken);
+            .FirstOrDefaultAsync(u => u.RefreshToken == hashedToken && !u.IsArchived, cancellationToken);
     }
 
     public async Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default)
@@ -118,10 +130,11 @@ public class UserRepository : Repository<User>, IUserRepository
 
     public async Task<bool> UpdateRefreshTokenAsync(int userId, string refreshToken, DateTime expiryTime, CancellationToken cancellationToken = default)
     {
+        var hashedToken = HashRefreshToken(refreshToken);
         var affected = await _dbSet
             .Where(u => u.Id == userId && !u.IsArchived)
             .ExecuteUpdateAsync(s => s
-                .SetProperty(u => u.RefreshToken, refreshToken)
+                .SetProperty(u => u.RefreshToken, hashedToken)
                 .SetProperty(u => u.RefreshTokenExpiryTime, expiryTime)
                 .SetProperty(u => u.LastModified, DateTime.UtcNow),
             cancellationToken);

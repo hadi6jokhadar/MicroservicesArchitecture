@@ -1,5 +1,6 @@
 using System.Net;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,7 +14,15 @@ builder.Services
 
 // Per-route "Timeout" values in appsettings (e.g. ai-stream-route) are enforced by the
 // ASP.NET Core Request Timeouts middleware — YARP just reads the policy, it doesn't apply it.
-builder.Services.AddRequestTimeouts();
+// DefaultPolicy covers every other route, which previously relied solely on Kestrel's
+// minimum-data-rate heuristics with no explicit ceiling.
+builder.Services.AddRequestTimeouts(options =>
+{
+    options.DefaultPolicy = new RequestTimeoutPolicy
+    {
+        Timeout = TimeSpan.FromSeconds(100)
+    };
+});
 
 // ============================================
 // Rate Limiting
@@ -46,13 +55,21 @@ var authTokenLimit = GetInt("RateLimiting:PerIpAuth:TokenLimit", 20);
 var authTokensPerPeriod = GetInt("RateLimiting:PerIpAuth:TokensPerPeriod", 5);
 var authReplenishSeconds = GetInt("RateLimiting:PerIpAuth:ReplenishmentSeconds", 1);
 
+// /health/aggregate fans out to all 9 downstream services per hit, so an unauthenticated flood
+// multiplies 9x downstream — it needs its own generous-but-nonzero budget rather than the plain
+// .DisableRateLimiting() the lightweight /health endpoint uses.
+var healthAggregateTokenLimit = GetInt("RateLimiting:HealthAggregate:TokenLimit", 60);
+var healthAggregateTokensPerPeriod = GetInt("RateLimiting:HealthAggregate:TokensPerPeriod", 20);
+var healthAggregateReplenishSeconds = GetInt("RateLimiting:HealthAggregate:ReplenishmentSeconds", 1);
+
 builder.Services.AddRateLimiter(options =>
 {
     // Global: total request cap across all clients — platform-wide circuit breaker against a
     // runaway or catastrophic-overload scenario, not meant to bottleneck legitimate scale-up.
     // Applies to every request through UseRateLimiter(), including endpoints with no named
-    // policy attached — infrastructure endpoints (/health, /health/aggregate) explicitly
-    // opt out via .DisableRateLimiting() below so LB/k8s probes never compete with real traffic.
+    // policy attached — the lightweight /health endpoint explicitly opts out via
+    // .DisableRateLimiting() below so LB/k8s probes never compete with real traffic.
+    // /health/aggregate does NOT opt out — see the "health-aggregate" policy below.
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
         RateLimitPartition.GetTokenBucketLimiter("global", _ => new TokenBucketRateLimiterOptions
         {
@@ -88,6 +105,22 @@ builder.Services.AddRateLimiter(options =>
         });
     });
 
+    // Named, per-IP policy for /health/aggregate — unauthenticated but bounded, unlike
+    // .DisableRateLimiting(), so a flood can no longer turn into an unbounded 9-way fan-out.
+    options.AddPolicy("health-aggregate", context =>
+    {
+        var ip = context.Connection.RemoteIpAddress ?? IPAddress.Loopback;
+        return RateLimitPartition.GetTokenBucketLimiter(ip.ToString(), _ => new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = healthAggregateTokenLimit,
+            TokensPerPeriod = healthAggregateTokensPerPeriod,
+            ReplenishmentPeriod = TimeSpan.FromSeconds(healthAggregateReplenishSeconds),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
@@ -98,8 +131,9 @@ var app = builder.Build();
 // ============================================
 app.Use(async (ctx, next) =>
 {
-    if (!ctx.Request.Headers.ContainsKey("X-Correlation-Id"))
-        ctx.Request.Headers.Append("X-Correlation-Id", Guid.NewGuid().ToString());
+    // Always overwrite — a client-supplied value here would pass straight through to every
+    // backend's logs/traces unverified, letting a client forge or collide correlation IDs.
+    ctx.Request.Headers["X-Correlation-Id"] = Guid.NewGuid().ToString();
     await next();
 });
 
@@ -152,9 +186,18 @@ app.MapGet("/health/aggregate", async (IHttpClientFactory httpClientFactory, ICo
         services = results.ToDictionary(r => r.Name, r => r.status)
     });
 }).AllowAnonymous()
-  .DisableRateLimiting();
+  .RequireRateLimiting("health-aggregate");
 
 app.UseRateLimiter();
+
+// Public-facing listener only — internal YARP destinations stay http:// on the Docker network
+// (see Clusters in appsettings.json). Gated the same way every other service in this repo gates
+// it (see Notification.API's Program.cs) so local dev over http:// is unaffected.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
 
 // Must sit between routing and endpoint execution — required for any YARP route that sets
 // a "Timeout" value (see ai-stream-route in appsettings.json), or YARP throws at request time.

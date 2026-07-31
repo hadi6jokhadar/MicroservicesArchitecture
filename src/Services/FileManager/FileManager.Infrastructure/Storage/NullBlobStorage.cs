@@ -9,7 +9,7 @@ public sealed class NullBlobStorage : IBlobStorage
 {
     public bool IsConfigured => false;
 
-    public Task<string> UploadAsync(string objectKey, Stream stream, string contentType, CancellationToken cancellationToken = default)
+    public Task<string> UploadAsync(string objectKey, Stream stream, string contentType, string? contentDisposition = null, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException("Blob storage is not configured for this tenant.");
 
     public Task DeleteAsync(string objectKey, CancellationToken cancellationToken = default)

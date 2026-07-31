@@ -184,6 +184,7 @@ public class GetAllActiveTenantsQueryHandler : IRequestHandler<GetAllActiveTenan
                 request.PageNumber,
                 request.PageSize,
                 request.IsArchived,
+                request.SearchTerm,
                 cancellationToken);
 
             var tenantDtos = items.Select(t => new TenantDto

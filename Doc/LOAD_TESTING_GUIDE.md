@@ -105,6 +105,8 @@ The actual cause: `Gateway.API/Program.cs` applied `options.GlobalLimiter` (orig
 1. `/health` and `/health/aggregate` now call `.DisableRateLimiting()` — infrastructure/probe endpoints never compete with real traffic for the same budget.
 2. `PermitLimit`/`WindowMinutes` for both the global and per-IP limiters moved from hardcoded literals to `RateLimiting:Global` / `RateLimiting:PerIp` in `appsettings.json`, so they can be tuned per environment without a code change.
 
+**Update (July 2026 security audit):** `/health/aggregate` no longer calls `.DisableRateLimiting()`. A follow-up audit found that exemption bypassed *both* the `GlobalLimiter` and the `per-ip` policy for a route that fans out to a 9-way `Task.WhenAll` per hit — an unauthenticated flood multiplied 9x downstream with no ceiling at all. It now uses a dedicated named `health-aggregate` policy (60 burst / 20 per second per IP, `RateLimiting:HealthAggregate` in `appsettings.json`) via `.RequireRateLimiting("health-aggregate")`, still `.AllowAnonymous()`. Only the lightweight, non-fan-out `/health` endpoint still uses `.DisableRateLimiting()`. See `API_GATEWAY_GUIDE.md` → Rate Limiting.
+
 Re-running the identical 600 req/s and 2000 req/s bursts after the fix: **100% success, 0 failures, ~3–5µs average latency** at both rates — confirming the gateway itself has no meaningful connection-level ceiling at this scale; the entire earlier "cliff" was self-inflicted rate limiting on an endpoint that was never supposed to be rate limited.
 
 **The per-IP limiter finding on `authenticated-flow.js` stands as originally reported** — that one *is* the intended, working-as-designed per-IP policy applying to real proxied API traffic including auth, not a bug.

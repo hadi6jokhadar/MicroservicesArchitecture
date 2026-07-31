@@ -127,7 +127,11 @@ public static class AuthApiHandlers
     /// <summary>
     /// Handle user logout
     /// </summary>
-    public static IResult LogoutHandler(HttpContext context, ILocalizationService localizationService)
+    public static async Task<IResult> LogoutHandler(
+        HttpContext context,
+        IMediator mediator,
+        ILocalizationService localizationService,
+        CancellationToken ct = default)
     {
         var userId = GetCurrentUserId(context);
         if (userId == 0)
@@ -135,8 +139,8 @@ public static class AuthApiHandlers
             return Results.Unauthorized();
         }
 
-        // In a real application, you might want to blacklist the token
-        // For now, we'll just return success as the token will expire naturally
+        await mediator.Send(new LogoutCommand(userId), ct);
+
         return Results.Ok(new { message = localizationService.GetString(LocalizationKeys.Success.LogoutSuccessful) });
     }
 

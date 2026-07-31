@@ -132,7 +132,7 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
 
         await _cache.RemoveByPatternAsync("categories:tree*", cancellationToken);
         await _cache.RemoveByPatternAsync("categories:list*", cancellationToken);
-        await _cache.RemoveAsync($"categories:id:{request.Id}", cancellationToken);
+        await _cache.RemoveAsync($"categories:id:{request.Id}:{tenantId ?? "global"}", cancellationToken);
 
         var dto = CategoryDto.MapFrom(entity);
         await _fileManagerHelper.EnrichCategoryWithFilesAsync(dto, cancellationToken);

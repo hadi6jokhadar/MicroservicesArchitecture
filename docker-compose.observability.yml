@@ -2,10 +2,12 @@ services:
   jaeger:
     image: jaegertracing/jaeger:latest
     container_name: jaeger
+    # 127.0.0.1 only: host-dev-mode ops dashboards/collectors, not meant to be
+    # reachable from other machines on the network — same pattern as docker-compose.yml.
     ports:
-      - "16686:16686"   # Jaeger UI
-      - "4317:4317"     # OTLP gRPC  ← services export here
-      - "4318:4318"     # OTLP HTTP
+      - "127.0.0.1:16686:16686"   # Jaeger UI
+      - "127.0.0.1:4317:4317"     # OTLP gRPC  ← services export here
+      - "127.0.0.1:4318:4318"     # OTLP HTTP
     volumes:
       - ./jaeger-v2.yml:/etc/jaeger/config.yml:ro
     command: ["--config=/etc/jaeger/config.yml"]
@@ -17,14 +19,14 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     restart: unless-stopped
 
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
     ports:
-      - "3100:3000"     # Using 3100 to avoid conflict with frontend on 3000
+      - "127.0.0.1:3100:3000"     # Using 3100 to avoid conflict with frontend on 3000
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}

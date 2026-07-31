@@ -66,6 +66,7 @@ public class DesignTimeCurrentUserService : ICurrentUserService
     public string? Email => "system@localhost";
     public bool IsAuthenticated => true;
     public bool IsSuperAdmin => true;
+    public string? TenantId => null;
     public IEnumerable<string> Roles => new[] { "SuperAdmin" };
     public bool HasRole(string role) => true;
 }

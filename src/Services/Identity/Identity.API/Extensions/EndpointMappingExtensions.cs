@@ -58,6 +58,9 @@ public static class EndpointMappingExtensions
         var authGroup = v1.MapGroup("/api/v{version:apiVersion}/auth")
             .HasApiVersion(1)
             .WithTags("Authentication")
+            // Auth endpoints are unauthenticated (no user identity yet), so partition by
+            // tenant rather than "PerUser" — mitigates credential-stuffing/brute-force floods.
+            .RequireRateLimiting("PerTenant")
             .WithMetadata(new OptionalTenantAttribute());
 
         authGroup.MapPost("/login", AuthApiHandlers.LoginHandler)

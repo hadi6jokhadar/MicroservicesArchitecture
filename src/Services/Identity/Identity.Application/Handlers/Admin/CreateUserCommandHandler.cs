@@ -10,6 +10,7 @@ using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
 using MediatR;
 using IhsanDev.Shared.Application.Common.Interfaces;
+using IhsanDev.Shared.Infrastructure.Services.Identity;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using Microsoft.Extensions.Logging;
 
@@ -20,6 +21,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
     private readonly IUserRepository _userRepository;
     private readonly IUserService _userService;
     private readonly IUserRoleRepository _userRoleRepository;
+    private readonly IRoleRepository _roleRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ProfilePictureHelper _profilePictureHelper;
     private readonly IFileManagerServiceClient _fileManagerClient;
     private readonly ITenantContext _tenantContext;
@@ -29,6 +32,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
         IUserRepository userRepository,
         IUserService userService,
         IUserRoleRepository userRoleRepository,
+        IRoleRepository roleRepository,
+        ICurrentUserService currentUserService,
         ProfilePictureHelper profilePictureHelper,
         IFileManagerServiceClient fileManagerClient,
         ITenantContext tenantContext,
@@ -37,6 +42,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
         _userRepository = userRepository;
         _userService = userService;
         _userRoleRepository = userRoleRepository;
+        _roleRepository = roleRepository;
+        _currentUserService = currentUserService;
         _profilePictureHelper = profilePictureHelper;
         _fileManagerClient = fileManagerClient;
         _tenantContext = tenantContext;
@@ -50,6 +57,21 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserD
             var existingUser = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
             if (existingUser != null)
                 throw new ConflictException(LocalizationKeys.Exceptions.EmailAlreadyExists);
+
+            // Only a SuperAdmin may create a user pre-assigned the SuperAdmin role — otherwise
+            // a plain Admin could self-escalate by creating a fresh SuperAdmin account.
+            if (request.RoleIds != null && request.RoleIds.Any() && !_currentUserService.IsSuperAdmin)
+            {
+                foreach (var roleId in request.RoleIds)
+                {
+                    var role = await _roleRepository.GetByIdAsync(roleId, cancellationToken);
+                    if (role != null && role.Name.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogWarning("Non-SuperAdmin caller attempted to create a user with the SuperAdmin role");
+                        throw new ForbiddenException(LocalizationKeys.Exceptions.SuperAdminRoleProtected);
+                    }
+                }
+            }
 
             var hashedPassword = _userService.HashPassword(request.Password);
 

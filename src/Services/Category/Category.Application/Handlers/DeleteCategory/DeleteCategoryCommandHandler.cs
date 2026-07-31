@@ -81,7 +81,7 @@ public class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategoryComman
 
         await _cache.RemoveByPatternAsync("categories:tree*", cancellationToken);
         await _cache.RemoveByPatternAsync("categories:list*", cancellationToken);
-        await _cache.RemoveAsync($"categories:id:{request.Id}", cancellationToken);
+        await _cache.RemoveAsync($"categories:id:{request.Id}:{tenantId ?? "global"}", cancellationToken);
 
         return true;
     }

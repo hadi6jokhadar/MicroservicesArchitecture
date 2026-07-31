@@ -186,11 +186,15 @@ public class NotificationHub : Hub
             }
 
             var userId = userIdClaim.Value;
+            // int.TryParse failing (unparseable claim) intentionally falls through as 0, which
+            // matches no real NotificationQueueItem.UserId — fail closed, not open.
+            int.TryParse(userId, out var requestingUserId);
 
             var command = new AcknowledgeNotificationCommand(
                 QueueItemId: queueItemId,
                 ConnectionId: Context.ConnectionId,
-                ReceivedAt: DateTime.UtcNow
+                ReceivedAt: DateTime.UtcNow,
+                RequestingUserId: requestingUserId
             );
 
             var success = await _mediator.Send(command);
@@ -221,115 +225,10 @@ public class NotificationHub : Hub
         }
     }
 
-    /// <summary>
-    /// Send global notification to ALL clients (authenticated and anonymous)
-    /// This reaches every single connection regardless of tenant or user
-    /// </summary>
-    public async Task SendGlobalNotification(object notification)
-    {
-        await Clients.Group("global").SendAsync("ReceiveNotification", notification);
-        
-        _logger.LogInformation("Global notification sent to all clients");
-    }
-
-    /// <summary>
-    /// Send notification to all clients (when MultiTenancy:Enabled = false)
-    /// Same as global but semantically different for single-tenant mode
-    /// </summary>
-    public async Task SendToAllClients(object notification)
-    {
-        if (_isMultiTenancyEnabled)
-        {
-            _logger.LogWarning("SendToAllClients called but multi-tenancy is enabled. Use SendGlobalNotification or SendToTenant instead.");
-            return;
-        }
-
-        await Clients.Group("all-clients").SendAsync("ReceiveNotification", notification);
-        
-        _logger.LogInformation("Notification sent to all clients (single-tenant mode)");
-    }
-
-    /// <summary>
-    /// Send notification to all clients in a specific tenant (MultiTenancy:Enabled = true)
-    /// Includes both authenticated and anonymous users in the tenant
-    /// </summary>
-    /// <param name="tenantId">Tenant identifier</param>
-    /// <param name="notification">Notification payload</param>
-    public async Task SendToTenant(string tenantId, object notification)
-    {
-        if (!_isMultiTenancyEnabled)
-        {
-            _logger.LogWarning("SendToTenant called but multi-tenancy is disabled. Use SendToAllClients instead.");
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(tenantId))
-        {
-            _logger.LogWarning("SendToTenant called with empty tenantId");
-            return;
-        }
-
-        var groupName = $"tenant:{tenantId}";
-        await Clients.Group(groupName).SendAsync("ReceiveNotification", notification);
-
-        _logger.LogInformation(
-            "Notification sent to all clients in tenant: {TenantId}",
-            tenantId);
-    }
-
-    /// <summary>
-    /// Send notification to a specific user in a tenant (MultiTenancy:Enabled = true)
-    /// </summary>
-    /// <param name="tenantId">Tenant identifier</param>
-    /// <param name="userId">User identifier</param>
-    /// <param name="notification">Notification payload</param>
-    public async Task SendToUserInTenant(string tenantId, string userId, object notification)
-    {
-        if (!_isMultiTenancyEnabled)
-        {
-            _logger.LogWarning("SendToUserInTenant called but multi-tenancy is disabled. Use SendToUser instead.");
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(tenantId) || string.IsNullOrWhiteSpace(userId))
-        {
-            _logger.LogWarning("SendToUserInTenant called with empty tenantId or userId");
-            return;
-        }
-
-        var groupName = $"tenant:{tenantId}:user:{userId}";
-        await Clients.Group(groupName).SendAsync("ReceiveNotification", notification);
-
-        _logger.LogInformation(
-            "Notification sent to user {UserId} in tenant {TenantId}",
-            userId,
-            tenantId);
-    }
-
-    /// <summary>
-    /// Send notification to a specific user (MultiTenancy:Enabled = false)
-    /// </summary>
-    /// <param name="userId">User identifier</param>
-    /// <param name="notification">Notification payload</param>
-    public async Task SendToUser(string userId, object notification)
-    {
-        if (_isMultiTenancyEnabled)
-        {
-            _logger.LogWarning("SendToUser called but multi-tenancy is enabled. Use SendToUserInTenant instead.");
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(userId))
-        {
-            _logger.LogWarning("SendToUser called with empty userId");
-            return;
-        }
-
-        var groupName = $"user:{userId}";
-        await Clients.Group(groupName).SendAsync("ReceiveNotification", notification);
-
-        _logger.LogInformation(
-            "Notification sent to user {UserId} (single-tenant mode)",
-            userId);
-    }
+    // SendGlobalNotification, SendToAllClients, SendToTenant, SendToUserInTenant, and SendToUser
+    // were removed (July 2026 security audit): they were public hub RPCs with no auth/ownership
+    // check, letting any anonymous connection broadcast attacker-supplied content to any
+    // tenant/user/everyone. Confirmed unused by every client (frontend and otherwise) — the only
+    // legitimate delivery path is NotificationProcessor pushing via IHubContext directly, which
+    // does not call through the hub's own methods.
 }

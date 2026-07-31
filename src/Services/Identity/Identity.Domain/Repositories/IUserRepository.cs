@@ -13,7 +13,6 @@ public interface IUserRepository : IRepository<User>
     Task<bool> UpdateRefreshTokenAsync(int userId, string refreshToken, DateTime expiryTime, CancellationToken cancellationToken = default);
     Task<bool> RevokeRefreshTokenAsync(int userId, CancellationToken cancellationToken = default);
     Task UpdateLastLoginAsync(int userId, CancellationToken cancellationToken = default);
-    Task<User?> GetByIdWithArchivedAsync(int id, CancellationToken cancellationToken = default);
     IQueryable<User> GetUsersByRoleName(string roleName);
     IQueryable<User> GetUsersByRoleNameWithArchived(string roleName);
 }

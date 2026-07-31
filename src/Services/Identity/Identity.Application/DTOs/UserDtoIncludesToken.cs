@@ -16,9 +16,6 @@ public class UserDtoIncludesToken : BaseUserDto
     public string? RefreshToken { get; set; }    
     public string? RefreshTokenExpiryTime { get; set; }
     
-    // OTP verification
-    public string? VerificationCode { get; set; }
-    
     // Additional user data
     public string? Data { get; set; }
     
@@ -61,7 +58,6 @@ public class UserDtoIncludesToken : BaseUserDto
             }).ToList() ?? []) : [],
             ProfilePictureId = user.ProfilePictureId,
             ProfilePicture = null, // Will be populated by handler when requested
-            VerificationCode = user.VerificationCode,
             Data = user.Data
         };
     }

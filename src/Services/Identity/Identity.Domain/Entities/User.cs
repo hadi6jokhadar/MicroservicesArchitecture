@@ -21,6 +21,11 @@ public class User : BaseUser
     public int FailedCodeAttempts { get; set; } = 0;
     public DateTime? CodeLockoutUntil { get; set; }
     public DateTime? LastCodeSentAt { get; set; }
+
+    // Password login brute-force protection (separate counters from OTP above, since
+    // OTP and password are independent attack surfaces and shouldn't lock each other out)
+    public int FailedLoginAttempts { get; set; } = 0;
+    public DateTime? LoginLockoutUntil { get; set; }
     
     // Additional user data
     public string? Data { get; set; }

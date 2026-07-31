@@ -11,8 +11,35 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace FileManager.Infrastructure.Services;
+
+/// <summary>
+/// Shared inline-vs-attachment policy for every path that serves a stored file back to a
+/// client (static file middleware, blob storage, download endpoint). Kept separate from
+/// content-type mapping because the same extension can need a different Content-Disposition
+/// depending on whether it's safe to render inline (raster images, and SVG once sanitized —
+/// see <see cref="FileManagerService.SanitizeSvgAsync"/>) or not (everything else defaults to
+/// attachment since Content-Disposition only affects top-level navigation, not img/audio/
+/// video/fetch subresource loads).
+/// </summary>
+public static class FileContentDispositionPolicy
+{
+    private static readonly HashSet<string> SafeInlineExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp",
+        // Safe to serve inline because SaveFileAsync sanitizes every SVG on upload (strips
+        // <script>, <foreignObject>, event-handler attributes, and javascript: URIs) before
+        // it's ever persisted — an <img>-rendered SVG doesn't execute scripts anyway, and the
+        // sanitization closes the remaining risk (a direct navigation/embed to the raw URL).
+        ".svg"
+    };
+
+    public static bool RequiresAttachmentDisposition(string? extension) =>
+        string.IsNullOrEmpty(extension) || !SafeInlineExtensions.Contains(extension);
+}
 
 public class FileManagerService : IFileManagerService
 {
@@ -68,6 +95,24 @@ public class FileManagerService : IFileManagerService
         if (string.IsNullOrEmpty(extension) || !_options.AllowedExtensions.Contains(extension))
         {
             throw new Domain.Exceptions.FileValidationException(LocalizationKeys.Exceptions.InvalidFileType, _localizationService);
+        }
+
+        // Sniff magic bytes against the claimed extension on the raw upload, before any
+        // conversion — an extension that doesn't match its actual content is exactly what
+        // makes content-type-confusion attacks (e.g. renamed SVG/HTML) practical.
+        if (!await MatchesKnownFileSignatureAsync(file, extension, cancellationToken))
+        {
+            throw new Domain.Exceptions.FileValidationException(LocalizationKeys.Exceptions.InvalidFileType, _localizationService);
+        }
+
+        // Sanitize SVG content before it's ever persisted — strips <script>, <foreignObject>,
+        // event-handler attributes, and javascript: URIs, so the stored file is safe to serve
+        // inline (see FileContentDispositionPolicy) rather than forced to download.
+        if (string.Equals(extension, ".svg", StringComparison.OrdinalIgnoreCase))
+        {
+            var sanitizedResult = await SanitizeSvgAsync(fileToSave, cancellationToken);
+            fileToSave = sanitizedResult.SanitizedFile;
+            convertedStream = sanitizedResult.SanitizedStream;
         }
 
         // Convert WebM audio to MP3 before save (video webm is stored as-is).
@@ -141,6 +186,78 @@ public class FileManagerService : IFileManagerService
         }
     }
 
+    /// <summary>
+    /// Strips the parts of an SVG that can execute attacker code — &lt;script&gt; elements,
+    /// &lt;foreignObject&gt; (arbitrary embedded HTML), every event-handler attribute
+    /// (onload/onclick/... ), and javascript: URIs in href/xlink:href — before the file is
+    /// ever persisted. Parses with DTD processing prohibited and no XmlResolver so a crafted
+    /// SVG can't use an XML external entity to read local files or make the server issue
+    /// outbound requests (XXE). Rejects the upload outright if it isn't well-formed XML.
+    /// </summary>
+    private async Task<(IFormFile SanitizedFile, MemoryStream SanitizedStream)> SanitizeSvgAsync(
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        string content;
+        using (var reader = new StreamReader(file.OpenReadStream()))
+        {
+            content = await reader.ReadToEndAsync(cancellationToken);
+        }
+
+        XDocument doc;
+        try
+        {
+            using var stringReader = new StringReader(content);
+            using var xmlReader = XmlReader.Create(stringReader, new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null
+            });
+            doc = XDocument.Load(xmlReader, LoadOptions.None);
+        }
+        catch (Exception ex) when (ex is XmlException or InvalidOperationException)
+        {
+            throw new Domain.Exceptions.FileValidationException(LocalizationKeys.Exceptions.InvalidFileType, _localizationService);
+        }
+
+        if (doc.Root == null)
+        {
+            throw new Domain.Exceptions.FileValidationException(LocalizationKeys.Exceptions.InvalidFileType, _localizationService);
+        }
+
+        foreach (var dangerousElement in doc.Descendants()
+                     .Where(e => e.Name.LocalName.Equals("script", StringComparison.OrdinalIgnoreCase)
+                              || e.Name.LocalName.Equals("foreignObject", StringComparison.OrdinalIgnoreCase))
+                     .ToList())
+        {
+            dangerousElement.Remove();
+        }
+
+        foreach (var element in doc.Descendants().ToList())
+        {
+            foreach (var attribute in element.Attributes()
+                         .Where(a => a.Name.LocalName.StartsWith("on", StringComparison.OrdinalIgnoreCase)
+                                  || (a.Name.LocalName.Equals("href", StringComparison.OrdinalIgnoreCase)
+                                      && a.Value.TrimStart().StartsWith("javascript:", StringComparison.OrdinalIgnoreCase)))
+                         .ToList())
+            {
+                attribute.Remove();
+            }
+        }
+
+        var sanitizedStream = new MemoryStream();
+        doc.Save(sanitizedStream);
+        sanitizedStream.Position = 0;
+
+        var sanitizedFile = new FormFile(sanitizedStream, 0, sanitizedStream.Length, "file", file.FileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = file.ContentType
+        };
+
+        return (sanitizedFile, sanitizedStream);
+    }
+
     private async Task<(IFormFile ConvertedFile, MemoryStream ConvertedStream)> ConvertWebMFormFileToMp3Async(
         IFormFile webmFile,
         CancellationToken cancellationToken)
@@ -176,9 +293,46 @@ public class FileManagerService : IFileManagerService
             using var process = new Process { StartInfo = processStartInfo };
             process.Start();
 
-            var stdOut = await process.StandardOutput.ReadToEndAsync();
-            var stdErr = await process.StandardError.ReadToEndAsync();
-            await process.WaitForExitAsync(cancellationToken);
+            // Read output concurrently with waiting for exit — the original sequential
+            // ReadToEndAsync() with no timeout would hang forever on a crafted file that makes
+            // ffmpeg stall without closing its output pipes, regardless of the caller's token.
+            var stdOutTask = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+            var stdErrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+
+            var timeoutSeconds = _options.FfmpegTimeoutSeconds > 0 ? _options.FfmpegTimeoutSeconds : 60;
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+            try
+            {
+                await process.WaitForExitAsync(linkedCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Never leave ffmpeg running unbounded — kill the whole tree so a stalled
+                // child process can't keep holding worker/file-handle resources.
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                    // Already exited between cancellation and the kill attempt.
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                _logger.LogError(
+                    "FFmpeg conversion timed out after {TimeoutSeconds}s for file {FileName} and was killed",
+                    timeoutSeconds, webmFile.FileName);
+                throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
+            }
+
+            var stdOut = await stdOutTask;
+            var stdErr = await stdErrTask;
 
             if (process.ExitCode != 0 || !File.Exists(tempOutputPath))
             {
@@ -558,8 +712,11 @@ public class FileManagerService : IFileManagerService
         var stream = await _fileStorage.GetAsync(entity.Path, cancellationToken);
         var contentType = GetContentType(entity.Extension);
         var objectKey = entity.Path.Replace("\\", "/");
+        var contentDisposition = FileContentDispositionPolicy.RequiresAttachmentDisposition(entity.Extension)
+            ? "attachment"
+            : null;
 
-        var publicUrl = await blob.UploadAsync(objectKey, stream, contentType, cancellationToken);
+        var publicUrl = await blob.UploadAsync(objectKey, stream, contentType, contentDisposition, cancellationToken);
 
         entity.ExternalUrl = publicUrl;
         entity.LastModified = DateTime.UtcNow;
@@ -627,6 +784,52 @@ public class FileManagerService : IFileManagerService
         var uri = new Uri(externalUrl);
         // Remove leading slash from path
         return uri.AbsolutePath.TrimStart('/');
+    }
+
+    // Magic numbers exist for these extensions and are reliable enough to reject on mismatch.
+    // Types with no reliable signature (plain text, some Office legacy formats, SVG's XML text
+    // body, etc.) are intentionally absent — see MatchesKnownFileSignatureAsync's fallback.
+    private static readonly Dictionary<string, byte[][]> KnownFileSignatures = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".png"] = new[] { new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A } },
+        [".jpg"] = new[] { new byte[] { 0xFF, 0xD8, 0xFF } },
+        [".jpeg"] = new[] { new byte[] { 0xFF, 0xD8, 0xFF } },
+        [".gif"] = new[] { new byte[] { 0x47, 0x49, 0x46, 0x38, 0x37, 0x61 }, new byte[] { 0x47, 0x49, 0x46, 0x38, 0x39, 0x61 } },
+        [".bmp"] = new[] { new byte[] { 0x42, 0x4D } },
+        [".pdf"] = new[] { new byte[] { 0x25, 0x50, 0x44, 0x46 } },
+        // .docx/.xlsx are ZIP containers under the hood, so they share the ZIP local-file-header signature.
+        [".zip"] = new[] { new byte[] { 0x50, 0x4B, 0x03, 0x04 } },
+        [".docx"] = new[] { new byte[] { 0x50, 0x4B, 0x03, 0x04 } },
+        [".xlsx"] = new[] { new byte[] { 0x50, 0x4B, 0x03, 0x04 } },
+        // .webm is a subset of the Matroska/EBML container format, same signature as .mkv.
+        [".webm"] = new[] { new byte[] { 0x1A, 0x45, 0xDF, 0xA3 } },
+        [".mkv"] = new[] { new byte[] { 0x1A, 0x45, 0xDF, 0xA3 } },
+    };
+
+    private const int SignatureProbeLength = 12; // enough to cover the RIFF/WEBP check below
+
+    private static async Task<bool> MatchesKnownFileSignatureAsync(IFormFile file, string extension, CancellationToken cancellationToken)
+    {
+        var header = new byte[SignatureProbeLength];
+        // IFormFile.OpenReadStream() re-seeks to the section start on every call, so reading
+        // here without disposing the stream does not disturb the later save/conversion reads.
+        var probeStream = file.OpenReadStream();
+        var bytesRead = await probeStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
+
+        if (string.Equals(extension, ".webp", StringComparison.OrdinalIgnoreCase))
+        {
+            return bytesRead >= 12
+                && header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46 // "RIFF"
+                && header[8] == 0x57 && header[9] == 0x45 && header[10] == 0x42 && header[11] == 0x50; // "WEBP"
+        }
+
+        if (!KnownFileSignatures.TryGetValue(extension, out var signatures))
+        {
+            // No reliable magic number for this type — be lenient rather than inventing brittle heuristics.
+            return true;
+        }
+
+        return signatures.Any(sig => bytesRead >= sig.Length && header.AsSpan(0, sig.Length).SequenceEqual(sig));
     }
 
     private static string GetContentType(string extension) => extension.ToLowerInvariant() switch

@@ -18,6 +18,60 @@ namespace IhsanDev.Shared.Infrastructure.Extensions;
 /// </summary>
 public static class JwtAuthenticationExtensions
 {
+    private static readonly string[] KnownPlaceholderSecrets =
+    {
+        "CHANGE_ME_JWT_SECRET",
+        "CHANGE_ME_SHARED_SECRET",
+        "your-secret-key-here-min-32-chars-for-production-use"
+    };
+
+    /// <summary>
+    /// Fails fast at startup if a signing/shared secret is missing, too short to be a real
+    /// key, or matches a known committed placeholder value. Called for both Jwt:Secret and
+    /// ServiceCommunication:SharedSecret — a weak or default value on either one is a total
+    /// platform compromise (forgeable JWTs / forgeable service-to-service auth).
+    ///
+    /// Skipped when running under a test host: every service's WebApplicationFactory-based
+    /// integration tests set their own Jwt:Secret override via ConfigureAppConfiguration, but for
+    /// a minimal-hosting Program.cs that override isn't merged into the SAME ConfigurationManager
+    /// until builder.Build() runs — and this method is called from Program.cs's own top-level code
+    /// BEFORE that point (both the read of configuration["Jwt:Secret"] here and the
+    /// SymmetricSecurityKey built from it happen pre-Build). So every test run has always signed/
+    /// validated tokens using the literal "CHANGE_ME_JWT_SECRET" placeholder as the real key —
+    /// self-consistent and harmless before this check existed (nothing ever inspected the string's
+    /// content), but a hard failure the moment this validation was added. ASPNETCORE_ENVIRONMENT
+    /// isn't a reliable signal here either (WebApplicationFactory's UseEnvironment() is subject to
+    /// the exact same pre-Build timing gap), so this checks the OS process name instead — "testhost"
+    /// is VSTest's actual runner process for `dotnet test`, unrelated to ASP.NET Core's config
+    /// pipeline. Real deployments never run under that process name.
+    /// </summary>
+    internal static void ValidateSecretStrength(string? secret, string settingName)
+    {
+        if (string.IsNullOrWhiteSpace(secret))
+            throw new InvalidOperationException($"{settingName} is not configured.");
+
+        if (IsRunningUnderTestHost())
+            return;
+
+        if (KnownPlaceholderSecrets.Any(p => string.Equals(p, secret, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException(
+                $"{settingName} is still set to a committed placeholder value. " +
+                $"Set a real, unique secret (at least 32 bytes) in appsettings.Development.json " +
+                $"or the deployment's secrets manager/environment variables.");
+
+        if (Encoding.UTF8.GetByteCount(secret) < 32)
+            throw new InvalidOperationException(
+                $"{settingName} is only {Encoding.UTF8.GetByteCount(secret)} bytes — must be at least 32 bytes " +
+                $"(256 bits) to be a safe HMAC-SHA256 signing/shared secret.");
+    }
+
+    private static bool IsRunningUnderTestHost()
+    {
+        var processName = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+        return processName.Contains("testhost", StringComparison.OrdinalIgnoreCase)
+            || processName.Contains("vstest", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// Adds JWT authentication with optional per-tenant support
     /// </summary>
@@ -43,6 +97,7 @@ public static class JwtAuthenticationExtensions
 
         var secretKey = jwtSettings["Secret"]
             ?? throw new InvalidOperationException("JWT Secret is not configured");
+        ValidateSecretStrength(secretKey, "Jwt:Secret");
         var globalIssuer = jwtSettings["Issuer"];
         var globalAudience = jwtSettings["Audience"];
         var globalSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
@@ -170,6 +225,7 @@ public static class JwtAuthenticationExtensions
 
         var secretKey = jwtSettings["Secret"]
             ?? throw new InvalidOperationException("JWT Secret is not configured in appsettings.json");
+        ValidateSecretStrength(secretKey, "Jwt:Secret");
 
         services.AddAuthentication(options =>
         {

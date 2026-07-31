@@ -72,7 +72,8 @@ public static class LocalizationKeys
         // Backup service exceptions
         public const string BackupTargetNotFound = "exception_backup_target_not_found";
         public const string BackupRunNotFound = "exception_backup_run_not_found";
-        public const string BackupProcessFailed = "exception_backup_process_failed";
+        public const string BackupToolNotFound = "exception_backup_tool_not_found";
+        public const string BackupProcessFailedWithDetails = "exception_backup_process_failed_with_details";
     }
 
     /// <summary>
@@ -186,6 +187,9 @@ public static class LocalizationKeys
         public const string Category = "field_category";
         public const string Translations = "field_translations";
         public const string TranslationCount = "field_translation_count";
+
+        // Backup fields
+        public const string TargetConnectionOverride = "field_target_connection_override";
     }
 
     /// <summary>

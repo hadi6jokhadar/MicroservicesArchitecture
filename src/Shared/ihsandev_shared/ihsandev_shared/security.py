@@ -22,6 +22,7 @@ Usage:
     async def my_route(auth: dict = Depends(get_current_user_or_service)):
         ...
 """
+import hmac
 import logging
 
 import jwt
@@ -73,7 +74,9 @@ def make_auth_dependency(jwt_settings: JwtSettings, service_comm: ServiceCommuni
             service_name_header = request.headers.get("X-Service-Name", "")
 
             if secret_header is not None:
-                if secret_header != service_comm.SharedSecret:
+                # Constant-time comparison — this secret unlocks service-to-service auth for
+                # the entire platform, so a plain != short-circuit is a timing side-channel.
+                if not hmac.compare_digest(secret_header, service_comm.SharedSecret):
                     logger.warning(
                         "Invalid X-Service-Secret from service '%s' at %s",
                         service_name_header,
@@ -84,8 +87,18 @@ def make_auth_dependency(jwt_settings: JwtSettings, service_comm: ServiceCommuni
                         detail="Invalid service secret.",
                     )
 
-                # Validate against the allowed-services whitelist if configured
-                if service_comm.AllowedServices and service_name_header:
+                # X-Service-Name is required, not optional: an empty/missing header used to
+                # skip the allowlist check entirely instead of failing it.
+                if service_comm.AllowedServices:
+                    if not service_name_header:
+                        logger.warning(
+                            "Service secret presented with no X-Service-Name header at %s",
+                            request.url,
+                        )
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="X-Service-Name header is required.",
+                        )
                     if service_name_header not in service_comm.AllowedServices:
                         logger.warning(
                             "Service '%s' is not in AllowedServices list.", service_name_header

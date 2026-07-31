@@ -18,6 +18,8 @@ The API Gateway is the single entry point for all client-to-service traffic. It 
 - **Rate limiting** — 500 requests per minute per IP to protect services from abuse
 - **SSE streaming support** — AI chat stream responses forwarded correctly with extended timeout
 - **Health check** — lightweight `/health` endpoint on the gateway itself
+- **Request timeouts** — a conservative default timeout on every proxied route, plus an extended override for the AI streaming route
+- **HTTPS redirection / HSTS** — enforced on the public-facing listener outside of Development
 
 ---
 
@@ -25,7 +27,7 @@ The API Gateway is the single entry point for all client-to-service traffic. It 
 
 | Service      | Port | Gateway route prefix(es)                                                                                                      |
 | ------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Identity     | 5001 | `/api/v1/auth/...`, `/api/v1/user/...`, `/api/v1/roles/...`, `/api/v1/claims/...`, `/api/v1/device-tokens/...`, `/api/v1/admin/...` (catch-all) |
+| Identity     | 5001 | `/api/v1/auth/...`, `/api/v1/user/...`, `/api/v1/roles/...`, `/api/v1/claims/...`, `/api/v1/device-tokens/...`, `/api/v1/admin/users/...`, `/api/v1/admin/roles/...`, `/api/v1/admin/claims/...` |
 | Tenant       | 5002 | `/api/v1/tenant/...`, `/api/v1/admin/tenant/...`                                                                              |
 | Notification | 5004 | `/api/v1/notifications/...`                                                                                                   |
 | FileManager  | 5005 | `/api/v1/filemanager/...`                                                                                                     |
@@ -57,7 +59,11 @@ Several services expose endpoints under `/api/v1/admin/`. YARP resolves these by
 | `/api/v1/admin/backup-targets/{**}` | 5 | Backup (5010)                                                  |
 | `/api/v1/admin/backups/{**}`    | 5     | Backup (5010)                                                   |
 | `/api/v1/admin/restores/{**}`   | 5     | Backup (5010)                                                   |
-| `/api/v1/admin/{**}`            | 20    | Identity (5001) — catch-all; also serves Identity audit-logs at `/api/admin/audit-logs` |
+| `/api/v1/admin/users/{**}`      | 20    | Identity (5001)                                                 |
+| `/api/v1/admin/roles/{**}`      | 20    | Identity (5001)                                                 |
+| `/api/v1/admin/claims/{**}`     | 20    | Identity (5001)                                                 |
+
+**July 2026 security audit fix:** `/api/v1/admin/{**catch-all}` used to be a single bare catch-all covering everything not matched above. Because Notification, FileManager, Translation, and Nasheed each only expose a single audit-log route under `/admin` (Order 4) with no general admin route of their own, any *other* unclaimed `/api/v1/admin/*` path (e.g. `/api/v1/admin/notifications/anything-else`) silently fell through and forwarded to Identity instead of 404ing at the gateway edge. Fixed by scoping the Identity route to its three actual admin prefixes — `users`, `roles`, `claims` — matching `MapAdminEndpoints`/`MapRoleEndpoints`/`MapClaimEndpoints` in `Identity.API/Extensions/EndpointMappingExtensions.cs`. Any other `/api/v1/admin/*` path now 404s at the gateway.
 
 ### Audit Log Endpoints
 
@@ -94,6 +100,42 @@ The **stream route** (`ai-stream-route`) has additional configuration:
 
 ---
 
+## Request Timeouts
+
+`Program.cs` calls `AddRequestTimeouts(options => options.DefaultPolicy = ...)` with a **100-second `DefaultPolicy`** applied to every proxied route that doesn't declare its own YARP `Timeout` value. Before the July 2026 security audit, only `ai-stream-route`'s per-route `Timeout` was set — every other route relied solely on Kestrel's minimum-data-rate heuristics with no explicit request-level ceiling. The `DefaultPolicy` does not affect `ai-stream-route`'s own 10-minute override (per-route YARP `Timeout` values take precedence over the middleware default).
+
+```csharp
+// Gateway — Program.cs
+builder.Services.AddRequestTimeouts(options =>
+{
+    options.DefaultPolicy = new RequestTimeoutPolicy
+    {
+        Timeout = TimeSpan.FromSeconds(100)
+    };
+});
+```
+
+`app.UseRequestTimeouts()` must sit between routing and endpoint execution (already the case) for both the default policy and the per-route YARP `Timeout` values to be enforced.
+
+---
+
+## HTTPS Redirection / HSTS
+
+Outside of `Development`, the gateway calls `UseHsts()` and `UseHttpsRedirection()` on its own public-facing listener — gated the same way every other service in this repo gates it (see `Notification.API`'s `Program.cs`):
+
+```csharp
+// Gateway — Program.cs
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+```
+
+This only affects the gateway's own inbound listener. It does **not** change the YARP `Destinations` in `appsettings.json` — those stay `http://` intentionally, since they're internal, plain-HTTP calls to other services on the same Docker network, not public-facing.
+
+---
+
 ## Service-to-Service Calls — Do NOT Use the Gateway
 
 Internal calls between .NET services must go **direct** to the target service port, bypassing the gateway entirely. Using the gateway for internal calls adds latency and ties internal availability to gateway availability.
@@ -110,17 +152,18 @@ Internal calls between .NET services must go **direct** to the target service po
 
 ## Correlation ID
 
-The gateway injects `X-Correlation-Id` on every inbound request that does not already carry one:
+The gateway **always generates a fresh, server-side** `X-Correlation-Id` and overwrites whatever the client sent — it never trusts a client-supplied value:
 
 ```csharp
 // Gateway — Program.cs
 app.Use(async (ctx, next) =>
 {
-    if (!ctx.Request.Headers.ContainsKey("X-Correlation-Id"))
-        ctx.Request.Headers.Append("X-Correlation-Id", Guid.NewGuid().ToString());
+    ctx.Request.Headers["X-Correlation-Id"] = Guid.NewGuid().ToString();
     await next();
 });
 ```
+
+**July 2026 security audit fix:** this used to only fill in the header when absent (`if (!ctx.Request.Headers.ContainsKey(...))`), which let a client-supplied `X-Correlation-Id` pass straight through unverified to every backend's logs/traces — allowing log/trace forgery (a malicious or buggy client could plant an arbitrary ID, or collide with another request's real ID). The gateway is the single point where the real client boundary is crossed, so it now always mints its own ID here, regardless of what the client sent.
 
 Every downstream service reads the header, stores it in `HttpContext.Items`, echoes it back in the response, and enriches the structured log scope for the entire request lifetime via `CorrelationIdMiddleware` (in `IhsanDev.Shared.Infrastructure`):
 
@@ -129,16 +172,16 @@ Every downstream service reads the header, stores it in `HttpContext.Items`, ech
 app.UseCorrelationId();   // must be called before UseLocalization/UseGlobalExceptionHandler
 ```
 
-The frontend `correlationIdInterceptor` (`libs/core/src/lib/interceptors/`) reads the echoed response header and sends the same ID on all subsequent requests, creating a continuous trace chain: browser → gateway → service → logs.
+The frontend `correlationIdInterceptor` (`libs/core/src/lib/interceptors/`) reads the echoed response header and sends the same ID on all subsequent requests, creating a continuous trace chain: browser → gateway → service → logs. Since the gateway now always overwrites the header, any ID the frontend previously stored and resent is replaced with a new one at the gateway on every hop — the chain is still continuous end-to-end for a single request/response pair, it's just no longer client-controlled across requests.
 
 **End-to-end trace example:**
 
 ```
-Browser sends:   X-Correlation-Id: abc-123
-Gateway:         echoes it through (already present — no new ID needed)
-Identity logs:   CorrelationId: abc-123  (in every log line for this request)
-Response header: X-Correlation-Id: abc-123
-Browser stores:  "abc-123" → sent on next request
+Browser sends:   X-Correlation-Id: abc-123 (or nothing)
+Gateway:         overwrites with a fresh server-generated ID — xyz-789
+Identity logs:   CorrelationId: xyz-789  (in every log line for this request)
+Response header: X-Correlation-Id: xyz-789
+Browser stores:  "xyz-789" → sent on next request (gateway will overwrite it again)
 ```
 
 ---
@@ -163,10 +206,13 @@ All three gateway-level limiters use a **token bucket** algorithm, not a fixed w
 | GlobalLimiter | platform-wide, single bucket | 20,000 | 5,000/s | `RateLimiting:Global` |
 | per-ip (general API) | per client IP | 200 | 50/s | `RateLimiting:PerIp` |
 | per-ip (auth) | per client IP, **separate** bucket from general API | 20 | 5/s | `RateLimiting:PerIpAuth` |
+| health-aggregate | per client IP | 60 | 20/s | `RateLimiting:HealthAggregate` |
 
 Rejection returns HTTP `429 Too Many Requests`.
 
-**`GlobalLimiter` applies to every request through `UseRateLimiter()` by default — there is no opt-in required, unlike the named `per-ip` policy.** Any endpoint that should never compete with real API traffic for that budget (health probes, metrics scraping) must explicitly call `.DisableRateLimiting()`. `/health` and `/health/aggregate` do this. A load test in July 2026 found that without it, `/health` shared the same global budget as proxied API traffic and started returning 429s above a moderate sustained rate — see `LOAD_TESTING_GUIDE.md` for the full investigation. When adding any new infrastructure/probe endpoint to the gateway, remember to call `.DisableRateLimiting()` on it.
+**`GlobalLimiter` applies to every request through `UseRateLimiter()` by default — there is no opt-in required, unlike a named policy.** An endpoint that should never compete with real API traffic for that budget must explicitly call `.DisableRateLimiting()`. Only the lightweight `/health` endpoint does this. A load test in July 2026 found that without it, `/health` shared the same global budget as proxied API traffic and started returning 429s above a moderate sustained rate — see `LOAD_TESTING_GUIDE.md` for the full investigation.
+
+**`/health/aggregate` does NOT use `.DisableRateLimiting()`** — it uses the named `health-aggregate` policy instead (`.RequireRateLimiting("health-aggregate")`, still `.AllowAnonymous()`). A July 2026 security audit found the previous `.DisableRateLimiting()` bypassed both the `GlobalLimiter` and the `per-ip` policy for this one route, and since it fans out to a 9-way `Task.WhenAll` downstream call per hit, an unauthenticated flood multiplied into a 9x amplification against every downstream service with no ceiling at all. The `health-aggregate` policy is generous (60 burst / 20 per second per IP) — enough for normal monitoring/LB polling — but no longer unlimited. When adding any new infrastructure/probe endpoint to the gateway, decide per-endpoint whether `.DisableRateLimiting()` (truly cheap, no fan-out) or a dedicated named policy (any fan-out or non-trivial cost per hit) is appropriate — don't default to `.DisableRateLimiting()` just because the endpoint is unauthenticated.
 
 **Auth has its own per-IP bucket, separate from general API traffic** (`RateLimiting:PerIpAuth`), keyed by `{ip}:auth` vs `{ip}:api` inside the same `"per-ip"` named policy (branches on whether `context.Request.Path` starts with `/api/v1/auth`). This means a burst of unrelated API calls from a shared NAT/office IP can throttle general traffic without ever affecting that IP's ability to log in — verified by a concurrent load test: hammering a general endpoint at 3x its sustained rate produced ~58% 429s on that endpoint while 100% of simultaneous login attempts from the same IP succeeded.
 
@@ -205,7 +251,7 @@ Lightweight — gateway process only. Always fast. Safe to use as a load-balance
 GET http://localhost:5000/health/aggregate
 ```
 
-Calls all 9 downstream `/health` endpoints in parallel (5-second timeout each). Reads cluster addresses from the YARP `ReverseProxy:Clusters` config, so it stays in sync with the routing table automatically. Also exempt from `GlobalLimiter` via `.DisableRateLimiting()` — but note this endpoint fans out to 9 downstream calls per single incoming request, so it should still not be polled at high frequency regardless of rate-limit exemption.
+Calls all 9 downstream `/health` endpoints in parallel (5-second timeout each). Reads cluster addresses from the YARP `ReverseProxy:Clusters` config, so it stays in sync with the routing table automatically. Rate-limited via the dedicated `health-aggregate` policy (60 burst / 20 per second per IP, see Rate Limiting section above) rather than `.DisableRateLimiting()` — this endpoint fans out to 9 downstream calls per single incoming request, so an unbounded/unauthenticated caller could multiply into a 9x amplification against every downstream service. Still `.AllowAnonymous()` — health checks remain reachable without auth — just no longer unlimited.
 
 ```json
 {
@@ -279,7 +325,7 @@ The gateway is included at the end of the startup sequence (labeled **Gateway AP
 ```
 src/Gateway/
 └── Gateway.API/
-    ├── Program.cs                    # YARP + rate limiter + correlation ID middleware
+    ├── Program.cs                    # YARP + rate limiter + request timeouts + correlation ID + HTTPS redirection/HSTS
     ├── appsettings.json              # Full YARP routing table for all 9 services
     ├── appsettings.Development.json  # Dev overrides (empty by default)
     ├── Gateway.API.csproj
@@ -297,7 +343,7 @@ The `ReverseProxy` section follows the [YARP configuration documentation](https:
 Key fields:
 
 - `Routes[*].ClusterId` — which cluster (service) to forward to
-- `Routes[*].Order` — priority (lower = matched first); use `4` for audit-log routes with path rewrite, `5` for specific admin routes, `10` for standard routes, `20` for admin catch-all
+- `Routes[*].Order` — priority (lower = matched first); use `4` for audit-log routes with path rewrite, `5` for specific admin routes, `10` for standard routes, `20` for Identity's scoped admin routes (`users`/`roles`/`claims`)
 - `Routes[*].Match.Path` — path pattern with `{**catch-all}` wildcard
 - `Routes[*].Transforms` — path rewrites and header modifications
 - `Routes[*].Timeout` — per-route request timeout (used for SSE stream route: 10 minutes)
@@ -309,5 +355,11 @@ Key fields:
 
 - [ ] Update all frontend API base URLs to point to `http://localhost:5000` (dev) / production gateway URL
 - [x] Wire `/health/aggregate` to probe all downstream `/health` endpoints — **implemented June 2026**
-- [ ] Add TLS termination (production)
+- [x] Bound `/health/aggregate`'s rate limit instead of `.DisableRateLimiting()` — **implemented July 2026 (security audit)**
+- [x] Scope the Identity admin catch-all to its real prefixes (`users`/`roles`/`claims`) instead of a bare catch-all — **implemented July 2026 (security audit)**
+- [x] Always regenerate `X-Correlation-Id` server-side instead of trusting a client-supplied value — **implemented July 2026 (security audit)**
+- [x] Add a default request-timeout policy for routes with no per-route `Timeout` — **implemented July 2026 (security audit)**
+- [x] Gate `UseHsts()`/`UseHttpsRedirection()` on the gateway's own listener outside Development — **implemented July 2026 (security audit)**
+- [ ] Add TLS termination (production) — the July 2026 HSTS/HTTPS-redirection fix assumes TLS is already terminated in front of (or by) the gateway; actual certificate/TLS setup for the public listener is still open
 - [ ] Consider per-service rate limit tiers (AI service may need stricter limits)
+- [ ] Design and add gateway-level JWT authentication for anonymous-by-default routes — deliberately out of scope for the July 2026 security-audit pass pending a design discussion enumerating every route that must stay anonymous (login, register, OTP flows, forgot-password, public tenant lookup, health, refresh)

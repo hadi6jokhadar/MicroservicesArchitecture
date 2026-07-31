@@ -118,7 +118,7 @@ When `generate_session_title=true` is included in `POST /api/v1/chat/stream` or 
 When `file_ids` is provided in a chat request the `multimodal_transform` node handles the full encoding pipeline:
 
 1. **Metadata fetch** — `file_manager_client.get_files_by_ids` retrieves name, extension, MIME type, and URLs for every file ID.
-2. **Byte download** — `fetch_file_bytes_with_fallback` downloads raw bytes from `external_url` (CDN). If that request fails, it retries using the internal `url` field.
+2. **Byte download** — `fetch_file_bytes_with_fallback` downloads raw bytes from `external_url` (CDN). If that request fails, it retries using the internal `url` field. Before every fetch, `fetch_file_bytes` (SSRF guard) resolves the destination hostname and rejects loopback/private/link-local addresses (including the `169.254.169.254` cloud metadata address) — the sole exception is `FileManagerSettings.BaseUrl`'s own host, since that's expected to be internal (localhost in dev, a Docker-internal name in production). Redirects are never followed (`follow_redirects=False`); a 3xx response is treated as a rejected fetch.
 3. **MIME classification** — `classify_media_type` groups each file into `image`, `audio`, `document`, or `unknown`.
 4. **Block encoding** (provider-aware):
    - Images → `{"type": "image_url", "image_url": {"url": "data:<mime>;base64,..."}}`
@@ -363,7 +363,7 @@ Important sections:
 - `Urls`
 - `DatabaseSettings`
 - `Jwt`
-- `Cors`
+- `Cors` — `AllowedOrigins` is a required, non-empty list (Pydantic validator in `CorsSettings` raises at startup otherwise). CORS is always registered with `allow_credentials=True`, so there is no `["*"]` fallback: an empty/missing list would let any origin make credentialed cross-site requests (Starlette reflects the request `Origin` header instead of a literal wildcard whenever credentials are enabled).
 - `ServiceCommunication`
 - `FileManagerSettings`
 

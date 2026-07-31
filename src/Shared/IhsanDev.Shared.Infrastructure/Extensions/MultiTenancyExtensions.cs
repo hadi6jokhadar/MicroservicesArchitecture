@@ -129,7 +129,10 @@ public static class MultiTenancyExtensions
     /// <summary>
     /// Add JWT tenant verification middleware to the request pipeline
     /// Verifies that the tenant_id claim in JWT matches the x-tenant-id header
-    /// Must be called AFTER UseTenantResolution() and BEFORE UseAuthentication()
+    /// Must be called AFTER UseAuthentication() and BEFORE UseAuthorization() — it reads
+    /// context.User, which is only populated once authentication has run. Calling it before
+    /// UseAuthentication() (the previous documented contract) makes it a silent no-op: every
+    /// request is unauthenticated at that point, so the check always short-circuits.
     /// Only adds middleware if multi-tenancy is enabled
     /// </summary>
     public static IApplicationBuilder UseJwtTenantVerification(

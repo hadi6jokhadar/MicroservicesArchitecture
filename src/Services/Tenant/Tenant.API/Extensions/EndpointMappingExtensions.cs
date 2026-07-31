@@ -49,11 +49,14 @@ public static class EndpointMappingExtensions
             .WithDescription("Returns feature flags for the given tenantId, or system defaults when tenantId is omitted. Safe to call from any app without authentication.")
             .Produces<Dictionary<string, bool>>(200);
 
-        // Public tenant info endpoint (without sensitive data)
+        // Public tenant info endpoint (without sensitive data or UserId — see PublicTenantDto).
+        // Rate-limited per-IP since this route is unauthenticated and otherwise offers a free
+        // tenant-ID enumeration primitive.
         publicGroup.MapGet("/{tenantId}", TenantApiHandlers.GetTenantByIdHandler)
+            .RequireRateLimiting("PublicTenantLookup")
             .WithName("GetTenantById")
             .WithSummary("Get tenant by ID")
-            .WithDescription("Get tenant information (excludes sensitive configuration data)")
+            .WithDescription("Get tenant information (excludes sensitive configuration data and UserId)")
             .Produces<object>(200)
             .Produces(404);
 

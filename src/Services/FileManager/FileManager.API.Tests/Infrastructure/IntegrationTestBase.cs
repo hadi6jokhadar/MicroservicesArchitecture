@@ -102,6 +102,35 @@ public abstract class IntegrationTestBase :
     }
 
     /// <summary>
+    /// Create a test file stream whose leading bytes match the real magic-byte signature for
+    /// the given extension, so SaveFileAsync's content-signature check (see
+    /// FileManagerService.KnownFileSignatures) accepts it. Only exercises the extension-based
+    /// auto-detection logic under test — the payload past the signature is arbitrary filler.
+    /// </summary>
+    protected MemoryStream CreateTestFileStreamWithSignature(string extension, int totalSize = 64)
+    {
+        var signature = extension.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => new byte[] { 0xFF, 0xD8, 0xFF },
+            ".png" => new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A },
+            ".gif" => new byte[] { 0x47, 0x49, 0x46, 0x38, 0x39, 0x61 },
+            ".bmp" => new byte[] { 0x42, 0x4D },
+            ".pdf" => new byte[] { 0x25, 0x50, 0x44, 0x46 },
+            ".zip" or ".docx" or ".xlsx" => new byte[] { 0x50, 0x4B, 0x03, 0x04 },
+            ".webm" or ".mkv" => new byte[] { 0x1A, 0x45, 0xDF, 0xA3 },
+            _ => Array.Empty<byte>()
+        };
+
+        var buffer = new byte[Math.Max(totalSize, signature.Length)];
+        signature.CopyTo(buffer, 0);
+
+        var stream = new MemoryStream();
+        stream.Write(buffer, 0, buffer.Length);
+        stream.Position = 0;
+        return stream;
+    }
+
+    /// <summary>
     /// Create a test IFormFile from stream
     /// </summary>
     protected Microsoft.AspNetCore.Http.IFormFile CreateFormFile(Stream stream, string fileName, string contentType = "application/octet-stream")

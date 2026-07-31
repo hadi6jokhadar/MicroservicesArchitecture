@@ -204,7 +204,6 @@ app.UseDefaultDatabaseMigration<MyServiceDbContext>();      // safety net for gl
 
 app.UseTenantResolution(builder.Configuration);        // 1. reads x-tenant-id, calls Tenant Service, sets ITenantContext
 app.UseTenantAwareCors();                              // 2. CORS based on tenant config (BEFORE JWT verification)
-app.UseJwtTenantVerification(builder.Configuration);   // 3. verifies JWT tenant_id claim == x-tenant-id header
 
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
 if (multiTenancyEnabled)
@@ -213,6 +212,9 @@ if (multiTenancyEnabled)
 }
 
 app.UseAuthentication();
+app.UseJwtTenantVerification(builder.Configuration);   // 3. verifies JWT tenant_id claim == x-tenant-id header — MUST be
+                                                        //    after UseAuthentication(), which populates context.User;
+                                                        //    it silently no-ops if placed before it (see Critical Rules #9)
 app.UseAuthorization();
 ```
 
@@ -339,7 +341,6 @@ app.UseDefaultDatabaseMigration<MyServiceTenantDbContext>();
 
 app.UseTenantResolution(builder.Configuration);
 app.UseTenantAwareCors();
-app.UseJwtTenantVerification(builder.Configuration);
 
 var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false);
 if (multiTenancyEnabled)
@@ -349,6 +350,7 @@ if (multiTenancyEnabled)
 }
 
 app.UseAuthentication();
+app.UseJwtTenantVerification(builder.Configuration);   // MUST be after UseAuthentication() — see Critical Rules #9
 app.UseAuthorization();
 ```
 
@@ -469,12 +471,14 @@ app.UseAuthorization();
 5. **Correct full middleware order (Strategies B/C)**:
    `InitializeDatabaseAsync` (before app.Run) →
    `UseDefaultDatabaseMigration` →
-   `UseTenantResolution` → `UseTenantAwareCors` → `UseJwtTenantVerification` →
+   `UseTenantResolution` → `UseTenantAwareCors` →
    `UseTenantDatabaseMigration` (if multi-tenancy enabled) →
-   `UseAuthentication` → `UseAuthorization`
+   `UseAuthentication` → `UseJwtTenantVerification` → `UseAuthorization`
 
 6. **`[BypassTenant]` endpoints** must never depend on `ITenantContext.CurrentTenant` — the DbContext will use the global fallback connection.
 
 7. **Strategy B/C DbContexts** must handle `optionsBuilder.IsConfigured` early — DI configuration from tests and `Program.cs` takes priority over `OnConfiguring`.
 
 8. **Strategy C: `InitializeDatabaseAsync` is only needed for the global context** — the tenant history context is only accessed per-request with tenant context; `UseTenantDatabaseMigration` handles it lazily.
+
+9. **`UseJwtTenantVerification` MUST be called AFTER `UseAuthentication()`, not before** — it reads `context.User.FindFirst("tenant_id")`, which is only populated once authentication has run. This file previously documented the opposite order ("AFTER UseTenantResolution() and BEFORE UseAuthentication()"), which made the check a silent no-op in every service that followed it: `context.User` is always the unauthenticated default principal before `UseAuthentication()` runs, so the tenant/JWT cross-check always took its early-return path and never actually compared anything — a full cross-tenant break platform-wide, found and fixed in a July 2026 security audit across Identity, Category, FileManager, Notification, and Nasheed. If you find this document (or a service's `Program.cs`) still showing the old order, that is the bug, not a valid alternative — fix the order rather than following it.

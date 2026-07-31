@@ -7,11 +7,23 @@ Base64 encoding, and OpenAI-compatible content block assembly.
 LiteLLM's adapter layer translates these standard blocks into the
 proprietary formats required by Claude, Gemini, Qwen, etc.
 """
+import asyncio
 import base64
+import ipaddress
 import mimetypes
+import socket
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import httpx
+
+from core.config import settings
+
+# The only internal host allowed to resolve to a loopback/private/link-local
+# address — FileManager itself, which legitimately runs at localhost in dev
+# and at a Docker-internal hostname in production. Every other destination
+# is expected to be a public URL (e.g. the Cloudflare R2 external_url).
+_FILE_MANAGER_HOST = urlparse(settings.FileManagerSettings.BaseUrl).hostname
 
 # ---------------------------------------------------------------------------
 # MIME type sets
@@ -137,10 +149,43 @@ def resolve_audio_format(raw_provider: str, provider_normalized: str) -> str:
 # Raw byte fetcher
 # ---------------------------------------------------------------------------
 
+def _is_blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    return ip.is_loopback or ip.is_private or ip.is_link_local
+
+
+async def _assert_safe_fetch_destination(hostname: Optional[str]) -> None:
+    """Reject hosts that resolve to loopback/private/link-local addresses
+    (including the 169.254.169.254 cloud metadata address) — SSRF guard for
+    fetch_file_bytes. FileManager's own host is exempted since it's expected
+    to be internal (localhost in dev, a Docker-internal name in production)."""
+    if not hostname:
+        raise ValueError("File fetch URL has no hostname.")
+    if hostname == _FILE_MANAGER_HOST:
+        return
+    try:
+        addr_infos = await asyncio.to_thread(socket.getaddrinfo, hostname, None)
+    except socket.gaierror as exc:
+        raise ValueError(f"Could not resolve file fetch hostname {hostname!r}.") from exc
+    for *_rest, sockaddr in addr_infos:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if _is_blocked_ip(ip):
+            raise ValueError(
+                f"Refusing to fetch file from {hostname!r} — resolves to a "
+                f"loopback/private/link-local address ({ip})."
+            )
+
+
 async def fetch_file_bytes(url: str) -> bytes:
     """Download raw bytes from a URL. Raises httpx.HTTPStatusError on non-2xx responses."""
-    async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Unsupported file fetch scheme: {parsed.scheme!r}")
+    await _assert_safe_fetch_destination(parsed.hostname)
+
+    async with httpx.AsyncClient(follow_redirects=False, timeout=30.0) as client:
         response = await client.get(url)
+        if response.is_redirect:
+            raise ValueError(f"Refusing to follow redirect when fetching file from {url!r}.")
         response.raise_for_status()
         return response.content
 

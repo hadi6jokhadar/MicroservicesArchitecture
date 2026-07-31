@@ -1,6 +1,7 @@
 using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Tenant.Application.Commands.Tenant;
+using Tenant.Application.DTOs;
 using Tenant.Domain.Repositories;
 
 namespace Tenant.API.Handlers;
@@ -38,7 +39,12 @@ public static class TenantApiHandlers
     }
 
     /// <summary>
-    /// Get tenant by tenant ID (excludes sensitive Data field)
+    /// Get tenant by tenant ID (public, unauthenticated). Excludes the sensitive Data field AND
+    /// UserId — this route has no auth, so returning the owning user's numeric ID here would let
+    /// anyone resolve a tenant slug straight into an enumeration primitive for account-takeover /
+    /// cross-tenant attacks elsewhere. Projected to <see cref="PublicTenantDto"/> at this HTTP
+    /// boundary rather than narrowing <see cref="Tenant.Application.DTOs.TenantDto"/> itself,
+    /// since that DTO also backs SuperAdmin-only admin queries that legitimately need UserId.
     /// </summary>
     public static async Task<IResult> GetTenantByIdHandler(
         string tenantId,
@@ -48,8 +54,10 @@ public static class TenantApiHandlers
     {
         var query = new GetTenantByIdQuery(tenantId);
         var result = await mediator.Send(query, ct);
-        
-        return result != null ? Results.Ok(result) : Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound, tenantId) });
+
+        return result != null
+            ? Results.Ok(PublicTenantDto.MapFrom(result))
+            : Results.NotFound(new { message = localizationService.GetString(LocalizationKeys.Exceptions.TenantNotFound, tenantId) });
     }
 
     /// <summary>
@@ -74,10 +82,11 @@ public static class TenantApiHandlers
         int pageNumber = 1,
         int pageSize = 100,
         bool isArchived = false,
+        string? searchTerm = null,
         IMediator mediator = null!,
         CancellationToken ct = default)
     {
-        var query = new GetAllActiveTenantsQuery(pageNumber, pageSize, isArchived);
+        var query = new GetAllActiveTenantsQuery(pageNumber, pageSize, isArchived, searchTerm);
         var result = await mediator.Send(query, ct);
         
         return Results.Ok(result);

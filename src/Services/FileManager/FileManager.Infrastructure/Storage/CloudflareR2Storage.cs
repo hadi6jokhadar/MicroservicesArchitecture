@@ -51,6 +51,7 @@ public class CloudflareR2Storage : IBlobStorage
         string objectKey,
         Stream stream,
         string contentType,
+        string? contentDisposition = null,
         CancellationToken cancellationToken = default)
     {
         if (_client == null || _settings == null)
@@ -69,6 +70,11 @@ public class CloudflareR2Storage : IBlobStorage
             // Disable chunk encoding so the SDK uses a standard signed request instead.
             UseChunkEncoding = false
         };
+
+        if (!string.IsNullOrEmpty(contentDisposition))
+        {
+            request.Headers.ContentDisposition = contentDisposition;
+        }
 
         await _client.PutObjectAsync(request, cancellationToken);
 

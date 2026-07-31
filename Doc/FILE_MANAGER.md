@@ -1,7 +1,7 @@
 # File Manager Service
 
 **Purpose:** Complete guide to the File Manager Service - handles file upload, storage, retrieval, and management with multi-tenancy support.  
-**Last Updated:** May 9, 2026  
+**Last Updated:** July 30, 2026  
 **Status:** ✅ Production Ready (v3.1.0)
 
 ---
@@ -137,6 +137,7 @@ FileManager/
     "RootStoragePath": "C:\\FileStorage",
     "FilesSavePath": "uploads",
     "FfmpegPath": "ffmpeg",
+    "FfmpegTimeoutSeconds": 60,
     "MaxFileSizeInMB": 50,
     "AllowedExtensions": [".jpg", ".png", ".pdf", ".docx", ".xlsx", ".zip"],
     "TempFileRetentionDays": 30
@@ -255,8 +256,10 @@ Form Data:
   group: 1
   type: 3
   temp: false
-  userId: 123
+  userId: 123   # only honored for Service/Admin/SuperAdmin callers — see note below
 ```
+
+> **Uploader identity:** the `userId` form field is only trusted when the authenticated caller has the `Service`, `Admin`, or `SuperAdmin` role (service-to-service uploads on behalf of another user). For a plain `User`-role caller, the form field is ignored entirely — the file's owner is always the JWT-authenticated caller's own ID (via `ICurrentUserService.UserId`), so one user can never tag an upload as belonging to another user. See `FileManager.API/Handlers/FileManagerApiHandlers.cs`.
 
 **Response:**
 
@@ -287,6 +290,7 @@ When an uploaded file extension is `.webm`, FileManager converts it to `.mp3` be
 - Stored metadata uses `.mp3` extension and `audio/mpeg` content type after conversion.
 - Non-WebM uploads skip conversion and follow the standard save pipeline.
 - FFmpeg executable resolution order: `FileManagerOptions:FfmpegPath` → system `PATH` → common Windows install paths.
+- **Timeout protection:** the conversion is bounded by `FileManagerOptions:FfmpegTimeoutSeconds` (default 60s). If ffmpeg doesn't exit in time, the entire process tree is killed (`Process.Kill(entireProcessTree: true)`) and the upload fails with an internal-server-error response — a crafted file designed to make ffmpeg hang can no longer tie up a worker indefinitely.
 
 > Runtime dependency: `ffmpeg` must be installed and available in `PATH` on environments running FileManager.
 > Optional override: set `FileManagerOptions:FfmpegPath` to a full executable path, for example `C:/ffmpeg/bin/ffmpeg.exe`.
@@ -396,6 +400,7 @@ Example: https://localhost:5005/ihsandev/123/personal/abc-123.jpg
 - ✅ CORS enabled for cross-origin access
 - ✅ Automatic MIME type detection
 - ✅ Direct streaming (no API overhead)
+- ✅ **Content-Disposition hardening:** any extension other than a standard raster image (`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.bmp`) or a sanitized `.svg` (see **SVG Sanitization** below) is served with `Content-Disposition: attachment` — e.g. PDF, Office docs, archives. `<img>`/`<audio>`/`<video>`/`fetch` subresource loads are unaffected either way — the header only changes behavior for top-level navigation. The same policy is applied when uploading to Cloudflare R2 (`ContentDisposition` object metadata set at upload time) via the shared `FileContentDispositionPolicy` helper in `FileManager.Infrastructure/Services/FileManagerService.cs`.
 
 ---
 
@@ -1052,6 +1057,31 @@ if (!allowedExtensions.Contains(extension))
 }
 ```
 
+### Content Signature (Magic-Byte) Validation
+
+Extension-only validation is not sufficient — a file can be renamed to claim any extension regardless of its actual bytes (this is what makes an SVG-labeled-as-image or an HTML file disguised as a PDF practical). After the extension allowlist check, `FileManagerService.SaveFileAsync` reads the first bytes of the raw upload and compares them against the known magic number for the claimed extension:
+
+| Extension                  | Signature checked                       |
+| --------------------------- | ---------------------------------------- |
+| `.png`                      | PNG header (`89 50 4E 47 0D 0A 1A 0A`)   |
+| `.jpg` / `.jpeg`             | JPEG SOI marker (`FF D8 FF`)             |
+| `.gif`                       | `GIF87a` / `GIF89a`                      |
+| `.bmp`                       | `BM`                                     |
+| `.webp`                      | RIFF container + `WEBP` at offset 8      |
+| `.pdf`                       | `%PDF`                                   |
+| `.zip` / `.docx` / `.xlsx`   | ZIP local-file-header (`PK\x03\x04`) — `.docx`/`.xlsx` are ZIP containers under the hood |
+| `.webm` / `.mkv`             | EBML header (`1A 45 DF A3`)              |
+
+Extensions with no reliable, well-known signature (plain text, some legacy Office formats, SVG's XML text body, etc.) are intentionally **not** checked — the validation is lenient there rather than inventing brittle heuristics that could reject legitimate uploads. A mismatch throws the same `InvalidFileType` exception as an unsupported extension.
+
+### SVG Sanitization / Non-Raster Content-Disposition
+
+`SaveFileAsync` sanitizes every uploaded `.svg` before it's persisted: parses it as XML (with DTD processing prohibited and no `XmlResolver`, to block XXE from a crafted external-entity reference), then strips `<script>` elements, `<foreignObject>` elements (arbitrary embedded HTML), every event-handler attribute (`onload`, `onclick`, ...), and any `href`/`xlink:href` set to a `javascript:` URI. A non-well-formed SVG is rejected outright with the same `InvalidFileType` exception as an unsupported extension — see `FileManagerService.SanitizeSvgAsync`.
+
+Because of that sanitization, `.svg` is treated as a **safe-inline** extension in `FileContentDispositionPolicy`, alongside the standard raster images (`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.bmp`) — every path that serves a stored file back (static file middleware, download endpoint, Cloudflare R2) serves these inline. Every other extension (PDF, Office docs, archives, etc.) still forces `Content-Disposition: attachment`.
+
+An earlier version of this fix forced `attachment` on SVG too, on the theory that SVG "renders as executable markup." That broke every place the Angular admin frontend previews an uploaded SVG inline via `<img>` (Category icons/images, user profile pictures, artist images all go through the shared File Manager, which explicitly allows `.svg` as an image type) — rendering an SVG through `<img>` was already safe from script execution (browsers disable scripting in that specific context), so forcing a download there fixed nothing while breaking the preview. Sanitizing on upload closes the actual risk — a direct navigation to or embed of the raw SVG URL — without that regression.
+
 ### Access Control
 
 **File Access Levels:**
@@ -1265,6 +1295,6 @@ dotnet ef database update
 
 ---
 
-**Last Updated:** January 27, 2026  
+**Last Updated:** July 30, 2026  
 **Version:** 2.0.0  
 **Status:** ✅ Production Ready

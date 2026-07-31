@@ -11,7 +11,8 @@ namespace Notification.Application.Commands;
 public record AcknowledgeNotificationCommand(
     int QueueItemId,
     string? ConnectionId = null,
-    DateTime? ReceivedAt = null
+    DateTime? ReceivedAt = null,
+    int? RequestingUserId = null
 ) : IRequest<bool>;
 
 public class AcknowledgeNotificationCommandValidator : LocalizedValidator<AcknowledgeNotificationCommand>

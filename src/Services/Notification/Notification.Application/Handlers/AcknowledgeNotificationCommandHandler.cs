@@ -15,6 +15,6 @@ public class AcknowledgeNotificationCommandHandler : IRequestHandler<Acknowledge
 
     public async Task<bool> Handle(AcknowledgeNotificationCommand request, CancellationToken cancellationToken)
     {
-        return await _notificationService.AcknowledgeDeliveryAsync(request.QueueItemId, cancellationToken);
+        return await _notificationService.AcknowledgeDeliveryAsync(request.QueueItemId, request.RequestingUserId, cancellationToken);
     }
 }

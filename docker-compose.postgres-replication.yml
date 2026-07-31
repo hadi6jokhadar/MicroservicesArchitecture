@@ -14,7 +14,7 @@ services:
       POSTGRES_REPLICATION_USER: replicator
       POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_primary_data:/var/lib/postgresql/data
       - ./infrastructure/postgres/primary:/docker-entrypoint-initdb.d
@@ -49,7 +49,7 @@ services:
       POSTGRES_REPLICATION_USER: replicator
       POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_replica_data:/var/lib/postgresql/data
       - ./infrastructure/postgres/replica:/docker-entrypoint-initdb.d

@@ -2,6 +2,7 @@ using Identity.Application.Commands.Admin.Role;
 using Identity.Domain.Repositories;
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Services.Identity;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -12,17 +13,20 @@ public class AssignRolesToUserCommandHandler : IRequestHandler<AssignRolesToUser
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRoleRepository _userRoleRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<AssignRolesToUserCommandHandler> _logger;
 
     public AssignRolesToUserCommandHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IUserRoleRepository userRoleRepository,
+        ICurrentUserService currentUserService,
         ILogger<AssignRolesToUserCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _userRoleRepository = userRoleRepository;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -46,6 +50,17 @@ public class AssignRolesToUserCommandHandler : IRequestHandler<AssignRolesToUser
                     {
                         _logger.LogWarning("Role with ID {RoleId} not found", roleId);
                         throw new NotFoundException(LocalizationKeys.Exceptions.RoleNotFound);
+                    }
+
+                    // Only a SuperAdmin may grant the SuperAdmin role — otherwise a plain Admin
+                    // could self-escalate via this endpoint (no other check here inspected
+                    // RoleIds at all before this fix).
+                    if (role.Name.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase) && !_currentUserService.IsSuperAdmin)
+                    {
+                        _logger.LogWarning(
+                            "Non-SuperAdmin caller attempted to assign the SuperAdmin role to user {UserId}",
+                            request.UserId);
+                        throw new ForbiddenException(LocalizationKeys.Exceptions.SuperAdminRoleProtected);
                     }
                 }
             }

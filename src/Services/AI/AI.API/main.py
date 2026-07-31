@@ -117,7 +117,7 @@ app.add_exception_handler(RequestValidationError, request_validation_exception_h
 # --- CORS (reads AllowedOrigins from appsettings.json, mirrors .NET CORS config) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.Cors.AllowedOrigins or ["*"],
+    allow_origins=settings.Cors.AllowedOrigins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

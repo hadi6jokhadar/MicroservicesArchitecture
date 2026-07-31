@@ -56,7 +56,7 @@ public class SaveFileEndpointsTests : IntegrationTestBase
     public async Task SaveFile_WithImageExtension_ShouldAutoDetectImageType()
     {
         // Arrange
-        using var fileStream = CreateTestFileStream("Fake image content");
+        using var fileStream = CreateTestFileStreamWithSignature(".jpg");
         var formFile = CreateFormFile(fileStream, "photo.jpg", "image/jpeg");
         var command = new SaveFileCommand(
             File: formFile,
@@ -94,7 +94,7 @@ public class SaveFileEndpointsTests : IntegrationTestBase
     public async Task SaveFile_WithAudioWebmContentType_ShouldAutoDetectMusicType()
     {
         // Arrange
-        using var fileStream = CreateTestFileStream("Fake webm audio content");
+        using var fileStream = CreateTestFileStreamWithSignature(".webm");
         var formFile = CreateFormFile(fileStream, "song.webm", "audio/webm");
         var command = new SaveFileCommand(
             File: formFile,
@@ -132,7 +132,7 @@ public class SaveFileEndpointsTests : IntegrationTestBase
     public async Task SaveFile_WithVideoWebmContentType_ShouldAutoDetectVideoType()
     {
         // Arrange
-        using var fileStream = CreateTestFileStream("Fake webm video content");
+        using var fileStream = CreateTestFileStreamWithSignature(".webm");
         var formFile = CreateFormFile(fileStream, "video.webm", "video/webm");
         var command = new SaveFileCommand(
             File: formFile,
@@ -312,7 +312,7 @@ public class SaveFileEndpointsTests : IntegrationTestBase
     public async Task SaveFile_WithPdfDocument_ShouldDetectOtherType()
     {
         // Arrange
-        using var fileStream = CreateTestFileStream("Fake PDF content");
+        using var fileStream = CreateTestFileStreamWithSignature(".pdf");
         var formFile = CreateFormFile(fileStream, "document.pdf", "application/pdf");
         var command = new SaveFileCommand(
             File: formFile,
@@ -445,6 +445,9 @@ public class SaveFileEndpointsTests : IntegrationTestBase
         var fileSize = 5 * 1024 * 1024; // 5MB
         var largeContent = new byte[fileSize];
         new Random(42).NextBytes(largeContent); // Seed for reproducibility
+        // ZIP local-file-header signature so the magic-byte content check accepts the claimed
+        // .zip extension — overwriting the lead bytes keeps the total size exactly fileSize.
+        new byte[] { 0x50, 0x4B, 0x03, 0x04 }.CopyTo(largeContent, 0);
         using var fileStream = new MemoryStream(largeContent);
         var formFile = CreateFormFile(fileStream, "large-file.zip", "application/zip");
         var command = new SaveFileCommand(
@@ -478,6 +481,44 @@ public class SaveFileEndpointsTests : IntegrationTestBase
         var savedBytes = memStream.ToArray();
         savedBytes.Take(100).Should().BeEquivalentTo(largeContent.Take(100));
         savedBytes.TakeLast(100).Should().BeEquivalentTo(largeContent.TakeLast(100));
+    }
+
+    [Fact]
+    public async Task SaveFile_WithMaliciousSvg_ShouldStripScriptAndEventHandlers()
+    {
+        // Arrange — a crafted SVG carrying both a <script> element and an onload handler,
+        // the two ways an SVG can execute attacker-controlled script.
+        const string maliciousSvg = "<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"alert(1)\">" +
+                                    "<script>alert('xss')</script>" +
+                                    "<rect width=\"10\" height=\"10\" onclick=\"alert(2)\" /></svg>";
+        using var fileStream = CreateTestFileStream(maliciousSvg);
+        var formFile = CreateFormFile(fileStream, "malicious.svg", "image/svg+xml");
+        var command = new SaveFileCommand(File: formFile, Group: FileGroup.Personal, UserId: 1);
+
+        // Act
+        var result = await SendAsync(command);
+
+        // Assert — the entity saves fine (SVG isn't rejected outright, just sanitized)...
+        result.Type.Should().Be(FileType.Image);
+        result.Extension.Should().Be(".svg");
+
+        // ...and the persisted content has the dangerous parts removed.
+        var relativePath = await ExecuteDbContextAsync(async context =>
+        {
+            var file = await context.FileManager.FirstOrDefaultAsync(f => f.Id == result.Id);
+            return file!.Path;
+        });
+
+        using var scope = Factory.Services.CreateScope();
+        var fileStorage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
+        using var savedStream = await fileStorage.GetAsync(relativePath);
+        using var reader = new StreamReader(savedStream);
+        var savedContent = await reader.ReadToEndAsync();
+
+        savedContent.Should().NotContain("<script", "the <script> element must be stripped");
+        savedContent.Should().NotContain("alert(1)", "the onload handler must be stripped");
+        savedContent.Should().NotContain("alert(2)", "the onclick handler must be stripped");
+        savedContent.Should().Contain("<rect", "sanitization must not remove safe, unrelated markup");
     }
 
     #endregion

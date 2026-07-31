@@ -1,9 +1,9 @@
 # Nasheed Service — API Endpoints
 
 **Base URL:** `http://localhost:5009`  
-**Auth:** All business endpoints require `Authorization: Bearer <token>`.  
+**Auth:** All business endpoints require `Authorization: Bearer <token>`. Endpoints marked **AdminOnly** below additionally require the `"AdminOnly"` authorization policy — any catalog-mutation endpoint (artist/song create/update/delete) or ingestion-control endpoint (retry/reindex/delete) is AdminOnly; read endpoints (Get/GetAll/analysis/similar/search) and end-user interactions (favorites/ratings/play) only require authentication.  
 `x-tenant-id` should be sent by clients for tenant-aware routing, but this service also runs with configured single-tenant fallback (`MultiTenancy:TenantId`).  
-**Last Updated:** May 7, 2026
+**Last Updated:** July 31, 2026
 
 ---
 
@@ -11,7 +11,7 @@
 
 ### `POST /api/artists`
 
-Create a new artist.
+Create a new artist. **AdminOnly.**
 
 **Request body:**
 
@@ -50,7 +50,7 @@ Get paginated list of artists.
 
 ### `PUT /api/artists/{id}`
 
-Update an artist.
+Update an artist. **AdminOnly.**
 
 **Request body:**
 
@@ -64,7 +64,7 @@ Update an artist.
 
 ### `DELETE /api/artists/{id}`
 
-Delete an artist and **all its songs** (cascade).
+**AdminOnly.** Delete an artist and **all its songs** (cascade).
 
 For each song owned by the artist, the full song cascade runs first (see `DELETE /api/songs/{id}`).
 
@@ -76,7 +76,7 @@ For each song owned by the artist, the full song cascade runs first (see `DELETE
 
 ### `POST /api/songs`
 
-Create a new song (triggers ingestion pipeline).
+Create a new song (triggers ingestion pipeline). **AdminOnly.**
 
 **Request body:**
 
@@ -119,7 +119,7 @@ Get paginated list of songs with optional filters.
 
 ### `PUT /api/songs/{id}`
 
-Update song metadata allowed by command contract.
+Update song metadata allowed by command contract. **AdminOnly.**
 
 **Request body:**
 
@@ -151,7 +151,7 @@ Update response uses the same `SongDto` shape as `GET /api/songs/{id}` and list 
 
 ### `DELETE /api/songs/{id}`
 
-Delete a song and **all related data** (cascade).
+**AdminOnly.** Delete a song and **all related data** (cascade).
 
 The following are removed in order before the song row is deleted:
 
@@ -209,7 +209,7 @@ Get paginated ingestion job list with optional filters.
 
 ### `POST /api/ingestion/{id}/retry`
 
-Reset a job to `Pending` so the worker can pick it up again.
+**AdminOnly.** Reset a job to `Pending` so the worker can pick it up again.
 
 **Response:** `200 OK` → `IngestionJobDto`
 
@@ -219,7 +219,7 @@ Reset a job to `Pending` so the worker can pick it up again.
 
 ### `DELETE /api/ingestion/{id}`
 
-Hard delete an ingestion job row.
+**AdminOnly.** Hard delete an ingestion job row.
 
 **Response:** `200 OK` → `true`
 
@@ -227,7 +227,7 @@ Hard delete an ingestion job row.
 
 ### `POST /api/ingestion/songs/{songId}/reindex`
 
-Queue a new `EmbeddingGeneration` job to re-embed a song.
+**AdminOnly.** Queue a new `EmbeddingGeneration` job to re-embed a song.
 
 **Response:** `200 OK` → `IngestionJobDto`
 
@@ -308,7 +308,7 @@ Log a play event for a user.
 
 ### `POST /api/generation/lyrics`
 
-Generate new nasheed lyrics using AI based on a theme/prompt.
+**AdminOnly.** Generate new nasheed lyrics using AI based on a theme/prompt.
 
 **Request body:**
 

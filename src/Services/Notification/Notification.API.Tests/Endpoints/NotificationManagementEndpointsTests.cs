@@ -189,7 +189,8 @@ public class NotificationManagementEndpointsTests : IntegrationTestBase, IAsyncL
         var command = new AcknowledgeNotificationCommand(
             QueueItemId: queueItem.Id,
             ConnectionId: "test-connection-id",
-            ReceivedAt: DateTime.UtcNow
+            ReceivedAt: DateTime.UtcNow,
+            RequestingUserId: 1
         );
 
         // Act
@@ -212,7 +213,8 @@ public class NotificationManagementEndpointsTests : IntegrationTestBase, IAsyncL
         var command = new AcknowledgeNotificationCommand(
             QueueItemId: queueItem.Id,
             ConnectionId: null,
-            ReceivedAt: null
+            ReceivedAt: null,
+            RequestingUserId: 1
         );
 
         // Act
@@ -220,6 +222,31 @@ public class NotificationManagementEndpointsTests : IntegrationTestBase, IAsyncL
 
         // Assert
         result.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AcknowledgeNotification_ByDifferentUser_ShouldReturnFalse()
+    {
+        // Arrange — queue item targets user 1; a different authenticated user (2) tries to
+        // acknowledge it by guessing the sequential queue item ID.
+        var queueItem = await CreateTestQueueItemAsync(
+            tenantId: "tenant1",
+            userId: 1,
+            title: "Test Notification"
+        );
+
+        var command = new AcknowledgeNotificationCommand(
+            QueueItemId: queueItem.Id,
+            ConnectionId: "test-connection-id",
+            ReceivedAt: DateTime.UtcNow,
+            RequestingUserId: 2
+        );
+
+        // Act
+        var result = await SendAsync(command);
+
+        // Assert
+        result.Should().BeFalse();
     }
 
     [Fact]

@@ -14,9 +14,14 @@ public interface IBlobStorage
     /// <param name="objectKey">The key/path to store the object under in the bucket.</param>
     /// <param name="stream">File content stream.</param>
     /// <param name="contentType">MIME type of the file.</param>
+    /// <param name="contentDisposition">
+    /// Optional Content-Disposition to store as object metadata (e.g. "attachment") so the
+    /// provider serves it back with that header — used to stop non-raster-image types (SVG in
+    /// particular) from rendering as executable markup when the object URL is opened directly.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The public URL of the uploaded object.</returns>
-    Task<string> UploadAsync(string objectKey, Stream stream, string contentType, CancellationToken cancellationToken = default);
+    Task<string> UploadAsync(string objectKey, Stream stream, string contentType, string? contentDisposition = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes an object from the blob provider by its key.

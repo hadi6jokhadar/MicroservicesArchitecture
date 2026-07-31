@@ -1460,7 +1460,7 @@ var token = new JwtSecurityToken(
 - [ ] Set up JWT secret key in environment variables (not hardcoded)
 - [ ] Configure HTTPS and CORS
 - [ ] Implement refresh token rotation
-- [ ] Add rate limiting to login endpoint
+- [x] Add rate limiting to login endpoint (`PerTenant` policy on the `/api/v{version}/auth` route group, `EndpointMappingExtensions.cs`)
 - [ ] Set up audit logging
 - [ ] Test login/register endpoints
 

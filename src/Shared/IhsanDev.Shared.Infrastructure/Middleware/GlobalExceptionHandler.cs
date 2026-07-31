@@ -88,12 +88,15 @@ public class GlobalExceptionHandler : IExceptionHandler
                 }
             },
 
-            // Standard exceptions
+            // Standard exceptions — Detail is a safe localized message, never exception.Message.
+            // exception.Message is already logged server-side above (TryHandleAsync); reflecting
+            // it here leaked internal state (e.g. raw EF Core/Npgsql failure text via
+            // InvalidOperationException) to the client in every environment, not just Development.
             UnauthorizedAccessException => new ProblemDetails
             {
                 Status = StatusCodes.Status401Unauthorized,
                 Title = localizationService.GetString(LocalizationKeys.Exceptions.Unauthorized),
-                Detail = exception.Message,
+                Detail = localizationService.GetString(LocalizationKeys.Exceptions.Unauthorized),
                 Instance = httpContext.Request.Path,
                 Extensions = new Dictionary<string, object?>
                 {
@@ -105,7 +108,7 @@ public class GlobalExceptionHandler : IExceptionHandler
             {
                 Status = StatusCodes.Status404NotFound,
                 Title = localizationService.GetString(LocalizationKeys.Exceptions.NotFound),
-                Detail = exception.Message,
+                Detail = localizationService.GetString(LocalizationKeys.Exceptions.NotFound),
                 Instance = httpContext.Request.Path,
                 Extensions = new Dictionary<string, object?>
                 {
@@ -117,7 +120,7 @@ public class GlobalExceptionHandler : IExceptionHandler
             {
                 Status = StatusCodes.Status400BadRequest,
                 Title = localizationService.GetString(LocalizationKeys.Exceptions.BadRequest),
-                Detail = exception.Message,
+                Detail = localizationService.GetString(LocalizationKeys.Exceptions.BadRequest),
                 Instance = httpContext.Request.Path,
                 Extensions = new Dictionary<string, object?>
                 {

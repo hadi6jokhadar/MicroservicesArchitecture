@@ -23,7 +23,7 @@ import json
 import os
 from typing import List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -78,12 +78,39 @@ class DatabaseSettings(BaseModel):
     ConnectionString: str
 
 
+_KNOWN_PLACEHOLDER_SECRETS = {
+    "change_me_jwt_secret",
+    "change_me_shared_secret",
+    "your-secret-key-here-min-32-chars-for-production-use",
+}
+
+
+def _validate_secret_strength(secret: str, field_name: str) -> str:
+    """Fails fast at startup if a secret is missing, too short, or a committed
+    placeholder. Mirrors JwtAuthenticationExtensions.ValidateSecretStrength (.NET)."""
+    if not secret:
+        raise ValueError(f"{field_name} is not configured.")
+    if secret.strip().lower() in _KNOWN_PLACEHOLDER_SECRETS:
+        raise ValueError(
+            f"{field_name} is still set to a committed placeholder value. "
+            f"Set a real, unique secret (at least 32 bytes) in the environment's .env/secrets."
+        )
+    if len(secret.encode("utf-8")) < 32:
+        raise ValueError(f"{field_name} must be at least 32 bytes (256 bits).")
+    return secret
+
+
 class JwtSettings(BaseModel):
     Secret: str
     Issuer: str
     Audience: str
     AccessTokenExpirationMinutes: int
     RefreshTokenExpirationDays: int
+
+    @field_validator("Secret")
+    @classmethod
+    def _check_secret(cls, v: str) -> str:
+        return _validate_secret_strength(v, "Jwt.Secret")
 
 
 class ServiceCommunicationSettings(BaseModel):
@@ -92,9 +119,30 @@ class ServiceCommunicationSettings(BaseModel):
     SharedSecret: str
     AllowedServices: List[str] = []
 
+    @field_validator("SharedSecret")
+    @classmethod
+    def _check_shared_secret(cls, v: str, info: ValidationInfo) -> str:
+        if not info.data.get("Enabled", True):
+            return v
+        return _validate_secret_strength(v, "ServiceCommunication.SharedSecret")
+
 
 class CorsSettings(BaseModel):
     AllowedOrigins: List[str] = []
+
+    @field_validator("AllowedOrigins")
+    @classmethod
+    def _check_allowed_origins(cls, v: List[str]) -> List[str]:
+        # CORSMiddleware is always wired with allow_credentials=True (main.py), and
+        # Starlette reflects the request Origin instead of a literal "*" whenever
+        # credentials are on — an empty list falling back to ["*"] would let any
+        # origin make authenticated cross-site requests. Fail fast instead.
+        if not v:
+            raise ValueError(
+                "Cors.AllowedOrigins is not configured. It must list at least one "
+                "explicit origin — it cannot be empty while allow_credentials=True."
+            )
+        return v
 
 
 class LoggingLevelSettings(BaseModel):
@@ -120,6 +168,6 @@ class BaseAppSettings(BaseSettings):
     DatabaseSettings: DatabaseSettings
     Jwt: JwtSettings
     ServiceCommunication: ServiceCommunicationSettings
-    Cors: CorsSettings = CorsSettings()
+    Cors: CorsSettings
     Logging: LoggingSettings = LoggingSettings()
     model_config = SettingsConfigDict(env_nested_delimiter="__")

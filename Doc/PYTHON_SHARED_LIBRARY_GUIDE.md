@@ -38,7 +38,7 @@ Key features:
    - DatabaseSettings
    - JwtSettings
    - ServiceCommunicationSettings
-   - CorsSettings
+   - CorsSettings — `AllowedOrigins` is required and must be non-empty (fails startup otherwise); with `allow_credentials=True` always on, an empty list falling back to `["*"]` would let any origin make credentialed cross-site requests
    - LoggingSettings
 4. Uses Pydantic v2 settings configuration with `model_config = SettingsConfigDict(...)` instead of class-based `Config`.
 

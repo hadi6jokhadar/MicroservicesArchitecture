@@ -211,15 +211,6 @@ else
     Console.WriteLine("INFO: Redis is disabled. SignalR running without backplane (single instance only)");
 }
 
-// Configure SignalR hub authorization
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("SignalRPolicy", policy =>
-    {
-        policy.RequireAuthenticatedUser();
-    });
-});
-
 // ============================================
 // Response Compression (Performance Optimization)
 // ============================================
@@ -463,10 +454,6 @@ app.UseTenantResolution(builder.Configuration);
 // This middleware handles both preflight (OPTIONS) and actual requests
 app.UseTenantAwareCors();
 
-// JWT tenant verification (AFTER tenant resolution and CORS, BEFORE authentication)
-// Prevents users from accessing other tenants by changing x-tenant-id header
-app.UseJwtTenantVerification(builder.Configuration);
-
 // Note: Standard UseCors() is NOT needed because TenantAwareCors handles everything
 // DO NOT call app.UseCors() - it will conflict with TenantAwareCorsMiddleware
 
@@ -484,6 +471,12 @@ if (multiTenancyEnabled)
 app.UseServiceAuthentication();
 
 app.UseAuthentication();
+
+// JWT tenant verification — MUST be AFTER UseAuthentication(): it reads context.User,
+// which UseAuthentication() populates. Prevents users from accessing other tenants by
+// changing the x-tenant-id header.
+app.UseJwtTenantVerification(builder.Configuration);
+
 app.UseAuthorization();
 
 // ============================================

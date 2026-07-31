@@ -37,9 +37,13 @@ public class TenantServiceClient : ITenantServiceClient
 
             while (hasMorePages)
             {
+                // Uses the Service-accessible /api/v1/tenant/config endpoint (RequireRole
+                // "Service","SuperAdmin"), not /api/v1/admin/tenant (SuperAdmin-only) — this
+                // client authenticates purely via the shared service secret and must not
+                // depend on service accounts also holding SuperAdmin.
                 var request = new HttpRequestMessage(
                     HttpMethod.Get,
-                    $"/api/v1/admin/tenant?pageNumber={pageNumber}&pageSize={pageSize}");
+                    $"/api/v1/tenant/config?pageNumber={pageNumber}&pageSize={pageSize}");
 
                 var response = await _httpClient.SendAsync(request, cancellationToken);
 

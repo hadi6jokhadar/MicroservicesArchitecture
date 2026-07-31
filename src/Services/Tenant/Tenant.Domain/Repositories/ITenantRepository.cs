@@ -24,12 +24,13 @@ public interface ITenantRepository : IRepository<TenantSettings>
     Task<TenantSettings?> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Get all active tenants with pagination
+    /// Get all active tenants with pagination, optionally filtered by a search term matched against TenantId/TenantName
     /// </summary>
     Task<(IEnumerable<TenantSettings> Items, int TotalCount)> GetAllActiveAsync(
         int pageNumber = 1,
         int pageSize = 10,
         bool? isArchived = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
