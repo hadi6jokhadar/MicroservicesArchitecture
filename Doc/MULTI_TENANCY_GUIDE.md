@@ -458,9 +458,24 @@ Uses tenant-specific configuration from Tenant Service.
 
 Tenant configurations are cached for performance:
 
-- **Cache Duration**: Configurable via `MultiTenancy:CacheExpirationMinutes` (default: 30 minutes)
+- **Cache Duration**: Configurable via `MultiTenancy:CacheExpirationMinutes`, default **30 minutes** everywhere (Identity, Category, FileManager, Notification). This is safe at 30 minutes specifically *because* of the always-on refresh mechanisms below — a natural 30-minute expiry just means the next request re-populates it, which is cheap (a single fast per-tenant HTTP call), not the multi-second cost the original "slow first load" complaint was about (see **Startup Warm-Up** below for what actually caused that).
 - **Cache Key Pattern**: `tenant_config_{tenantId}`
 - **Cache Type**: Redis (distributed) or MemoryCache (per-instance)
+
+### Tenant.API's Own Push-Based Refresh (pre-existing)
+
+**`TenantCacheRefreshJob`** (`Tenant.Infrastructure/Jobs/`, Hangfire recurring job, cron `*/30 * * * *`, registered via `HangfireExtensions.RegisterTenantRecurringJobs`) runs on **Tenant.API itself** every 30 minutes: it reads every active tenant directly from Tenant.API's own database and writes each one straight into the `tenant_config_{tenantId}` Redis key — the exact same key format `TenantConfigurationProvider` reads from in every consuming service. Since Identity, Category, and Notification all point at the same Redis instance with the same key prefix (`MicroservicesApp:`), this job **already keeps their tenant-config cache continuously warm**, independent of anything a consuming service does itself. Cache TTL for this job's writes is **1 day** (`TenantCacheRefreshJob.CacheExpiration`) — plenty, since the job re-writes it every 30 minutes regardless.
+
+`GetAllActiveTenantsWithConfigQueryHandler`'s own response cache (`all_active_tenants_with_config_page_{n}_size_{s}`, backing the bulk `GET /api/v1/tenant/config` endpoint) uses the same 1-day TTL and is busted on tenant create/update/archive.
+
+**FileManager is the one exception**: it runs with `Redis:Enabled: false` (isolated in-process `MemoryCache`), so Tenant.API's direct Redis writes never reach it — nothing in this platform's infrastructure keeps FileManager's tenant-config cache warm except FileManager's own mechanisms, described next.
+
+### Startup Warm-Up (all 4 services) & FileManager's Own Periodic Refresh
+
+1. **Startup warm-up** (`TenantWarmupExtensions.WarmTenantConfigCacheAsync` / `WarmTenantDatabaseMigrationsAsync<TContext>`, called right before `app.Run()` in Identity, Category, FileManager, and Notification — not Nasheed, which pins one fixed `MultiTenancy:TenantId` and has its own tailored `NasheedTenantLoaderService`): bulk-fetches every active tenant's config in one call to `GET /api/v1/tenant/config` and populates the cache for all of them immediately, instead of waiting for each tenant's first real request to pay that round-trip. It also eagerly runs the same connectivity + pending-migrations check `DatabaseMigrationMiddleware<TContext>` would otherwise defer to that tenant's first request (`IDatabaseMigrationService.EnsureDatabaseExistsAsync`), marking each tenant as already-checked via `DatabaseMigrationMiddleware<TContext>.MarkAsMigrated`. **This — not the tenant-config cache TTL — is what actually eliminates the "first hit after a restart is slow" symptom**, since the eager migration/connectivity check was always the larger cost.
+2. **Periodic background refresh** (`TenantConfigCacheRefreshService`, a `BackgroundService` registered via `AddTenantConfigCacheRefresh`, interval configurable via `MultiTenancy:CacheRefreshIntervalHours`, default 6 hours) — **registered for FileManager only**. Identity, Category, and Notification deliberately do NOT register this: `TenantCacheRefreshJob` above already refreshes their shared cache every 30 minutes, so a second, slower, per-service HTTP-based refresh loop on top of that would be redundant. FileManager needs its own since it's isolated from that shared-Redis mechanism entirely.
+
+Both the warm-up and FileManager's periodic refresh never throw — a Tenant Service outage at startup logs a warning and falls back to the existing lazy per-request fetch; a mid-run refresh failure logs a warning and leaves the existing (stale but present) cache entries in place until the next tick.
 
 ### Redis Distributed Cache (Production Recommended)
 
@@ -721,8 +736,8 @@ Error fetching tenant configuration for 'tenant-id'
 
 ## Performance Considerations
 
-- **Caching**: Tenant configs cached for 5 minutes
-- **Network Calls**: First request per tenant fetches config from Tenant Service
+- **Caching**: Tenant configs cached for 30 minutes by default (`MultiTenancy:CacheExpirationMinutes`), kept continuously warm by Tenant.API's own `TenantCacheRefreshJob` (every 30 min, for Identity/Category/Notification) and by startup warm-up + FileManager's own periodic refresh — see **Tenant.API's Own Push-Based Refresh** and **Startup Warm-Up** above
+- **Network Calls**: With warm-up enabled, tenant config is pre-fetched at startup; a genuine cache miss (e.g. a tenant created after the process started, or a warm-up failure) still falls back to one Tenant Service round-trip on that tenant's next request
 - **Memory Usage**: Each tenant config ~1-5 KB in cache
 - **Overhead**: <5ms per request for tenant resolution (cached)
 

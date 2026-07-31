@@ -57,6 +57,11 @@ builder.Services.AddPlatformObservability(builder.Configuration, "NotificationSe
 // Multi-Tenancy Support (Optional)
 // ============================================
 builder.Services.AddMultiTenancy(builder.Configuration);
+// No AddTenantConfigCacheRefresh here — Tenant.API's own Hangfire job (TenantCacheRefreshJob,
+// every 30 min) already writes directly into the tenant_config_{tenantId} Redis keys this
+// service reads, since they share the same Redis instance/key prefix. A second, slower
+// (per-service HTTP-based) refresh loop on top of that would be redundant. See
+// Doc/MULTI_TENANCY_GUIDE.md's Startup Warm-Up & Periodic Refresh section.
 
 // ============================================
 // Database Configuration
@@ -413,6 +418,13 @@ await app.Services.InitializeDatabaseAsync<NotificationDbContext>(
 await app.Services.InitializeDatabaseAsync<TenantNotificationDbContext>(
     applyMigrations: true,
     seedData: false);
+
+// Warm the tenant-config cache and eagerly run each tenant's migration check for the
+// per-tenant TenantNotificationDbContext, instead of paying that cost lazily on the tenant's
+// first real request. No-ops if multi-tenancy is disabled. NotificationDbContext is the
+// global queue DB (migrated above, unconditionally) — it has no per-tenant variant to warm.
+var warmedTenants = await app.Services.WarmTenantConfigCacheAsync();
+await app.Services.WarmTenantDatabaseMigrationsAsync<TenantNotificationDbContext>(warmedTenants);
 
 // Enable Swagger in all environments (for debugging)
 // TODO: Restrict to Development only in production

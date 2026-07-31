@@ -89,13 +89,14 @@ Files are organized by category. Each entry includes:
 
 ### MULTI_TENANCY_GUIDE.md
 
-**Description:** How multi-tenancy works across all services. Tenant resolution, database switching, optional vs required tenant context.  
+**Description:** How multi-tenancy works across all services. Tenant resolution, database switching, optional vs required tenant context, and how the tenant-config cache stays warm (Tenant.API's `TenantCacheRefreshJob`, per-service startup warm-up, and FileManager's own periodic refresh).  
 **Read When:**
 
 - Creating new service
 - Understanding tenant isolation
 - Working with tenant-specific data
 - Implementing global vs tenant endpoints
+- Debugging a slow first request per tenant, or changing `MultiTenancy:CacheExpirationMinutes`
 
 ### TENANT_MIDDLEWARE_EXPLAINED.md
 

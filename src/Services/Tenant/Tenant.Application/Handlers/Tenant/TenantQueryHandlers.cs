@@ -294,9 +294,9 @@ public class GetAllActiveTenantsWithConfigQueryHandler : IRequestHandler<GetAllA
                 request.PageNumber,
                 totalPages);
 
-            // Cache for 7 days - Cache is automatically invalidated when tenants are created/updated/deleted
-            // TenantCacheRefreshService also refreshes individual tenant configs every hour
-            await _cacheService.SetAsync(cacheKey, paginatedList, TimeSpan.FromDays(7), cancellationToken);
+            // Cache for 1 day - Cache is automatically invalidated when tenants are created/updated/deleted.
+            // TenantCacheRefreshJob (Hangfire, every 30 min) also refreshes individual tenant configs.
+            await _cacheService.SetAsync(cacheKey, paginatedList, TimeSpan.FromDays(1), cancellationToken);
 
             _logger.LogInformation(
                 "Cached all active tenants with config (Page: {PageNumber}, Size: {PageSize}, Total: {TotalCount}) for 7 days",

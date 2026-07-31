@@ -25,4 +25,15 @@ public interface ITenantConfigurationProvider
     /// Clear all cached tenant configurations
     /// </summary>
     void ClearAllCache();
+
+    /// <summary>
+    /// Fetches every active tenant's full configuration from Tenant Service in one bulk call
+    /// and repopulates the cache for each (same "tenant_config_{tenantId}" key/TTL that
+    /// <see cref="GetTenantConfigurationAsync"/> reads) — used for startup cache warm-up and
+    /// periodic background refresh, so a request never has to pay a cold-cache round-trip.
+    /// Returns an empty list (never throws) if Tenant Service is unreachable — this is an
+    /// optimization, not a hard startup dependency, so callers fall back to the existing
+    /// lazy per-request fetch on a genuine miss.
+    /// </summary>
+    Task<IReadOnlyList<TenantInfo>> RefreshAllTenantConfigurationsAsync(CancellationToken cancellationToken = default);
 }

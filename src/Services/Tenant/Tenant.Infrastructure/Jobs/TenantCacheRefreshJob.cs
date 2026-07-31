@@ -13,7 +13,7 @@ namespace Tenant.Infrastructure.Jobs;
 /// </summary>
 public class TenantCacheRefreshJob
 {
-    private static readonly TimeSpan CacheExpiration = TimeSpan.FromDays(7);
+    private static readonly TimeSpan CacheExpiration = TimeSpan.FromDays(1);
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<TenantCacheRefreshJob> _logger;

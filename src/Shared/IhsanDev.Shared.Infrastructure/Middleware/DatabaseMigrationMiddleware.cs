@@ -119,6 +119,25 @@ public class DatabaseMigrationMiddleware<TContext> where TContext : DbContext
     }
 
     /// <summary>
+    /// Registers a tenant as already migration-checked without going through
+    /// <see cref="InvokeAsync"/> — used by startup warm-up (see TenantWarmupExtensions) so the
+    /// tenant's first real request doesn't redundantly repeat the connectivity + pending-
+    /// migrations check that warm-up already performed.
+    /// </summary>
+    public static void MarkAsMigrated(string tenantId)
+    {
+        _migrationLock.Wait();
+        try
+        {
+            _migratedTenants.Add(tenantId);
+        }
+        finally
+        {
+            _migrationLock.Release();
+        }
+    }
+
+    /// <summary>
     /// Clear the migration cache (useful for testing or when tenants are modified)
     /// </summary>
     public static void ClearMigrationCache(string? tenantId = null)

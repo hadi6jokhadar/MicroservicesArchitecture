@@ -14,6 +14,7 @@ using IhsanDev.Shared.Application.Common.Behaviors;
 using IhsanDev.Shared.Application.Localization;
 using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Middleware;
+using IhsanDev.Shared.Infrastructure.Services.Tenant;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using IhsanDev.Shared.Kernel.Enums;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -65,6 +66,7 @@ builder.Services.AddScoped<IhsanDev.Shared.Infrastructure.Services.Identity.ICur
 // Multi-Tenancy Support (Optional)
 // ============================================
 builder.Services.AddMultiTenancy(builder.Configuration);
+builder.Services.AddTenantConfigCacheRefresh(builder.Configuration);
 
 // ============================================
 // Database Configuration (Multi-Provider)
@@ -254,6 +256,12 @@ var app = builder.Build();
 await app.Services.InitializeDatabaseAsync<FileManagerDbContext>(
     applyMigrations: true,
     seedData: false);
+
+// Warm the tenant-config cache and eagerly run each tenant's migration check at startup
+// instead of paying that cost lazily on the tenant's first real request. No-ops if
+// multi-tenancy is disabled (returns an empty tenant list). See TenantWarmupExtensions.
+var warmedTenants = await app.Services.WarmTenantConfigCacheAsync();
+await app.Services.WarmTenantDatabaseMigrationsAsync<FileManagerDbContext>(warmedTenants);
 
 // ============================================
 // Middleware Pipeline

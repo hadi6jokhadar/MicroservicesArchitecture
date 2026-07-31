@@ -29,8 +29,13 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
         _configuration = configuration;
         _logger = logger;
         
-        // Cache tenant config for 30 minutes by default (increased from 5 for better performance)
-        // Can be overridden in appsettings.json with MultiTenancy:CacheExpirationMinutes
+        // Safe fallback default (30 min) for any service that doesn't explicitly set
+        // MultiTenancy:CacheExpirationMinutes — e.g. a newly-added service that hasn't wired up
+        // the startup/periodic warm-up yet (see TenantWarmupExtensions) shouldn't inherit a long
+        // TTL it has no mechanism to keep fresh. Identity, Category, FileManager, and
+        // Notification explicitly override this to 1440 (1 day) in their own appsettings.json,
+        // since their startup warm-up + periodic refresh (TenantConfigCacheRefreshService)
+        // keeps that fresh well within the window regardless of TTL length.
         _cacheExpiration = TimeSpan.FromMinutes(
             configuration.GetValue<int>("MultiTenancy:CacheExpirationMinutes", 30));
     }
@@ -94,6 +99,72 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
         }
     }
 
+    public async Task<IReadOnlyList<TenantInfo>> RefreshAllTenantConfigurationsAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_configuration.GetValue<bool>("MultiTenancy:Enabled", false))
+        {
+            return Array.Empty<TenantInfo>();
+        }
+
+        var results = new List<TenantInfo>();
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        try
+        {
+            var pageNumber = 1;
+            const int pageSize = 100;
+            bool hasMorePages;
+
+            do
+            {
+                var response = await _httpClient.GetAsync(
+                    $"/api/v1/tenant/config?pageNumber={pageNumber}&pageSize={pageSize}", cancellationToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning(
+                        "Failed to bulk-fetch tenant configurations (page {PageNumber}). Status: {StatusCode}. " +
+                        "Falling back to lazy per-tenant caching.",
+                        pageNumber, response.StatusCode);
+                    break;
+                }
+
+                var json = await response.Content.ReadAsStringAsync(cancellationToken);
+                var page = JsonSerializer.Deserialize<PaginatedTenantConfigResponse>(json, jsonOptions);
+
+                if (page?.Items == null || page.Items.Count == 0)
+                {
+                    break;
+                }
+
+                foreach (var item in page.Items)
+                {
+                    var tenantInfo = ParseTenantInfo(item);
+                    var cacheKey = $"tenant_config_{tenantInfo.TenantId}";
+                    await _cache.SetAsync(cacheKey, tenantInfo, _cacheExpiration, cancellationToken);
+                    results.Add(tenantInfo);
+                }
+
+                hasMorePages = pageNumber < page.TotalPages;
+                pageNumber++;
+            } while (hasMorePages);
+
+            _logger.LogInformation("Refreshed tenant configuration cache for {Count} tenant(s)", results.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error bulk-refreshing tenant configurations — continuing without a warm cache; " +
+                "requests will fall back to the existing lazy per-tenant fetch");
+        }
+
+        return results;
+    }
+
     public async void ClearCache(string tenantId)
     {
         var cacheKey = $"tenant_config_{tenantId}";
@@ -129,5 +200,14 @@ public class TenantConfigurationProvider : ITenantConfigurationProvider
         public int UserId { get; set; }
         public bool IsActive { get; set; }
         public TenantConfiguration? Data { get; set; } // Changed from string to TenantConfiguration
+    }
+
+    // Matches PaginatedList<TenantConfigDto> from GET /api/v1/tenant/config
+    private class PaginatedTenantConfigResponse
+    {
+        public List<TenantConfigResponse> Items { get; set; } = new();
+        public int PageNumber { get; set; }
+        public int TotalPages { get; set; }
+        public int TotalCount { get; set; }
     }
 }

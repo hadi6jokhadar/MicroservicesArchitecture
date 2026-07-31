@@ -55,6 +55,11 @@ builder.Services.AddPlatformObservability(builder.Configuration, "IdentityServic
 // Multi-Tenancy Support (Optional)
 // ============================================
 builder.Services.AddMultiTenancy(builder.Configuration);
+// No AddTenantConfigCacheRefresh here — Tenant.API's own Hangfire job (TenantCacheRefreshJob,
+// every 30 min) already writes directly into the tenant_config_{tenantId} Redis keys this
+// service reads, since they share the same Redis instance/key prefix. A second, slower
+// (per-service HTTP-based) refresh loop on top of that would be redundant. See
+// Doc/MULTI_TENANCY_GUIDE.md's Startup Warm-Up & Periodic Refresh section.
 
 // ============================================
 // Database Configuration (Multi-Provider)
@@ -263,6 +268,12 @@ logger.LogInformation("========================================");
 await app.Services.InitializeDatabaseAsync<IdentityDbContext>(
     applyMigrations: true,
     seedData: true);
+
+// Warm the tenant-config cache and eagerly run each tenant's migration check at startup
+// instead of paying that cost lazily on the tenant's first real request. No-ops if
+// multi-tenancy is disabled (returns an empty tenant list). See TenantWarmupExtensions.
+var warmedTenants = await app.Services.WarmTenantConfigCacheAsync();
+await app.Services.WarmTenantDatabaseMigrationsAsync<IdentityDbContext>(warmedTenants);
 
 // Enable Swagger in all environments (for debugging)
 // TODO: Restrict to Development only in production
