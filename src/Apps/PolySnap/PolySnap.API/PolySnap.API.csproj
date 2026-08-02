@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PolySnap.Application\PolySnap.Application.csproj" />
+    <ProjectReference Include="..\PolySnap.Infrastructure\PolySnap.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\IhsanDev.Shared.Authentication\IhsanDev.Shared.Authentication.csproj" />
+    <ProjectReference Include="..\..\..\Shared\IhsanDev.Shared.Infrastructure\IhsanDev.Shared.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

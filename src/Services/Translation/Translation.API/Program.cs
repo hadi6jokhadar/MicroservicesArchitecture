@@ -105,15 +105,14 @@ builder.Services.AddHealthChecks()
 // ============================================
 // Distributed Cache (Redis or Memory)
 // ============================================
-if (builder.Configuration.GetValue<bool>("Redis:Enabled"))
-{
-    builder.Services.AddStackExchangeRedisCache(options =>
-    {
-        options.Configuration = builder.Configuration.GetValue<string>("Redis:ConnectionString");
-        options.InstanceName = builder.Configuration.GetValue<string>("Redis:InstanceName") ?? "MicroservicesApp:";
-    });
-}
-else
+// AddCacheService (shared) registers ICacheService (+ IConnectionMultiplexer when Redis is
+// enabled) — TranslationCacheInvalidator needs it for RemoveByPatternAsync, which a global
+// translation write uses to flush every tenant's cached merged response, not just the
+// "global" bucket. Its in-memory fallback path only registers IMemoryCache/ICacheService, so
+// AddDistributedMemoryCache() is still added explicitly below for GetTranslationsQueryHandler,
+// which reads/writes IDistributedCache directly.
+builder.Services.AddCacheService(builder.Configuration);
+if (!builder.Configuration.GetValue<bool>("Redis:Enabled"))
 {
     builder.Services.AddDistributedMemoryCache();
 }

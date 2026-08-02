@@ -2,7 +2,7 @@
 
 ## Overview
 
-The system uses a **two-layer migration approach** that handles global DBs at startup and per-tenant DBs lazily on first request. The approach is NOT conditional on `MultiTenancy:Enabled` — both layers always apply.
+The system uses a **three-layer migration approach**: global DBs are migrated at startup, per-tenant DBs are migrated eagerly the moment a tenant is created (if Redis is enabled), and lazily on that tenant's first request as a fallback. Layers 1 and 2 are NOT conditional on `MultiTenancy:Enabled` beyond their own guard checks — they always apply where relevant.
 
 ### Layer 1 — Startup Migration (`InitializeDatabaseAsync`)
 
@@ -18,6 +18,18 @@ The system uses a **two-layer migration approach** that handles global DBs at st
 - Migrates the **tenant-specific DB** using that tenant's connection string from the Tenant Service
 - Only viable approach because tenant DBs are provisioned dynamically
 - Only registered when `MultiTenancy:Enabled` is `true`
+- Now mostly a fallback — Layer 3 (below) migrates most tenants before their first request ever arrives
+
+### Layer 3 — Eager Migration on Tenant Creation (`TenantProvisioningListenerService<TContext>`)
+
+- **Solves:** previously, adding a tenant required restarting every multi-tenant service to trigger `WarmTenantDatabaseMigrationsAsync` (startup warm-up) before that tenant could be used — Layer 2 alone only migrates on the tenant's own first request, which is fine for the request itself but meant every *other* already-running service still needed a restart to pick up the new tenant early.
+- The **Tenant Service** publishes a lightweight Redis Pub/Sub message (`TenantProvisionedEventMessage`, channel `tenant:provisioned`) immediately after `CreateTenantCommandHandler` caches the new tenant's configuration.
+- Every multi-tenant service that registers `AddTenantProvisioningListener<TContext>(configuration)` (Identity, FileManager, Category, Notification, Nasheed, PolySnap) runs a `TenantProvisioningListenerService<TContext>` background service that subscribes to that channel.
+- On receipt, for **just that one new tenant**, it: fetches the tenant's config, sets `ITenantContext`, calls the same `IDatabaseMigrationService.EnsureDatabaseExistsAsync` used by Layer 2, invokes the DbContext's `SeedAsync()` method if it defines one (same reflection-based call `InitializeDatabaseAsync` uses for the global DB), and marks the tenant as migrated (`DatabaseMigrationMiddleware<TContext>.MarkAsMigrated`) so Layer 2 skips it on the real first request.
+- **Best-effort, not delivery-guaranteed** — deliberately *not* built on the Transactional Outbox pattern (`EVENT_DRIVEN_PUBLISHER_PATTERN.md`) that business-critical entity events use. If Redis is briefly down or a service was mid-restart when the message was published, that service simply falls back to Layer 2 (the tenant's first request) or its own next startup's `WarmTenantDatabaseMigrationsAsync` warm-up — both of which already exist and already guarantee eventual correctness. Adding outbox durability here would only buy "slightly sooner" for an already-rare edge case, at the cost of a DB table + background processor per consuming service.
+- Only active when **both** `MultiTenancy:Enabled` and `Redis:Enabled` are `true` for that service — falls back silently to Layer 2 otherwise (e.g. local dev with in-memory cache).
+- Register with: `services.AddTenantProvisioningListener<TContext>(configuration)` (`IhsanDev.Shared.Infrastructure/Extensions/TenantProvisioningExtensions.cs`) — call it right after `AddDatabaseContext<TContext>` in `Program.cs`. No middleware/pipeline changes needed.
+- To add tenant seed data for a service, define a `public async Task SeedAsync()` method directly on that service's `DbContext` — it is picked up automatically here (and by `InitializeDatabaseAsync` for the global DB) via reflection; no registration needed.
 
 ### `UseDefaultDatabaseMigration` — Safety Net Only
 
@@ -290,6 +302,10 @@ Authorization: Bearer {admin_token}
 
 **Note:** The database `tenant_acme_123` doesn't exist yet - that's OK!
 
+**Step 1.5: Eager Migration Fires Automatically (Layer 3, no request needed)**
+
+Immediately after the tenant is created, `CreateTenantCommandHandler` publishes `tenant:provisioned` on Redis. Every already-running multi-tenant service with `AddTenantProvisioningListener<TContext>` registered picks it up within milliseconds and migrates + seeds `tenant_acme_123` right then — **before any user ever makes a request.** This is what makes the "restart every service after adding a tenant" workaround unnecessary.
+
 **Step 2: User Makes First Request**
 
 ```bash
@@ -310,13 +326,11 @@ x-tenant-id: acme-corp-123
 1. TenantMiddleware extracts tenant ID: "acme-corp-123"
 2. Fetches configuration from Tenant Service
 3. DatabaseMigrationMiddleware checks database
-4. Database doesn't exist!
-5. Automatically:
-   ├─ Creates database: tenant_acme_123
-   ├─ Applies migrations (creates Users table, etc.)
-   └─ Logs: "Database for tenant 'acme-corp-123' created and migrated successfully"
-6. Request proceeds normally
-7. User registration completes successfully ✅
+4. Database was already migrated by Layer 3 when the tenant was created — cache hit, skip check
+   (If Layer 3 didn't run — Redis disabled, or this service started after tenant creation —
+    the database doesn't exist yet and this middleware creates + migrates it here instead.)
+5. Request proceeds normally
+6. User registration completes successfully ✅
 ```
 
 **Step 3: Subsequent Requests**
@@ -601,7 +615,14 @@ app.UseTenantDatabaseMigration<YourDbContext>(builder.Configuration);
 app.UseAuthentication();
 ```
 
-**That's it!** Automatic migration now works for your service.
+**3. Register the eager (Layer 3) listener alongside your DbContext registration:**
+
+```csharp
+builder.Services.AddDatabaseContext<YourDbContext>(builder.Configuration, ...);
+builder.Services.AddTenantProvisioningListener<YourDbContext>(builder.Configuration);  // ← Add this!
+```
+
+**That's it!** Automatic migration now works for your service — both lazily (Layer 2, on the tenant's first request) and eagerly (Layer 3, the moment the tenant is created, no restart needed).
 
 ### Example: Order Service
 
@@ -611,6 +632,7 @@ app.UseAuthentication();
 // Register multi-tenancy
 builder.Services.AddMultiTenancy(builder.Configuration);
 builder.Services.AddDatabaseContext<OrderDbContext>(builder.Configuration);
+builder.Services.AddTenantProvisioningListener<OrderDbContext>(builder.Configuration);  // ← Add this!
 
 // ...
 
@@ -620,7 +642,7 @@ app.UseTenantDatabaseMigration<OrderDbContext>(builder.Configuration);  // ← A
 app.UseAuthentication();
 ```
 
-Now Orders service automatically creates tenant databases too!
+Now Orders service automatically creates tenant databases too — and picks up brand-new tenants within milliseconds of creation, not on next restart.
 
 ---
 
@@ -688,6 +710,29 @@ Now Orders service automatically creates tenant databases too!
 - **Must be registered BEFORE `UseTenantResolution`** in the middleware pipeline
 - Runs once per application lifetime (static `_isMigrated` flag + semaphore lock)
 - Migrates the global/fallback DB using `DatabaseSettings:ConnectionString`
+
+### Layer 3 Components (Eager Tenant Provisioning)
+
+**`TenantProvisionedEventMessage`** (`IhsanDev.Shared.Kernel.Dto.Tenant`)
+
+- Slim Redis Pub/Sub payload: `TenantId`, `SchemaVersion`, `OccurredAt`
+- Channel: `tenant:provisioned` (global, not per-tenant — the tenant ID IS the payload)
+
+**`PublishTenantProvisionedAsync()`** (`TenantProvisioningExtensions`, `IhsanDev.Shared.Infrastructure.Extensions`)
+
+- Extension on `IConnectionMultiplexer?` — called by Tenant Service's `CreateTenantCommandHandler` right after it caches the new tenant's configuration
+- No-op (does not throw) when `redis` is `null` (Redis disabled) or the publish itself fails — this is a best-effort optimization, not a guaranteed-delivery event
+
+**`TenantProvisioningListenerService<TContext>`** (`IhsanDev.Shared.Infrastructure.Services.Tenant`)
+
+- `BackgroundService` — subscribes to `tenant:provisioned` for the lifetime of the process
+- On each message: resolves tenant config, sets `ITenantContext`, calls `IDatabaseMigrationService.EnsureDatabaseExistsAsync`, invokes `SeedAsync()` via reflection if the DbContext defines one, then calls `DatabaseMigrationMiddleware<TContext>.MarkAsMigrated`
+- Failures are logged and swallowed — Layer 2 (that tenant's first request) or this service's own next startup warm-up (`TenantWarmupExtensions`) still catches it
+
+**`AddTenantProvisioningListener<TContext>()`** (`TenantProvisioningExtensions`, `IhsanDev.Shared.Infrastructure.Extensions`)
+
+- Registers `TenantProvisioningListenerService<TContext>` as a hosted service
+- Only registers when **both** `MultiTenancy:Enabled` and `Redis:Enabled` are `true` — otherwise a no-op, so Layer 2 remains the only migration path (same as before this feature existed)
 
 ---
 
@@ -839,6 +884,13 @@ DatabaseMigrationMiddleware<IdentityDbContext>.ClearMigrationCache("tenant-123")
 - [ ] Tenant Service is running and accessible
 - [ ] Tenant configurations include valid database connection strings
 
+**For Eager (Layer 3) Migration on Tenant Creation (additional, requires Redis):**
+
+- [ ] `Redis:Enabled` set to `true` for this service (Layer 3 is a silent no-op otherwise)
+- [ ] `AddTenantProvisioningListener<TContext>(configuration)` registered alongside `AddDatabaseContext<TContext>`
+- [ ] Tenant Service has `Redis:Enabled: true` and a working `IConnectionMultiplexer` (needed to publish)
+- [ ] Define `public async Task SeedAsync()` on the DbContext if this service needs tenant seed data
+
 **For Services with Background Workers (additional):**
 
 - [ ] `InitializeDatabaseAsync` for the global queue context is confirmed unconditional (not dev-only)
@@ -851,12 +903,20 @@ DatabaseMigrationMiddleware<IdentityDbContext>.ClearMigrationCache("tenant-123")
 - [DATABASE_PER_TENANT_ARCHITECTURE.md](DATABASE_PER_TENANT_ARCHITECTURE.md) - Multi-database architecture
 - [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md) - Complete multi-tenancy guide
 - [TENANT_MIDDLEWARE_EXPLAINED.md](TENANT_MIDDLEWARE_EXPLAINED.md) - Tenant resolution flow
+- [EVENT_DRIVEN_PUBLISHER_PATTERN.md](EVENT_DRIVEN_PUBLISHER_PATTERN.md) - The Transactional Outbox pattern Layer 3 deliberately does *not* use, and why
 
 ---
 
-**Last Updated:** June 3, 2026  
-**Version:** 2.0.0  
+**Last Updated:** July 31, 2026  
+**Version:** 3.0.0  
 **Status:** ✅ Implemented and Production Ready
+
+**Recent Updates (July 31, 2026 — v3.0.0):**
+
+- **Three-layer migration architecture**: added Layer 3 — eager per-tenant migration + seed fired by a Redis Pub/Sub broadcast (`tenant:provisioned`) the moment `CreateTenantCommandHandler` creates a tenant, via `TenantProvisioningListenerService<TContext>` / `AddTenantProvisioningListener<TContext>()`
+- **Removes the "restart every service" workaround** — previously, a newly created tenant was only migrated in an already-running service once that service was restarted (re-triggering `WarmTenantDatabaseMigrationsAsync`) or the tenant made its own first request. Layer 3 migrates (and seeds, via the DbContext's `SeedAsync()` if defined) every subscribed service within milliseconds of tenant creation instead.
+- **Best-effort by design, not Outbox-backed** — a missed broadcast (Redis briefly down, service mid-restart) simply falls back to Layer 2 or the next startup warm-up, both already-existing and already-correct; this was a deliberate choice not to add Transactional Outbox overhead (DB table + background processor per service) for what is fundamentally a "do it sooner" optimization, not a correctness-critical event.
+- **Wired into all 6 per-tenant services**: Identity, FileManager, Category, Nasheed, PolySnap (single DbContext each), and Notification (`TenantNotificationDbContext` only — its global `NotificationDbContext` queue context doesn't need per-tenant migration)
 
 **Recent Updates (June 3, 2026 — v2.0.0):**
 

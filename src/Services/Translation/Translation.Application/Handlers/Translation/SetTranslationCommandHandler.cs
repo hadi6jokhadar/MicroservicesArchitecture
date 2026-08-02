@@ -1,10 +1,10 @@
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using MediatR;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Translation.Application.Commands;
 using Translation.Application.DTOs;
+using Translation.Application.Interfaces;
 using Translation.Domain.Entities;
 using Translation.Domain.Repositories;
 
@@ -14,18 +14,18 @@ public class SetTranslationCommandHandler : IRequestHandler<SetTranslationComman
 {
     private readonly ITranslationKeyRepository _keyRepository;
     private readonly ITranslationValueRepository _valueRepository;
-    private readonly IDistributedCache _cache;
+    private readonly ITranslationCacheInvalidator _cacheInvalidator;
     private readonly ILogger<SetTranslationCommandHandler> _logger;
-    
+
     public SetTranslationCommandHandler(
         ITranslationKeyRepository keyRepository,
         ITranslationValueRepository valueRepository,
-        IDistributedCache cache,
+        ITranslationCacheInvalidator cacheInvalidator,
         ILogger<SetTranslationCommandHandler> logger)
     {
         _keyRepository = keyRepository;
         _valueRepository = valueRepository;
-        _cache = cache;
+        _cacheInvalidator = cacheInvalidator;
         _logger = logger;
     }
     
@@ -62,19 +62,10 @@ public class SetTranslationCommandHandler : IRequestHandler<SetTranslationComman
                 await _valueRepository.UpdateAsync(value, cancellationToken);
             }
             
-            // Invalidate cache - Clear all translation caches for this language and tenant
-            // Cache key pattern: translations:{language}:{tenantId}:{category}
-            var cacheKeys = new[]
-            {
-                $"translations:{request.Language}:{request.TenantId ?? "global"}:all",
-                $"translations:{request.Language}:{request.TenantId ?? "global"}:{request.Category}"
-            };
-            
-            foreach (var cacheKeyToRemove in cacheKeys)
-            {
-                await _cache.RemoveAsync(cacheKeyToRemove, cancellationToken);
-            }
-            
+            // A tenantId of null means this write touched a global value, which every tenant's
+            // cached merged response falls back to — see ITranslationCacheInvalidator.
+            await _cacheInvalidator.InvalidateAsync(request.Language, request.TenantId, request.Category, cancellationToken);
+
             return TranslationValueDto.MapFrom(value, key.Key);
         }
         catch (AppException)

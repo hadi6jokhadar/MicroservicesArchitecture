@@ -3,7 +3,7 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** July 30, 2026  
+**Last Updated:** July 31, 2026  
 **Total Files:** 46
 
 ---
@@ -15,7 +15,7 @@ The `src/` directory has two distinct sub-folders:
 | Folder          | Role                                                                   | Current projects                                             |
 | --------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `src/Services/` | Core platform microservices. Foundational — other Apps depend on them. | Identity, Tenant, FileManager, Notification, Translation, Category, AI, Backup |
-| `src/Apps/`     | Domain-specific application projects that consume platform Services.   | Nasheed                                                      |
+| `src/Apps/`     | Domain-specific application projects that consume platform Services.   | Nasheed, PolySnap                                             |
 
 **Every project in `src/Apps/` must have its own `Doc/` folder** with at minimum: `DOCUMENTATION_INDEX.md`, `OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md`. See `NEW_SERVICE_INTEGRATION_GUIDE.md` for the full required file list.
 
@@ -68,13 +68,15 @@ Files are organized by category. Each entry includes:
 
 ### AUTOMATIC_DATABASE_MIGRATION.md
 
-**Description:** How databases are automatically created and migrated per tenant on first request.  
+**Description:** How databases are automatically created and migrated. Three layers: global DB at startup, per-tenant DB eagerly the moment a tenant is created (`TenantProvisioningListenerService`, Redis Pub/Sub — no restart needed), and per-tenant DB lazily on that tenant's first request as a fallback.  
 **Read When:**
 
 - Database isn't being created
 - Adding migrations
 - Understanding tenant onboarding
 - Deploying new services
+- A new tenant isn't usable in some services until they're restarted (should not happen — see Layer 3)
+- Adding seed data for a new tenant (`SeedAsync()` on the DbContext)
 
 ### SHARED_IDENTITY_SERVICE_GUIDE.md
 
@@ -144,6 +146,14 @@ Files are organized by category. Each entry includes:
 > Files: `OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md`, `INGESTION_PIPELINE.md`, `AI_INTEGRATION.md`.
 
 > ⚠️ `NASHEED_LIBRARY_BACKEND.md` and `NASHEED_LIBRARY_FRONTEND.md` **no longer exist** in this Doc folder. Those were design-phase documents that have been superseded by the implemented docs in `src/Apps/Nasheed/Doc/`.
+
+---
+
+## 🗺️ PolySnap (`src/Apps/PolySnap/`)
+
+> Located at `src/Apps/PolySnap/` — a domain app, proof-of-concept spatial boundary engine backend. Port **5011**, Database Strategy **B (Per-Tenant DB)**.
+> **Backend implementation detail lives in `src/Apps/PolySnap/Doc/POLYSNAP_SERVICE_GUIDE.md`** — currently a CRUD-only scaffold (`SnapRequestEntity`); PostGIS/OSM snapping logic is planned for a later phase.
+> **For the product idea, architecture decisions, tech stack, and cross-stack roadmap, see the root-level `Doc/POLYSNAP_PROJECT_OVERVIEW.md`** (covers both this backend and the `polysnap-admin` frontend feature).
 
 ---
 
@@ -648,6 +658,7 @@ Files are organized by category. Each entry includes:
 | Hangfire dashboards      | HANGFIRE_JOBS_GUIDE.md                                                                        |
 | Database backup / restore | BACKUP_SERVICE_GUIDE.md                                                                      |
 | Work on Nasheed service  | src/Apps/Nasheed/Doc/OVERVIEW.md, ENTITIES_AND_DATA_MODEL.md, API_ENDPOINTS.md                |
+| Work on PolySnap service | ../../Doc/POLYSNAP_PROJECT_OVERVIEW.md (idea/roadmap), src/Apps/PolySnap/Doc/POLYSNAP_SERVICE_GUIDE.md (backend detail) |
 | Work on Category service | CATEGORY_SERVICE_GUIDE.md                                                                     |
 | Work with roles          | ROLES_AND_CLAIMS_GUIDE.md, SHARED_IDENTITY_SERVICE_GUIDE.md                                   |
 | Fix performance          | PERFORMANCE_OPTIMIZATION_GUIDE.md, USER_QUERY_OPTIMIZATION_IQUERYABLE.md, LOAD_TESTING_GUIDE.md |

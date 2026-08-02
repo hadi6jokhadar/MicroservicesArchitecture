@@ -78,6 +78,11 @@ builder.Services.AddAuditLogQueries<FileManagerDbContext>();
 // Add database migration service for automatic database creation
 builder.Services.AddDatabaseMigration();
 
+// Eagerly migrate + seed a newly created tenant's database the moment Tenant Service
+// broadcasts it — removes the need to restart this service to trigger migration.
+// No-op when multi-tenancy or Redis is disabled (see AUTOMATIC_DATABASE_MIGRATION.md).
+builder.Services.AddTenantProvisioningListener<FileManagerDbContext>(builder.Configuration);
+
 // ============================================
 // Authentication & Authorization
 // ============================================

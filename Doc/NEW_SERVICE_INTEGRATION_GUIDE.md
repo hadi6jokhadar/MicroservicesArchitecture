@@ -894,6 +894,11 @@ builder.Services.AddDatabaseContext<OrderDbContext>(
     builder.Configuration,
     migrationAssembly: typeof(OrderDbContext).Assembly.GetName().Name);
 
+// Eager tenant provisioning (Layer 3) — migrates + seeds a new tenant's database the instant
+// Tenant Service creates it, so this service never needs a restart to pick up a new tenant.
+// No-op when MultiTenancy or Redis is disabled. See AUTOMATIC_DATABASE_MIGRATION.md.
+builder.Services.AddTenantProvisioningListener<OrderDbContext>(builder.Configuration);
+
 var app = builder.Build();
 
 // ============================================
@@ -1323,6 +1328,22 @@ Look at Identity or Tenant service `.csproj` files as examples.
 
 You can look at the implementation for reference, but you **don't need to modify it**. Just call `AddMultiTenancy()` and it works.
 
+### Q10.5: Do I need to restart my service every time a new tenant is created?
+
+**A: No — register `AddTenantProvisioningListener<YourDbContext>(builder.Configuration)` and you never will.**
+
+```csharp
+// In Program.cs, right after AddDatabaseContext<YourDbContext>(...)
+builder.Services.AddTenantProvisioningListener<YourDbContext>(builder.Configuration);
+```
+
+This is Layer 3 of the automatic migration system: Tenant Service broadcasts a `tenant:provisioned` Redis Pub/Sub message the instant a tenant is created, and this listener migrates (and seeds, if the DbContext defines `SeedAsync()`) that tenant's database immediately — before the tenant's first request ever arrives, and without restarting your service.
+
+- **Required for:** any Strategy B/C service (registers per-tenant DbContext)
+- **Not needed for:** Strategy A/D services (no per-tenant DbContext)
+- **No-op when:** `MultiTenancy:Enabled` or `Redis:Enabled` is `false` for this service — falls back silently to the existing lazy per-request migration, so it's always safe to include
+- **Full details:** [AUTOMATIC_DATABASE_MIGRATION.md](AUTOMATIC_DATABASE_MIGRATION.md) — "Layer 3 — Eager Migration on Tenant Creation"
+
 ### Q10: Can I customize tenant resolution (e.g., use subdomain instead of header)?
 
 **A: Yes, but you need to modify the shared middleware.**
@@ -1420,6 +1441,7 @@ The default implementation uses the `x-tenant-id` header. To use subdomain:
 ### Documentation
 
 - 📖 [Multi-Tenancy Guide](MULTI_TENANCY_GUIDE.md) - Comprehensive multi-tenancy documentation
+- 🔄 [Automatic Database Migration](AUTOMATIC_DATABASE_MIGRATION.md) - Three-layer migration system, incl. eager tenant provisioning (no restart needed)
 - 🚀 [Multi-Tenancy Quick Start](MULTI_TENANCY_QUICK_START.md) - Get started quickly
 - ⚠️ [Bypass Tenant Endpoints Guide](BYPASS_TENANT_ENDPOINTS_GUIDE.md) - **CRITICAL**: Admin/global endpoints patterns
 - 📋 [Identity Service README](../src/Services/Identity/README.md) - Identity service details
@@ -1461,6 +1483,7 @@ When creating a new service, ensure you:
 - [ ] Access authenticated user via `IHttpContextAccessor`
 - [ ] Add multi-tenancy support (if needed)
 - [ ] Access tenant data via `ITenantContext`
+- [ ] **If using multi-tenancy (Strategy B/C): call `builder.Services.AddTenantProvisioningListener<YourServiceDbContext>(builder.Configuration)` in Program.cs** — eagerly migrates + seeds new tenants without needing a service restart (Layer 3, see `AUTOMATIC_DATABASE_MIGRATION.md`)
 - [ ] **Call `builder.Services.AddAuditService()` in Program.cs** — one line enables automatic before/after audit logs for every entity change in this service
 - [ ] **Call `builder.Services.AddAuditLogQueries<YourServiceDbContext>()` in Program.cs** — registers the generic `GET /api/admin/audit-logs` query handler for this service's DbContext
 - [ ] **Call `app.MapAuditLogEndpoints()` in Program.cs** — exposes `GET /api/admin/audit-logs` with filter, sort, and pagination for Admin/SuperAdmin role
@@ -1567,7 +1590,12 @@ var userId = int.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier).Val
 builder.Services.AddMultiTenancy(builder.Configuration);
 // ✅ That's it! Middleware is automatically registered
 
-// 3. Access tenant in handler
+// 3. Register eager tenant provisioning (Layer 3) alongside your DbContext —
+//    removes the need to restart this service when a new tenant is created
+builder.Services.AddDatabaseContext<YourDbContext>(builder.Configuration, ...);
+builder.Services.AddTenantProvisioningListener<YourDbContext>(builder.Configuration);
+
+// 4. Access tenant in handler
 if (_tenantContext.HasTenant)
 {
     var tenantId = _tenantContext.CurrentTenant.TenantId;
@@ -1593,6 +1621,7 @@ var tenantId = TenantTestHelper.GenerateUniqueTenantId("my-service");
 | ------------------------------------ | ---------------------------------- |
 | Do I implement tenant middleware?    | **No** - Already in shared library |
 | Is multi-tenancy required?           | **No** - Completely optional       |
+| Do I need to restart my service when a new tenant is created? | **No** - `AddTenantProvisioningListener<T>()` migrates it eagerly |
 | Can I test without Identity Service? | **Yes** - Use TenantTestHelper     |
 | What if Tenant Service is down?      | Falls back to default config       |
 | How to pass tenant ID?               | Via `x-tenant-id` header           |

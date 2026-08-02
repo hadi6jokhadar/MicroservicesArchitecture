@@ -2,9 +2,9 @@ using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Translation.Application.Commands;
+using Translation.Application.Interfaces;
 using Translation.Domain.Entities;
 using Translation.Domain.Repositories;
 
@@ -14,18 +14,18 @@ public class ImportTranslationsCommandHandler : IRequestHandler<ImportTranslatio
 {
     private readonly ITranslationKeyRepository _keyRepository;
     private readonly ITranslationValueRepository _valueRepository;
-    private readonly IDistributedCache _cache;
+    private readonly ITranslationCacheInvalidator _cacheInvalidator;
     private readonly ILogger<ImportTranslationsCommandHandler> _logger;
-    
+
     public ImportTranslationsCommandHandler(
         ITranslationKeyRepository keyRepository,
         ITranslationValueRepository valueRepository,
-        IDistributedCache cache,
+        ITranslationCacheInvalidator cacheInvalidator,
         ILogger<ImportTranslationsCommandHandler> logger)
     {
         _keyRepository = keyRepository;
         _valueRepository = valueRepository;
-        _cache = cache;
+        _cacheInvalidator = cacheInvalidator;
         _logger = logger;
     }
     
@@ -40,6 +40,12 @@ public class ImportTranslationsCommandHandler : IRequestHandler<ImportTranslatio
             // more than once in the import payload.
             var addedKeysBatch = new Dictionary<string, TranslationKey>(StringComparer.OrdinalIgnoreCase);
             var addedValuesBatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Every distinct effective tenantId seen in this batch — a key can carry its own
+            // #tenantId# prefix that overrides the command-level TenantId, so the cache
+            // invalidation below must cover each one, not just request.TenantId. `null` means
+            // a global key, tracked alongside actual tenant ids in the same set.
+            var affectedTenantIds = new HashSet<string?>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var (rawKey, value) in request.Translations)
             {
@@ -57,6 +63,7 @@ public class ImportTranslationsCommandHandler : IRequestHandler<ImportTranslatio
 
                 // Fall back to the command-level tenantId if the key doesn't carry its own
                 var effectiveTenantId = keyTenantId ?? request.TenantId;
+                affectedTenantIds.Add(effectiveTenantId);
 
                 // Composite cache key: "tenantId|rawKey" — distinguishes global vs tenant keys
                 var batchCacheKey = $"{effectiveTenantId ?? string.Empty}|{rawKey}";
@@ -128,16 +135,14 @@ public class ImportTranslationsCommandHandler : IRequestHandler<ImportTranslatio
                 updatedValues++;
             }
             
-            // Invalidate cache
-            var cacheKeys = new[]
+            // Invalidate cache for every tenant actually touched by this batch — not just
+            // request.TenantId, since individual keys can carry their own #tenantId# prefix
+            // (see affectedTenantIds above). A `null` entry (global key) flushes every
+            // tenant's cached merged response for this language, not just the global bucket —
+            // see ITranslationCacheInvalidator.
+            foreach (var tenantId in affectedTenantIds)
             {
-                $"translations:{request.Language}:{request.TenantId ?? "global"}:all",
-                $"translations:{request.Language}:{request.TenantId ?? "global"}:{request.Category}"
-            };
-            
-            foreach (var key in cacheKeys)
-            {
-                await _cache.RemoveAsync(key, cancellationToken);
+                await _cacheInvalidator.InvalidateAsync(request.Language, tenantId, request.Category, cancellationToken);
             }
             
             return new ImportTranslationsResult(

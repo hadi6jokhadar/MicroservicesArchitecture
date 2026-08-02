@@ -191,6 +191,7 @@ builder.Services.AddMultiTenancy(builder.Configuration);   // registers ITenantC
 builder.Services.AddDatabaseContext<MyServiceDbContext>(
     builder.Configuration,
     typeof(MyServiceDbContext).Assembly.GetName().Name!);
+builder.Services.AddTenantProvisioningListener<MyServiceDbContext>(builder.Configuration);  // Layer 3: eager migrate+seed on tenant creation, no restart needed — no-op if Redis disabled
 builder.Services.AddAuditService();                         // automatic before/after audit for every entity change
 builder.Services.AddAuditLogQueries<MyServiceDbContext>();  // registers GET /api/admin/audit-logs handler
 // ...then call app.MapAuditLogEndpoints() after app.Build()
@@ -328,6 +329,7 @@ builder.Services.AddDatabaseContext<MyServiceGlobalDbContext>(
 builder.Services.AddDatabaseContext<MyServiceTenantDbContext>(
     builder.Configuration,
     typeof(MyServiceTenantDbContext).Assembly.GetName().Name!);
+builder.Services.AddTenantProvisioningListener<MyServiceTenantDbContext>(builder.Configuration);  // Layer 3: only the tenant context needs this, not the global queue context
 builder.Services.AddAuditService();                               // automatic before/after audit for every entity change
 builder.Services.AddAuditLogQueries<MyServiceGlobalDbContext>();  // registers GET /api/admin/audit-logs handler (use global context)
 // ...then call app.MapAuditLogEndpoints() after app.Build()

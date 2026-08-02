@@ -21,6 +21,7 @@ You are a Senior .NET Backend Engineer who builds complete microservices inside 
 - ALWAYS use `LocalizedValidator<T>` for validators
 - ALWAYS format DateTime as UTC: `entity.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)`
 - ALWAYS read `database-strategy.instructions.md` before creating the DbContext
+- ALWAYS register `AddTenantProvisioningListener<{SN}DbContext>(builder.Configuration)` in `Program.cs` for Strategy B/C services (per-tenant DbContext) — this is Layer 3 of `Doc/AUTOMATIC_DATABASE_MIGRATION.md`: it eagerly migrates + seeds a brand-new tenant's database the instant Tenant Service creates it (Redis Pub/Sub), so the service never needs a restart to pick up a new tenant. It is a no-op when `MultiTenancy:Enabled` or `Redis:Enabled` is `false`, so it is always safe to add. Skip it only for Strategy A/D services (no per-tenant DbContext to migrate).
 
 ## Input Required
 
@@ -70,7 +71,7 @@ Create the four project folders under `src/Services/{SN}/`:
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -137,7 +138,7 @@ public interface I{SN}Repository : IRepository<{SN}Entity>
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -434,7 +435,7 @@ public class Get{SN}ListQueryHandler : IRequestHandler<Get{SN}ListQuery, Paginat
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -688,7 +689,7 @@ public static class InfrastructureServiceExtensions
 ```xml
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
@@ -879,6 +880,7 @@ Full pipeline (Strategy B example):
 builder.Services.AddMultiTenancy(builder.Configuration);
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddDatabaseMigration();
+builder.Services.AddTenantProvisioningListener<{SN}DbContext>(builder.Configuration);  // Layer 3 — eager migrate+seed on tenant creation, no restart needed
 // ...
 // Pipeline (ORDER IS CRITICAL for Strategy B)
 app.UseTenantResolution(builder.Configuration);
@@ -891,6 +893,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.Map{SN}Endpoints();
 ```
+
+> **Strategy C (dual DB):** register `AddTenantProvisioningListener<{SN}TenantDbContext>(...)` only for the per-tenant history context — the global queue context doesn't need it.
+> **Strategy A/D:** skip this line entirely — there's no per-tenant DbContext to migrate.
+> To seed a new tenant's database automatically, define `public async Task SeedAsync()` directly on `{SN}DbContext` — both this listener and startup's `InitializeDatabaseAsync` invoke it via reflection if present.
 
 ### Phase 7 — Register in Solution
 
@@ -961,7 +967,7 @@ After all phases complete, output a table:
 | `{SN}Endpoints.cs`                              | API            | done   |
 | `ValidationFilter.cs`                           | API            | done   |
 | `appsettings.json`                              | API            | done   |
-| `Program.cs`                                    | API            | done   |
+| `Program.cs` (incl. `AddTenantProvisioningListener<{SN}DbContext>`) | API | done   |
 | `.sln` entries                                  | Solution       | done   |
 | EF Migration                                    | Infrastructure | done   |
 | Build passes                                    | —              | done   |

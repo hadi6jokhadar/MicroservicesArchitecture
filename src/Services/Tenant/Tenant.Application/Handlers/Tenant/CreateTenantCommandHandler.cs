@@ -1,9 +1,11 @@
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using IhsanDev.Shared.Kernel.Dto.Tenant;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 using System.Text.Json;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Application.DTOs;
@@ -20,15 +22,18 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
     private readonly ITenantRepository _tenantRepository;
     private readonly ICacheService _cacheService;
     private readonly ILogger<CreateTenantCommandHandler> _logger;
+    private readonly IConnectionMultiplexer? _redis;
 
     public CreateTenantCommandHandler(
         ITenantRepository tenantRepository,
         ICacheService cacheService,
-        ILogger<CreateTenantCommandHandler> logger)
+        ILogger<CreateTenantCommandHandler> logger,
+        IConnectionMultiplexer? redis = null)
     {
         _tenantRepository = tenantRepository;
         _cacheService = cacheService;
         _logger = logger;
+        _redis = redis;
     }
 
     public async Task<TenantDto> Handle(CreateTenantCommand request, CancellationToken cancellationToken)
@@ -90,6 +95,11 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, T
 
             // Invalidate paginated tenant list cache (new tenant added)
             await _cacheService.RemoveByPatternAsync("all_active_tenants_with_config_*", cancellationToken);
+
+            // Broadcast so every already-running multi-tenant service can eagerly migrate + seed
+            // this tenant's database now, instead of waiting for its first request or a restart.
+            // Best-effort only — see TenantProvisioningExtensions for the fallback rationale.
+            await _redis.PublishTenantProvisionedAsync(created.TenantId, _logger, cancellationToken);
 
             return TenantDto.MapFrom(created);
         }

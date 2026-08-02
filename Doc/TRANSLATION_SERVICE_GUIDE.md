@@ -1,7 +1,7 @@
 # 🌍 Translation Service - Complete Guide
 
-**Version:** 1.1  
-**Last Updated:** January 27, 2026  
+**Version:** 1.2  
+**Last Updated:** August 1, 2026  
 **Port:** 5006  
 **Database Pattern:** Global Database with Optional Tenant Context  
 **Test Status:** ✅ 45/45 Tests Passing (100%)
@@ -562,6 +562,33 @@ Bulk import translations from JSON.
 }
 ```
 
+**Per-key tenant overrides in the same file:** any key can carry its own `#tenantId#` prefix to
+scope just that entry to one tenant, regardless of the request's top-level `tenantId`. This lets
+one uploaded JSON file mix global keys and several tenants' overrides in a single import:
+
+```json
+{
+  "language": "en",
+  "tenantId": null,
+  "category": "General",
+  "translations": {
+    "welcome.message": "Welcome to our app",
+    "#acme#welcome.message": "Welcome to Acme Corp",
+    "#globex#welcome.message": "Welcome to Globex Inc"
+  }
+}
+```
+
+- `ImportTranslationsCommandHandler` (`Translation.Application/Handlers/Translation/`) reads the
+  substring between the first two `#` characters as `keyTenantId`; the effective tenant for that
+  row is `keyTenantId ?? request.TenantId` (falls back to the request's top-level `tenantId`, then
+  to global if that is also `null`). The `#tenantId#` prefix stays part of the stored key.
+- The admin "Import Translations" dialog (`apps/admin/src/app/features/translation/translations/import-dialog/`)
+  previews every distinct tenant it detects in the selected file (scanning for `#tenantId#` prefixes)
+  before the import request is sent, so an admin can confirm which tenants a file will affect.
+- Frontend authors don't need to add anything extra to opt out of tenant scoping — a plain key with
+  no `#...#` prefix is always imported as either global or `request.TenantId`, exactly as before.
+
 ---
 
 ## Integration Guide
@@ -890,15 +917,12 @@ translate("error.maxLength", "Username", "50"); // "Username cannot exceed 50 ch
 
 **Translation service uses Redis caching:**
 
-- Cache key: `MicroservicesApp:Translations:{language}:{tenantId?}`
-- Expiration: 5 minutes (configurable)
-- Auto-refresh: On translation updates
-
-**Manual cache invalidation:**
-
-```http
-DELETE /api/cache/translations/{language}?tenantId={tenantId}
-```
+- Cache key: `translations:{language}:{tenantId ?? "global"}:{category ?? "all"}` — exact format read/written in `GetTranslationsQueryHandler.cs`, which still injects `IDistributedCache` directly (not the shared `ICacheService`) for its own get/set. There is no `MicroservicesApp:` prefix and no separate cache-clear endpoint; invalidation happens as a side effect of the mutating command handlers below.
+- Expiration: 1 hour (`AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)`), not 5 minutes.
+- Invalidation runs through `ITranslationCacheInvalidator` (`Translation.Application/Interfaces/`, implemented by `TranslationCacheInvalidator` in `Translation.Infrastructure/Services/`, which *does* use the shared `ICacheService`) — called by `ImportTranslationsCommandHandler`, `SetTranslationCommandHandler`, `DeleteTranslationValueCommandHandler`, `DeleteTranslationKeyCommandHandler`, and `ToggleTranslationKeyArchivedStatusCommandHandler` after each write.
+- `CreateTranslationKeyCommandHandler`/`UpdateTranslationKeyCommandHandler` correctly do **not** invalidate anything — they only touch key metadata, never a `TranslationValue` row, so nothing served by `GetTranslationsQuery` changes.
+- **Global writes flush every tenant, not just the `global` bucket:** `GetTranslationsQueryHandler` caches the *merged* result (global value with any tenant override applied on top) under the requesting tenant's own key. So when a write's effective `tenantId` is `null` (a global value changed), any tenant that has no override for that key was serving the old global value from its own cached entry — clearing only `translations:{language}:global:*` left every such tenant stale for up to the full 1-hour TTL. `ITranslationCacheInvalidator.InvalidateAsync` handles this by calling `ICacheService.RemoveByPatternAsync($"translations:{language}:*", ...)` for a `null` tenantId, flushing every tenant-scoped entry for that language in one call. A non-null `tenantId` still only removes that one tenant's `:all`/`:{category}` keys, since a tenant override can't affect any other tenant's cache. `RemoveByPatternAsync` needs `IConnectionMultiplexer` (registered by `AddCacheService` only when `Redis:Enabled = true`) — under the in-memory fallback it logs a warning and no-ops, same limitation as every other `RemoveByPatternAsync` caller on this platform (see `CACHING_STRATEGY_COMPARISON.md`).
+- `ImportTranslationsCommandHandler` lets each imported key carry its own `#tenantId#` prefix (see the Import endpoint section above), so a single batch can touch several different tenants' rows even when the command's own `TenantId` is null — it tracks every distinct effective tenant id seen during the loop (`null` included) and calls `InvalidateAsync` once per distinct id.
 
 ---
 
@@ -910,21 +934,23 @@ DELETE /api/cache/translations/{language}?tenantId={tenantId}
 
 **Causes:**
 
-1. Redis cache not cleared
-2. Frontend caching translations
+1. Redis cache not invalidated by the write path that changed the data (see the per-tenant invalidation pitfall in the Caching section above — a common cause when the change came from `Import`)
+2. Frontend's in-memory `TranslationService` signal cache not refreshed (needs a full page reload or language switch — it does not auto-refetch after an admin mutation; see `MicroservicesArchitecture-Web/Doc/TRANSLATION_SYSTEM_GUIDE.md`)
 3. Wrong tenant ID in request
 
 **Solutions:**
 
 ```bash
-# Clear Redis cache
+# Clear the whole Translation service Redis cache (there is no per-service FLUSHDB —
+# only do this if the service has its own Redis DB/instance, not a shared one)
 redis-cli FLUSHDB
 
-# Or clear specific translation cache
-DELETE /api/cache/translations/en?tenantId=tenant-123
+# Or delete the specific key manually
+redis-cli DEL "translations:en:global:all"
+redis-cli DEL "translations:en:tenant-123:all"
 
-# Check frontend localStorage/sessionStorage
-localStorage.removeItem('translations');
+# Frontend: reload the page (or switch language) to force the resolver
+# to call getTranslations() again and repopulate the signal cache
 ```
 
 ### Issue: Missing Tenant Overrides
@@ -1023,9 +1049,9 @@ ORDER BY tv.TenantId DESC; -- Tenant overrides first
 ### Caching Strategy
 
 1. **Redis Cache**: 95%+ hit rate for frequently accessed translations
-2. **Cache Invalidation**: Automatic on translation updates
+2. **Cache Invalidation**: Automatic on translation updates — per-tenant, per-language, per-category (see the Caching section above)
 3. **Cache Warmup**: Pre-load common languages on startup
-4. **TTL**: 5 minutes (configurable via `MultiTenancy:CacheExpirationMinutes`)
+4. **TTL**: 1 hour (`AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)` in `GetTranslationsQueryHandler.cs`) — not configurable via `MultiTenancy:CacheExpirationMinutes`, that setting is unrelated (it controls the Tenant Service config cache, not this cache)
 
 ---
 
@@ -1043,6 +1069,6 @@ ORDER BY tv.TenantId DESC; -- Tenant overrides first
 
 ---
 
-**Last Updated:** January 27, 2026  
-**Version:** 1.1  
+**Last Updated:** August 1, 2026  
+**Version:** 1.2  
 **Status:** ✅ Production Ready | ✅ Tests: 45/45 Passing

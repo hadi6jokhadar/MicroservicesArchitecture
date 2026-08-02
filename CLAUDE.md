@@ -55,7 +55,7 @@ src/
 ├── Services/   # Core platform microservices (foundational — other projects depend on these)
 │               # Identity, Tenant, FileManager, Notification, Translation, Category, AI
 └── Apps/       # Domain-specific application projects that consume platform Services
-                # e.g. src/Apps/Nasheed/
+                # e.g. src/Apps/Nasheed/, src/Apps/PolySnap/
 ```
 
 **New foundational services** → `src/Services/`
@@ -138,6 +138,7 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 | Pitfall | Fix |
 |---|---|
 | Chaining with `&` | Use `;` or separate lines in PowerShell |
+| A newly created tenant isn't usable in an already-running service until that service is restarted | Should no longer happen — `AddTenantProvisioningListener<TContext>()` (Layer 3, `Doc/AUTOMATIC_DATABASE_MIGRATION.md`) eagerly migrates + seeds every subscribed service the instant a tenant is created via Redis Pub/Sub. If it's still happening, check `Redis:Enabled`/`MultiTenancy:Enabled` on that service and that it registers the listener |
 | Controllers | Minimal APIs only — `app.MapPost("/api/...")` |
 | Tenant Service as multi-tenant | It uses static config — it's the provider, not the consumer |
 | Manual `dotnet ef database update` in prod | System auto-creates DBs on first request |
@@ -148,6 +149,7 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 | A toggle/restore endpoint's own lookup uses a repository method that filters out the soft-deleted/archived state it needs to find (e.g. Tenant's `toggle-archive` used `GetByTenantIdAsync` which excludes `IsArchived` rows, so unarchiving 404'd even though the command handler underneath was correct) | Give toggle/restore endpoints a repository method with no `IsArchived`/`IsDeleted` filter (e.g. `GetByTenantIdIncludingArchivedAsync`) — audit every repository call in the endpoint's path, not just the final handler. See Dotnet.instructions.md pitfall #17 |
 | A command/query with an enum property bound directly from a JSON request body fails with a 400 (`JsonException`) since no global string-enum converter is registered on this platform | Add `[property: JsonConverter(typeof(JsonStringEnumConverter))]` on that property (e.g. Backup's `TriggerBackupCommand.Scope`) — every other enum is only ever a string on the *output*/DTO side via manual `.ToString()`. See Dotnet.instructions.md pitfall #18 |
 | Building a new periodic cache-refresh mechanism for shared data (e.g. a per-consuming-service `TenantConfigCacheRefreshService` for tenant config) before checking whether the *owning* service already keeps it fresh | `grep -rn` the target cache key pattern (e.g. `tenant_config_`) across the *entire* repo first — Tenant.API already runs `TenantCacheRefreshJob` (Hangfire, 30-min cron) writing into those same Redis keys for every service sharing its Redis instance; only FileManager (isolated cache, Redis disabled) needed the new mechanism. See Dotnet.instructions.md pitfall #25 |
+| Uploading/editing a **global** Translation value only invalidated `translations:{language}:global:*`, leaving every tenant's already-cached *merged* (global + override) response stale for up to 1 hour, since tenants without an override for that key were serving the old global value from their own cache entry | Use `ITranslationCacheInvalidator` (`Translation.Application/Interfaces/`, implemented in `Translation.Infrastructure/Services/`) — for a `null` (global) tenantId it calls `ICacheService.RemoveByPatternAsync($"translations:{{language}}:*", ...)` to flush every tenant's cache for that language, not just one key. See Dotnet.instructions.md pitfall #27 |
 
 ## Technology Stack
 

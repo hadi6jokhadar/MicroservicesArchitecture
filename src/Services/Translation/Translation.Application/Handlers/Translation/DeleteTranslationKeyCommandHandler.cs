@@ -1,9 +1,9 @@
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
 using MediatR;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Translation.Application.Commands;
+using Translation.Application.Interfaces;
 using Translation.Domain.Repositories;
 using Translation.Domain.Entities;
 
@@ -13,20 +13,20 @@ public class DeleteTranslationKeyCommandHandler : IRequestHandler<DeleteTranslat
 {
     private readonly ITranslationKeyRepository _keyRepository;
     private readonly ITranslationValueRepository _valueRepository;
-    private readonly IDistributedCache _cache;
+    private readonly ITranslationCacheInvalidator _cacheInvalidator;
     private readonly ILocalizationService _localizationService;
     private readonly ILogger<DeleteTranslationKeyCommandHandler> _logger;
 
     public DeleteTranslationKeyCommandHandler(
         ITranslationKeyRepository keyRepository,
         ITranslationValueRepository valueRepository,
-        IDistributedCache cache,
+        ITranslationCacheInvalidator cacheInvalidator,
         ILocalizationService localizationService,
         ILogger<DeleteTranslationKeyCommandHandler> logger)
     {
         _keyRepository = keyRepository;
         _valueRepository = valueRepository;
-        _cache = cache;
+        _cacheInvalidator = cacheInvalidator;
         _localizationService = localizationService;
         _logger = logger;
     }
@@ -59,27 +59,20 @@ public class DeleteTranslationKeyCommandHandler : IRequestHandler<DeleteTranslat
                 await _keyRepository.DeleteAsync(key, cancellationToken);
             }
             
-            // Invalidate cache for all languages and tenants that had this translation
-            // Cache key pattern: translations:{language}:{tenantId}:{category}
-            var clearedCacheKeys = new HashSet<string>();
+            // Invalidate cache for every distinct language/tenant this key had a value for.
+            // A null TenantId (global) flushes every tenant's cached merged response for that
+            // language — see ITranslationCacheInvalidator — so dedupe on (language, tenantId)
+            // only, not per-cache-key, to avoid redundant pattern-scan flushes.
+            var invalidated = new HashSet<(string Language, string? TenantId)>();
             foreach (var translationValue in translationValues)
             {
-                var tenantKey = translationValue.TenantId ?? "global";
-                var cacheKeys = new[]
+                if (invalidated.Add((translationValue.Language, translationValue.TenantId)))
                 {
-                    $"translations:{translationValue.Language}:{tenantKey}:all",
-                    $"translations:{translationValue.Language}:{tenantKey}:{key.Category}"
-                };
-                
-                foreach (var cacheKey in cacheKeys)
-                {
-                    if (clearedCacheKeys.Add(cacheKey))
-                    {
-                        await _cache.RemoveAsync(cacheKey, cancellationToken);
-                    }
+                    await _cacheInvalidator.InvalidateAsync(
+                        translationValue.Language, translationValue.TenantId, key.Category, cancellationToken);
                 }
             }
-            
+
             return true;
         }
         catch (AppException)

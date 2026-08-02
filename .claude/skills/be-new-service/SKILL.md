@@ -205,6 +205,15 @@ public static class MyEntityApiHandlers
 
 Wire based on the strategy chosen in Step 0. Order is **critical** — see `.claude/instructions/database-strategy.instructions.md` for exact pipeline per strategy.
 
+For Strategy B/C (per-tenant DbContext), always register the eager tenant-provisioning listener alongside `AddDatabaseContext`:
+
+```csharp
+builder.Services.AddDatabaseContext<MyServiceDbContext>(builder.Configuration, ...);
+builder.Services.AddTenantProvisioningListener<MyServiceDbContext>(builder.Configuration);  // Layer 3 — no restart needed for new tenants
+```
+
+This is Layer 3 of `Doc/AUTOMATIC_DATABASE_MIGRATION.md`: it eagerly migrates + seeds a brand-new tenant's database the moment Tenant Service creates it (Redis Pub/Sub broadcast), instead of waiting for that tenant's first request or this service's next restart. It's a no-op (safe to always include) when `MultiTenancy:Enabled` or `Redis:Enabled` is `false`. For Strategy C, register it only against the per-tenant history context, not the global queue context. Skip entirely for Strategy A/D (no per-tenant DbContext). To seed new tenants automatically, define `public async Task SeedAsync()` on the DbContext — it's picked up via reflection automatically.
+
 Always add observability:
 
 ```csharp
