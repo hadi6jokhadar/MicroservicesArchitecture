@@ -29,6 +29,7 @@ Default local URL:
 12. Generates text embedding vectors via `POST /api/v1/embedding` and logs token usage after each call.
 13. Supports local BAAI bge-m3 embedding inference for any provider settings record where `Provider = BAAI` and `ModelName` is `bge-m3` or `baai/bge-m3` (key-independent detection), while preserving the existing LiteLLM provider flow.
 14. Persists the exact model-input message list used in LiteLLM calls (system and request messages) for each chat turn, serializing structured JSON content blocks to strings for database debugging.
+15. Transcribes a single audio file with segment-level timestamps via a dedicated ASR model (`POST /api/v1/transcription`) — real audio-aligned timing, not an LLM-estimated one from a chat completion. Requires a provider settings row with `ModelType = Audio`. Logs usage as `AudioDurationSeconds` (not tokens — ASR has no token-based billing).
 
 ## High-Level Architecture
 
@@ -43,6 +44,7 @@ Default local URL:
 - `api/routes/chat_message_files.py`: Chat message to file relation listing.
 - `api/routes/token_usage_logs.py`: Token usage log listing with filtering, pagination, and aggregate statistics (`GET /stats`).
 - `api/routes/embedding.py`: Text embedding endpoint (`POST /api/v1/embedding`). Resolves provider settings, validates `ModelType == Embedding`, uses local `BAAI/bge-m3` when configured, otherwise calls LiteLLM `aembedding`, then logs token usage.
+- `api/routes/transcription.py`: ASR transcription endpoint (`POST /api/v1/transcription`). Resolves provider settings, validates `ModelType == Audio`, downloads the attached file via `file_manager_client` + `fetch_file_bytes_with_fallback`, calls LiteLLM `atranscription` (`response_format=verbose_json`, segment timestamps), then logs usage via `AudioDurationSeconds` instead of tokens.
 - `api/dependencies.py`: Auth and tenant resolution helpers.
 - `api/attributes.py`: Optional tenant and bypass tenant decorators.
 
@@ -207,6 +209,7 @@ Authorization behavior for chat and observability endpoints:
 
 - `POST /api/v1/chat/stream` and `POST /api/v1/chat/single` accept LLM chat requests from authenticated users and internal service calls.
 - `POST /api/v1/embedding` accepts embedding requests from authenticated users and internal service calls.
+- `POST /api/v1/transcription` accepts ASR transcription requests from authenticated users and internal service calls.
 - `GET /api/v1/chat-sessions/`, `GET /api/v1/chat-messages/`, `GET /api/v1/chat-message-files/`, `GET /api/v1/token-usage-logs/`, and `GET /api/v1/token-usage-logs/stats` require internal service authentication or `SuperAdmin`.
 
 ## Tenant Handling
@@ -223,6 +226,7 @@ For endpoints decorated with optional tenant behavior, missing tenant does not f
 Chat endpoint tenant behavior:
 
 - `POST /api/v1/chat/stream` and `POST /api/v1/chat/single` are optional-tenant endpoints.
+- `POST /api/v1/transcription` is an optional-tenant endpoint (same pattern as chat).
 - If `x-tenant-id` or JWT `tenantId` is provided, chat uses tenant plus global settings lookup.
 - If tenant context is missing, settings are resolved by `Key` regardless of `TenantId`, while prompts continue to use global scope.
 - Chat sessions created without tenant context are stored under the service global chat tenant scope (`global`) so persistence remains valid.
@@ -251,6 +255,7 @@ Chat endpoint tenant behavior:
 - `GET /api/v1/token-usage-logs/`
 - `GET /api/v1/token-usage-logs/stats`
 - `POST /api/v1/embedding`
+- `POST /api/v1/transcription`
 
 ### Chat Response Modes
 
@@ -319,6 +324,8 @@ Returns aggregate token usage statistics. Requires internal service auth or `Sup
 | `tokens_by_model`        | `TokensByModelItem[]`    | Per-model breakdown, ordered by total tokens desc    |
 | `tokens_by_endpoint`     | `TokensByEndpointItem[]` | Per-endpoint breakdown, ordered by total tokens desc |
 | `tokens_over_time`       | `TokensOverTimeItem[]`   | Daily aggregation ordered by date asc                |
+
+`/api/v1/transcription` rows have `PromptTokens = CompletionTokens = TotalTokens = 0` (ASR has no token-based billing) and are therefore invisible to every aggregate above. Their real usage is `AudioDurationSeconds` on the raw log row (`GET /api/v1/token-usage-logs/`, `TokenUsageLogResponse.AudioDurationSeconds`) — not currently aggregated by `/stats`.
 
 **Implementation:** runs four independent async SQLAlchemy queries (totals, by-model group-by, by-endpoint group-by, daily cast-to-Date group-by). All filters are applied to each query via a shared `_apply_filters` helper inside the route function.
 

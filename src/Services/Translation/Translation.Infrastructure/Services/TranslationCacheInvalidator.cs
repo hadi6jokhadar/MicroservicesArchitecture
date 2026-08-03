@@ -22,8 +22,14 @@ public class TranslationCacheInvalidator : ITranslationCacheInvalidator
             // Global write: every tenant that has no override for the touched key(s) is
             // currently serving this value from its own cached merged response, so the whole
             // language must be flushed, not just translations:{language}:global:*.
-            // RemoveByPatternAsync depends on IConnectionMultiplexer (Redis only) — it silently
-            // no-ops with a logged warning under the in-memory cache fallback.
+            // RemoveByPatternAsync depends on IConnectionMultiplexer (Redis only) and a SCAN
+            // match at call time — it silently no-ops (logged, no exception) if the
+            // multiplexer/server isn't available or the in-memory cache fallback is in use.
+            // The "global" bucket itself must never depend on that best-effort path, so it is
+            // always removed directly first; the pattern flush below remains best-effort for
+            // every *other* tenant's cached merged response.
+            await _cache.RemoveAsync($"translations:{language}:global:all", cancellationToken);
+            await _cache.RemoveAsync($"translations:{language}:global:{category}", cancellationToken);
             await _cache.RemoveByPatternAsync($"translations:{language}:*", cancellationToken);
             _logger.LogDebug("Invalidated all tenant caches for language {Language} after a global translation change", language);
         }

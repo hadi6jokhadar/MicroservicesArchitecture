@@ -1,18 +1,23 @@
 # Nasheed Service — Ingestion Pipeline
 
-**Last Updated:** May 7, 2026
+**Last Updated:** August 3, 2026
 
 ---
 
 ## Overview
 
-The ingestion pipeline processes songs in the background after upload. `FullPipeline` now uses one AI chat request that returns all enrichment data for the song record (including raw LRC lyrics). It runs as a background `IHostedService` (`NasheedIngestionWorker`) that polls for pending jobs every 10 seconds.
+The ingestion pipeline processes songs in the background after upload. `FullPipeline` and `MetadataExtraction` both delegate lyrics/timing + enrichment extraction to `NasheedIngestionWorker.ExtractLyricsAndMetadataAsync`, which branches on the `nasheedNewLyricsExtractionEnabled` feature flag:
+
+- **Old pipeline (default):** one AI chat request returns all enrichment data for the song record, including raw LRC lyrics with LLM-estimated timestamps.
+- **New pipeline (opt-in):** a dedicated ASR transcription call provides real audio-aligned timestamps, followed by a text-only chat call for enrichment metadata. See `Doc/AI_INTEGRATION.md` "Two Lyrics/Timing Extraction Pipelines".
+
+It runs as a background `IHostedService` (`NasheedIngestionWorker`) that polls for pending jobs every 10 seconds.
 
 ```
 Song uploaded (POST /api/songs)
   → SongIngestionJobEntity created (JobType=FullPipeline, Status=Pending)
   → NasheedIngestionWorker picks it up
-      → [1] Single AI enrichment request (metadata + raw LRC)
+      → [1] Lyrics/timing + enrichment extraction (old: one chat call; new: ASR + text-only chat call — flag-gated)
       → [2] Save song metadata and mood tags
       → [3] Queue EmbeddingGeneration job
   → EmbeddingGeneration job updates SongSearchDocumentEntity and marks song Indexed
@@ -51,7 +56,7 @@ If TenantService is unreachable and all 12 retries fail:
 
 ### `FullPipeline`
 
-Runs one AI enrichment request in sequence. Created automatically when a new song is uploaded.
+Runs lyrics/timing + enrichment extraction (old or new pipeline, per feature flag) in sequence. Created automatically when a new song is uploaded.
 
 After enrichment fields are saved, `FullPipeline` automatically queues `EmbeddingGeneration` so indexing happens asynchronously.
 
@@ -62,10 +67,11 @@ Extracts:
 - `LanguageCode` — language of the song lyrics (e.g. `"ar"`, `"en"`)
 - `Summary` — AI-generated description
 - `VocalStyle` — stylistic description
-- `DurationSeconds` — duration (if available from audio analysis)
-- `LyricsRaw` — LRC-formatted lyrics from the enrichment response
+- `DurationSeconds` — duration (old pipeline: LLM estimate; new pipeline: real ASR-reported duration)
+- `LyricsRaw` — LRC-formatted lyrics (old pipeline: from the chat response; new pipeline: built by the worker from ASR segments)
 
-Uses AI keys: `nasheed:extraction:settings` + `nasheed:extraction:system-prompt`
+Old pipeline uses AI keys: `nasheed:extraction:settings` + `nasheed:extraction:system-prompt`.
+New pipeline (flag-gated) uses: `nasheed:transcription:settings` + `nasheed:enrichment:settings` + `nasheed:enrichment:system-prompt` — see `Doc/AI_INTEGRATION.md`.
 
 `mood_tags` parsing note:
 
@@ -162,7 +168,7 @@ If a pending or running embedding job already exists for the same song, automati
 
 ## Lyrics Fields Behavior
 
-- `LyricsRaw` stores LRC from the single enrichment response.
+- `LyricsRaw` stores LRC from either pipeline — the single old-pipeline chat response, or the new pipeline's ASR-built LRC.
 - `LyricsVerifiedLrc` is not auto-populated during `FullPipeline`.
 - `LyricsVerifiedLrc` should be set only after explicit user verification of `LyricsRaw`.
 - Updating `LyricsRaw` resets `LyricsVerifiedLrc` and `LyricsPlainText`.
@@ -174,10 +180,14 @@ If a pending or running embedding job already exists for the same song, automati
 **File:** `Nasheed.Infrastructure/Workers/NasheedIngestionWorker.cs`
 
 - Extends `BackgroundService`
-- Injected: `IServiceScopeFactory`, `INasheedTenantCache`, `IConfiguration`, `ILogger`
+- Injected: `IServiceScopeFactory`, `INasheedTenantCache`, `ILogger` (constructor has no `IConfiguration` — this doc previously listed one; corrected here per the self-correcting-docs protocol)
 - Creates a scope per poll cycle to resolve scoped services (`NasheedDbContext`, `IAiApiClient`)
 - Poll interval: 10 seconds
 - Cancellation: respects `stoppingToken` passed to `ExecuteAsync`
+- `ExtractLyricsAndMetadataAsync` — shared entry point for both `FullPipeline` and `MetadataExtraction`; branches on `IsNewLyricsExtractionEnabled()` (reads `INasheedTenantCache.Tenant.Configuration.FeatureFlags`, same pattern as `IsIngestionEnabled()`)
+- `BuildLrcFromSegments` — new pipeline only; builds LRC text directly from `AiTranscriptionSegment[]` (integer-hundredths math to avoid floating-point timestamp drift)
+- `ApplyEnrichmentMetadataAsync` — new pipeline only; mirrors `ApplyMetadataAsync` but takes ASR-derived `lyricsRawLrc`/`durationSeconds`/`language` as parameters instead of parsing them from the AI response
+- `ApplyMoodTagsAsync` — shared mood-tag-application helper used by both `ApplyMetadataAsync` and `ApplyEnrichmentMetadataAsync`
 
 **File:** `Nasheed.Infrastructure/Services/NasheedTenantLoaderService.cs`
 

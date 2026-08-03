@@ -122,6 +122,61 @@ public class AiApiClientService : IAiApiClient
         return result.Embedding;
     }
 
+    public async Task<AiTranscriptionResult> TranscribeAsync(
+        string settingsKey,
+        int fileId,
+        string? tenantId = null,
+        string? language = null,
+        CancellationToken cancellationToken = default)
+    {
+        tenantId ??= _configuration["MultiTenancy:TenantId"]
+            ?? throw new InvalidOperationException(
+                "MultiTenancy:TenantId is not configured. " +
+                "Nasheed is a single-tenant service - set MultiTenancy:TenantId in appsettings.json.");
+
+        var request = new Dictionary<string, object?>
+        {
+            ["settings_key"] = settingsKey,
+            ["file_ids"] = new[] { fileId },
+        };
+        if (!string.IsNullOrWhiteSpace(language))
+        {
+            request["language"] = language;
+        }
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/transcription");
+        httpRequest.Content = JsonContent.Create(request, options: JsonOptions);
+
+        httpRequest.Headers.Add("x-tenant-id", tenantId);
+
+        var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError(
+                "AI transcription request failed with status {StatusCode}. Body: {Body}",
+                (int)response.StatusCode,
+                errorBody);
+            throw new HttpRequestException(
+                $"AI transcription request failed with status {(int)response.StatusCode}: {errorBody}",
+                null,
+                response.StatusCode);
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<AiTranscriptionResponse>(JsonOptions, cancellationToken)
+            ?? throw new InvalidOperationException("AI service returned null transcription response.");
+
+        return new AiTranscriptionResult
+        {
+            Text = result.Text,
+            Language = result.Language,
+            Duration = result.Duration,
+            Segments = result.Segments
+                .Select(s => new AiTranscriptionSegment { Start = s.Start, End = s.End, Text = s.Text })
+                .ToList(),
+        };
+    }
+
     private sealed class AiChatResponse
     {
         public Guid SessionId { get; set; }
@@ -135,5 +190,20 @@ public class AiApiClientService : IAiApiClient
     {
         public float[] Embedding { get; set; } = Array.Empty<float>();
         public string ModelKey { get; set; } = string.Empty;
+    }
+
+    private sealed class AiTranscriptionResponse
+    {
+        public string Text { get; set; } = string.Empty;
+        public string? Language { get; set; }
+        public double? Duration { get; set; }
+        public List<AiTranscriptionSegmentDto> Segments { get; set; } = [];
+    }
+
+    private sealed class AiTranscriptionSegmentDto
+    {
+        public double Start { get; set; }
+        public double End { get; set; }
+        public string Text { get; set; } = string.Empty;
     }
 }

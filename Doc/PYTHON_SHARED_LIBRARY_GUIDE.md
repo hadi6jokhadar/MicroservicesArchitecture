@@ -173,7 +173,7 @@ Reason:
 
 ## AI Service Integration Note
 
-`AI.API` uses `FileManagerServiceClient` during chat orchestration (`POST /api/v1/chat/stream` and `POST /api/v1/chat/single`) to resolve `file_ids`, then builds multimodal content blocks (image, audio, document text context) before provider invocation.
+`AI.API` uses `FileManagerServiceClient` during chat orchestration (`POST /api/v1/chat/stream` and `POST /api/v1/chat/single`) to resolve `file_ids`, then builds multimodal content blocks (image, audio, document text context) before provider invocation. `POST /api/v1/transcription` (`api/routes/transcription.py`) uses the same shared `file_manager_client` singleton (`core/ai/file_context.py`) to resolve its single attached file before downloading its bytes and calling the ASR provider — it does not go through the chat orchestration multimodal-block path since transcription is not a chat completion.
 
 ## SQLAlchemy Model Instructions (AI Service)
 

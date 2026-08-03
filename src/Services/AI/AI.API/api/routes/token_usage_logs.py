@@ -61,6 +61,7 @@ class TokenUsageLogResponse(BaseModel):
     PromptTokens: int
     CompletionTokens: int
     TotalTokens: int
+    AudioDurationSeconds: Optional[float] = None
     Endpoint: str
     CreatedAt: datetime
 

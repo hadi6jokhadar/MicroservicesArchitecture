@@ -1,12 +1,14 @@
 # Nasheed Service — AI Integration
 
-**Last Updated:** May 10, 2026
+**Last Updated:** August 3, 2026
 
 ---
 
 ## Overview
 
 Nasheed uses one chat settings key and one chat prompt key for all chat-based AI operations (enrichment, verification, and generation). Embeddings use a separate embedding settings key.
+
+Nasheed also supports a second, feature-flagged lyrics/timing extraction pipeline (`FeatureFlags.NasheedNewLyricsExtractionEnabled`, default `false`) that uses a dedicated ASR transcription call for timing instead of asking the chat model to estimate LRC timestamps in one shot. See "Two Lyrics/Timing Extraction Pipelines" below.
 
 All keys are constants in `Nasheed.Application/Constants/NasheedAiKeys.cs`.
 
@@ -16,11 +18,14 @@ All keys are constants in `Nasheed.Application/Constants/NasheedAiKeys.cs`.
 
 | Constant                           | Key Value                          | Purpose                               |
 | ---------------------------------- | ---------------------------------- | ------------------------------------- |
-| `NasheedAiKeys.ExtractionSettings` | `nasheed:extraction:settings`      | LLM settings for all chat operations  |
-| `NasheedAiKeys.ExtractionPrompt`   | `nasheed:extraction:system-prompt` | System prompt for all chat operations |
+| `NasheedAiKeys.ExtractionSettings` | `nasheed:extraction:settings`      | LLM settings for the **old** single-call pipeline (audio + timing)  |
+| `NasheedAiKeys.ExtractionPrompt`   | `nasheed:extraction:system-prompt` | System prompt for the **old** single-call pipeline |
 | `NasheedAiKeys.EmbeddingSettings`  | `nasheed:embedding:settings`       | Embedding model settings              |
+| `NasheedAiKeys.TranscriptionSettings` | `nasheed:transcription:settings` | **New** pipeline — ASR model settings (`ModelType=Audio`, e.g. Whisper) |
+| `NasheedAiKeys.EnrichmentSettings` | `nasheed:enrichment:settings` | **New** pipeline — text-only chat model settings (no audio needed) |
+| `NasheedAiKeys.EnrichmentPrompt` | `nasheed:enrichment:system-prompt` | **New** pipeline — text-only system prompt (summary/mood/legal only) |
 
-> **These keys must exist in AI.API's database for the tenant** (`anashid` by default) or have a global fallback. Missing keys cause 404/500 errors from AI.API.
+> **These keys must exist in AI.API's database for the tenant** (`anashid` by default) or have a global fallback. Missing keys cause 404/500 errors from AI.API. The `Transcription*`/`Enrichment*` keys are only required if a tenant enables `nasheedNewLyricsExtractionEnabled`.
 
 ---
 
@@ -82,11 +87,72 @@ Response:
 
 Nasheed resolves `x-tenant-id` from `MultiTenancy:TenantId` for embedding calls (same as chat). This ensures tenant-scoped embedding settings are used.
 
+### Transcribe Call (new pipeline only — real audio-aligned timing)
+
+```
+POST {AiService.BaseUrl}/api/v1/transcription
+Headers: X-Service-Name, X-Service-Secret, x-tenant-id
+Body:
+{
+  "settings_key": "nasheed:transcription:settings",
+  "file_ids": [123]
+}
+Response:
+{
+  "text": "full transcript",
+  "language": "ar",
+  "duration": 178.2,
+  "segments": [
+    { "start": 3.52, "end": 10.98, "text": "..." }
+  ]
+}
+```
+
+Unlike the chat call, this is not a generative completion — `settings_key` must resolve to an
+`AiProviderSettings` row with `ModelType = Audio` (a real ASR model, e.g. Whisper), and the
+response's `segments[].start`/`end` come from the model's own audio alignment. `IAiApiClient.TranscribeAsync`
+wraps this call and returns an `AiTranscriptionResult`. See `Doc/AI_SERVICE_CHAT_INTEGRATION_GUIDE.md`
+"Transcription Endpoint" section for the full contract.
+
+---
+
+## Two Lyrics/Timing Extraction Pipelines
+
+Nasheed's `NasheedIngestionWorker.ExtractLyricsAndMetadataAsync` branches on the tenant feature
+flag `FeatureFlags.NasheedNewLyricsExtractionEnabled` (default `false`):
+
+**Old pipeline (default):** one chat call to `nasheed:extraction:settings` /
+`nasheed:extraction:system-prompt` with the audio file attached — the chat model both transcribes
+the lyrics *and* estimates LRC timestamps in the same response. Simple (one call), but timing is
+only as accurate as a generative model's estimate — see Stage 1 below.
+
+**New pipeline (opt-in, per tenant):**
+
+1. `IAiApiClient.TranscribeAsync(NasheedAiKeys.TranscriptionSettings, song.FileId, tenantId)` — a
+   real ASR model transcribes the audio and returns segment-level timestamps grounded in actual
+   audio alignment (not estimated).
+2. `NasheedIngestionWorker.BuildLrcFromSegments` builds `lyrics_raw_lrc` directly from those
+   segments — the worker constructs the LRC text itself; no LLM ever generates a timestamp.
+3. `IAiApiClient.ChatAsync(NasheedAiKeys.EnrichmentSettings, NasheedAiKeys.EnrichmentPrompt, transcription.Text, tenantId)` —
+   a **text-only** chat call (no `file_ids`, no audio) using the ASR transcript to produce
+   `summary`/`vocal_style`/`mood_tags`/`legal_compliance`/`language_code` in Arabic. Cheaper and
+   more reliable than the old prompt for these fields too, since the model is no longer sharing
+   generation budget with audio/timing work.
+4. `NasheedIngestionWorker.ApplyEnrichmentMetadataAsync` saves the result, using the ASR-derived
+   `lyricsRawLrc`/`durationSeconds`/`language` (ASR `language` is used as a fallback if the
+   enrichment response omits `language_code`) instead of parsing them from the chat response.
+
+Enabling the flag requires the three new AI.API keys documented above
+(`nasheed:transcription:settings` with `ModelType=Audio`, `nasheed:enrichment:settings`,
+`nasheed:enrichment:system-prompt`) to exist for the tenant (or globally).
+
 ---
 
 ## Stage-by-Stage Details
 
-### 1. Song Enrichment in Background Worker
+### 1. Song Enrichment in Background Worker (old pipeline)
+
+**Applies when:** `FeatureFlags.NasheedNewLyricsExtractionEnabled` is `false` (default) for the tenant. See "Two Lyrics/Timing Extraction Pipelines" above for the new pipeline.
 
 **When:** During `IngestionJobType.FullPipeline` (default job queued when creating a song)
 
@@ -180,6 +246,9 @@ For a new tenant using Nasheed, insert the following records into AI.API's datab
 | `nasheed:extraction:settings`      | settings (model config)    | ✅       |
 | `nasheed:extraction:system-prompt` | prompt                     | ✅       |
 | `nasheed:embedding:settings`       | settings (embedding model) | ✅       |
+| `nasheed:transcription:settings`   | settings (`ModelType=Audio`, e.g. Whisper) | Only if `nasheedNewLyricsExtractionEnabled` |
+| `nasheed:enrichment:settings`      | settings (text-only model)                 | Only if `nasheedNewLyricsExtractionEnabled` |
+| `nasheed:enrichment:system-prompt` | prompt                                     | Only if `nasheedNewLyricsExtractionEnabled` |
 
 Refer to `Doc/AI_SERVICE_CHAT_INTEGRATION_GUIDE.md` for how AI.API stores and resolves settings keys.
 
@@ -197,6 +266,8 @@ Refer to `Doc/AI_SERVICE_CHAT_INTEGRATION_GUIDE.md` for how AI.API stores and re
 | `TimeoutRejectedException` with `00:00:30` | Old timeout policy behavior. Nasheed now sends AI requests without the default 30-second framework timeout policy. |
 | Empty embedding / zero scores              | Embedding model key misconfigured or empty response from AI.API                                                    |
 | Generation endpoint returns 500            | Check that extraction chat keys exist and AI.API is running                                                        |
+| `400` "not an Audio model" from `/api/v1/transcription` | `nasheed:transcription:settings` row has the wrong `ModelType` — must be `Audio`, not `Text` |
+| New pipeline enabled but old lyrics/timing still appear | `INasheedTenantCache` is populated once at startup by `NasheedTenantLoaderService` and never refreshed afterward — toggling the feature flag requires restarting Nasheed.API for the worker to pick up the new value |
 
 Additional practical note:
 

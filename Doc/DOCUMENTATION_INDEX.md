@@ -213,7 +213,7 @@ Files are organized by category. Each entry includes:
 
 ### FEATURE_FLAGS_GUIDE.md
 
-**Description:** Tenant-configuration-driven feature flags. Covers `TenantConfiguration.FeatureFlags` dictionary, `IFeatureFlagService` interface, `TenantFeatureFlagService` implementation, DI registration (`AddFeatureFlagService()`), flag name constants (`FeatureFlags` static class), usage in request handlers vs background services, current gates (aiChatEnabled → GenerateLyricsCommandHandler, nasheedIngestionEnabled → NasheedIngestionWorker), and steps for adding new flags.  
+**Description:** Tenant-configuration-driven feature flags. Covers `TenantConfiguration.FeatureFlags` dictionary, `IFeatureFlagService` interface, `TenantFeatureFlagService` implementation, DI registration (`AddFeatureFlagService()`), flag name constants (`FeatureFlags` static class), usage in request handlers vs background services, current gates (aiChatEnabled → GenerateLyricsCommandHandler, nasheedIngestionEnabled → NasheedIngestionWorker, nasheedNewLyricsExtractionEnabled → NasheedIngestionWorker's ASR-based lyrics/timing pipeline), and steps for adding new flags.  
 **Read When:**
 
 - Adding a feature flag to gate a new capability per tenant

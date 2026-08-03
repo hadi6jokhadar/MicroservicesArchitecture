@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text;
+using System.Globalization;
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -175,18 +177,7 @@ public class NasheedIngestionWorker : BackgroundService
         ISongIngestionJobRepository jobRepo,
         CancellationToken cancellationToken)
     {
-        var tenantId = GetTenantId();
-        var fileIds = BuildAiFileIds(song.FileId);
-
-        var metadataJson = await aiClient.ChatAsync(
-            NasheedAiKeys.ExtractionSettings,
-            NasheedAiKeys.ExtractionPrompt,
-            "Analyze this audio and generate the JSON output.",
-            tenantId,
-            fileIds,
-            cancellationToken: cancellationToken);
-
-        await ApplyMetadataAsync(song, metadataJson, moodTagRepo, songRepo, cancellationToken);
+        await ExtractLyricsAndMetadataAsync(song, moodTagRepo, aiClient, songRepo, cancellationToken);
 
         song.SetState(SongState.Done);
         await songRepo.UpdateAsync(song, cancellationToken);
@@ -208,23 +199,106 @@ public class NasheedIngestionWorker : BackgroundService
         ISongIngestionJobRepository jobRepo,
         CancellationToken cancellationToken)
     {
-        var tenantId = GetTenantId();
-        var fileIds = BuildAiFileIds(song.FileId);
-
-        var metadataJson = await aiClient.ChatAsync(
-            NasheedAiKeys.ExtractionSettings,
-            NasheedAiKeys.ExtractionPrompt,
-            "Analyze this audio and generate the JSON output.",
-            tenantId,
-            fileIds,
-            cancellationToken: cancellationToken);
-
-        await ApplyMetadataAsync(song, metadataJson, moodTagRepo, songRepo, cancellationToken);
+        await ExtractLyricsAndMetadataAsync(song, moodTagRepo, aiClient, songRepo, cancellationToken);
 
         await QueueEmbeddingGenerationAsync(song, jobRepo, songRepo, cancellationToken);
 
         job.MarkCompleted();
         await jobRepo.UpdateAsync(job, cancellationToken);
+    }
+
+    /// <summary>
+    /// Extracts lyrics/timing + enrichment metadata for a song, routing to either the
+    /// "old" single-chat-call pipeline or the "new" ASR+enrichment pipeline based on
+    /// FeatureFlags.NasheedNewLyricsExtractionEnabled. See Doc/AI_INTEGRATION.md.
+    /// </summary>
+    private async Task ExtractLyricsAndMetadataAsync(
+        SongEntity song,
+        ISongMoodTagRepository moodTagRepo,
+        IAiApiClient aiClient,
+        ISongRepository songRepo,
+        CancellationToken cancellationToken)
+    {
+        var tenantId = GetTenantId();
+
+        if (IsNewLyricsExtractionEnabled())
+        {
+            var transcription = await aiClient.TranscribeAsync(
+                NasheedAiKeys.TranscriptionSettings,
+                song.FileId,
+                tenantId,
+                cancellationToken: cancellationToken);
+
+            var lyricsRawLrc = BuildLrcFromSegments(transcription.Segments);
+            if (string.IsNullOrWhiteSpace(lyricsRawLrc))
+            {
+                throw new InvalidOperationException("ASR transcription returned no usable segments.");
+            }
+
+            var durationSeconds = transcription.Duration.HasValue
+                ? (int)Math.Round(transcription.Duration.Value)
+                : (int?)null;
+
+            var enrichmentJson = await aiClient.ChatAsync(
+                NasheedAiKeys.EnrichmentSettings,
+                NasheedAiKeys.EnrichmentPrompt,
+                transcription.Text,
+                tenantId,
+                cancellationToken: cancellationToken);
+
+            await ApplyEnrichmentMetadataAsync(
+                song, enrichmentJson, lyricsRawLrc, durationSeconds, transcription.Language,
+                moodTagRepo, songRepo, cancellationToken);
+        }
+        else
+        {
+            var fileIds = BuildAiFileIds(song.FileId);
+
+            var metadataJson = await aiClient.ChatAsync(
+                NasheedAiKeys.ExtractionSettings,
+                NasheedAiKeys.ExtractionPrompt,
+                "Analyze this audio and generate the JSON output.",
+                tenantId,
+                fileIds,
+                cancellationToken: cancellationToken);
+
+            await ApplyMetadataAsync(song, metadataJson, moodTagRepo, songRepo, cancellationToken);
+        }
+    }
+
+    private bool IsNewLyricsExtractionEnabled()
+    {
+        var flags = _tenantCache.Tenant?.Configuration?.FeatureFlags;
+        return flags is not null
+            && flags.TryGetValue(SharedFeatureFlags.NasheedNewLyricsExtractionEnabled, out var enabled)
+            && enabled;
+    }
+
+    /// <summary>Builds LRC text directly from ASR-aligned segments — timestamps come from real
+    /// audio alignment, not from an LLM estimating plausible timing.</summary>
+    private static string BuildLrcFromSegments(IReadOnlyList<AiTranscriptionSegment> segments)
+    {
+        var sb = new StringBuilder();
+        foreach (var segment in segments.OrderBy(s => s.Start))
+        {
+            var text = segment.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            var totalHundredths = (long)Math.Round(segment.Start * 100, MidpointRounding.AwayFromZero);
+            if (totalHundredths < 0)
+                totalHundredths = 0;
+            var minutes = totalHundredths / 6000;
+            var secondsHundredths = totalHundredths % 6000;
+
+            sb.Append('[')
+              .Append(minutes.ToString("D2", CultureInfo.InvariantCulture)).Append(':')
+              .Append((secondsHundredths / 100).ToString("D2", CultureInfo.InvariantCulture)).Append('.')
+              .Append((secondsHundredths % 100).ToString("D2", CultureInfo.InvariantCulture))
+              .Append(']').Append(text).Append('\n');
+        }
+
+        return sb.ToString().TrimEnd('\n');
     }
 
     private async Task RunLyricsVerificationAsync(
@@ -386,24 +460,90 @@ public class NasheedIngestionWorker : BackgroundService
 
         await songRepo.UpdateAsync(song, cancellationToken);
 
-        var moodTagsEl = ReadArray(root, "mood_tags", "moodTags");
-        if (moodTagsEl.HasValue && moodTagsEl.Value.ValueKind == JsonValueKind.Array)
-        {
-            await moodTagRepo.DeleteBySongIdAsync(song.Id, cancellationToken);
-            var normalizedTags = moodTagsEl.Value
-                .EnumerateArray()
-                .Select(tagEl => tagEl.ValueKind == JsonValueKind.String ? tagEl.GetString()?.Trim() : null)
-                .Where(tag => !string.IsNullOrWhiteSpace(tag))
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
-
-            foreach (var tag in normalizedTags)
-            {
-                var moodTag = SongMoodTagEntity.Create(song.Id, tag!);
-                await moodTagRepo.AddAsync(moodTag, cancellationToken);
-            }
-        }
+        await ApplyMoodTagsAsync(song, root, moodTagRepo, cancellationToken);
         } // end using (doc)
+    }
+
+    /// <summary>
+    /// Applies enrichment metadata (summary/vocal_style/mood_tags/legal_compliance/language_code)
+    /// from a text-only AI response, using ASR-derived lyrics/duration/language passed in directly
+    /// rather than parsed from the response — see the "new" pipeline branch in
+    /// <see cref="ExtractLyricsAndMetadataAsync"/>.
+    /// </summary>
+    private static async Task ApplyEnrichmentMetadataAsync(
+        SongEntity song,
+        string enrichmentJson,
+        string lyricsRawLrc,
+        int? durationSeconds,
+        string? asrLanguage,
+        ISongMoodTagRepository moodTagRepo,
+        ISongRepository songRepo,
+        CancellationToken cancellationToken)
+    {
+        var rawJson = ExtractJsonFromResponse(enrichmentJson);
+
+        if (rawJson.Length > 102_400)
+            throw new InvalidOperationException("AI enrichment response exceeds the 100 KB size limit.");
+
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(rawJson, new JsonDocumentOptions { MaxDepth = 8 });
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Failed to parse AI enrichment JSON: {ex.Message}", ex);
+        }
+
+        using (doc)
+        {
+            var root = doc.RootElement;
+
+            var languageCode = ReadString(root, "language_code", "languageCode") ?? asrLanguage;
+            var summary = ReadString(root, "summary");
+            var vocalStyle = ReadString(root, "vocal_style", "vocalStyle");
+            var legalCompliance = ReadObject(root, "legal_compliance", "legalCompliance");
+
+            song.UpdateMetadata(languageCode, lyricsRawLrc, summary, vocalStyle, durationSeconds);
+
+            if (legalCompliance.HasValue)
+            {
+                var copyrightRiskLevel = ReadString(legalCompliance.Value, "copyright_risk_level", "copyrightRiskLevel");
+                var contentSafetyFlag = ReadString(legalCompliance.Value, "content_safety_flag", "contentSafetyFlag");
+                var riskReason = ReadNullableString(legalCompliance.Value, "risk_reason", "riskReason");
+
+                song.UpdateLegalComplianceFromAi(copyrightRiskLevel, contentSafetyFlag, riskReason);
+            }
+
+            await songRepo.UpdateAsync(song, cancellationToken);
+
+            await ApplyMoodTagsAsync(song, root, moodTagRepo, cancellationToken);
+        }
+    }
+
+    private static async Task ApplyMoodTagsAsync(
+        SongEntity song,
+        JsonElement root,
+        ISongMoodTagRepository moodTagRepo,
+        CancellationToken cancellationToken)
+    {
+        var moodTagsEl = ReadArray(root, "mood_tags", "moodTags");
+        if (!moodTagsEl.HasValue || moodTagsEl.Value.ValueKind != JsonValueKind.Array)
+            return;
+
+        await moodTagRepo.DeleteBySongIdAsync(song.Id, cancellationToken);
+        var normalizedTags = moodTagsEl.Value
+            .EnumerateArray()
+            .Select(tagEl => tagEl.ValueKind == JsonValueKind.String ? tagEl.GetString()?.Trim() : null)
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var tag in normalizedTags)
+        {
+            var moodTag = SongMoodTagEntity.Create(song.Id, tag!);
+            await moodTagRepo.AddAsync(moodTag, cancellationToken);
+        }
     }
 
     private static string? ReadString(JsonElement root, params string[] names)

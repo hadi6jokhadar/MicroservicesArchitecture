@@ -38,7 +38,9 @@ The gateway collection routes every request through YARP. Individual service col
   - Health check
   - AI provider settings full CRUD
   - System prompts full CRUD
-  - Chat streaming
+  - Chat streaming and single-response
+  - Text embedding
+  - Audio transcription with timestamps (real ASR audio alignment, not chat-estimated)
 
 ### 1. FileManager Service (`FileManager_Service.postman_collection.json`)
 

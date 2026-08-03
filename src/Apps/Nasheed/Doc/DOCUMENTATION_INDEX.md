@@ -45,7 +45,7 @@
 
 ### INGESTION_PIPELINE.md
 
-**Description:** Background ingestion worker design — single-request enrichment in `FullPipeline`, fixed-delay retry behavior, embedding reindex jobs, and the `NasheedTenantLoaderService` startup sequence.  
+**Description:** Background ingestion worker design — `FullPipeline`/`MetadataExtraction` route through either the old single-chat-call enrichment or the new flag-gated ASR-based lyrics/timing pipeline, fixed-delay retry behavior, embedding reindex jobs, and the `NasheedTenantLoaderService` startup sequence.  
 **Read When:**
 
 - Working on the ingestion worker
@@ -54,7 +54,7 @@
 
 ### AI_INTEGRATION.md
 
-**Description:** How Nasheed calls AI.API — one shared chat key pair for enrichment, verification, and generation, plus embedding settings for indexing and troubleshooting notes for `file_ids` parsing.  
+**Description:** How Nasheed calls AI.API — one shared chat key pair for enrichment, verification, and generation, plus embedding settings for indexing; also documents the second, feature-flagged pipeline that uses a dedicated ASR transcription call for real audio-aligned lyrics timing instead of LLM-estimated timestamps, and troubleshooting notes for `file_ids` parsing.  
 **Read When:**
 
 - AI calls are failing (401/404)

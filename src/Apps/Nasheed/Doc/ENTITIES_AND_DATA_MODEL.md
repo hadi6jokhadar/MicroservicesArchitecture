@@ -35,8 +35,8 @@ The type of work an ingestion job performs.
 
 | Value                 | Int | Meaning                                 |
 | --------------------- | --- | --------------------------------------- |
-| `FullPipeline`        | 0   | Run single enrichment request in worker |
-| `MetadataExtraction`  | 1   | Extract language, summary, vocal style  |
+| `FullPipeline`        | 0   | Run lyrics/timing + enrichment extraction in worker (old: single chat request; new: ASR transcription + text-only chat request — flag-gated, see `Doc/AI_INTEGRATION.md`) |
+| `MetadataExtraction`  | 1   | Extract language, summary, vocal style (same old/new pipeline branching as `FullPipeline`) |
 | `LyricsVerification`  | 2   | Verify and format LRC lyrics            |
 | `EmbeddingGeneration` | 3   | Generate and store semantic embedding   |
 

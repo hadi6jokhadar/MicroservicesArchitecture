@@ -19,6 +19,7 @@ async def log_token_usage_background(
     endpoint: str,
     prompt_tokens: int,
     completion_tokens: int,
+    audio_duration_seconds: Optional[float] = None,
 ) -> None:
     """Opens its own DB session so it can run safely after the request completes."""
     async with AsyncSessionFactory() as db:
@@ -30,6 +31,7 @@ async def log_token_usage_background(
             PromptTokens=prompt_tokens,
             CompletionTokens=completion_tokens,
             TotalTokens=prompt_tokens + completion_tokens,
+            AudioDurationSeconds=audio_duration_seconds,
         )
         db.add(usage_log)
         await db.commit()
@@ -120,6 +122,7 @@ def schedule_token_log_task(
     endpoint: str,
     prompt_tokens: int,
     completion_tokens: int,
+    audio_duration_seconds: Optional[float] = None,
 ) -> None:
     """Enqueue token usage logging only (used for ASR, which has no chat session)."""
     background_tasks.add_task(
@@ -130,4 +133,5 @@ def schedule_token_log_task(
         endpoint,
         prompt_tokens,
         completion_tokens,
+        audio_duration_seconds,
     )

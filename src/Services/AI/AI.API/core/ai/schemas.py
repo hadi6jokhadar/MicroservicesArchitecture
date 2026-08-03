@@ -49,3 +49,26 @@ class EmbeddingRequest(BaseModel):
 class EmbeddingResponse(BaseModel):
     embedding: List[float]
     model: str
+
+
+# ---------------------------------------------------------------------------
+# Transcription (ASR with timestamps)
+# ---------------------------------------------------------------------------
+
+class TranscriptionRequest(BaseModel):
+    settings_key: str = Field(min_length=1)
+    file_ids: List[int] = Field(min_length=1)
+    language: Optional[str] = None
+
+
+class TranscriptionSegment(BaseModel):
+    start: float
+    end: float
+    text: str
+
+
+class TranscriptionResponse(BaseModel):
+    text: str
+    language: Optional[str] = None
+    duration: Optional[float] = None
+    segments: List[TranscriptionSegment] = Field(default_factory=list)

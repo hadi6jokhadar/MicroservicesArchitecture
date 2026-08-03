@@ -396,6 +396,7 @@ public class GetTenantFeatureFlagsQueryHandler : IRequestHandler<GetTenantFeatur
         [FeatureFlags.NasheedIngestionEnabled] = true,
         [FeatureFlags.IsBackgroundJobPageEnabled] = true,
         [FeatureFlags.IsAuditLogPageEnabled] = true,
+        [FeatureFlags.NasheedNewLyricsExtractionEnabled] = false,
     };
 
     private static Dictionary<string, bool>? DeserializeFeatureFlags(string? data)

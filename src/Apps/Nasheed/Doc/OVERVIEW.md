@@ -83,7 +83,7 @@ App starts
 
 ### 6. AI Processing via AI.API
 
-AI work delegates to AI.API using `IAiApiClient`. Nasheed uses one chat key pair for enrichment, verification, and generation flows, while embedding uses its own embedding settings key. AI.API keys are hardcoded in `NasheedAiKeys` and must exist in AI.API's database for the tenant.
+AI work delegates to AI.API using `IAiApiClient`. Nasheed uses one chat key pair for enrichment, verification, and generation flows, while embedding uses its own embedding settings key. A second, feature-flagged pipeline (`FeatureFlags.NasheedNewLyricsExtractionEnabled`) instead calls a dedicated ASR transcription key (`TranscriptionSettings`, `ModelType=Audio`) for real audio-aligned lyrics timing, followed by a text-only enrichment key pair (`EnrichmentSettings`/`EnrichmentPrompt`) — see `Doc/AI_INTEGRATION.md`. AI.API keys are hardcoded in `NasheedAiKeys` and must exist in AI.API's database for the tenant.
 
 ### 7. Semantic Search With pgvector
 
@@ -122,7 +122,7 @@ This is required because FileManager resolves database context from tenant infor
 | Service                       | How used                                                                                                              |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | **TenantService** (5002)      | Fetch DB connection string + JWT settings on startup via `ITenantConfigurationProvider`                               |
-| **AI.API** (5008)             | Chat (`/api/v1/chat/single`) for enrichment, verification, and generation; Embed (`/api/v1/embedding`) for embeddings |
+| **AI.API** (5008)             | Chat (`/api/v1/chat/single`) for enrichment, verification, and generation; Embed (`/api/v1/embedding`) for embeddings; Transcribe (`/api/v1/transcription`) for real audio-aligned lyrics timing (new pipeline, flag-gated) |
 | **FileManagerService** (5005) | Songs and artist images are stored as FileManager file IDs                                                            |
 | **IdentityService** (5001)    | JWT auth — tokens validated per-tenant using TenantService JWT config                                                 |
 

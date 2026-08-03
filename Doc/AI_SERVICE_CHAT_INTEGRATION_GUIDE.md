@@ -23,6 +23,9 @@ The AI service exposes two chat endpoints:
 
 For internal service-to-service use, prefer **`/api/v1/chat/single`** — it is simpler and does not require SSE parsing.
 
+A third endpoint, `POST /api/v1/transcription`, exists for speech-to-text with real audio-aligned
+timestamps (not a chat completion) — see the "Transcription Endpoint" section below.
+
 **AI service base URL:**
 
 - Development: `http://localhost:5008`
@@ -293,6 +296,53 @@ var request = new AiChatRequest
 
 **Supported file types:** images (vision), audio, and documents (injected as text context).  
 The provider must support the media type — the AI service validates this and returns `HTTP 400` if not.
+
+---
+
+## Transcription Endpoint (ASR with Timestamps)
+
+`POST /api/v1/transcription` is a separate, dedicated endpoint for **speech-to-text with real
+audio-aligned timestamps** — it does not use a generative chat completion. Use this instead of
+`/api/v1/chat/single` whenever a task needs accurate timing (e.g. lyrics/subtitle sync), since a
+chat model only estimates plausible timestamps from training patterns, while a real ASR model
+(e.g. Whisper) produces timing grounded in the actual audio waveform.
+
+**Request body:**
+
+```json
+{
+  "settings_key": "string (required)",
+  "file_ids": [42],
+  "language": "ar (optional ISO-639-1 hint)"
+}
+```
+
+Only the first entry in `file_ids` is used — this endpoint transcribes exactly one audio file per
+call. `settings_key` must resolve to an `AiProviderSettings` row with `ModelType = "Audio"`
+(created via `POST /api/v1/settings`, e.g. an OpenAI/Groq Whisper model) — calling it with a
+Text/Embedding-type key returns `HTTP 400`.
+
+**Response:**
+
+```json
+{
+  "text": "full transcript",
+  "language": "ar",
+  "duration": 178.2,
+  "segments": [
+    { "start": 3.52, "end": 10.98, "text": "..." },
+    { "start": 10.98, "end": 16.45, "text": "..." }
+  ]
+}
+```
+
+`segments[].start`/`end` are seconds from the start of the audio, produced by the ASR model's own
+audio alignment — build any timestamped format (e.g. LRC) directly from these values rather than
+asking a chat model to generate them. See Nasheed's `Doc/AI_INTEGRATION.md` for a worked example
+(`NasheedIngestionWorker.BuildLrcFromSegments`).
+
+Tenant context (`x-tenant-id`), auth headers, and error status codes follow the same rules as the
+chat endpoints above.
 
 ---
 

@@ -1454,6 +1454,27 @@
               "raw": "{\n  \"settingsKey\": \"embedding-default\",\n  \"text\": \"Text to embed\"\n}"
             }
           }
+        },
+        {
+          "name": "Transcribe Audio",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}", "description": "Optional" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai/transcription",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ai", "transcription"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings_key\": \"nasheed:transcription:settings\",\n  \"file_ids\": [1],\n  \"language\": null\n}"
+            },
+            "description": "settings_key must resolve to an AiProviderSettings row with ModelType=Audio (e.g. Whisper) — real audio-aligned segment timestamps, not chat-completion-estimated ones."
+          }
         }
       ]
     },
