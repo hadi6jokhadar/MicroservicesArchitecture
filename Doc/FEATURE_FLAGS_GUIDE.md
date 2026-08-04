@@ -104,6 +104,7 @@ builder.Services.AddFeatureFlagService();
 | `isBackgroundJobPageEnabled` | `true` | Frontend only — hides sidebar jobs group when disabled |
 | `isAuditLogPageEnabled` | `true` | Frontend only — hides sidebar item and blocks `/audit-log` route |
 | `nasheedNewLyricsExtractionEnabled` | `false` | `NasheedIngestionWorker.ExtractLyricsAndMetadataAsync` — switches to the ASR-based lyrics/timing pipeline. Nasheed's `INasheedTenantCache` is populated once at startup (not on the 30-min cache refresh below) — toggling this requires restarting Nasheed.API. See Nasheed's `Doc/AI_INTEGRATION.md`. |
+| `autoUploadToExternalStorageEnabled` | `false` | `SaveFileCommandHandler` (FileManager) — after a local file save succeeds, automatically uploads the file to the tenant's configured external blob storage (e.g. Cloudflare R2), the same logic as the manual `POST /files/{id}/upload-to-blob` endpoint. See `Doc/FILE_MANAGER.md`'s "Blob Storage" section. |
 
 ---
 

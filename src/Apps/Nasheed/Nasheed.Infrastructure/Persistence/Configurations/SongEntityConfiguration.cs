@@ -14,6 +14,7 @@ public class SongEntityConfiguration : IEntityTypeConfiguration<SongEntity>
         builder.Property(e => e.FileId).IsRequired();
         builder.Property(e => e.LanguageCode).HasMaxLength(10);
         builder.Property(e => e.VocalStyle).HasMaxLength(100);
+        builder.Property(e => e.LyricsVerified).HasDefaultValue(false);
         builder.OwnsOne(e => e.LegalCompliance, legal =>
         {
             legal.Property(x => x.CopyrightRiskLevel)

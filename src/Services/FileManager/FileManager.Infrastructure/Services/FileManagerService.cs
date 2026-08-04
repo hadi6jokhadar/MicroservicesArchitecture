@@ -708,8 +708,10 @@ public class FileManagerService : IFileManagerService
             throw new InvalidOperationException("Blob storage is not configured. Set BlobStorage settings in appsettings.json or tenant configuration.");
         }
 
-        // Read the local file from storage
-        var stream = await _fileStorage.GetAsync(entity.Path, cancellationToken);
+        // Read the local file from storage. AutoCloseStream is false on the PutObjectRequest
+        // (see CloudflareR2Storage.UploadAsync) so the SDK can safely retry against the same
+        // stream on a transient failure — that means WE own disposal here, not the SDK.
+        await using var stream = await _fileStorage.GetAsync(entity.Path, cancellationToken);
         var contentType = GetContentType(entity.Extension);
         var objectKey = entity.Path.Replace("\\", "/");
         var contentDisposition = FileContentDispositionPolicy.RequiresAttachmentDisposition(entity.Extension)

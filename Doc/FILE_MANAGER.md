@@ -1,7 +1,7 @@
 # File Manager Service
 
 **Purpose:** Complete guide to the File Manager Service - handles file upload, storage, retrieval, and management with multi-tenancy support.  
-**Last Updated:** July 30, 2026  
+**Last Updated:** August 3, 2026  
 **Status:** ✅ Production Ready (v3.1.0)
 
 ---
@@ -13,14 +13,14 @@ The File Manager Service is a centralized file storage microservice using Clean 
 **Port:** 5005 (Development)  
 **Database:** PostgreSQL (multi-provider support)  
 **Storage:** Local file system (production: Azure Blob, AWS S3, MinIO)  
-**Caching:** Redis distributed cache (7-day TTL) with MemoryCache fallback
+**Caching:** Redis distributed cache (30-min TTL by default, `MultiTenancy:CacheExpirationMinutes`) with MemoryCache fallback
 
 ### Key Features
 
 - ✅ **Multi-Tenancy**: Database-per-tenant isolation
 - ✅ **Dual Endpoints**: Tenant endpoints (user files) + Admin endpoints (global files)
 - ✅ **Static File Serving**: Direct file access via public URLs
-- ✅ **Redis Caching**: 7-day tenant config cache with automatic invalidation
+- ✅ **Redis Caching**: 30-min tenant config cache with automatic invalidation (requires Redis enabled and aligned with Tenant Service — see Caching Strategy below)
 - ✅ **Background Jobs**: Automatic temp file cleanup
 - ✅ **Service-to-Service**: HTTP client for internal service calls
 - ✅ **Security**: File size limits, extension validation, access control
@@ -187,6 +187,28 @@ Files can optionally be uploaded to a third-party blob provider (e.g. Cloudflare
 3. Call `DELETE /files/{id}/remove-from-blob` — file is removed from blob, `ExternalUrl` is cleared.
 4. When a file is deleted via `DELETE /files/{id}`, the blob copy is also automatically deleted if `ExternalUrl` is set.
 5. Background temp-file cleanup also removes blob copies automatically.
+
+> **Local file handle discipline:** `UploadToBlobAsync` reads the local file via `IFileStorage.GetAsync` and disposes the stream itself after the blob upload completes (`await using`) — `CloudflareR2Storage` sets `PutObjectRequest.AutoCloseStream = false` so the S3 SDK never closes it out from under a transient-failure retry, which means the caller must. A previous version of `UploadToBlobAsync` never disposed this stream at all, permanently leaking an open file handle on every blob upload (manual or automatic) and causing `DELETE /files/{id}` on that same file to fail with `IOException: ... being used by another process`. Fixed August 2026 — see Dotnet.instructions.md pitfall #30.
+>
+> **Auto-upload-on-save and EF Core tracking:** because the automatic on-save upload runs inline in the same request/`DbContext` scope as the original file save, `UploadToBlobAsync`'s own entity fetch (`GetByIdWithArchivedAsync`, no-tracking) could return a second, untracked instance of an entity the DbContext was already tracking from the save moments earlier — throwing an EF Core "already tracked" `InvalidOperationException` that `SaveFileCommandHandler` silently swallowed as an expected "blob not configured" skip, even though the blob upload to R2 had already succeeded. The file ended up orphaned in blob storage with `ExternalUrl` never persisted. Fixed August 2026 in the shared `Repository<T>` base class — see Dotnet.instructions.md pitfall #31.
+
+### Automatic Upload on Save (Feature Flag)
+
+Manually calling `POST /files/{id}/upload-to-blob` is not required when the tenant's
+`autoUploadToExternalStorageEnabled` feature flag is turned on (see `Doc/FEATURE_FLAGS_GUIDE.md`).
+When enabled, `SaveFileCommandHandler` (`FileManager.Application/Handlers/SaveFile/`) calls the
+same `IFileManagerService.UploadToBlobAsync` logic immediately after every successful local
+save — `ExternalUrl` is populated automatically, with no separate client call needed. The
+auto-upload is awaited before the `POST /files` response is returned, so on success the
+response body's `externalUrl` is already populated — the client never needs to re-fetch the
+file to see it.
+
+- **Gated by `IFeatureFlagService.IsEnabled(FeatureFlags.AutoUploadToExternalStorageEnabled, defaultValue: false)`** — off by default, so tenants without R2/blob configured are unaffected.
+- **Never fails the upload request.** The local save has already succeeded by the time the auto-upload runs, so it's treated as a best-effort side effect:
+  - `InvalidOperationException` ("blob storage is not configured") is logged at `LogInformation` and swallowed — this is the expected, common state for tenants without a `BlobStorage` configuration.
+  - Any other exception is logged at `LogWarning` and swallowed — a blob outage must not turn into a failed file upload.
+- The manual `POST /files/{id}/upload-to-blob` / `DELETE /files/{id}/remove-from-blob` endpoints continue to work unchanged regardless of the flag — the flag only controls whether the upload also happens automatically on save.
+- Requires `FileManager.API`'s `Program.cs` to call `builder.Services.AddFeatureFlagService()` (registered alongside `AddMultiTenancy`/`AddInfrastructureServices`).
 
 ### Configuration Priority
 
@@ -593,12 +615,12 @@ else
 
 **Tenant Configuration Caching:**
 
-- **TTL**: 7 days (604,800 seconds)
+- **TTL**: `MultiTenancy:CacheExpirationMinutes` (30 min by default — not 7 days; see below)
 - **Cache Keys**:
   - Individual: `tenant_config_{tenantId}`
   - Paginated: `all_active_tenants_with_config_page_{n}_size_{m}`
-- **Invalidation**: Automatic on tenant Create/Update/Delete
-- **Fallback**: Automatic fallback to `IMemoryCache` if Redis unavailable
+- **Invalidation**: Automatic on tenant Create/Update/Delete — **only when this service's `Redis` config actually shares the same Redis instance, connection, and `InstanceName` (`"MicroservicesApp:"`) as Tenant Service.** `UpdateTenantCommandHandler`/`ToggleTenantArchivedStatusCommandHandler`/`DeleteTenantCommandHandler` invalidate `tenant_config_{tenantId}` directly in Redis — any service plugged into that same keyspace sees the change on its very next request. A service with `Redis:Enabled: false`, a wrong config key name, or a mismatched `InstanceName` is silently isolated from this and only picks up tenant changes via the per-entry TTL expiry, the periodic `TenantConfigCacheRefreshService` (6 hours by default), or a restart. See Dotnet.instructions.md pitfall #29 — this exact misconfiguration (Redis disabled + `Configuration` instead of `ConnectionString` + `InstanceName: "FileManager_"`) previously caused newly-toggled tenant feature flags (e.g. `autoUploadToExternalStorageEnabled`) and `BlobStorage` settings to not take effect for up to 30 minutes after being saved. Fixed August 2026 by aligning FileManager's `appsettings.Development.json`/`appsettings.Docker.json` Redis config with Tenant Service's.
+- **Fallback**: Automatic fallback to `IMemoryCache` if Redis unavailable — but note the fallback is *isolated per-instance* and only expires via TTL, with no cross-service invalidation possible at all (there's no shared store to invalidate). Prefer keeping Redis enabled and correctly aligned over relying on this fallback.
 
 **Benefits:**
 
@@ -1295,6 +1317,6 @@ dotnet ef database update
 
 ---
 
-**Last Updated:** July 30, 2026  
+**Last Updated:** August 3, 2026  
 **Version:** 2.0.0  
 **Status:** ✅ Production Ready

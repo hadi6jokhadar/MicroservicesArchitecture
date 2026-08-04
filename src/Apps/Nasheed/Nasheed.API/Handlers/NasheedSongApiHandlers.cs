@@ -53,4 +53,10 @@ public static class NasheedSongApiHandlers
         var result = await mediator.Send(new GetSongAnalysisStatusQuery(id), ct);
         return result is not null ? Results.Ok(result) : Results.NotFound();
     }
+
+    public static async Task<IResult> ToggleLyricsVerified(int id, IMediator mediator, CancellationToken ct)
+    {
+        var result = await mediator.Send(new ToggleSongLyricsVerifiedCommand(id), ct);
+        return Results.Ok(result);
+    }
 }

@@ -25,6 +25,7 @@ public class GetSongListQueryHandler : IRequestHandler<GetSongListQuery, Paginat
             request.State,
             request.CopyrightRiskLevel,
             request.ContentSafetyFlag,
+            request.LyricsVerified,
             request.PageNumber,
             request.PageSize,
             cancellationToken);

@@ -14,4 +14,13 @@ public static class FeatureFlags
     /// tenant explicitly opts in. See Nasheed's Doc/AI_INTEGRATION.md.
     /// </summary>
     public const string NasheedNewLyricsExtractionEnabled = "nasheedNewLyricsExtractionEnabled";
+
+    /// <summary>
+    /// When true, FileManager's SaveFileCommandHandler automatically uploads every newly
+    /// saved local file to the tenant's configured external blob storage (e.g. Cloudflare
+    /// R2) right after the local save succeeds — no manual "Upload to External" call needed.
+    /// Defaults to false (manual upload-to-blob only) until a tenant explicitly opts in.
+    /// See MicroservicesArchitecture/Doc/FILE_MANAGER.md's "Blob Storage" section.
+    /// </summary>
+    public const string AutoUploadToExternalStorageEnabled = "autoUploadToExternalStorageEnabled";
 }

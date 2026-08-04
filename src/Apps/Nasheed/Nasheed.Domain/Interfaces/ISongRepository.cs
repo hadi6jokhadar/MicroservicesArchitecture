@@ -12,6 +12,7 @@ public interface ISongRepository : IRepository<SongEntity>
         SongState? state = null,
         string? copyrightRiskLevel = null,
         string? contentSafetyFlag = null,
+        bool? lyricsVerified = null,
         int pageNumber = 1,
         int pageSize = 10,
         CancellationToken cancellationToken = default);

@@ -76,6 +76,11 @@ public static class NasheedEndpoints
             .Produces(StatusCodes.Status200OK)
             .RequireAuthorization("AdminOnly");
 
+        songs.MapPatch("/{id:int}/toggle-lyrics-verified", NasheedSongApiHandlers.ToggleLyricsVerified)
+            .WithName("ToggleSongLyricsVerified")
+            .Produces<SongDto>()
+            .RequireAuthorization("AdminOnly");
+
         songs.MapGet("/{id:int}/analysis", NasheedSongApiHandlers.GetAnalysisStatus)
             .WithName("GetSongAnalysisStatus")
             .Produces<SongDto>()

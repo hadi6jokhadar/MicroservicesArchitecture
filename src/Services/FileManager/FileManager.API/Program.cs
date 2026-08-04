@@ -74,6 +74,7 @@ builder.Services.AddTenantConfigCacheRefresh(builder.Configuration);
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddAuditService();
 builder.Services.AddAuditLogQueries<FileManagerDbContext>();
+builder.Services.AddFeatureFlagService();
 
 // Add database migration service for automatic database creation
 builder.Services.AddDatabaseMigration();

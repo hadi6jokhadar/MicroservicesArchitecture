@@ -53,7 +53,7 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
     public virtual async Task<T> UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
         entity.LastModified = DateTime.UtcNow;
-        _dbSet.Update(entity);
+        AttachOrMerge(entity);
         await _context.SaveChangesAsync(cancellationToken);
         return entity;
     }
@@ -62,9 +62,33 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
     {
         entity.IsArchived = true;
         entity.LastModified = DateTime.UtcNow;
-        _dbSet.Update(entity);
+        AttachOrMerge(entity);
         await _context.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    /// <summary>
+    /// Attaches <paramref name="entity"/> as Modified, unless a different instance with the
+    /// same key is already tracked by this DbContext (e.g. a caller fetched it via a
+    /// no-tracking query like <see cref="GetByIdWithArchivedAsync"/> after the same request
+    /// already loaded/saved the tracked instance elsewhere) — in that case <c>_dbSet.Update</c>
+    /// would throw "the instance ... cannot be tracked because another instance with the same
+    /// key value ... is already being tracked". When that happens, copy the incoming values
+    /// onto the already-tracked instance instead of attaching a second one for the same key.
+    /// </summary>
+    private void AttachOrMerge(T entity)
+    {
+        var tracked = _context.ChangeTracker.Entries<T>()
+            .FirstOrDefault(e => e.Entity.Id == entity.Id && !ReferenceEquals(e.Entity, entity));
+
+        if (tracked != null)
+        {
+            tracked.CurrentValues.SetValues(entity);
+        }
+        else
+        {
+            _dbSet.Update(entity);
+        }
     }
 
     public virtual async Task<bool> DeleteByIdAsync(int id, CancellationToken cancellationToken = default)

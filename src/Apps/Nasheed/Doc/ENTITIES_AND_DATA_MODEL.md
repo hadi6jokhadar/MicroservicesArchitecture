@@ -1,6 +1,6 @@
 # Nasheed Service — Entities and Data Model
 
-**Last Updated:** May 7, 2026
+**Last Updated:** August 3, 2026
 
 ---
 
@@ -90,8 +90,9 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 | `SongState`         | `SongState`                     | Processing lifecycle state                               |
 | `SearchIndexStatus` | `SearchIndexStatus`             | Embedding/index state                                    |
 | `PublishedAt`       | DateTime?                       | When the song was published                              |
+| `LyricsVerified`    | bool                            | Admin-controlled flag indicating the song's lyrics have been manually reviewed/approved. Default `false`. Unrelated to `LyricsVerifiedLrc` (the verified LRC lyrics text) — toggled independently via `PATCH /api/v1/songs/{id}/toggle-lyrics-verified` |
 
-**Domain methods:** `Create(artistId?, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `UpdateLegalComplianceFromAi(copyrightRiskLevel?, contentSafetyFlag?, riskReason?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateTitle(title)`, `UpdateArtist(artistId?)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`
+**Domain methods:** `Create(artistId?, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `UpdateLegalComplianceFromAi(copyrightRiskLevel?, contentSafetyFlag?, riskReason?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateTitle(title)`, `UpdateArtist(artistId?)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`, `SetLyricsVerified(verified)`
 
 `ArtistId` is optional. Songs can be created without linking an artist.
 
@@ -260,5 +261,6 @@ Cascade is enforced in the application layer (not via EF Core foreign-key cascad
 
 | Migration Name                                    | Date       | Description                                                             |
 | ------------------------------------------------- | ---------- | ----------------------------------------------------------------------- |
+| `20260803120000_AddSongLyricsVerified`            | 2026-08-03 | Adds `Songs.LyricsVerified` boolean column, default `false`             |
 | `20260508153633_MakeSongArtistOptional`           | 2026-05-08 | Makes `Songs.ArtistId` nullable and keeps artist relation optional      |
 | `20260507085946_RefactorLegalComplianceOwnedType` | 2026-05-07 | Converts `LegalCompliance` fields on `SongEntity` to EF Core owned type |

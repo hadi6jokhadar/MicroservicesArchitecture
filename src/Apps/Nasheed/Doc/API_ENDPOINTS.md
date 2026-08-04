@@ -3,7 +3,7 @@
 **Base URL:** `http://localhost:5009`  
 **Auth:** All business endpoints require `Authorization: Bearer <token>`. Endpoints marked **AdminOnly** below additionally require the `"AdminOnly"` authorization policy — any catalog-mutation endpoint (artist/song create/update/delete) or ingestion-control endpoint (retry/reindex/delete) is AdminOnly; read endpoints (Get/GetAll/analysis/similar/search) and end-user interactions (favorites/ratings/play) only require authentication.  
 `x-tenant-id` should be sent by clients for tenant-aware routing, but this service also runs with configured single-tenant fallback (`MultiTenancy:TenantId`).  
-**Last Updated:** July 31, 2026
+**Last Updated:** August 3, 2026
 
 ---
 
@@ -109,9 +109,11 @@ Get a single song by ID.
 
 ---
 
-### `GET /api/songs?textFilter=&artistId=&state=&copyrightRiskLevel=&contentSafetyFlag=&pageNumber=1&pageSize=10`
+### `GET /api/songs?textFilter=&artistId=&state=&copyrightRiskLevel=&contentSafetyFlag=&lyricsVerified=&pageNumber=1&pageSize=10`
 
 Get paginated list of songs with optional filters.
+
+`lyricsVerified` (bool?) filters by the `LyricsVerified` flag when provided (`true`/`false`); omit to return songs regardless of verification status.
 
 **Response:** `200 OK` → `PaginatedList<SongDto>`
 
@@ -165,6 +167,14 @@ The following are removed in order before the song row is deleted:
 After deletion the parent artist's `SongCount` is decremented when `artistId` exists; if `artistId` is null, artist update is skipped.
 
 **Response:** `200 OK`
+
+---
+
+### `PATCH /api/songs/{id}/toggle-lyrics-verified`
+
+**AdminOnly.** Flip the `LyricsVerified` flag on a song (`false → true` or `true → false`).
+
+**Response:** `200 OK` → `SongDto` | `404 Not Found`
 
 ---
 
@@ -350,6 +360,7 @@ Log a play event for a user.
   "songState": "Done",
   "searchIndexStatus": "NotIndexed",
   "publishedAt": null,
+  "lyricsVerified": false,
   "moodTags": [],
   "created": "2026-05-02T10:00:00Z",
   "lastModified": null

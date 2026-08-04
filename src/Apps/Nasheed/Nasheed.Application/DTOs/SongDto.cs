@@ -24,6 +24,7 @@ public class SongDto : BaseDto
     public SongState SongState { get; set; }
     public SearchIndexStatus SearchIndexStatus { get; set; }
     public string? PublishedAt { get; set; }
+    public bool LyricsVerified { get; set; }
     public List<string> MoodTags { get; set; } = new();
 
     public static SongDto MapFrom(SongEntity entity, List<string>? moodTags = null) => new()
@@ -45,6 +46,7 @@ public class SongDto : BaseDto
         SongState = entity.SongState,
         SearchIndexStatus = entity.SearchIndexStatus,
         PublishedAt = entity.PublishedAt?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
+        LyricsVerified = entity.LyricsVerified,
         MoodTags = moodTags ?? new List<string>(),
         Status = entity.Status,
         IsArchived = entity.IsArchived,

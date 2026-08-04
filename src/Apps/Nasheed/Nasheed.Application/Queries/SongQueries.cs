@@ -12,6 +12,7 @@ public record GetSongListQuery(
     SongState? State = null,
     string? CopyrightRiskLevel = null,
     string? ContentSafetyFlag = null,
+    bool? LyricsVerified = null,
     int PageNumber = 1,
     int PageSize = 10
 ) : IRequest<PaginatedList<SongDto>>;

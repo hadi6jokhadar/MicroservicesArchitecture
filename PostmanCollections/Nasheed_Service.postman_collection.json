@@ -121,10 +121,14 @@
                   { "key": "x-tenant-id", "value": "{{tenantId}}" }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/songs/?page=1&pageSize=20",
+                  "raw": "{{baseUrl}}/api/v1/songs/?page=1&pageSize=20&lyricsVerified=",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "v1", "songs", ""],
-                  "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "pageSize", "value": "20" },
+                    { "key": "lyricsVerified", "value": "", "description": "Optional filter — true/false to filter songs by LyricsVerified status" }
+                  ]
                 }
               }
             },
@@ -230,6 +234,22 @@
                   "raw": "{{baseUrl}}/api/v1/songs/:id",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "v1", "songs", ":id"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
+              }
+            },
+            {
+              "name": "Toggle Song Lyrics Verified",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/:id/toggle-lyrics-verified",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ":id", "toggle-lyrics-verified"],
                   "variable": [{ "key": "id", "value": "1" }]
                 }
               }

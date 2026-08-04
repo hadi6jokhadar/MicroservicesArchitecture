@@ -19,6 +19,7 @@ public class SongEntity : BaseEntity
     public SongState SongState { get; private set; }
     public SearchIndexStatus SearchIndexStatus { get; private set; }
     public DateTime? PublishedAt { get; private set; }
+    public bool LyricsVerified { get; private set; }
 
     // Navigation
     public ArtistEntity? Artist { get; private set; }
@@ -121,4 +122,5 @@ public class SongEntity : BaseEntity
     public void SetState(SongState state) => SongState = state;
     public void SetSearchIndexStatus(SearchIndexStatus status) => SearchIndexStatus = status;
     public void Publish() => PublishedAt = DateTime.UtcNow;
+    public void SetLyricsVerified(bool verified) => LyricsVerified = verified;
 }
