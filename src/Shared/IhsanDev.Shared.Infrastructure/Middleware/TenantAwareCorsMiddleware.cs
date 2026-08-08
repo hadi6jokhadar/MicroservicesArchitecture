@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Extensions;
 using System.Globalization;
 
 namespace IhsanDev.Shared.Infrastructure.Middleware;
@@ -137,8 +138,10 @@ public class TenantAwareCorsMiddleware
 
     private static string[] GetAllowedOrigins(IConfiguration configuration, ITenantContext tenantContext)
     {
-        // Always get appsettings CORS configuration as base
-        var appSettingsOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+        // Always get appsettings CORS configuration as base, merged with CORS_EXTRA_ORIGINS
+        // (single source of truth for the deployment's public hostname — see CorsOriginsHelper)
+        var appSettingsOrigins = CorsOriginsHelper.ResolveOrigins(
+            configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>());
         
         // If multi-tenancy is enabled and tenant has CORS config, merge with tenant-specific origins
         var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled");

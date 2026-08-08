@@ -115,9 +115,16 @@ app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
 
 # --- CORS (reads AllowedOrigins from appsettings.json, mirrors .NET CORS config) ---
+# Merged with CORS_EXTRA_ORIGINS (comma-separated) — the single source of truth for this
+# deployment's public hostname, shared with every .NET service via CorsOriginsHelper. See
+# Doc/DOCKER_DEPLOYMENT_GUIDE.md, "Pitfall: Cors.AllowedOrigins must match the frontend's ACTUAL
+# hostname".
+_extra_origins = [o.strip() for o in os.environ.get("CORS_EXTRA_ORIGINS", "").split(",") if o.strip()]
+_allowed_origins = list(dict.fromkeys([*settings.Cors.AllowedOrigins, *_extra_origins]))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.Cors.AllowedOrigins,
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

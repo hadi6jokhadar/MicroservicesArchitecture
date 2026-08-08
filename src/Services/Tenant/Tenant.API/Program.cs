@@ -74,8 +74,8 @@ builder.Services.AddJwtAuthenticationSharedOnly(builder.Configuration);
 // ============================================
 // Tenant Service ALWAYS uses CORS settings from appsettings.json
 // It does NOT load CORS settings from tenant configurations
-var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
-    ?? Array.Empty<string>();
+var corsOrigins = CorsOriginsHelper.ResolveOrigins(
+    builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>());
 
 builder.Services.AddCors(options =>
 {
