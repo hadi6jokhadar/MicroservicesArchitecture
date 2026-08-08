@@ -8,7 +8,7 @@
 // throughout Doc/DOCKER_DEPLOYMENT_GUIDE.md). If PC2's IP ever changes, update .env's
 // PC2_SSH_HOST (and your ~/.ssh/config entry) — nothing in this script hardcodes it.
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -61,7 +61,13 @@ export function deployToPc2(repoRoot, services) {
   console.log(`\nDeploying to PC2 (${PC2_SSH_HOST}): ${target || '(all services)'}\n`);
 
   try {
-    execSync(`ssh ${PC2_SSH_HOST} "${remoteCommand}"`, { stdio: 'inherit' });
+    // execFileSync passes each argv element directly to the ssh binary with no local shell
+    // involved — critical on Windows (PC1), where execSync's default cmd.exe would otherwise
+    // mangle the JSON literal's double quotes embedded inside remoteCommand (mismatched with
+    // cmd.exe's own quoting rules, which differ from POSIX shells). ssh itself forwards
+    // remoteCommand to PC2's bash unchanged, where the single/double quotes are exactly what
+    // bash expects.
+    execFileSync('ssh', [PC2_SSH_HOST, remoteCommand], { stdio: 'inherit' });
     console.log('\nDeploy complete.');
   } catch (error) {
     console.error('\nDeploy failed:', error.message);
