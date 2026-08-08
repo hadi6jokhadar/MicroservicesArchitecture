@@ -189,7 +189,7 @@ Files are organized by category. Each entry includes:
 
 ### BACKUP_SERVICE_GUIDE.md
 
-**Description:** Centralized PostgreSQL backup/restore microservice (`src/Services/Backup/`, port 5010, Strategy A). Covers why one dump per tenant is sufficient (shared per-tenant database across services), the domain model (`BackupTargetEntity`/`BackupRunEntity`/`RestoreRunEntity`, dual `LocalStatus`/`CloudStatus`), the scheduled-backup flow (`BackupSchedulerJob` → `TenantTargetSyncJob` → `RunBackupJob`), retention (`BackupRetentionCleanupJob`), restore (`RunRestoreJob`, requires `confirm: true`), the full admin API, and required configuration (`Backup:GlobalTargets`, `BlobStorage:CloudflareR2`, Tenant Service `AllowedServices` whitelisting).  
+**Description:** Centralized PostgreSQL backup/restore microservice (`src/Services/Backup/`, port 5010, Strategy A). Covers why one dump per tenant is sufficient (shared per-tenant database across services), the domain model (`BackupTargetEntity`/`BackupRunEntity`/`RestoreRunEntity`, dual `LocalStatus`/`CloudStatus`), the scheduled-backup flow (`BackupSchedulerJob` → `TenantTargetSyncJob` → `RunBackupJob`), retention (`BackupRetentionCleanupJob`), restore (`RunRestoreJob`, requires `confirm: true`), the full admin API, required configuration (`Backup:GlobalTargets`, `BlobStorage:CloudflareR2`, Tenant Service `AllowedServices` whitelisting), and a full **manual cross-machine restore runbook** (PC1 dev backups → PC2 Docker, bypassing the REST API entirely) plus the matching **FileManager file-storage migration** steps so restored file references actually resolve.  
 **Read When:**
 
 - Triggering, inspecting, or restoring a database backup
@@ -197,6 +197,7 @@ Files are organized by category. Each entry includes:
 - Debugging why a backup's `CloudStatus` stays `Disabled` or `Failed`
 - Understanding why Backup only needs one dump per tenant, not one per service per tenant
 - Configuring `pg_dump`/`pg_restore` paths or Cloudflare R2 credentials for backups
+- Migrating a dev machine's local backups/files to a Docker deployment (`pg_restore` version mismatches, missing target databases, FileManager's `RootStoragePath`-relative file links)
 
 ---
 
@@ -520,14 +521,18 @@ Files are organized by category. Each entry includes:
 
 ### DOCKER_DEPLOYMENT_GUIDE.md
 
-**Description:** How to build, push (Docker Hub), and run the full stack (9 backend services + 3 frontend apps) as Docker containers — PC1 (Windows dev) builds and pushes, PC2 (Mac) pulls and runs via `docker compose`. Covers `appsettings.Docker.json` per service (gitignored, bind-mounted, never baked into an image), the one-click `docker/build-and-push.mjs` script wired into Nx (`nx run admin:docker-build-push`), and the steps to add a new service to this pattern.  
+**Description:** Step-by-step guide to deploy the full stack (10 backend services + 3 frontend apps) as Docker containers to a fresh server pair — PC1 (Windows dev) builds and pushes to Docker Hub, PC2 (Mac) pulls and runs via `docker compose`. Covers setting up SSH access between the two machines, `appsettings.Docker.json` per service (gitignored, bind-mounted, never baked into an image), the Nx-wired build/deploy scripts under the `docker` project (`nx run docker:build-push-all`, `build-changed`, `deploy-all`, `deploy-changed`, `build-deploy-changed`), `CORS_EXTRA_ORIGINS` as the single source of truth for the deployment hostname, tunneling into PC2's Postgres/Redis from PC1, and the steps to add a new service to this pattern.
 **Read When:**
 
-- Building or pushing Docker images for any service
+- Deploying to a brand-new server pair, or setting up SSH access to an existing PC2
+- Building or pushing Docker images for any service, or doing a routine deploy
 - Setting up or modifying `docker-compose.yml`
 - Adding a new service and needing to Dockerize it
 - Debugging why a container can't reach Postgres/Redis/another service (hostname mismatch)
 - Understanding why ports 5000-5009 are all published instead of only the Gateway's
+- Connecting a local Postgres/Redis client to PC2 from PC1
+- A browser reports a CORS or CSP error against a Docker-deployed frontend (`CORS_EXTRA_ORIGINS`, and why `img-src`/`media-src`/`connect-src`'s `ws://` entry each need their own origin, not just `connect-src`'s `http://` one)
+- A service's port is `127.0.0.1`-bound on PC2 and a frontend feature that calls it directly (file URLs, a SignalR hub) fails outside PC2 — see the FileManager/Notification Gateway-routing fixes under "Known limitations"
 
 ---
 

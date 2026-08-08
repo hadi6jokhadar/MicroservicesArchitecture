@@ -125,6 +125,110 @@ An Angular admin UI exists at `MicroservicesArchitecture-Web/apps/admin/src/app/
 
 **A restore reports `Completed` with no error, but the data looks unchanged** — see "Restore does not invalidate downstream caches" above. Verify with a direct `psql` query against the target database, not through a running service's own (possibly cached) read path.
 
+**`pg_restore: error: unsupported version (X.YY) in file header` when restoring a PC1 dev-machine backup into PC2's Docker Postgres** — the custom-format archive's internal version number reflects the `pg_dump` **client** version that created it, not the server version. PC1's local dev machine can easily have a newer PostgreSQL client installed (e.g. 18.x, installed standalone for local dev) than `docker-compose.yml`'s `postgres:15-alpine` image ships (server 15.18) or even than `Backup.API`'s own container's `postgresql-client` package (16.x, per the Dockerfile pitfall above) — and `pg_restore` refuses to read an archive version newer than itself, even though the actual target *server* version is often perfectly capable of receiving the restored data once the archive is decoded by a new-enough client. Found migrating dev backups from PC1 (pg_dump 18.3) to PC2 in August 2026 — PC2's postgres container's own `pg_restore` (15.18) and even the `backup` container's `pg_restore` (16.14) both rejected the archives. **Fixed** by using PC1's own (newer) `pg_restore.exe` directly, tunneled to PC2's Postgres over SSH (`ssh -N -L 15432:localhost:5432 <PC2_SSH_HOST>`, since `docker-compose.yml` binds Postgres to `127.0.0.1` on PC2 only) — `pg_restore.exe --clean --if-exists --no-owner -h localhost -p 15432 -U postgres -d <database> <dump file>` restored cleanly with only a harmless warning (see below). **When restoring across machines with different Postgres client versions, restore FROM whichever machine has the newest client**, tunneling to the target server rather than copying the file to an older-client machine and restoring locally there.
+
+**`pg_restore: error: could not execute query: ERROR: unrecognized configuration parameter "transaction_timeout"`** — a single, harmless warning (`errors ignored on restore: 1`) when restoring an archive made by pg_dump 17+ into a Postgres 15 (or older) server; `transaction_timeout` is a session-level GUC added in newer PostgreSQL that the older server doesn't recognize. It's one of several session-normalization `SET` statements pg_dump emits at the start of the restore, not a schema/data statement — the actual restore proceeds normally. Safe to ignore.
+
+**`pg_restore: error: could not execute query: ERROR: extension "vector" is not available`** — the source database had the `pgvector` extension installed (e.g. AI service's database, for embedding columns) but the target Postgres image (`postgres:15-alpine`, the plain upstream image used by `docker-compose.yml`) doesn't have `pgvector` built in. `pg_restore` logs this as an ignored error and continues — check afterward (`\dt` in `psql`) whether any *tables* actually failed to materialize as a result (a table using a `vector`-typed column would fail to create without the extension) — if the affected service doesn't currently have any real vector-typed columns yet, this is a no-op warning with nothing actually missing. If real vector columns exist, the fix is switching the `postgres` service in `docker-compose.yml` to the `pgvector/pgvector:pg15` image (drop-in compatible, adds the extension) instead of plain `postgres:15-alpine`.
+
+## Manual cross-machine restore: PC1 dev backups → PC2 Docker
+
+This bypasses the Backup service's own REST API entirely — there's no `BackupRunEntity` row for a PC1 dev-machine dump, so it can't be restored via `POST /api/v1/admin/backups/{id}/restore` (that endpoint only knows about runs it created itself). Use this runbook when you need to seed/refresh PC2 with PC1's local dev data directly via `pg_restore`. Used successfully in August 2026 to migrate 11 databases (7 global + 4 tenant) from PC1 to PC2.
+
+**Before starting:** this is destructive (`pg_restore --clean` drops existing objects in the target database first) and requires downtime for every service whose database you're restoring. Confirm with whoever owns PC2 that overwriting its current data is actually wanted, and confirm exactly which backup date/set to use — PC1 accumulates one dated folder per day under `Backup:LocalStorageRootPath` (`C:\Backups\PostgreSQL\{yyyy-MM-dd}\`), and the newest folder isn't always the most *complete* one (a partial/interrupted backup run can leave a newer folder with fewer files than the day before).
+
+### Prerequisites
+
+- SSH from PC1 to PC2 already working passwordless (`ssh <PC2_SSH_HOST> "echo connected"`) — see `Doc/DOCKER_DEPLOYMENT_GUIDE.md`'s SSH setup section if not.
+- Know PC1's local `pg_dump`/`pg_restore` client version (`"C:\Program Files\PostgreSQL\{version}\bin\pg_restore.exe" --version`) — you'll very likely need to restore *from* PC1 using this client rather than any tool living on PC2, per the version-mismatch pitfall above.
+
+### Steps
+
+1. **Identify the backup files to migrate.** List PC1's backup folder for the date you want:
+   ```powershell
+   Get-ChildItem -Path "C:\Backups\PostgreSQL\{yyyy-MM-dd}" -File | Select-Object Name, Length, LastWriteTime
+   ```
+   Pick the single latest timestamp-group that has a complete set (one file per service/tenant you care about) — `RunBackupJob`'s filenames are `{scope}_{identifier}_{yyyyMMddHHmmss}.dump`, so files from the same actual backup run share nearly-identical timestamps (seconds apart).
+
+2. **Map each filename to its target database name.** `globalservice_{ServiceName}_*.dump` → look up `{ServiceName}` in `Backup.API/appsettings.Docker.json`'s `Backup:GlobalTargets` list for the `ConnectionString`'s `Database=` value (it is **not** always the obvious lowercase service name — e.g. `NasheedService`'s global target is configured to point at the `anashid` tenant database, not a `nasheed`-named one). `tenant_{tenantId}_*.dump` → the database is simply `{tenantId}` (one tenant = one database, named after the tenant ID).
+
+3. **Check which target databases already exist on PC2**, and create any that don't (a brand-new tenant that's never been accessed on PC2 has no database yet — `pg_restore` doesn't create the database itself unless invoked with `--create`, and creating it manually first is simpler):
+   ```bash
+   ssh <PC2_SSH_HOST> "/usr/local/bin/docker exec ihsandev-postgres psql -U postgres -l"
+   ssh <PC2_SSH_HOST> "/usr/local/bin/docker exec ihsandev-postgres psql -U postgres -c 'CREATE DATABASE {name};'"   # repeat per missing DB
+   ```
+
+4. **Stop every PC2 app container whose database you're about to overwrite** (avoids connection locks blocking `--clean`'s drops, and their in-memory caches need clearing afterward anyway):
+   ```bash
+   ssh <PC2_SSH_HOST> "cd <PC2_REPO_PATH> && /usr/local/bin/docker compose stop identity tenant notification filemanager translation category ai nasheed"
+   ```
+   (list only the services actually affected by your restore set)
+
+5. **Open an SSH tunnel from PC1 to PC2's Postgres** (bound to `127.0.0.1` on PC2, per `docker-compose.yml` — not reachable directly from PC1 otherwise):
+   ```bash
+   ssh -N -L 15432:localhost:5432 <PC2_SSH_HOST>
+   ```
+   Run this in the background (or a separate terminal) — it needs to stay open through step 6.
+
+6. **Restore each file from PC1, through the tunnel, using PC1's own (newer) client:**
+   ```powershell
+   $env:PGPASSWORD = "<POSTGRES_PASSWORD from .env>"
+   & "C:\Program Files\PostgreSQL\{version}\bin\pg_restore.exe" --clean --if-exists --no-owner `
+     -h localhost -p 15432 -U postgres -d {targetDatabase} `
+     "C:\Backups\PostgreSQL\{yyyy-MM-dd}\{filename}.dump"
+   ```
+   Repeat per file/database. Expect (and ignore) the `transaction_timeout`/`pgvector` warnings described above if they apply — anything else in the output is a real problem worth investigating before moving on to the next file.
+
+7. **Close the SSH tunnel** (`Ctrl+C` in its terminal, or find and kill the `ssh.exe` process by its command line if it's running detached).
+
+8. **Restart the app containers** — this project's `docker/deploy-pc2.mjs` script (`node docker/deploy-pc2.mjs <service...>`) does a `pull` + `up -d`, which also works fine here even though there's no new image to pull (it just starts the stopped containers):
+   ```bash
+   node docker/deploy-pc2.mjs identity tenant notification filemanager translation category ai nasheed
+   ```
+
+9. **Verify** — container status/restart counts, `/health` endpoints, and a direct `psql` row-count spot-check per restored database (not through a service's own read path, which may be stale-cached — see "Restore does not invalidate downstream caches" above):
+   ```bash
+   ssh <PC2_SSH_HOST> "/usr/local/bin/docker inspect -f '{{.State.Status}} restarts={{.RestartCount}}' identity"
+   ```
+   ```powershell
+   $env:PGPASSWORD = "..."; & "...\psql.exe" -h localhost -p 15432 -U postgres -d identity -c "SELECT count(*) FROM \"Users\";"
+   ```
+   (re-open the SSH tunnel from step 5 first if you closed it and still want to `psql` from PC1 — or just run the `psql` check via `docker exec` on PC2 instead, using whichever container has a new-enough client per the version-mismatch pitfall)
+
+10. **Migrate FileManager's local file storage too, or the restored database's file references will 404.** The database restore only brings back *rows* — `FileManagerEntity.Path` is a relative path (e.g. `ihsandev/system/image/{uuid}.webp`) resolved against `FileManagerOptions.RootStoragePath` (`C:\FileStorage` in PC1 local dev, the `ihsandev_filestorage` named volume mounted at `/app/FileStorage` in PC2's `filemanager` container per `docker-compose.yml`). If a file was never uploaded to Cloudflare R2 (check the row's `ExternalUrl` column — if populated, FileManager serves from R2 regardless of local disk and this step doesn't matter for that specific file), the actual bytes only exist on whichever machine's disk they were originally saved to. Restoring the database without also copying these files leaves every un-migrated local file's URL pointing at nothing on PC2.
+
+    Since `/app/FileStorage` is a **named volume** (not a bind mount), files can't be dropped in with a plain host-to-host file copy — `docker cp` into the running container is what actually writes through to the volume. No downtime is needed here (unlike the database restore) — this is purely additive, and the `filemanager` service doesn't need to be stopped to receive new files on disk:
+
+    ```powershell
+    # From PC1 — sanity-check what you're about to move
+    Get-ChildItem -Path "C:\FileStorage" -Recurse -File | Measure-Object -Property Length -Sum
+    ```
+    ```bash
+    # Check PC2 isn't about to silently merge onto files it already has with the same names
+    ssh <PC2_SSH_HOST> "/usr/local/bin/docker exec filemanager sh -c 'find /app/FileStorage -type f | wc -l'"
+
+    # Transfer: PC1 -> PC2 host temp dir -> into the container's volume-backed path
+    ssh <PC2_SSH_HOST> "mkdir -p /tmp/filestorage-inbox"
+    ```
+    ```powershell
+    scp -r "C:\FileStorage\." <PC2_SSH_HOST>:/tmp/filestorage-inbox/
+    ```
+    ```bash
+    ssh <PC2_SSH_HOST> "/usr/local/bin/docker cp /tmp/filestorage-inbox/. filemanager:/app/FileStorage/ && rm -rf /tmp/filestorage-inbox"
+
+    # Verify count/size landed correctly
+    ssh <PC2_SSH_HOST> "/usr/local/bin/docker exec filemanager sh -c 'find /app/FileStorage -type f | wc -l; du -sh /app/FileStorage'"
+    ```
+
+    **Confirm the link actually works** — don't just trust that "file count matches" means every path resolves. Pick a real `Path` value out of the just-restored database (both a tenant DB and the global `filemanager` DB, since both have their own `FileManager` table — Strategy B means each tenant's own database carries its own file rows) and verify that exact relative path exists on disk:
+    ```powershell
+    $env:PGPASSWORD = "..."; & "...\psql.exe" -h localhost -p 15432 -U postgres -d ihsandev -c "SELECT \"Path\" FROM \"FileManager\" LIMIT 5;"
+    ```
+    ```bash
+    ssh <PC2_SSH_HOST> "/usr/local/bin/docker exec filemanager sh -c 'find /app/FileStorage -iname \"{uuid-from-above}*\"'"
+    ```
+    A tenant that never uploaded any files (e.g. a brand-new one with no `FileManager` rows at all) simply has no subfolder to migrate — that's expected, not a gap.
+
 ## Security notes (July 2026 audit)
 
 - **`IPgToolRunner` builds `pg_dump`/`pg_restore` arguments via `ProcessStartInfo.ArgumentList`**, not a formatted `Arguments` string — each token (`-h`, the host value, `-p`, the port value, etc.) is passed individually, so a malicious host/username/database value can't break out into a second shell-parsed argument. The password never touches arguments at all — it's set via the `PGPASSWORD` environment variable on the child process, same as before.

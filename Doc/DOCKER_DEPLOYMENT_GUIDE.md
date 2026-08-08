@@ -6,9 +6,27 @@
 
 ## Quick Start: Deploying On a Fresh Server Pair
 
-Follow this in order for a brand-new PC1/PC2 pair (or re-read it as a checklist if something's not working — most failures so far were silent, so re-verifying each step explicitly is worth it).
+Follow this in order for a brand-new PC1/PC2 pair (or re-read it as a checklist if something's not working — most failures so far were silent, so re-verifying each step explicitly is worth it). "PC1" = the Windows build machine; "PC2" = the Mac host machine (the same pattern works for a Linux PC2 with minor path/package-manager adjustments, but everything below is written for macOS since that's what's actually been run).
 
-### 1. One-time setup on PC1 (the build machine)
+### 1. Set up SSH from PC1 to PC2 first — everything else depends on it
+
+The whole rest of this guide (deploy scripts, file transfers, remote verification) assumes you can already run `ssh <PC2_SSH_HOST>` from PC1 with no password prompt. Set this up before anything else:
+
+1. On PC1, generate a key if you don't already have one: `ssh-keygen -t ed25519` (accept the default path, `~/.ssh/id_ed25519`).
+2. On PC2, enable **Remote Login**: System Settings → General → Sharing → toggle "Remote Login" on. Note the username shown there (e.g. `hady`) and PC2's LAN IP (shown in the same panel, or `ipconfig getifaddr en0` in PC2's own terminal).
+3. Copy your public key to PC2 — from PC1: `ssh-copy-id <username>@<PC2-LAN-IP>` (or manually append `~/.ssh/id_ed25519.pub`'s contents to `~/.ssh/authorized_keys` on PC2 if `ssh-copy-id` isn't available on Windows).
+4. Add a `Host` entry to PC1's `~/.ssh/config` (create the file if it doesn't exist) so every later command in this guide can just say `ssh <PC2_SSH_HOST>`:
+   ```
+   Host 192.168.1.45
+     HostName 192.168.1.45
+     IdentityFile "C:\Users\<you>\.ssh\id_ed25519"
+     User hady
+   ```
+   The `Host` value can be a friendly alias instead of the raw IP (e.g. `Host pc2`) — either works, since it's just a lookup key in this config file. **If PC2's IP ever changes** (DHCP lease renewal, router replacement), update this entry — see step 5 below for making PC2's IP stable in the first place.
+5. Verify: `ssh 192.168.1.45 "echo connected"` (or whatever alias you chose) should print `connected` with no password prompt.
+6. **Give PC2 a static/reserved LAN IP** (DHCP reservation on the router) — a `~/.ssh/config` entry (and every deploy script's `PC2_SSH_HOST`) pointing at a Wi-Fi-assigned IP will silently break if the lease changes.
+
+### 2. One-time setup on PC1 (the build machine)
 
 1. Install Docker Desktop. Confirm multi-platform build support: `docker buildx ls` should list `linux/amd64` and `linux/arm64` under available platforms (Docker Desktop bundles QEMU for this automatically).
 2. Clone **both** repos as sibling folders under the same parent directory (`docker-compose.yml` assumes this layout via `../MicroservicesArchitecture-Web`):
@@ -17,77 +35,126 @@ Follow this in order for a brand-new PC1/PC2 pair (or re-read it as a checklist 
      MicroservicesArchitecture/          (backend — this repo)
      MicroservicesArchitecture-Web/      (frontend)
    ```
-3. In the backend repo root: copy `.env.example` → `.env`, fill in `DOCKERHUB_USERNAME` plus the Postgres/PgAdmin/Grafana credentials.
-4. `docker login` with your Docker Hub account.
-5. **If you want internet access, decide the hostname now, before building anything** — see step 6. `environment.docker.ts` (frontend) bakes the hostname in at build time; changing it later means a rebuild.
+3. In the backend repo root: copy `.env.example` → `.env` and fill in **every** value — see the table below. `docker login` with your Docker Hub account afterward.
 
-### 2. One-time setup on PC2 (the host machine)
+   | Variable | What to set it to |
+   |---|---|
+   | `DOCKERHUB_USERNAME` | Your Docker Hub account — must match whatever account you `docker login` with (a mismatch here fails every push with "requested access to the resource is denied"; verify with `cmdkey /list \| findstr docker` or just try a push) |
+   | `POSTGRES_PASSWORD`, `POSTGRES_REPLICATION_PASSWORD` | Generate real random values — these become the actual Postgres credentials |
+   | `REDIS_PASSWORD` | Generate a real random value — used by both `docker-compose.yml`'s `redis` container and the host-dev `docker-compose.redis.yml` |
+   | `PGADMIN_EMAIL`, `PGADMIN_PASSWORD`, `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` | Whatever you want to log into those dashboards with (both bound to `127.0.0.1` on PC2 only, not internet-facing) |
+   | `CORS_EXTRA_ORIGINS` | Every real frontend origin for **this** server, comma-separated, no spaces — see step 6 below (you need the hostname decided first) |
+   | `PC2_SSH_HOST` | The same value you put in `~/.ssh/config`'s `Host` line in step 1 |
+   | `PC2_REPO_PATH` | The absolute path where you'll clone the backend repo on PC2 in step 3, e.g. `/Users/hady/Desktop/MicroservicesArchitecture/MicroservicesArchitecture` |
+
+4. **If you want internet access, decide the hostname now, before building anything** — see step 6 below. `environment.docker.ts` (frontend) bakes the hostname in at build time; changing it later means a rebuild.
+
+### 3. One-time setup on PC2 (the host machine)
 
 1. Install Docker Desktop.
-2. Clone **only the backend repo** — PC2 never builds anything, only pulls pre-built images, so the frontend repo isn't needed there at all.
-3. **Transfer the gitignored files manually** (scp/AirDrop/USB — never `git pull`, since these are intentionally excluded from git and always will be):
+2. Clone **only the backend repo**, at the exact path you put in `.env`'s `PC2_REPO_PATH` — PC2 never builds anything, only pulls pre-built images, so the frontend repo isn't needed there at all.
+3. **Transfer the gitignored files from PC1** (scp over the SSH connection from step 1 — never `git pull`, since these are intentionally excluded from git and always will be):
+   ```powershell
+   # From PC1, backend repo root:
+   scp .env <PC2_SSH_HOST>:<PC2_REPO_PATH>/.env
+   # Repeat per service for every appsettings.Docker.json — see the list below
+   scp "src/Services/Identity/Identity.API/appsettings.Docker.json" <PC2_SSH_HOST>:<PC2_REPO_PATH>/src/Services/Identity/Identity.API/
+   ```
    - `.env` (same one from PC1, or PC2-specific if credentials differ)
    - Every `appsettings.Docker.json` — one per backend service + Gateway (10 files total: Identity, Tenant, Notification, FileManager, Translation, Category, AI, Nasheed, Backup, Gateway)
-   - Verify all 10 landed: `find . -name "appsettings.Docker.json" | wc -l` should print `10`. Missing one means that service silently runs on the base `appsettings.json`'s placeholder defaults with no startup error (see the AI bind-mount pitfall below for exactly this failure mode).
-4. `docker login` (optional — raises the free-tier pull-rate limit above the ~100/hr anonymous ceiling, worth doing since this stack pulls ~17 images).
-5. **Give PC2 a static/reserved LAN IP** (DHCP reservation on the router) before setting up any port forwarding — a rule pointing at a Wi-Fi-assigned IP will silently break if the lease changes.
-6. **macOS-specific:**
-   - Disable **AirPlay Receiver** (System Settings → General → AirDrop & Handoff) — it squats on port 5000, which Gateway needs. Without this, `docker compose up -d` fails with `address already in use` on port 5000.
-   - **Do `docker login`/`docker compose pull` from an actual Terminal.app session, not SSH** — a non-interactive SSH session can't unlock the macOS Keychain, which Docker's credential helper needs even for anonymous/public pulls, producing `keychain cannot be accessed because the current session does not allow user interaction`. If you must do it over SSH anyway, see "SSH + Docker Hub credential workaround" below.
+   - Verify all 10 landed: `ssh <PC2_SSH_HOST> "find <PC2_REPO_PATH> -name appsettings.Docker.json | wc -l"` should print `10`. Missing one means that service silently runs on the base `appsettings.json`'s placeholder defaults with no startup error (see the AI bind-mount pitfall below for exactly this failure mode).
+   - **These files drift out of sync easily** — since they're gitignored, nothing ever re-syncs them automatically. If you edit one of these files later (on PC1, to fix a bug or add a new backend hostname), you must `scp` it to PC2 again yourself; a running container never sees the edit until you do. This exact class of bug (PC1's copy is correct, PC2 is still running an old/incomplete one) has been the single most common failure mode in this deployment — when a service's runtime behavior doesn't match what's in the repo, suspect this before suspecting a code bug.
+4. `docker login` (optional — raises the free-tier pull-rate limit above the ~100/hr anonymous ceiling, worth doing since this stack pulls ~17 images). Do this from PC2's own Terminal.app, not over SSH — a non-interactive SSH session can't unlock the macOS Keychain that Docker's credential helper needs (`keychain cannot be accessed because the current session does not allow user interaction`). The deploy scripts in step 5 below work around this automatically for `pull`, so this step is only needed if you also want to `docker login` for other reasons.
+5. **macOS-specific:** disable **AirPlay Receiver** (System Settings → General → AirDrop & Handoff) — it squats on port 5000, which Gateway needs. Without this, `docker compose up -d` fails with `address already in use` on port 5000.
 
-### 3. Build and push (from PC1)
+### 4. Build and push (from PC1)
+
+Run these from `MicroservicesArchitecture-Web` (the Nx workspace root — the `docker` project's `project.json` lives there even though most of what it builds is the backend repo's images). **Running `nx run docker:...` from the backend repo fails with "no Nx workspace found"** — this is a common mistake.
 
 ```powershell
 nx run docker:build-push-all      # first deploy — builds and pushes all 13 images
-nx run docker:build-changed       # routine deploys — only rebuilds services that actually changed (git diff-based)
-nx run docker:build-identity      # one specific image — see tools/docker/project.json for the full list
 ```
 
-First-time builds take a while — the AI image alone can take 20+ minutes for its arm64 variant (PyTorch install under QEMU emulation). Routine rebuilds are much faster since Docker's layer cache skips anything unchanged.
+First-time builds take a while — the AI image alone can take 20+ minutes for its arm64 variant (PyTorch install). Routine rebuilds are much faster since Docker's layer cache skips anything unchanged — see "Routine deploys" below for the day-to-day flow.
 
-### 4. Deploy (on PC2)
+### 5. Deploy to PC2 (from PC1 — no manual SSH needed)
+
+```powershell
+nx run docker:deploy-all      # pulls + recreates every service on PC2, using PC2_SSH_HOST/PC2_REPO_PATH from .env
+```
+
+This SSHes into PC2 for you and handles the macOS Docker Hub credential workaround automatically (see "SSH + Docker Hub credential workaround" below for what it's doing under the hood, and for the manual fallback if `PC2_SSH_HOST`/`PC2_REPO_PATH` aren't set up yet). If you'd rather run it manually on PC2 directly:
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
-### 5. Verify — `docker compose ps` showing `Up` is NOT proof it works
+### 6. Verify — `docker compose ps` showing `Up` is NOT proof it works
 
-Two of the four real bugs found during this deployment (ICU crash-loop, hardcoded `localhost` binding) both showed a completely normal `Up` status and unremarkable CPU in `docker compose ps`/`docker stats`, while being **entirely non-functional**. Always follow up with an actual request:
+Several real bugs found during this deployment (ICU crash-loop, hardcoded `localhost` binding, stale PC2 config files) all showed a completely normal `Up` status and unremarkable CPU in `docker compose ps`/`docker stats`, while being **entirely non-functional**. Always follow up with an actual request — either run these on PC2 directly, or from PC1 via `ssh <PC2_SSH_HOST> "<command>"`:
 
 ```bash
 docker stats --no-stream                                            # CPU pinned near 100% on a .NET service = something's wrong even if status says Up
+docker inspect -f 'status={{.State.Status}} restarts={{.RestartCount}}' <service>   # a climbing restart count = crash-looping even if currently "running"
 curl -sS -o /dev/null -w 'HTTP %{http_code}\n' http://localhost:5000/health   # repeat per service port
 docker logs <service> --tail 30                                     # check for anything after "Application started"
 ```
 
-### 6. Expose to the internet (optional)
+If the frontend is reachable but a browser page shows a CORS error in the console, `curl` alone won't catch it (curl never sends an `Origin` header) — verify with a real preflight request instead:
+
+```bash
+curl -sS -i -X OPTIONS 'http://localhost:5000/api/v1/<some-route>' -H 'Origin: http://<your-frontend-origin>' -H 'Access-Control-Request-Method: GET'
+# Look for: HTTP/1.1 204 No Content  and  Access-Control-Allow-Origin: http://<your-frontend-origin>
+```
+
+### 7. Routine deploys (after the first one)
+
+Day to day, you don't need `build-push-all`/`deploy-all` — use the change-aware, one-command version instead:
+
+```powershell
+nx run docker:build-deploy-changed   # detects what changed via git diff, builds+pushes it, deploys it to PC2 — all in one command
+```
+
+`build-deploy-changed` detects changes from **uncommitted changes first, falling back to the single last commit** if nothing's uncommitted — it does NOT look back across multiple already-committed-but-never-deployed commits. If you're not sure everything committed since the last deploy actually made it to PC2 (e.g. you made several commits before remembering to deploy), fall back to `nx run docker:build-push-all` + `nx run docker:deploy-all` once to get back to a known-good baseline, then resume routine `build-deploy-changed` deploys from there. Other targets, if you want more control:
+
+```powershell
+nx run docker:build-changed        # build+push only — review before deploying
+nx run docker:deploy-changed       # re-detects the same changed set and deploys it (only meaningful right after build-changed, before anything else changes on disk)
+nx run docker:build-identity       # build+push one specific image by name — see tools/docker/project.json for the full list
+nx run docker:deploy-all           # deploy every service regardless of what changed
+```
+
+### 8. Expose to the internet (optional)
 
 1. Get a hostname pointed at PC2's public IP — either a real domain, or a free DDNS service (this deployment uses one) if you don't have a domain yet.
 2. **Before building**, set that hostname in `environment.docker.ts` for `admin` and `nasheed-admin` (`MicroservicesArchitecture-Web/apps/{admin,nasheed/admin}/src/environments/environment.docker.ts`) — it's baked into the compiled JS at build time.
-3. Forward these ports on your router to PC2's static LAN IP: **80, 5000, 8081, 8082** — as of the July 2026 security audit, the 9 backend service ports (5001–5010, excluding Gateway's 5000) are bound to `127.0.0.1` on the host (see "Known limitations" below), so forwarding them no longer does anything; only Gateway, admin, nasheed-admin, and nasheed-web are reachable from outside PC2.
-4. Test from **outside** your local network (e.g. phone on cellular data, not the same Wi-Fi) — a LAN-only test won't catch a missing port-forward rule.
+3. Set the same hostname (with every real frontend origin/port) in `.env`'s `CORS_EXTRA_ORIGINS` — see the Cors pitfall below for the exact format and which services need a rebuild vs. just a restart to pick it up.
+4. Forward these ports on your router to PC2's static LAN IP: **80, 5000, 8081, 8082** — as of the July 2026 security audit, the 9 backend service ports (5001–5010, excluding Gateway's 5000) are bound to `127.0.0.1` on the host (see "Known limitations" below), so forwarding them no longer does anything; only Gateway, admin, nasheed-admin, and nasheed-web are reachable from outside PC2.
+5. Test from **outside** your local network (e.g. phone on cellular data, not the same Wi-Fi) — a LAN-only test won't catch a missing port-forward rule.
 
-### SSH + Docker Hub credential workaround (macOS, if you can't use Terminal.app directly)
+### 9. Connecting to PC2's Postgres/Redis directly from PC1 (e.g. with pgAdmin/DBeaver)
 
-If you must run `docker compose pull`/`build`/`push` over SSH on a Mac and hit the Keychain error above, point Docker at a temporary, credential-free config instead of fighting the Keychain:
+Postgres (`5432`) and Redis (`6379`) are bound to `127.0.0.1` on PC2 only — `<PC2-LAN-IP>:5432` will just refuse the connection, by design (same July 2026 hardening as every other backend port). To reach them from PC1, tunnel through the SSH connection from step 1:
+
+```powershell
+ssh -L 5432:localhost:5432 <PC2_SSH_HOST>
+```
+
+Keep that terminal open, then point your Postgres client at `localhost:5432` on PC1 (credentials: `postgres` / the real `POSTGRES_PASSWORD` from `.env`, not the tracked placeholder). If PC1 already has its own local Postgres on port 5432, forward to a different local port instead: `ssh -L 15432:localhost:5432 <PC2_SSH_HOST>`, then connect to `localhost:15432`. Same pattern works for Redis (`-L 6379:localhost:6379`) or any other `127.0.0.1`-bound port on PC2.
+
+### SSH + Docker Hub credential workaround (macOS)
+
+The `deploy-*` Nx targets (`docker/pc2-deploy-lib.mjs`) already do this automatically — you only need it if running `docker compose pull`/`build`/`push` manually over SSH yourself and hitting the Keychain error from step 3.4 above:
 
 ```bash
-mkdir -p /tmp/docker-nocreds-bin && cat > /tmp/docker-nocreds-bin/docker-credential-none <<'EOF'
-#!/bin/sh
-echo 'credentials not found in native keychain' >&2
-exit 1
-EOF
-chmod +x /tmp/docker-nocreds-bin/docker-credential-none
 mkdir -p /tmp/docker-nocreds/cli-plugins
 ln -sf /Applications/Docker.app/Contents/Resources/cli-plugins/docker-compose /tmp/docker-nocreds/cli-plugins/docker-compose
-echo '{"credsStore":"none"}' > /tmp/docker-nocreds/config.json
-export PATH=/tmp/docker-nocreds-bin:/usr/local/bin:$PATH
+echo '{"credsStore":""}' > /tmp/docker-nocreds/config.json
 export DOCKER_CONFIG=/tmp/docker-nocreds
 docker compose pull   # or build/push
 ```
-This works because the images are public — no real credentials are ever needed, just something that answers "not found" instead of the real Keychain-backed helper failing outright. **Note:** even with this workaround, pulls occasionally still report a confusing empty-output error on the first attempt but succeed anyway (or need one retry) — verify success with `docker images` (check timestamps) rather than trusting the printed exit status alone.
+This works because the images are public — no real credentials are ever needed, just a config that doesn't try the Keychain-backed helper at all. **Note:** even with this workaround, pulls occasionally still report a confusing empty-output error on the first attempt but succeed anyway (or need one retry) — verify success with `docker images` (check timestamps) rather than trusting the printed exit status alone. If you're scripting this yourself (rather than using the `deploy-*` targets) from a **Windows** machine invoking `ssh` via Node's `child_process`, use `execFileSync('ssh', [host, remoteCommand])` rather than `execSync('ssh ' + host + ' "' + remoteCommand + '"')` — Windows' `cmd.exe` quoting rules will otherwise mangle the embedded JSON's double quotes (this exact bug hit `pc2-deploy-lib.mjs` once — see its inline comment).
 
 ### If a fresh pull/build behaves inexplicably: suspect a corrupted local layer cache
 
@@ -129,45 +196,12 @@ If an image is verified correct on Docker Hub (matching digest, valid file conte
 | `MicroservicesArchitecture-Web/apps/{admin,nasheed/admin,nasheed/web}/Dockerfile` + `nginx.conf`  | Frontend: multi-stage Node build → static files served by nginx                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `MicroservicesArchitecture-Web/apps/{admin,nasheed/admin}/src/environments/environment.docker.ts` | Docker-target API URLs — currently `ihsandev.gleeze.com` (a free DDNS hostname pointed at PC2, so it survives PC2's public IP changing). **Baked in at build time** — changing the hostname requires editing this file _and_ rebuilding, not just re-running `docker compose up`                                                                                                                                                                                                         |
 
-## Deploy flow
-
-All commands below run from `MicroservicesArchitecture-Web` (the Nx workspace root — the `docker` project's `project.json` lives there even though most of what it builds is the backend repo's images; see `tools/docker/project.json`). **This is a common mistake — running `nx run docker:...` from the backend repo fails with "no Nx workspace found."**
-
-```powershell
-# PC1 (one-time): copy .env.example to .env, set DOCKERHUB_USERNAME, then `docker login`.
-# Also set PC2_SSH_HOST + PC2_REPO_PATH in .env if you want the one-command deploy targets below
-# (requires PC2_SSH_HOST to already work as a plain `ssh <value>` — set up a ~/.ssh/config Host
-# entry with a User + IdentityFile first, same as any other SSH access to PC2).
-
-# PC1 (typical deploy — one command: builds+pushes only what changed, then deploys it to PC2):
-nx run docker:build-deploy-changed
-
-# PC1 (same, but as two separate steps — useful if you want to review the build before deploying):
-nx run docker:build-changed        # rebuilds+pushes only services whose source actually changed
-nx run docker:deploy-changed        # re-detects the same changed set and deploys it to PC2
-
-# PC1 (deploy every service to PC2 regardless of what changed — e.g. after build-push-all):
-nx run docker:deploy-all
-
-# PC1 (force a full rebuild+push of all 12 images — e.g. first deploy, or after a Dockerfile/compose change):
-nx run docker:build-push-all
-nx run docker:deploy-all
-
-# PC1 (build + push one specific image by name — always pushes, see note above):
-nx run docker:build-identity     # or build-tenant, build-admin, build-ai, etc. — see tools/docker/project.json
-# then either `nx run docker:deploy-all` or manually on PC2 (see below) for just that service
-
-# PC2 (manual fallback, or if PC2_SSH_HOST/PC2_REPO_PATH aren't set up) — from this repo's root:
-docker compose pull
-docker compose up -d
-```
-
-The `deploy-*` targets SSH into PC2 and handle the macOS non-interactive-SSH Docker Hub credential workaround automatically (see "SSH + Docker Hub credential workaround" below) — you don't need to run that workaround by hand anymore unless you're deploying manually.
-
 ## Known limitations of the current (DDNS hostname, no TLS) setup
 
 - **Addressing uses a free DDNS hostname** (`ihsandev.gleeze.com`) pointed at PC2 — stable across PC2's public IP changing (unlike a raw IP), but it's not a registered domain with DNS control, so it can't get a Let's Encrypt cert through normal domain-ownership validation the same way a real domain could.
 - **Every backend service's port used to be published on every interface, not just the Gateway's** — the frontend's `environment.docker.ts` calls each service directly on its own port (mirroring how `environment.ts` works in local dev), so `docker-compose.yml` publishes ports 5000–5010, not only 5000. **Fixed in the July 2026 security audit**: the 9 backend service ports (5001, 5002, 5004–5010) are now bound to `127.0.0.1:{port}:{port}` — reachable from PC2 itself (Postman, `curl localhost:500x`, `docker logs`) but not from any other machine, including via router port-forwarding. Only Gateway (5000), admin (80), nasheed-admin (8081), and nasheed-web (8082) remain reachable from outside PC2. **This means the frontend's current pattern of calling each backend service directly (not just through the Gateway) will fail for any real end user outside PC2** unless/until the frontend HTTP-client refactor mentioned above happens — routing every call through the Gateway is the only way to restore full external functionality without reopening the 9 backend ports.
+  - **FileManager's case is already fixed, without needing that frontend refactor.** Unlike every other service, FileManager doesn't return file URLs the frontend builds itself from `environment.docker.ts` — every returned URL is built server-side from the single `FileManagerOptions:RootStoragePath` config value (`FileManagerService.cs`'s `_urlPrefix`), and since it's read fresh on every API response (never baked into the database — `FileManagerEntity.Path` stores a bare relative path like `ihsandev/system/image/{uuid}.webp`), repointing that one config value retroactively fixes every existing file link with no data migration. Fixed (August 2026) by setting `RootStoragePath` to `http://ihsandev.gleeze.com:5000` (Gateway) instead of `:5005` (FileManager's own blocked port), plus a new Gateway route (`filemanager-static-files-route`, `Gateway.API/appsettings.json`) forwarding anything not claimed by another route to FileManager — safe as a broad catch-all specifically because FileManager's static file server (`app.UseStaticFiles`, `RequestPath = ""` in `FileManager.API/Program.cs`) is the only thing in this platform serving bare-root paths with no `/api/v1/` prefix. `img-src`/`media-src` in `apps/admin` and `apps/nasheed/admin`'s `nginx.conf` needed the same origin added (`http://ihsandev.gleeze.com:5000`) alongside the direct-port entry, matching `connect-src`'s existing pattern (see `Angular.instructions.md` pitfall #9).
+  - **Notification's SignalR hub connection needed the frontend refactor instead** (fixed August 2026, same day) — `libs/shared/src/lib/services/signalr.service.ts`'s `SignalrService.initializeConnection` builds the hub URL itself from `environment.apiUrls.notification`, so unlike FileManager there was no single server-side config value to repoint. Fixed by pointing it at `environment.apiUrls.gateway` instead, plus a new Gateway route (`notification-hub-route`, `Order: 10` — must be lower than `filemanager-static-files-route`'s `Order: 100`, since `/hubs/notifications/*` is outside the `/api/v1/` space just like FileManager's static files and would otherwise fall through to that catch-all). YARP proxies the WebSocket upgrade transparently — no special `Transforms` needed, unlike the `ai-stream-route`'s SSE handling. Since this fix lives in `libs/shared`, it covers both `apps/admin` and `apps/nasheed/admin` from one change. **Don't forget `connect-src`'s `ws://` entry is a separate scheme+origin from the `http://` one** — moving the hub connection from Notification's direct port to Gateway means the CSP's `ws://ihsandev.gleeze.com:5004` entry has to become `ws://ihsandev.gleeze.com:5000`, not just adding the new origin alongside the old one; the browser reported this as its own separate CSP violation (`Connecting to 'ws://...:5000/...' violates ... connect-src ... ws://ihsandev.gleeze.com:5004`) even after the negotiate handshake itself already succeeded through the new route. **If another service ever needs this same treatment, check first whether it already builds its own returned URLs server-side (cheap, retroactive fix, like FileManager) or whether the frontend constructs the URL itself from `environment.docker.ts` (needs this bigger frontend-plus-Gateway-route fix instead, like Notification's SignalR connection did).**
 - **Secrets are reused from local dev** (`appsettings.Docker.json` was created as a copy of `appsettings.Development.json` with hostnames adjusted for Docker networking) — fine for personal/testing use, but rotate the Postgres password, JWT secret, and service shared secret before any real public exposure. Since these files aren't templated, a rotation means editing the value in **every** `appsettings.Docker.json` individually, and updating `POSTGRES_PASSWORD` in `.env` to match (`docker-compose.yml` reads it via `${POSTGRES_PASSWORD}`, not a hardcoded literal, as of the July 2026 audit).
 - **No TLS yet** — plain HTTP over the DDNS hostname. See the chat history / root `CLAUDE.md` for the Cloudflare Tunnel alternative if HTTPS is needed sooner (it works fine on top of a DDNS-backed host).
 - The existing `docker-compose.redis.yml` / `docker-compose.postgres-replication.yml` / `docker-compose.observability.yml` are separate, host-level dev-time compose files — do not run them alongside `docker-compose.yml` (container name collisions: both define `jaeger`/`prometheus`/`grafana`/`redis`-equivalent containers). `docker-compose.yml` is the fully-containerized equivalent for PC2; the three host-level files stay useful on PC1 for running the observability/DB stack next to services started via `dotnet run`.
@@ -206,6 +240,14 @@ Identity, Tenant, Translation, and FileManager's `appsettings.Docker.json` were 
 **When moving to a new server: update ONLY `.env`'s `CORS_EXTRA_ORIGINS`** (plus `environment.docker.ts`'s hostname and a rebuild of `admin`/`nasheed-admin`, per the existing hostname-change note above) — no more touching seven separate `appsettings.Docker.json` files. Include every real frontend origin for the new host: bare (admin, port 80), `:8081` (nasheed-admin), `:8082` (nasheed-web), both `http` and `https` if unsure which is live, and `http://localhost` if you ever test a locally-run Docker frontend image against this backend (its baked-in `environment.docker.ts` always calls the real production Gateway regardless of where the container itself runs, so the browser's `Origin` header is `http://localhost` while the request target is the production hostname). After changing `.env`, `docker compose up -d` (not `restart` — env var changes require recreating the container, `restart` reuses the already-materialized environment) for every affected service.
 
 **This requires a rebuild** for the .NET services (the merge logic is compiled code, not config) — unlike the old per-file fix, which only needed a `scp` + restart. This is a one-time cost to switch to the new mechanism; every *subsequent* hostname/origin change is `.env`-only and needs no rebuild, since the env var itself is read fresh at container start.
+
+## Pitfall: building and pushing an image is not the same as deploying it — verify both independently
+
+`docker compose build --push <service>` only updates Docker Hub; the container on PC2 keeps running whatever image it was created with until something explicitly pulls and recreates it. This bit Gateway specifically: it was rebuilt and pushed as part of a larger batch, but the deploy step afterward only targeted a different subset of services — Gateway's container silently kept running a 3-week-old image (confirmed via `docker inspect gateway --format '{{.Created}}'` vs. `docker images ... --format '{{.CreatedAt}}'` showing two different dates) with no error anywhere. **When verifying a deploy, check both the image push succeeded AND the target container's creation timestamp is recent** (`docker inspect <service> --format 'Container Created: {{.Created}}'`) — a successful `build --push` log tells you nothing about whether PC2 ever actually picked it up. Using `nx run docker:build-deploy-changed` (or `build-changed` immediately followed by `deploy-changed`, from the *same* detected list) avoids this class of gap entirely, since the deploy step always targets exactly what was just built.
+
+## Pitfall: `docker compose up -d` does not restart a container just because a bind-mounted file's *content* changed
+
+`appsettings.Docker.json` is bind-mounted, not baked into the image — editing it and then running `docker compose up -d <service>` looks like it should pick up the change, but Compose only recreates a container when it detects a change to the **service definition** (image tag, env vars, volume *paths*, etc.), not when a file *underneath* an already-configured bind mount changes on disk. The output even says `Container <service> Running` (not `Recreated`/`Started`) when this happens — easy to miss. The already-running process never re-reads the file, so the fix silently doesn't take effect. **After editing any bind-mounted config file and copying it to PC2, use `docker restart <service>`** (or `docker compose restart <service>`) explicitly — don't rely on `up -d` to notice a content-only change. The `deploy-*` Nx targets always call `docker compose up -d`, which is correct for *image* changes (a new image tag digest does trigger recreation) but not sufficient on its own right after a manual `scp` of a config file — restart explicitly in that specific case.
 
 ## Image size notes
 
