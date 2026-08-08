@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
@@ -16,7 +17,12 @@ public class AiApiClientService : IAiApiClient
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        // Default encoder escapes every non-ASCII character (Arabic, etc.) as \uXXXX — irrelevant
+        // for a JSON REST API body (not HTML), and costly: each escaped Arabic letter becomes 6
+        // ASCII characters instead of 1, inflating token counts on every chat/transcription request
+        // and making Arabic text harder for the model to read naturally.
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     public AiApiClientService(
@@ -44,6 +50,7 @@ public class AiApiClientService : IAiApiClient
         string? userMessage = null,
         string? tenantId = null,
         IReadOnlyList<int>? fileIds = null,
+        string? pipelineRunId = null,
         CancellationToken cancellationToken = default)
     {
         tenantId ??= _configuration["MultiTenancy:TenantId"]
@@ -64,6 +71,10 @@ public class AiApiClientService : IAiApiClient
         {
             request["file_ids"] = fileIds;
         }
+        if (!string.IsNullOrWhiteSpace(pipelineRunId))
+        {
+            request["pipeline_run_id"] = pipelineRunId;
+        }
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/chat/single");
         httpRequest.Content = JsonContent.Create(request, options: JsonOptions);
@@ -83,6 +94,7 @@ public class AiApiClientService : IAiApiClient
         string settingsKey,
         string inputText,
         string? tenantId = null,
+        string? pipelineRunId = null,
         CancellationToken cancellationToken = default)
     {
         tenantId ??= _configuration["MultiTenancy:TenantId"]
@@ -96,9 +108,16 @@ public class AiApiClientService : IAiApiClient
             ["settingsKey"] = settingsKey,
             ["text"] = inputText,
         };
+        if (!string.IsNullOrWhiteSpace(pipelineRunId))
+        {
+            request["pipelineRunId"] = pipelineRunId;
+        }
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/embedding");
-        httpRequest.Content = JsonContent.Create(request);
+        // Explicit JsonOptions here too (not just for its naming policy, which this call doesn't use
+        // since keys are set verbatim on the dictionary) — without it, Arabic text in inputText gets
+        // \uXXXX-escaped by the default encoder. See the JsonOptions field's own comment.
+        httpRequest.Content = JsonContent.Create(request, options: JsonOptions);
 
         httpRequest.Headers.Add("x-tenant-id", tenantId);
 
@@ -127,6 +146,7 @@ public class AiApiClientService : IAiApiClient
         int fileId,
         string? tenantId = null,
         string? language = null,
+        string? pipelineRunId = null,
         CancellationToken cancellationToken = default)
     {
         tenantId ??= _configuration["MultiTenancy:TenantId"]
@@ -142,6 +162,10 @@ public class AiApiClientService : IAiApiClient
         if (!string.IsNullOrWhiteSpace(language))
         {
             request["language"] = language;
+        }
+        if (!string.IsNullOrWhiteSpace(pipelineRunId))
+        {
+            request["pipeline_run_id"] = pipelineRunId;
         }
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/transcription");
@@ -171,9 +195,20 @@ public class AiApiClientService : IAiApiClient
             Text = result.Text,
             Language = result.Language,
             Duration = result.Duration,
-            Segments = result.Segments
-                .Select(s => new AiTranscriptionSegment { Start = s.Start, End = s.End, Text = s.Text })
+            Words = result.Words
+                .Select(w => new AiTranscriptionWord { Start = w.Start, End = w.End, Word = w.Word })
                 .ToList(),
+            Segments = result.Segments
+                .Select(s => new AiTranscriptionSegment
+                {
+                    Start = s.Start,
+                    End = s.End,
+                    Text = s.Text,
+                    AvgLogprob = s.AvgLogprob,
+                    NoSpeechProb = s.NoSpeechProb,
+                })
+                .ToList(),
+            NoSpeechProbThreshold = result.NoSpeechProbThreshold,
         };
     }
 
@@ -197,7 +232,16 @@ public class AiApiClientService : IAiApiClient
         public string Text { get; set; } = string.Empty;
         public string? Language { get; set; }
         public double? Duration { get; set; }
+        public List<AiTranscriptionWordDto> Words { get; set; } = [];
         public List<AiTranscriptionSegmentDto> Segments { get; set; } = [];
+        public double? NoSpeechProbThreshold { get; set; }
+    }
+
+    private sealed class AiTranscriptionWordDto
+    {
+        public double Start { get; set; }
+        public double End { get; set; }
+        public string Word { get; set; } = string.Empty;
     }
 
     private sealed class AiTranscriptionSegmentDto
@@ -205,5 +249,7 @@ public class AiApiClientService : IAiApiClient
         public double Start { get; set; }
         public double End { get; set; }
         public string Text { get; set; } = string.Empty;
+        public double? AvgLogprob { get; set; }
+        public double? NoSpeechProb { get; set; }
     }
 }

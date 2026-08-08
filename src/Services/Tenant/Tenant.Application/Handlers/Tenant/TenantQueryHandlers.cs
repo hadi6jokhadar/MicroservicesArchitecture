@@ -299,7 +299,7 @@ public class GetAllActiveTenantsWithConfigQueryHandler : IRequestHandler<GetAllA
             await _cacheService.SetAsync(cacheKey, paginatedList, TimeSpan.FromDays(1), cancellationToken);
 
             _logger.LogInformation(
-                "Cached all active tenants with config (Page: {PageNumber}, Size: {PageSize}, Total: {TotalCount}) for 7 days",
+                "Cached all active tenants with config (Page: {PageNumber}, Size: {PageSize}, Total: {TotalCount}) for 1 day",
                 request.PageNumber,
                 request.PageSize,
                 totalCount);

@@ -1,8 +1,10 @@
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 using System.Text.Json;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Application.DTOs;
@@ -19,15 +21,18 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, T
     private readonly ITenantRepository _tenantRepository;
     private readonly ICacheService _cacheService;
     private readonly ILogger<UpdateTenantCommandHandler> _logger;
+    private readonly IConnectionMultiplexer? _redis;
 
     public UpdateTenantCommandHandler(
         ITenantRepository tenantRepository,
         ICacheService cacheService,
-        ILogger<UpdateTenantCommandHandler> logger)
+        ILogger<UpdateTenantCommandHandler> logger,
+        IConnectionMultiplexer? redis = null)
     {
         _tenantRepository = tenantRepository;
         _cacheService = cacheService;
         _logger = logger;
+        _redis = redis;
     }
 
     public async Task<TenantDto> Handle(UpdateTenantCommand request, CancellationToken cancellationToken)
@@ -66,6 +71,11 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, T
 
             // Invalidate paginated tenant list cache (tenant data changed)
             await _cacheService.RemoveByPatternAsync("all_active_tenants_with_config_*", cancellationToken);
+
+            // Broadcast so services holding their own local config snapshot (e.g. Nasheed's
+            // INasheedTenantCache) can refresh immediately instead of waiting for a restart or
+            // their own periodic fallback. Best-effort only — see TenantConfigUpdateExtensions.
+            await _redis.PublishTenantConfigUpdatedAsync(tenant.TenantId, _logger, cancellationToken);
 
             return TenantDto.MapFrom(tenant);
         }

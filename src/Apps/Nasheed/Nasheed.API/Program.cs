@@ -65,6 +65,7 @@ builder.Services.AddFeatureFlagService();
 // ============================================
 builder.Services.AddFileManagerServiceClient(builder.Configuration, "NasheedService", builder.Environment.IsDevelopment());
 builder.Services.AddScoped<Nasheed.Application.Helpers.NasheedFileManagerHelper>();
+builder.Services.AddNotificationServiceClient(builder.Configuration, "NasheedService", builder.Environment.IsDevelopment());
 
 // ============================================
 // Automatic DB Migration
@@ -75,6 +76,11 @@ builder.Services.AddDatabaseMigration();
 // broadcasts it — removes the need to restart this service to trigger migration.
 // No-op when multi-tenancy or Redis is disabled (see AUTOMATIC_DATABASE_MIGRATION.md).
 builder.Services.AddTenantProvisioningListener<NasheedDbContext>(builder.Configuration);
+
+// Refresh INasheedTenantCache the moment Tenant Service broadcasts a config/feature-flag change —
+// removes the need to restart this service to pick up a flag toggle. No-op when Redis is disabled
+// (the periodic fallback in NasheedTenantLoaderService still applies either way).
+builder.Services.AddNasheedTenantConfigUpdatedListener(builder.Configuration);
 
 // ============================================
 // Authentication & Authorization

@@ -81,6 +81,11 @@ public static class NasheedEndpoints
             .Produces<SongDto>()
             .RequireAuthorization("AdminOnly");
 
+        songs.MapPost("/{id:int}/retry-analysis", NasheedSongApiHandlers.RetryAnalysis)
+            .WithName("RetrySongAnalysis")
+            .Produces<SongDto>()
+            .RequireAuthorization("AdminOnly");
+
         songs.MapGet("/{id:int}/analysis", NasheedSongApiHandlers.GetAnalysisStatus)
             .WithName("GetSongAnalysisStatus")
             .Produces<SongDto>()

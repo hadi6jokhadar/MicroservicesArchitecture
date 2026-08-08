@@ -1,8 +1,10 @@
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Extensions;
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 using Tenant.Application.Commands.Tenant;
 using Tenant.Application.DTOs;
 using Tenant.Domain.Repositories;
@@ -17,15 +19,18 @@ public class ToggleTenantArchivedStatusCommandHandler : IRequestHandler<ToggleTe
     private readonly ITenantRepository _tenantRepository;
     private readonly ICacheService _cacheService;
     private readonly ILogger<ToggleTenantArchivedStatusCommandHandler> _logger;
+    private readonly IConnectionMultiplexer? _redis;
 
     public ToggleTenantArchivedStatusCommandHandler(
-        ITenantRepository tenantRepository, 
+        ITenantRepository tenantRepository,
         ICacheService cacheService,
-        ILogger<ToggleTenantArchivedStatusCommandHandler> logger)
+        ILogger<ToggleTenantArchivedStatusCommandHandler> logger,
+        IConnectionMultiplexer? redis = null)
     {
         _tenantRepository = tenantRepository;
         _cacheService = cacheService;
         _logger = logger;
+        _redis = redis;
     }
 
     public async Task<TenantDto> Handle(ToggleTenantArchivedStatusCommand request, CancellationToken cancellationToken)
@@ -49,6 +54,9 @@ public class ToggleTenantArchivedStatusCommandHandler : IRequestHandler<ToggleTe
 
             // Invalidate paginated tenant list cache
             await _cacheService.RemoveByPatternAsync("all_active_tenants_with_config_*", cancellationToken);
+
+            // Broadcast so services holding their own local config snapshot can refresh immediately.
+            await _redis.PublishTenantConfigUpdatedAsync(tenant.TenantId, _logger, cancellationToken);
 
             return TenantDto.MapFrom(tenant);
         }

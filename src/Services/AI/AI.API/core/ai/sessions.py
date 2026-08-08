@@ -16,12 +16,15 @@ async def resolve_or_create_session(
     tenant_id: Optional[str],
     user_id: Optional[int],
     db: AsyncSession,
+    pipeline_run_id: Optional[str] = None,
 ) -> uuid.UUID:
     """Return the UUID of an existing chat session or create a new one.
 
     When *requested_session_id* is provided the session must already exist for
     the resolved tenant; a 404 is raised otherwise.  When it is omitted a new
-    session is created and its auto-generated id is returned.
+    session is created and its auto-generated id is returned. *pipeline_run_id*
+    is only applied to a newly-created session — an existing session keeps
+    whichever value (if any) it was created with.
     """
     session_tenant_id = tenant_id or GLOBAL_CHAT_TENANT_ID
 
@@ -42,6 +45,7 @@ async def resolve_or_create_session(
     new_session = AiChatSession(
         TenantId=session_tenant_id,
         UserId=user_id or 0,
+        PipelineRunId=pipeline_run_id,
     )
     db.add(new_session)
     await db.flush()  # populate Id without committing

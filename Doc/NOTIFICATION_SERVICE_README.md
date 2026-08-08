@@ -1427,6 +1427,18 @@ Each tenant has:
 
 ---
 
+## Known Service-to-Service Consumers
+
+| Consumer | Uses | Notes |
+|---|---|---|
+| Nasheed (`NasheedIngestionWorker`) | `INotificationServiceClient.SendTenantBroadcastAsync(..., deliveryType: "SignalR")` | Broadcasts ingestion job status changes (Running/Completed/Failed) so the Nasheed admin frontend can update its songs/ingestion tables live. See `src/Apps/Nasheed/Doc/INGESTION_PIPELINE.md` "Real-Time Progress Broadcast". Requires `"NasheedService"` in `ServiceCommunication:AllowedServices` below. |
+
+### `data` payload convention: `"silent": true`
+
+There is no server-side concept of a "silent" notification — `deliveryType` only controls which server-side channel(s) dispatch it (SignalR/Firebase/Both). Frontend clients built on the shared Angular `SignalrService` (`libs/shared/src/lib/services/signalr.service.ts` in `MicroservicesArchitecture-Web`) recognize a `"silent": true` key inside the JSON-encoded `data` field and skip their default toast popup for that notification, while still delivering it to any app-specific listener (e.g. a table-refresh trigger). Any new high-frequency, internal-progress-style notification producer should follow this same convention rather than accepting toast spam or inventing a different mechanism — see `MicroservicesArchitecture-Web/Doc/REALTIME_NOTIFICATIONS_GUIDE.md`.
+
+---
+
 ## Client Integration
 
 ### JavaScript/TypeScript

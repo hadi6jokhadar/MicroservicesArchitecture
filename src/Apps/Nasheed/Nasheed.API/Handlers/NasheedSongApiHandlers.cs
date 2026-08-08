@@ -59,4 +59,10 @@ public static class NasheedSongApiHandlers
         var result = await mediator.Send(new ToggleSongLyricsVerifiedCommand(id), ct);
         return Results.Ok(result);
     }
+
+    public static async Task<IResult> RetryAnalysis(int id, IMediator mediator, CancellationToken ct)
+    {
+        var result = await mediator.Send(new RetrySongAnalysisCommand(id), ct);
+        return Results.Ok(result);
+    }
 }

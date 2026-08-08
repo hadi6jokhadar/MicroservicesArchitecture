@@ -3,7 +3,7 @@
 **Base URL:** `http://localhost:5009`  
 **Auth:** All business endpoints require `Authorization: Bearer <token>`. Endpoints marked **AdminOnly** below additionally require the `"AdminOnly"` authorization policy — any catalog-mutation endpoint (artist/song create/update/delete) or ingestion-control endpoint (retry/reindex/delete) is AdminOnly; read endpoints (Get/GetAll/analysis/similar/search) and end-user interactions (favorites/ratings/play) only require authentication.  
 `x-tenant-id` should be sent by clients for tenant-aware routing, but this service also runs with configured single-tenant fallback (`MultiTenancy:TenantId`).  
-**Last Updated:** August 3, 2026
+**Last Updated:** August 6, 2026
 
 ---
 
@@ -173,6 +173,16 @@ After deletion the parent artist's `SongCount` is decremented when `artistId` ex
 ### `PATCH /api/songs/{id}/toggle-lyrics-verified`
 
 **AdminOnly.** Flip the `LyricsVerified` flag on a song (`false → true` or `true → false`).
+
+**Response:** `200 OK` → `SongDto` | `404 Not Found`
+
+---
+
+### `POST /api/songs/{id}/retry-analysis`
+
+**AdminOnly.** Force-resets `LyricsVerified` to `false`, sets `SongState` to `InQueue`, and re-queues a `FullPipeline` ingestion job so the song is resent to AI for full lyrics/metadata re-extraction — the same pipeline that runs on initial upload.
+
+Idempotent: if a `FullPipeline` job is already active (`Pending`/`Running`) for the song, no duplicate job is created, but `LyricsVerified`/`SongState` are still updated.
 
 **Response:** `200 OK` → `SongDto` | `404 Not Found`
 

@@ -95,6 +95,7 @@ async def create_embedding(
         "/api/v1/embedding",
         prompt_tokens,
         0,
+        pipeline_run_id=request.pipelineRunId,
     )
 
     return EmbeddingResponse(embedding=vector, model=model_used)

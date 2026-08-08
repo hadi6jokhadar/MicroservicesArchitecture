@@ -366,7 +366,9 @@ async def build_chat_runtime_context(
                 getattr(prompt_obj, "ResponseFormat", None)
             )
 
-    session_id = await resolve_or_create_session(request.session_id, tenant_id, user_id, db)
+    session_id = await resolve_or_create_session(
+        request.session_id, tenant_id, user_id, db, pipeline_run_id=request.pipeline_run_id
+    )
 
     orchestration_state = await run_chat_orchestration(
         request, ai_settings, system_prompt, response_format, max_completion_tokens, tenant_id

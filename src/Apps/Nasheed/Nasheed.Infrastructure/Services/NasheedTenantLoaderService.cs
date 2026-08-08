@@ -12,7 +12,16 @@ namespace Nasheed.Infrastructure.Services;
 
 /// <summary>
 /// Hosted service that fetches the single tenant's configuration from TenantService on startup,
-/// populates INasheedTenantCache, and runs the database migration.
+/// populates INasheedTenantCache, and runs the database migration. After the initial load, it also
+/// starts a periodic background refresh (see <see cref="RefreshTenantConfigurationPeriodicallyAsync"/>)
+/// as a FALLBACK safety net — the primary refresh path is
+/// <see cref="NasheedTenantConfigUpdatedListenerService"/>, which reacts to Tenant Service's
+/// tenant:updated Redis Pub/Sub broadcast within a second or two of a save. This periodic loop only
+/// matters if that broadcast is ever missed (Redis briefly disconnected, this service restarting at
+/// the exact moment of the publish) — same best-effort-push + slow-fallback philosophy already used
+/// for tenant:provisioned. Reuses the same ITenantConfigurationProvider (and the Redis
+/// tenant_config_{tenantId} cache Tenant Service already invalidates on every save) rather than a
+/// separate refresh mechanism, per Dotnet.instructions.md pitfall #25.
 /// The NasheedIngestionWorker awaits INasheedTenantCache.WaitUntilReadyAsync before starting.
 /// </summary>
 public class NasheedTenantLoaderService : IHostedService
@@ -21,6 +30,12 @@ public class NasheedTenantLoaderService : IHostedService
     private readonly IServiceProvider _serviceProvider;
     private readonly IConfiguration _configuration;
     private readonly ILogger<NasheedTenantLoaderService> _logger;
+    private readonly CancellationTokenSource _refreshCts = new();
+
+    // Fallback-only interval — the push-based NasheedTenantConfigUpdatedListenerService is what
+    // normally keeps INasheedTenantCache fresh within seconds. This loop exists purely to bound
+    // staleness in case a tenant:updated broadcast is ever missed, so it can be long.
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
 
     public NasheedTenantLoaderService(
         INasheedTenantCache tenantCache,
@@ -80,6 +95,11 @@ public class NasheedTenantLoaderService : IHostedService
                     "Tenant '{TenantId}' loaded successfully. Running database migration...", tenantId);
 
                 await RunMigrationAsync(cancellationToken);
+
+                // Fire-and-forget: keep refreshing tenant config after startup completes. Must not be
+                // awaited here — StartAsync is awaited by the host, and migration must still finish
+                // before HTTP traffic begins, same as before this change.
+                _ = RefreshTenantConfigurationPeriodicallyAsync(tenantId, _refreshCts.Token);
                 return;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -105,7 +125,48 @@ public class NasheedTenantLoaderService : IHostedService
         }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        _refreshCts.Cancel();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Fallback-only: re-fetches this tenant's configuration every <see cref="RefreshInterval"/> and
+    /// pushes it back into INasheedTenantCache, in case NasheedTenantConfigUpdatedListenerService ever
+    /// misses a tenant:updated broadcast. Uses the same ITenantConfigurationProvider (and its Redis
+    /// cache/invalidation) as the initial load — this is not a new caching mechanism, just calling the
+    /// existing one again.
+    /// </summary>
+    private async Task RefreshTenantConfigurationPeriodicallyAsync(string tenantId, CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(RefreshInterval, cancellationToken);
+
+                using var scope = _serviceProvider.CreateScope();
+                var tenantProvider = scope.ServiceProvider.GetRequiredService<ITenantConfigurationProvider>();
+                var tenant = await tenantProvider.GetTenantConfigurationAsync(tenantId, cancellationToken);
+
+                if (tenant != null)
+                {
+                    _tenantCache.SetTenant(tenant);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to refresh tenant '{TenantId}' configuration; keeping previously cached value.",
+                    tenantId);
+            }
+        }
+    }
 
     private async Task RunMigrationAsync(CancellationToken cancellationToken)
     {

@@ -35,6 +35,7 @@ def _schedule_chat_persistence_tasks(
     endpoint: str,
     prompt_tokens: int,
     completion_tokens: int,
+    pipeline_run_id: Optional[str] = None,
 ) -> None:
     """Route-local scheduler to keep test patching stable in api.routes.chat."""
     background_tasks.add_task(
@@ -53,6 +54,8 @@ def _schedule_chat_persistence_tasks(
         endpoint,
         prompt_tokens,
         completion_tokens,
+        None,
+        pipeline_run_id,
     )
 
 
@@ -175,6 +178,7 @@ async def chat_stream(
                     "/api/v1/chat/stream",
                     prompt_tokens,
                     completion_tokens,
+                    request.pipeline_run_id,
                 )
                 if request.generate_session_title:
                     schedule_session_title_task(
@@ -261,6 +265,7 @@ async def chat_single_response(
         "/api/v1/chat/single",
         prompt_tokens,
         completion_tokens,
+        request.pipeline_run_id,
     )
     if request.generate_session_title:
         schedule_session_title_task(

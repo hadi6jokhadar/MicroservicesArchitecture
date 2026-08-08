@@ -1,7 +1,9 @@
 using IhsanDev.Shared.Infrastructure.Services.Cache;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using System.Diagnostics;
 
 namespace IhsanDev.Shared.Infrastructure.Extensions;
 
@@ -81,5 +83,36 @@ public static class RedisCacheExtensions
         }
 
         return services;
+    }
+
+    /// <summary>
+    /// Forces the cache's underlying Redis connections to connect now, during startup,
+    /// instead of lazily on the first real request. Call this once, right after
+    /// <c>app.Build()</c> and before <c>app.Run()</c> (same spot as DB migration warm-up).
+    /// Without this, the first request(s) after a cold start pay the full connection
+    /// cost inline, which can exceed a caller's fail-fast resilience timeout
+    /// (e.g. TenantServiceClient's 2s AttemptTimeout in MultiTenancyExtensions) and get
+    /// cancelled before the handler ever finishes. Safe to call even if Redis is down —
+    /// connection failures are swallowed the same way they are on the normal request path.
+    /// </summary>
+    /// <param name="services">The root service provider (app.Services)</param>
+    public static async Task WarmUpCacheAsync(this IServiceProvider services)
+    {
+        var cacheService = services.GetService<ICacheService>();
+        if (cacheService == null)
+        {
+            return;
+        }
+
+        var logger = services.GetService<ILoggerFactory>()?.CreateLogger("RedisCacheExtensions");
+        var stopwatch = Stopwatch.StartNew();
+
+        await cacheService.GetAsync<object>("__cache_warmup__");
+
+        // Also resolve the pattern-removal multiplexer so its connection is established now too.
+        services.GetService<IConnectionMultiplexer>();
+
+        stopwatch.Stop();
+        logger?.LogInformation("Cache warm-up completed in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
     }
 }

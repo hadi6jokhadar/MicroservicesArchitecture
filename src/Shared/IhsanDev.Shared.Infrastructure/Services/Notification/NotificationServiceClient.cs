@@ -86,6 +86,7 @@ public class NotificationServiceClient : INotificationServiceClient
         string title,
         string message,
         string? data = null,
+        string deliveryType = "Both",
         CancellationToken cancellationToken = default)
     {
         try
@@ -100,7 +101,7 @@ public class NotificationServiceClient : INotificationServiceClient
                 title = title,
                 message = message,
                 data = data,
-                deliveryType = "Both",
+                deliveryType = deliveryType,
                 priority = "Immediate"
             };
 

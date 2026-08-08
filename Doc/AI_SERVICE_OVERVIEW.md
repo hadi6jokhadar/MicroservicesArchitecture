@@ -29,7 +29,8 @@ Default local URL:
 12. Generates text embedding vectors via `POST /api/v1/embedding` and logs token usage after each call.
 13. Supports local BAAI bge-m3 embedding inference for any provider settings record where `Provider = BAAI` and `ModelName` is `bge-m3` or `baai/bge-m3` (key-independent detection), while preserving the existing LiteLLM provider flow.
 14. Persists the exact model-input message list used in LiteLLM calls (system and request messages) for each chat turn, serializing structured JSON content blocks to strings for database debugging.
-15. Transcribes a single audio file with segment-level timestamps via a dedicated ASR model (`POST /api/v1/transcription`) — real audio-aligned timing, not an LLM-estimated one from a chat completion. Requires a provider settings row with `ModelType = Audio`. Logs usage as `AudioDurationSeconds` (not tokens — ASR has no token-based billing).
+15. Transcribes a single audio file with segment- and word-level timestamps via a dedicated ASR model (`POST /api/v1/transcription`) — real audio-aligned timing, not an LLM-estimated one from a chat completion. Requires a provider settings row with `ModelType = Audio`. Also echoes that row's `NoSpeechProbThreshold` (if set) back in the response, and each segment's own `avg_logprob`/`no_speech_prob` confidence signals, so a caller can filter out likely-hallucinated segments before trusting their words. Logs usage as `AudioDurationSeconds` (not tokens — ASR has no token-based billing).
+16. Lets any chat/transcription/embedding caller attach a `pipeline_run_id` correlation id (e.g. `"nasheed:job:456"`) — stored on the `AiChatSession` created for a chat call and on every `AiTokenUsageLog` row (chat, transcription, or embedding), so all AI calls from one batch/pipeline run can be found together later. Never affects prompt content — `resolve_or_create_session` only reads `session_id` to look up/create a session, never to replay prior message history into a new request.
 
 ## High-Level Architecture
 
@@ -44,7 +45,7 @@ Default local URL:
 - `api/routes/chat_message_files.py`: Chat message to file relation listing.
 - `api/routes/token_usage_logs.py`: Token usage log listing with filtering, pagination, and aggregate statistics (`GET /stats`).
 - `api/routes/embedding.py`: Text embedding endpoint (`POST /api/v1/embedding`). Resolves provider settings, validates `ModelType == Embedding`, uses local `BAAI/bge-m3` when configured, otherwise calls LiteLLM `aembedding`, then logs token usage.
-- `api/routes/transcription.py`: ASR transcription endpoint (`POST /api/v1/transcription`). Resolves provider settings, validates `ModelType == Audio`, downloads the attached file via `file_manager_client` + `fetch_file_bytes_with_fallback`, calls LiteLLM `atranscription` (`response_format=verbose_json`, segment timestamps), then logs usage via `AudioDurationSeconds` instead of tokens.
+- `api/routes/transcription.py`: ASR transcription endpoint (`POST /api/v1/transcription`). Resolves provider settings, validates `ModelType == Audio`, downloads the attached file via `file_manager_client` + `fetch_file_bytes_with_fallback`, calls LiteLLM `atranscription` (`response_format=verbose_json`, `timestamp_granularities=["segment", "word"]`), then logs usage via `AudioDurationSeconds` instead of tokens (tagged with the caller's `pipeline_run_id` if provided).
 - `api/dependencies.py`: Auth and tenant resolution helpers.
 - `api/attributes.py`: Optional tenant and bypass tenant decorators.
 
@@ -54,7 +55,7 @@ Shared logic extracted from route handlers to keep endpoints thin and stable:
 
 | File                          | Responsibility                                                                                                                                                                                                                                                                                |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `core/ai/schemas.py`          | Pydantic request/response models for chat and embedding (`ChatRequest`, `ChatSingleResponse`, `EmbeddingRequest`, `EmbeddingResponse`)                                                                                                                                                        |
+| `core/ai/schemas.py`          | Pydantic request/response models for chat, embedding, and transcription (`ChatRequest`, `ChatSingleResponse`, `EmbeddingRequest`, `EmbeddingResponse`, `TranscriptionRequest`, `TranscriptionResponse`, `TranscriptionSegment`, `TranscriptionWord`). `ChatRequest`/`TranscriptionRequest`/`EmbeddingRequest` all accept an optional `pipeline_run_id`/`pipelineRunId` correlation id.                                                                                                                                                        |
 | `core/ai/utils.py`            | `build_litellm_model`, `normalize_model_type`, `extract_user_id`, `estimate_tokens_if_missing`, `parse_response_format`, `map_litellm_exception_to_http`, provider strategy constants (`PROVIDERS_WITHOUT_RESPONSE_FORMAT`, `PROVIDERS_REQUIRING_MAX_TOKENS`, `ANTHROPIC_DEFAULT_MAX_TOKENS`) |
 | `core/ai/db_queries.py`       | `get_settings_by_key`, `get_system_prompt_by_key`                                                                                                                                                                                                                                             |
 | `core/ai/sessions.py`         | `resolve_or_create_session` — create or validate chat sessions                                                                                                                                                                                                                                |
@@ -299,10 +300,10 @@ This makes database records match what the model received, which simplifies payl
 
 Filter and pagination support on list endpoints:
 
-- `chat-sessions`: `user_id`, `title`, `created_from`, `created_to`, `skip`, `limit`.
+- `chat-sessions`: `user_id`, `title`, `pipeline_run_id` (exact match), `created_from`, `created_to`, `skip`, `limit`.
 - `chat-messages`: `session_id`, `role`, `created_from`, `created_to`, `skip`, `limit`.
 - `chat-message-files`: `message_id`, `file_id`, `skip`, `limit`.
-- `token-usage-logs`: `user_id`, `model_name`, `endpoint`, `created_from`, `created_to`, `skip`, `limit`.
+- `token-usage-logs`: `user_id`, `model_name`, `endpoint`, `pipeline_run_id` (exact match), `created_from`, `created_to`, `skip`, `limit`.
 
 ### Token Usage Statistics Endpoint
 

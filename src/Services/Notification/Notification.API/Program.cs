@@ -462,6 +462,29 @@ var multiTenancyEnabled = builder.Configuration.GetValue<bool>("MultiTenancy:Ena
 app.UseDefaultDatabaseMigration<NotificationDbContext>();
 app.UseDefaultDatabaseMigration<TenantNotificationDbContext>();
 
+// SignalR hubs are reached over a WebSocket handshake, which browsers cannot attach
+// custom headers to — the frontend (BaseSignalrService) instead appends ?tenantId=
+// to the hub URL. UseTenantResolution below only ever reads the x-tenant-id HEADER,
+// so without this shim every /hubs/notifications connection resolves with no tenant
+// context at all. That's harmless for a tenant using the global JWT secret, but a
+// guaranteed IDX10517 signature-validation failure for any tenant with its own
+// per-tenant Jwt:Secret override, since IssuerSigningKeyResolver then only has the
+// global key to offer. Must run BEFORE UseTenantResolution.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/hubs/notifications") &&
+        !context.Request.Headers.ContainsKey("x-tenant-id"))
+    {
+        var tenantId = context.Request.Query["tenantId"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(tenantId))
+        {
+            context.Request.Headers["x-tenant-id"] = tenantId;
+        }
+    }
+
+    await next();
+});
+
 // Multi-tenancy middleware (must be before CORS and authentication)
 // Only runs if MultiTenancy:Enabled is true
 app.UseTenantResolution(builder.Configuration);

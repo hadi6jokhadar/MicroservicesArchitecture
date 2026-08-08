@@ -227,6 +227,11 @@ await app.Services.InitializeDatabaseAsync<TenantDbContext>(
     applyMigrations: true,
     seedData: false);
 
+// Connect to Redis now instead of on the first real request — otherwise the first
+// request(s) after a cold start pay the connection cost inline and can get cancelled
+// by callers' fail-fast resilience timeouts (e.g. TenantServiceClient's 2s AttemptTimeout).
+await app.Services.WarmUpCacheAsync();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

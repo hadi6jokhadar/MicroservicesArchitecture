@@ -82,7 +82,8 @@ Both endpoints accept the same JSON body (`ChatRequest`):
   "file_ids": [1, 2],
   "session_id": "uuid (optional)",
   "max_completion_tokens": 2048,
-  "generate_session_title": false
+  "generate_session_title": false,
+  "pipeline_run_id": "string (optional)"
 }
 ```
 
@@ -97,6 +98,7 @@ Both endpoints accept the same JSON body (`ChatRequest`):
 | `session_id`             | `UUID`          | No       | Existing session UUID to continue. Omit to auto-create a new session.                               |
 | `max_completion_tokens`  | `int`           | No       | Per-request override for output token cap. Forwarded to LiteLLM as `max_tokens`.                    |
 | `generate_session_title` | `bool`          | No       | Defaults to `false`. When `true`, schedules background generation of session title.                 |
+| `pipeline_run_id`        | `string`        | No       | Caller-supplied correlation id (e.g. `"nasheed:job:456"`) grouping this call with other otherwise-unrelated calls from the same batch/pipeline run. Stored on the newly-created `AiChatSession` and the `AiTokenUsageLog` row — never affects prompt content or model behavior. Ignored (has no effect) when `session_id` is also provided, since that existing session already has whatever `PipelineRunId` it was created with. Find every session for one run via `GET /api/v1/chat-sessions/?pipeline_run_id=<id>`. |
 
 **Validation rule:** at least one of `messages` or `system_prompt_key` must be provided. If both are missing, AI.API returns `HTTP 400`.
 
@@ -202,6 +204,9 @@ public class AiChatRequest
     public Guid?            SessionId        { get; set; }
     public int?             MaxCompletionTokens { get; set; }
     public bool             GenerateSessionTitle { get; set; }
+    // Correlation id for finding every AI call from one batch/pipeline run together later
+    // (AiChatSession + AiTokenUsageLog) — see the Request Body "Fields" table above.
+    public string?          PipelineRunId    { get; set; }
 }
 
 public class AiChatResponse
@@ -313,14 +318,19 @@ chat model only estimates plausible timestamps from training patterns, while a r
 {
   "settings_key": "string (required)",
   "file_ids": [42],
-  "language": "ar (optional ISO-639-1 hint)"
+  "language": "ar (optional ISO-639-1 hint)",
+  "pipeline_run_id": "string (optional, same correlation id as the chat endpoints above)"
 }
 ```
 
 Only the first entry in `file_ids` is used — this endpoint transcribes exactly one audio file per
 call. `settings_key` must resolve to an `AiProviderSettings` row with `ModelType = "Audio"`
 (created via `POST /api/v1/settings`, e.g. an OpenAI/Groq Whisper model) — calling it with a
-Text/Embedding-type key returns `HTTP 400`.
+Text/Embedding-type key returns `HTTP 400`. AI.API requests
+`timestamp_granularities: ["segment", "word"]` — the configured model must support word-level
+timestamps or `words` comes back empty (some models, e.g. OpenAI's `gpt-4o-transcribe`, only
+support `segment` and will silently return no `words` at all; use a model confirmed to support
+both, e.g. `whisper-1`).
 
 **Response:**
 
@@ -330,16 +340,34 @@ Text/Embedding-type key returns `HTTP 400`.
   "language": "ar",
   "duration": 178.2,
   "segments": [
-    { "start": 3.52, "end": 10.98, "text": "..." },
-    { "start": 10.98, "end": 16.45, "text": "..." }
-  ]
+    { "start": 3.52, "end": 10.98, "text": "...", "avg_logprob": -0.31, "no_speech_prob": 0.02 },
+    { "start": 10.98, "end": 16.45, "text": "...", "avg_logprob": -0.22, "no_speech_prob": 0.91 }
+  ],
+  "words": [
+    { "start": 3.52, "end": 3.81, "word": "..." },
+    { "start": 3.81, "end": 4.10, "word": "..." }
+  ],
+  "no_speech_prob_threshold": 0.85
 }
 ```
 
-`segments[].start`/`end` are seconds from the start of the audio, produced by the ASR model's own
-audio alignment — build any timestamped format (e.g. LRC) directly from these values rather than
-asking a chat model to generate them. See Nasheed's `Doc/AI_INTEGRATION.md` for a worked example
-(`NasheedIngestionWorker.BuildLrcFromSegments`).
+- `segments[].start`/`end` and `words[].start`/`end` are seconds from the start of the audio,
+  produced by the ASR model's own audio alignment — build any timestamped format (e.g. LRC) directly
+  from these values rather than asking a chat model to generate them.
+- `segments[].avg_logprob`/`no_speech_prob` are the ASR model's own confidence signals for that
+  segment (`null` if the provider doesn't report them). `no_speech_prob` close to `1.0` means the
+  model itself believes that stretch of audio is silence/non-speech that still got transcribed into
+  something — a hallucination signal worth filtering on before trusting that segment's words. See
+  Nasheed's `Doc/AI_INTEGRATION.md` "Hallucination Filtering" for a worked example
+  (`NasheedIngestionWorker.FilterHallucinatedWords`).
+- `no_speech_prob_threshold` echoes `AiProviderSettings.NoSpeechProbThreshold` for the `settings_key`
+  used — `null` unless the admin explicitly set one on that settings row (only meaningful when
+  `ModelType = Audio`). This lets a caller apply an admin-configured filtering threshold instead of
+  hardcoding one.
+- Word-level timing is what lets a caller re-split ASR output into a different line structure (e.g.
+  by poetic meter, not just Whisper's own pause-based segment breaks) while keeping every line
+  anchored to a real timestamp — see Nasheed's `Doc/AI_INTEGRATION.md` "Merge Call" for a worked
+  example (`NasheedIngestionWorker.BuildLrcFromLineMappings`).
 
 Tenant context (`x-tenant-id`), auth headers, and error status codes follow the same rules as the
 chat endpoints above.
@@ -390,7 +418,8 @@ Body (snake_case JSON):
   "file_ids": [],        // optional
     "session_id": null,    // optional
     "max_completion_tokens": null, // optional
-    "generate_session_title": false // optional
+    "generate_session_title": false, // optional
+    "pipeline_run_id": null // optional — correlation id, see Request Body "Fields" above
 }
 
 Rule: at least one of `system_prompt_key` or `messages` must be present.

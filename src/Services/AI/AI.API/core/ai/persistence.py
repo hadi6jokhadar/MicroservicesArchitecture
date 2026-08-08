@@ -20,6 +20,7 @@ async def log_token_usage_background(
     prompt_tokens: int,
     completion_tokens: int,
     audio_duration_seconds: Optional[float] = None,
+    pipeline_run_id: Optional[str] = None,
 ) -> None:
     """Opens its own DB session so it can run safely after the request completes."""
     async with AsyncSessionFactory() as db:
@@ -32,6 +33,7 @@ async def log_token_usage_background(
             CompletionTokens=completion_tokens,
             TotalTokens=prompt_tokens + completion_tokens,
             AudioDurationSeconds=audio_duration_seconds,
+            PipelineRunId=pipeline_run_id,
         )
         db.add(usage_log)
         await db.commit()
@@ -93,6 +95,7 @@ def schedule_chat_persistence_tasks(
     endpoint: str,
     prompt_tokens: int,
     completion_tokens: int,
+    pipeline_run_id: Optional[str] = None,
 ) -> None:
     """Enqueue message persistence + token usage logging for a chat turn."""
     background_tasks.add_task(
@@ -111,6 +114,8 @@ def schedule_chat_persistence_tasks(
         endpoint,
         prompt_tokens,
         completion_tokens,
+        None,
+        pipeline_run_id,
     )
 
 
@@ -123,6 +128,7 @@ def schedule_token_log_task(
     prompt_tokens: int,
     completion_tokens: int,
     audio_duration_seconds: Optional[float] = None,
+    pipeline_run_id: Optional[str] = None,
 ) -> None:
     """Enqueue token usage logging only (used for ASR, which has no chat session)."""
     background_tasks.add_task(
@@ -134,4 +140,5 @@ def schedule_token_log_task(
         prompt_tokens,
         completion_tokens,
         audio_duration_seconds,
+        pipeline_run_id,
     )

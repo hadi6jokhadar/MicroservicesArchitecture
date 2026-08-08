@@ -11,7 +11,12 @@ from core.ai.db_queries import get_settings_by_key
 from core.ai.file_context import file_manager_client
 from core.ai.multimodal_utils import fetch_file_bytes_with_fallback, resolve_mime_type
 from core.ai.persistence import schedule_token_log_task
-from core.ai.schemas import TranscriptionRequest, TranscriptionResponse, TranscriptionSegment
+from core.ai.schemas import (
+    TranscriptionRequest,
+    TranscriptionResponse,
+    TranscriptionSegment,
+    TranscriptionWord,
+)
 from core.ai.utils import build_litellm_model, extract_user_id, map_litellm_exception_to_http
 from core.database import get_db
 from models import ModelTypeEnum
@@ -30,7 +35,7 @@ async def transcribe_audio(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_auth),
 ):
-    """Transcribe a single audio file with segment-level timestamps via a dedicated ASR model.
+    """Transcribe a single audio file with segment- and word-level timestamps via a dedicated ASR model.
 
     Unlike /chat/single, this calls a real speech-to-text model (e.g. Whisper) instead of a
     generative chat completion, so timestamps come from audio alignment rather than being
@@ -75,7 +80,7 @@ async def transcribe_audio(
         "file": (filename, audio_bytes, mime_type),
         "api_key": ai_settings.ApiKey,
         "response_format": "verbose_json",
-        "timestamp_granularities": ["segment"],
+        "timestamp_granularities": ["segment", "word"],
     }
     if ai_settings.ApiBaseUrl:
         transcription_kwargs["api_base"] = ai_settings.ApiBaseUrl
@@ -88,14 +93,33 @@ async def transcribe_audio(
         logger.error("Provider error during transcription: %s", e, exc_info=True)
         raise map_litellm_exception_to_http(e)
 
+    def _get(seg, key: str):
+        return seg.get(key) if isinstance(seg, dict) else getattr(seg, key, None)
+
     raw_segments = getattr(response, "segments", None) or []
     segments = [
         TranscriptionSegment(
-            start=float(seg["start"] if isinstance(seg, dict) else seg.start),
-            end=float(seg["end"] if isinstance(seg, dict) else seg.end),
-            text=str(seg["text"] if isinstance(seg, dict) else seg.text).strip(),
+            start=float(_get(seg, "start")),
+            end=float(_get(seg, "end")),
+            text=str(_get(seg, "text")).strip(),
+            avg_logprob=(
+                float(_get(seg, "avg_logprob")) if _get(seg, "avg_logprob") is not None else None
+            ),
+            no_speech_prob=(
+                float(_get(seg, "no_speech_prob")) if _get(seg, "no_speech_prob") is not None else None
+            ),
         )
         for seg in raw_segments
+    ]
+
+    raw_words = getattr(response, "words", None) or []
+    words = [
+        TranscriptionWord(
+            start=float(w["start"] if isinstance(w, dict) else w.start),
+            end=float(w["end"] if isinstance(w, dict) else w.end),
+            word=str(w["word"] if isinstance(w, dict) else w.word).strip(),
+        )
+        for w in raw_words
     ]
 
     duration = getattr(response, "duration", None)
@@ -110,6 +134,7 @@ async def transcribe_audio(
         0,
         0,
         audio_duration_seconds=float(duration) if duration is not None else None,
+        pipeline_run_id=request.pipeline_run_id,
     )
 
     return TranscriptionResponse(
@@ -117,4 +142,6 @@ async def transcribe_audio(
         language=getattr(response, "language", None),
         duration=duration,
         segments=segments,
+        words=words,
+        no_speech_prob_threshold=ai_settings.NoSpeechProbThreshold,
     )

@@ -29,6 +29,7 @@ class ProviderSettingsCreate(BaseModel):
     PresencePenalty: Optional[float] = None
     Description: Optional[str] = None
     AudioDataMode: Optional[AudioDataModeEnum] = None
+    NoSpeechProbThreshold: Optional[float] = None
 
 class ProviderSettingsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -48,6 +49,7 @@ class ProviderSettingsResponse(BaseModel):
     PresencePenalty: Optional[float] = None
     Description: Optional[str] = None
     AudioDataMode: Optional[AudioDataModeEnum] = None
+    NoSpeechProbThreshold: Optional[float] = None
 
 
 class SettingsScopeFilter(str):
@@ -166,6 +168,7 @@ async def create_setting(
         PresencePenalty=setting.PresencePenalty,
         Description=setting.Description,
         AudioDataMode=setting.AudioDataMode,
+        NoSpeechProbThreshold=setting.NoSpeechProbThreshold,
     )
     db.add(new_setting)
     await db.commit()
@@ -213,6 +216,7 @@ async def update_setting(
     existing_setting.PresencePenalty = setting.PresencePenalty
     existing_setting.Description = setting.Description
     existing_setting.AudioDataMode = setting.AudioDataMode
+    existing_setting.NoSpeechProbThreshold = setting.NoSpeechProbThreshold
 
     await db.commit()
     await db.refresh(existing_setting)

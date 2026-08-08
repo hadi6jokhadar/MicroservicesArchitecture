@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Infrastructure.Extensions;
+using IhsanDev.Shared.Infrastructure.Services.Notification;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
@@ -34,6 +35,10 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IPlayLogRepository, PlayLogRepository>();
         services.AddScoped<ISongMoodTagRepository, SongMoodTagRepository>();
         services.AddScoped<ISongSearchDocumentRepository, SongSearchDocumentRepository>();
+
+        // Notification Service Client — used by NasheedIngestionWorker to broadcast
+        // ingestion pipeline progress (job status changes) to admin clients via SignalR.
+        services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
 
         // AI API Client (HTTP) — no attempt/total-timeout overrides because model calls
         // can be long-running. The circuit breaker still protects against a dead AI service.
@@ -71,6 +76,25 @@ public static class InfrastructureServiceExtensions
 
         // Ingestion background worker — waits for INasheedTenantCache to be ready
         services.AddHostedService<NasheedIngestionWorker>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Subscribes to Tenant Service's tenant:updated Redis Pub/Sub broadcast so config/feature-flag
+    /// changes reach INasheedTenantCache immediately instead of waiting for NasheedTenantLoaderService's
+    /// periodic fallback refresh. No-op when Redis is disabled — the periodic fallback still applies.
+    /// Call alongside AddTenantProvisioningListener in Program.cs.
+    /// </summary>
+    public static IServiceCollection AddNasheedTenantConfigUpdatedListener(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var redisEnabled = configuration.GetValue<bool>("Redis:Enabled", false);
+        if (redisEnabled)
+        {
+            services.AddHostedService<NasheedTenantConfigUpdatedListenerService>();
+        }
 
         return services;
     }

@@ -192,7 +192,7 @@ builder.Services.AddHttpClient("NotificationService", client =>
 
 ### Notification Service
 
-**Called by:** Identity Service, Tenant Service
+**Called by:** Identity Service, Tenant Service, Nasheed Service
 
 **Configuration:**
 
@@ -202,10 +202,12 @@ builder.Services.AddHttpClient("NotificationService", client =>
     "Enabled": true,
     "ServiceName": "NotificationService",
     "SharedSecret": "CHANGE_ME_JWT_SECRET-service-secret-key",
-    "AllowedServices": ["IdentityService", "TenantService"]
+    "AllowedServices": ["IdentityService", "TenantService", "NasheedService"]
   }
 }
 ```
+
+Nasheed added August 2026 — `NasheedIngestionWorker` broadcasts ingestion job-status changes via `SendTenantBroadcastAsync` so the admin frontend can update live (see `Doc/NOTIFICATION_SERVICE_README.md` "Known Service-to-Service Consumers" and `src/Apps/Nasheed/Doc/INGESTION_PIPELINE.md`).
 
 **Endpoint Authorization:**
 
@@ -533,6 +535,7 @@ _logger.LogInformation(
 | Notification | Tenant       | `GET /api/v1/tenant/config/{tenantId}` | Fetch tenant configuration (via `AddMultiTenancy()`)  |
 | Nasheed      | FileManager  | `GET /api/filemanager/internal/...`    | File enrichment                                       |
 | Nasheed      | Tenant       | `GET /api/v1/tenant/config/{tenantId}` | Fetch tenant configuration (via `AddMultiTenancy()`)  |
+| Nasheed      | Notification | `POST /api/v1/notifications/send`      | Broadcast ingestion job-status changes (real-time UI updates) |
 | Tenant       | Notification | `POST /api/notifications/send`         | Send admin notifications                              |
 
 **Every multi-tenant service → Tenant row above shares the same `TenantServiceClient` code path** (`MultiTenancyExtensions.cs`) — see the whitelist warning above. Routes are versioned `/api/v1/...` per the API Versioning Standard; internal-only endpoints (`/api/filemanager/internal/...`) stay unversioned by design.
@@ -660,5 +663,7 @@ client.DefaultRequestHeaders.Add("X-Service-Name", "IdentityService");
 
 ---
 
-**Last Updated:** July 2026  
+**Last Updated:** August 2026  
+**Version:** 1.3.0 (Added Nasheed → Notification consumer for real-time ingestion progress broadcasts; whitelisted `NasheedService` in Notification's `AllowedServices`)
+
 **Version:** 1.2.0 (Added missing-`SharedSecret`-override pitfall found for Nasheed; Service Communication Matrix corrected to match actual code; `AllowedServices` whitelist pitfall added; fixed dead link to non-existent JWT_SECRET_AND_VALIDATION_FLOW.md)

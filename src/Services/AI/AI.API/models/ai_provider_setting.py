@@ -42,4 +42,9 @@ class AiProviderSettings(Base):
     AudioDataMode: Mapped[AudioDataModeEnum | None] = mapped_column(
         Enum(AudioDataModeEnum, name="audiodatamodeEnum"), nullable=True, default=None
     )
+    # Only meaningful when ModelType=Audio. Whisper's own no_speech_prob signal for a segment —
+    # above this threshold, the segment is treated as likely silence/hallucination and its words are
+    # dropped before Nasheed's correction pass ever sees them (see NasheedIngestionWorker in the
+    # Nasheed service). None means the calling service uses its own hardcoded default.
+    NoSpeechProbThreshold: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
     CreatedAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

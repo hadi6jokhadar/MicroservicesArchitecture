@@ -31,3 +31,5 @@ public record UpdateSongCommand(
 public record DeleteSongCommand(int Id) : IRequest<bool>;
 
 public record ToggleSongLyricsVerifiedCommand(int Id) : IRequest<SongDto>;
+
+public record RetrySongAnalysisCommand(int Id) : IRequest<SongDto>;

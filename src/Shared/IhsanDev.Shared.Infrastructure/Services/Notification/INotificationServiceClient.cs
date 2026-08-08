@@ -31,6 +31,8 @@ public interface INotificationServiceClient
     /// <param name="title">Notification title</param>
     /// <param name="message">Notification message</param>
     /// <param name="data">Optional JSON data payload</param>
+    /// <param name="deliveryType">"Both" (SignalR + Firebase), "SignalR", or "Firebase" — use "SignalR" for
+    /// high-frequency internal progress updates that shouldn't trigger a mobile push per event</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if notification was sent successfully, false otherwise</returns>
     Task<bool> SendTenantBroadcastAsync(
@@ -38,6 +40,7 @@ public interface INotificationServiceClient
         string title,
         string message,
         string? data = null,
+        string deliveryType = "Both",
         CancellationToken cancellationToken = default);
 
     /// <summary>

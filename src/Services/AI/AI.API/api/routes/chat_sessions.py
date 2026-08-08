@@ -21,6 +21,7 @@ class ChatSessionResponse(BaseModel):
     TenantId: str
     UserId: int
     Title: Optional[str] = None
+    PipelineRunId: Optional[str] = None
     CreatedAt: datetime
 
 
@@ -36,6 +37,7 @@ async def list_chat_sessions(
     auth: dict = Depends(require_superadmin_or_service),
     user_id: Optional[int] = Query(default=None, description="Filter by user ID"),
     title: Optional[str] = Query(default=None, description="Filter by title (case-insensitive substring)"),
+    pipeline_run_id: Optional[str] = Query(default=None, description="Filter by exact pipeline run id (e.g. nasheed:job:456)"),
     created_from: Optional[datetime] = Query(default=None, description="Filter sessions created on or after this datetime (UTC)"),
     created_to: Optional[datetime] = Query(default=None, description="Filter sessions created on or before this datetime (UTC)"),
     skip: int = Query(default=0, ge=0, description="Number of records to skip"),
@@ -51,6 +53,9 @@ async def list_chat_sessions(
 
     if title is not None:
         query = query.where(AiChatSession.Title.ilike(f"%{title}%"))
+
+    if pipeline_run_id is not None:
+        query = query.where(AiChatSession.PipelineRunId == pipeline_run_id)
 
     if created_from is not None:
         query = query.where(AiChatSession.CreatedAt >= created_from)

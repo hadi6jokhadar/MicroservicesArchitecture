@@ -1,6 +1,6 @@
 # Nasheed Service — Entities and Data Model
 
-**Last Updated:** August 3, 2026
+**Last Updated:** August 6, 2026
 
 ---
 
@@ -90,7 +90,7 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 | `SongState`         | `SongState`                     | Processing lifecycle state                               |
 | `SearchIndexStatus` | `SearchIndexStatus`             | Embedding/index state                                    |
 | `PublishedAt`       | DateTime?                       | When the song was published                              |
-| `LyricsVerified`    | bool                            | Admin-controlled flag indicating the song's lyrics have been manually reviewed/approved. Default `false`. Unrelated to `LyricsVerifiedLrc` (the verified LRC lyrics text) — toggled independently via `PATCH /api/v1/songs/{id}/toggle-lyrics-verified` |
+| `LyricsVerified`    | bool                            | Admin-controlled flag indicating the song's lyrics have been manually reviewed/approved. Default `false`. Unrelated to `LyricsVerifiedLrc` (the verified LRC lyrics text) — toggled independently via `PATCH /api/v1/songs/{id}/toggle-lyrics-verified`, or force-reset to `false` (alongside a full pipeline re-queue) via `POST /api/v1/songs/{id}/retry-analysis` |
 
 **Domain methods:** `Create(artistId?, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `UpdateLegalComplianceFromAi(copyrightRiskLevel?, contentSafetyFlag?, riskReason?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateTitle(title)`, `UpdateArtist(artistId?)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`, `SetLyricsVerified(verified)`
 

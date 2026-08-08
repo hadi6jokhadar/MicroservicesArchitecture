@@ -116,6 +116,15 @@ This change is tracked by Alembic revision:
 
 If a local environment was created before this revision, ensure `alembic upgrade head` runs successfully before testing chat session or token usage queries.
 
+### August 2026 — Two Additional Columns on `AiProviderSettings`/`AiChatSession`/`AiTokenUsageLog`
+
+1. `AiProviderSettings.NoSpeechProbThreshold` (nullable `Float`, only meaningful when `ModelType = Audio`) — lets an admin override the caller's default hallucination-filter threshold for ASR word-level timestamps per settings row instead of it being hardcoded in the calling service. Tracked by revision `a4d8f2c6e1b9_add_no_speech_prob_threshold_to_ai_provider_settings.py`.
+2. `AiChatSession.PipelineRunId` and `AiTokenUsageLog.PipelineRunId` (both nullable `String(200)`, indexed) — caller-supplied correlation id grouping otherwise-unrelated AI calls from one batch/pipeline run, so they can be found together later (`GET /api/v1/chat-sessions/?pipeline_run_id=<id>`). Tracked by revision `b6e1a9c3d7f2_add_pipeline_run_id_to_chat_session_and_token_usage_log.py`.
+
+**Pitfall found during this change — confirmed twice, not a one-off:** `api/routes/chat_sessions.py`'s `ChatSessionResponse` is a Pydantic response schema **separate** from the `AiChatSession` SQLAlchemy model. Adding `PipelineRunId` to the model alone did not make it appear in `GET /api/v1/ai/chat-sessions/`'s JSON output — FastAPI silently drops any field a response model doesn't explicitly declare, even when the underlying ORM object has the attribute populated. `PipelineRunId` had to be added to `ChatSessionResponse` as a second, separate edit, plus a `pipeline_run_id` query filter on `list_chat_sessions`. A follow-up consistency sweep found the **identical bug independently** in the sibling file `api/routes/token_usage_logs.py`: `TokenUsageLogResponse` also never declared `PipelineRunId`, silently dropping it from `GET /api/v1/token-usage-logs/` too — fixed the same way (field added to the response schema, `pipeline_run_id` filter added to `list_token_usage_logs`). **Whenever a new column is added to `AiChatSession`, `AiTokenUsageLog`, or any model with its own hand-written response schema (e.g. `AiProviderSettings` ↔ `ProviderSettingsResponse` in `api/routes/settings.py`), check for and update that route's response schema too — it is not automatically kept in sync with the ORM model, and this codebase has now hit this exact mistake in two separate route files.**
+
+If a local environment was created before these two revisions, ensure `alembic upgrade head` runs successfully before testing `NoSpeechProbThreshold` overrides or `pipeline_run_id` filtering.
+
 ## Standard Migration Commands
 
 From `src/Services/AI/AI.API`:

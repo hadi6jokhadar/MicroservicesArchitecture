@@ -63,6 +63,7 @@ class TokenUsageLogResponse(BaseModel):
     TotalTokens: int
     AudioDurationSeconds: Optional[float] = None
     Endpoint: str
+    PipelineRunId: Optional[str] = None
     CreatedAt: datetime
 
 
@@ -75,6 +76,7 @@ async def list_token_usage_logs(
     user_id: Optional[int] = Query(default=None, description="Filter by user ID"),
     model_name: Optional[str] = Query(default=None, description="Filter by model name (case-insensitive substring)"),
     endpoint: Optional[str] = Query(default=None, description="Filter by endpoint path (case-insensitive substring)"),
+    pipeline_run_id: Optional[str] = Query(default=None, description="Filter by exact pipeline run id (e.g. nasheed:job:456)"),
     created_from: Optional[datetime] = Query(default=None, description="Filter logs created on or after this datetime (UTC)"),
     created_to: Optional[datetime] = Query(default=None, description="Filter logs created on or before this datetime (UTC)"),
     skip: int = Query(default=0, ge=0, description="Number of records to skip"),
@@ -93,6 +95,9 @@ async def list_token_usage_logs(
 
     if endpoint is not None:
         query = query.where(AiTokenUsageLog.Endpoint.ilike(f"%{endpoint}%"))
+
+    if pipeline_run_id is not None:
+        query = query.where(AiTokenUsageLog.PipelineRunId == pipeline_run_id)
 
     if created_from is not None:
         query = query.where(AiTokenUsageLog.CreatedAt >= created_from)

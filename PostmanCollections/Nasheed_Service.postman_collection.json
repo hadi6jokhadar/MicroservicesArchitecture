@@ -253,6 +253,22 @@
                   "variable": [{ "key": "id", "value": "1" }]
                 }
               }
+            },
+            {
+              "name": "Retry Song Analysis",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                  { "key": "x-tenant-id", "value": "{{tenantId}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/songs/:id/retry-analysis",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "songs", ":id", "retry-analysis"],
+                  "variable": [{ "key": "id", "value": "1" }]
+                }
+              }
             }
           ]
         },

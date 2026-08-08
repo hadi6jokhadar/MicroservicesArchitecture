@@ -21,4 +21,8 @@ class AiTokenUsageLog(Base):
     # PromptTokens/CompletionTokens/TotalTokens stay 0 for these rows, and the actual
     # billed quantity (seconds of audio) is recorded here instead.
     AudioDurationSeconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Caller-supplied correlation id (e.g. "nasheed:job:123") grouping this log row with others from
+    # the same batch/pipeline run. Unlike AiChatSession.PipelineRunId, this covers every call type
+    # (chat, transcription, embedding) since transcription never creates a session at all.
+    PipelineRunId: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     CreatedAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

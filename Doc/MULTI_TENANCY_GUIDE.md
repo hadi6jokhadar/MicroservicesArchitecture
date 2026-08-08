@@ -477,6 +477,21 @@ Tenant configurations are cached for performance:
 
 Both the warm-up and FileManager's periodic refresh never throw — a Tenant Service outage at startup logs a warning and falls back to the existing lazy per-request fetch; a mid-run refresh failure logs a warning and leaves the existing (stale but present) cache entries in place until the next tick.
 
+### Live Config-Change Push for Local-Snapshot Consumers (`tenant:updated`)
+
+Everything above solves freshness for services that re-resolve tenant config **per request** — `TenantMiddleware` calls `ITenantConfigurationProvider.GetTenantConfigurationAsync` on every incoming request, so once Tenant Service invalidates `tenant_config_{tenantId}` on save (see `UpdateTenantCommandHandler`/`ToggleTenantArchivedStatusCommandHandler`/`DeleteTenantCommandHandler`), the very next request gets fresh data automatically.
+
+That doesn't help a service with a **background worker holding its own local in-process snapshot** instead of re-resolving per request — Nasheed's `NasheedIngestionWorker` reads tenant/feature-flag state from `INasheedTenantCache`, which used to be populated once at startup and never refreshed, so a flag change never reached it without a full restart.
+
+**Fix — a second, purpose-built Redis Pub/Sub broadcast, mirroring Layer 3's `tenant:provisioned` mechanism** (see `AUTOMATIC_DATABASE_MIGRATION.md`):
+
+- **`TenantConfigUpdatedEventMessage`** (`IhsanDev.Shared.Kernel.Dto.Tenant`) — slim payload (`TenantId`, `SchemaVersion`, `OccurredAt`), channel `tenant:updated` (global, not per-tenant).
+- **`PublishTenantConfigUpdatedAsync()`** (`TenantConfigUpdateExtensions`, `IhsanDev.Shared.Infrastructure.Extensions`) — extension on `IConnectionMultiplexer?`, called from `UpdateTenantCommandHandler`, `ToggleTenantArchivedStatusCommandHandler`, and `DeleteTenantCommandHandler` right after each already invalidates `tenant_config_{tenantId}`. Same best-effort contract as `PublishTenantProvisionedAsync` — never throws, a failed publish just means consumers fall back to their own periodic refresh.
+- **`NasheedTenantConfigUpdatedListenerService`** (`Nasheed.Infrastructure/Services/`) — Nasheed-specific `BackgroundService` that subscribes to `tenant:updated`, ignores events for any tenant other than its pinned `MultiTenancy:TenantId`, and on a match calls `ITenantConfigurationProvider.GetTenantConfigurationAsync` fresh and pushes the result into `INasheedTenantCache.SetTenant(...)`. Registered via `AddNasheedTenantConfigUpdatedListener(configuration)`, no-op when `Redis:Enabled` is `false`.
+- **Fallback:** `NasheedTenantLoaderService`'s own periodic refresh loop (now every 5 minutes, down-scoped from a primary 30-second poll to a pure safety net once the push mechanism above existed) still re-fetches independently, so a missed `tenant:updated` message (Redis briefly down, service mid-restart at the exact publish moment) only bounds staleness to a few minutes instead of leaving it stale forever.
+
+This pattern is **not** currently generalized into a reusable non-generic listener base class — `NasheedTenantConfigUpdatedListenerService` is Nasheed-specific because Nasheed is the only current service with a local-snapshot-holding background worker. A future service with the same shape (single-tenant background worker caching its own `TenantInfo` snapshot) should copy this class's subscribe/deserialize/dispatch structure rather than trying to force-fit `TenantProvisioningListenerService<TContext>` (which is generic specifically for DB migration, not config refresh).
+
 ### Redis Distributed Cache (Production Recommended)
 
 **When `Redis:Enabled = true`:**
@@ -704,6 +719,16 @@ Error fetching tenant configuration for 'tenant-id'
 **Fix**: replaced the per-request mutation with `TokenValidationParameters.IssuerSigningKeyResolver`/`IssuerValidator`/`AudienceValidator`, registered once at startup via `services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme).Configure<IHttpContextAccessor>(...)`. These are pure, stateless, per-validation callbacks — no shared state to race on — and they read `ITenantContext.CurrentTenant` (already resolved earlier in the same request by `UseTenantResolution`) instead of re-fetching tenant config, eliminating the blocking call too. Verified with the same k6 test at the same load: 100% success, zero signature errors.
 
 **Lesson**: never mutate `JwtBearerOptions`/`TokenValidationParameters` from inside a `JwtBearerEvents` handler (`OnMessageReceived`, etc.) to implement per-request/per-tenant behavior — those objects are shared singletons. Use `IssuerSigningKeyResolver`, `IssuerValidator`, or `AudienceValidator` instead; they're designed to be called per-validation without mutating shared state.
+
+### SignalR Hub JWT Validation Fails — `IDX10517: Signature validation failed` (fixed, August 2026)
+
+**Symptom**: every connection to `/hubs/notifications` fails JWT validation with `IDX10517`, `Number of keys in TokenValidationParameters: '1'` — even though the exact same token works fine on every plain HTTP API call. Only affects tenants using `JwtMode: PerTenant` with their own `Configuration.Jwt.Secret` override; tenants on the global secret are unaffected (which is why this can look "random" across tenants).
+
+**Root cause**: browsers cannot attach custom headers (like `x-tenant-id`) to a WebSocket handshake — this is a hard browser API limitation, the same reason SignalR's access token has to travel via the `access_token` query string instead of the `Authorization` header. The frontend (`BaseSignalrService.initializeConnection`, `MicroservicesArchitecture-Web/libs/shared/src/lib/services/base-signalr.service.ts`) already works around this for the token by appending `?tenantId=` to the hub URL too — but Notification.API's `Program.cs` only read that query value inside the JWT `OnMessageReceived` event for a **log line**, never wiring it into `TenantMiddleware`'s tenant resolution. Since `UseTenantResolution` runs *before* `UseAuthentication` in the pipeline and only ever reads the `x-tenant-id` **header**, every hub connection resolved with **no tenant context at all**. With `JwtMode: PerTenant`, `IssuerSigningKeyResolver` (see above) only adds the tenant-specific signing key when `ITenantContext.CurrentTenant` is set — with no tenant context, it falls back to the global key alone, which cannot validate a token signed with a tenant's own `Jwt.Secret`.
+
+**Fix**: added a small `app.Use(...)` middleware in `Notification.API/Program.cs`, registered immediately before `UseTenantResolution`, that promotes `Request.Query["tenantId"]` into the `x-tenant-id` header for requests under `/hubs/notifications` (only when the header isn't already present, so non-browser clients that *can* set the header still take priority). This lets `TenantMiddleware` resolve real tenant context for the hub connection, so `IssuerSigningKeyResolver` can offer the correct tenant-specific key.
+
+**Lesson**: any endpoint reached over a WebSocket/SSE handshake needs its tenant identity carried over the query string, not the header — and that query value must be wired into the *same* tenant-resolution path (`TenantMiddleware`, which runs on the header) before `UseAuthentication`, not just read for logging inside a JWT event that runs after tenant resolution has already completed. If a future service adds a SignalR hub under `PerTenant` JWT mode, apply the same query-to-header shim before `UseTenantResolution`.
 
 ---
 
