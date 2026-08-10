@@ -71,6 +71,7 @@ Complete guide to the database-driven roles and claims system in the Identity Se
 - ClaimType (nvarchar) -- e.g., "permission"
 - ClaimValue (nvarchar) -- e.g., "actions.delete"
 - IsSuperAdminOnly (bit) -- Restrict to SuperAdmin role only
+- IsSystemClaim (bit) -- Seeded by SystemPermissionCatalog; blocks delete/rename of ClaimType+ClaimValue (August 2026)
 - Status (bit) -- From BaseEntity
 - Created (datetime2) -- From BaseEntity
 - CreatedBy (nvarchar) -- From BaseEntity
@@ -102,17 +103,23 @@ Complete guide to the database-driven roles and claims system in the Identity Se
 
 ### Default Data (Seeded Per-Tenant)
 
+Roles/claims/bundling are not hardcoded in `DatabaseSeeder` anymore (August 2026) — they're driven by a declarative catalog, `Identity.Infrastructure/Seeding/SystemPermissionCatalog.cs`, which `DatabaseSeeder` consumes generically. Each entry can be platform-wide (`TenantIds = null`, seeded into every tenant) or tenant-scoped (`TenantIds = ["anashid"]`, seeded only into that tenant) — see `Doc/SHARED_IDENTITY_SERVICE_GUIDE.md`'s "Permission Claims" section for the full seeding model and how to add a new app's claims to the catalog.
+
 ```plaintext
-Roles:
+Roles (platform-wide):
   - SuperAdmin (IsSystemRole=true)
   - Admin (IsSystemRole=true)
   - User (IsSystemRole=true)
 
-Claims:
-  - Delete Actions (ClaimType="permission", ClaimValue="actions.delete")
+Claims (platform-wide):
+  - Delete Actions (ClaimType="Permission", ClaimValue="actions.delete", IsSystemClaim=true)
 
 RoleClaims:
   - SuperAdmin → Delete Actions
+
+Roles/Claims (tenant-scoped example, anashid only):
+  - NasheedDataEntry role bundling nasheed.pages.songs / nasheed.songs.create /
+    nasheed.songs.edit / nasheed.pages.artists / nasheed.artists.create
 ```
 
 ---
@@ -123,12 +130,12 @@ RoleClaims:
 
 | Method | Endpoint                       | Description           | Cache       |
 | ------ | ------------------------------ | --------------------- | ----------- |
-| GET    | `/api/admin/roles`             | List all roles        | 30 min      |
-| GET    | `/api/admin/roles/{id}`        | Get role by ID        | 30 min      |
-| POST   | `/api/admin/roles`             | Create new role       | Invalidates |
-| PUT    | `/api/admin/roles/{id}`        | Update role\*         | Invalidates |
-| DELETE | `/api/admin/roles/{id}`        | Delete role\*         | Invalidates |
-| POST   | `/api/admin/roles/{id}/claims` | Assign claims to role | Invalidates |
+| GET    | `/api/v1/admin/roles`             | List all roles        | 30 min      |
+| GET    | `/api/v1/admin/roles/{id}`        | Get role by ID        | 30 min      |
+| POST   | `/api/v1/admin/roles`             | Create new role       | Invalidates |
+| PUT    | `/api/v1/admin/roles/{id}`        | Update role\*         | Invalidates |
+| DELETE | `/api/v1/admin/roles/{id}`        | Delete role\*         | Invalidates |
+| POST   | `/api/v1/admin/roles/{id}/claims` | Assign claims to role | Invalidates |
 
 \*System roles cannot be renamed or deleted
 
@@ -136,11 +143,13 @@ RoleClaims:
 
 | Method | Endpoint                 | Description      | Cache       |
 | ------ | ------------------------ | ---------------- | ----------- |
-| GET    | `/api/admin/claims`      | List all claims  | 30 min      |
-| GET    | `/api/admin/claims/{id}` | Get claim by ID  | 30 min      |
-| POST   | `/api/admin/claims`      | Create new claim | Invalidates |
-| PUT    | `/api/admin/claims/{id}` | Update claim     | Invalidates |
-| DELETE | `/api/admin/claims/{id}` | Delete claim     | Invalidates |
+| GET    | `/api/v1/admin/claims`      | List all claims  | 30 min      |
+| GET    | `/api/v1/admin/claims/{id}` | Get claim by ID  | 30 min      |
+| POST   | `/api/v1/admin/claims`      | Create new claim | Invalidates |
+| PUT    | `/api/v1/admin/claims/{id}` | Update claim     | Invalidates |
+| DELETE | `/api/v1/admin/claims/{id}` | Delete claim\*    | Invalidates |
+
+\*System claims (`IsSystemClaim=true`, seeded by `SystemPermissionCatalog`) cannot be renamed (`ClaimType`/`ClaimValue`) or deleted — see "System Role / System Claim Protection" below.
 
 **Authorization:** All endpoints require Admin or SuperAdmin role  
 **Multi-Tenancy:** All endpoints support optional `x-tenant-id` header
@@ -152,7 +161,7 @@ RoleClaims:
 ### Create Custom Role
 
 ```bash
-POST /api/admin/roles
+POST /api/v1/admin/roles
 Authorization: Bearer <admin_jwt>
 x-tenant-id: tenant123  # Optional
 
@@ -178,7 +187,7 @@ x-tenant-id: tenant123  # Optional
 ### Create Custom Claim
 
 ```bash
-POST /api/admin/claims
+POST /api/v1/admin/claims
 Authorization: Bearer <admin_jwt>
 
 {
@@ -193,7 +202,7 @@ Authorization: Bearer <admin_jwt>
 ### Assign Claims to Role
 
 ```bash
-POST /api/admin/roles/4/claims
+POST /api/v1/admin/roles/4/claims
 Authorization: Bearer <admin_jwt>
 
 {
@@ -204,7 +213,7 @@ Authorization: Bearer <admin_jwt>
 ### Get All Roles (Cached Response)
 
 ```bash
-GET /api/admin/roles
+GET /api/v1/admin/roles
 Authorization: Bearer <admin_jwt>
 ```
 
@@ -430,23 +439,35 @@ var domainClaims = await _claimRepository.GetUserClaimsAsync(userId);
 
 ## 🔒 Security & Validation
 
-### System Role Protection
+### System Role / System Claim Protection
+
+Both return **400 Bad Request** — distinct from the **403 Forbidden** thrown by the separate `IsSuperAdminOnly` check. Every string below is a `LocalizationKeys.Exceptions.*` constant, never a raw literal (see `Doc/DOCUMENTATION_INDEX.md` → Localization).
 
 ```csharp
 // System roles cannot be renamed
 if (role.IsSystemRole && role.Name != request.Name)
-    throw new BadRequestException("Cannot rename system roles");
+    throw new BadRequestException(LocalizationKeys.Exceptions.SystemRoleCannotBeRenamed);
 
 // System roles cannot be deleted
 if (role.IsSystemRole)
-    throw new BadRequestException("Cannot delete system roles");
+    throw new BadRequestException(LocalizationKeys.Exceptions.SystemRoleCannotBeDeleted);
+
+// System claims cannot have their ClaimType/ClaimValue changed (Name/Description remain editable)
+if (claim.IsSystemClaim && (claim.ClaimType != request.ClaimType || claim.ClaimValue != request.ClaimValue))
+    throw new BadRequestException(LocalizationKeys.Exceptions.SystemClaimCannotBeRenamed);
+
+// System claims cannot be deleted
+if (claim.IsSystemClaim)
+    throw new BadRequestException(LocalizationKeys.Exceptions.SystemClaimCannotBeDeleted);
 ```
+
+A system claim can still be freely assigned/unassigned to any role — only delete/rename are blocked.
 
 ### Authorization
 
 ```csharp
 // All role/claim endpoints require Admin or SuperAdmin
-var roleGroup = app.MapGroup("/api/admin/roles")
+var roleGroup = app.MapGroup("/api/v1/admin/roles")
     .RequireAuthorization(policy => policy.RequireRole("Admin", "SuperAdmin"))
     .WithTags("Role Management")
     .WithMetadata(new OptionalTenantAttribute());
@@ -454,13 +475,15 @@ var roleGroup = app.MapGroup("/api/admin/roles")
 
 ### Fine-Grained Permissions
 
-```csharp
-// Old: Role-based only
-[RequireRole(UserRole.Admin)]
+Real reference (Nasheed's content-editor policies, `Nasheed.API/Program.cs`) — always OR the claim with the existing role check, never claim-only, so Admin/SuperAdmin keep full access without needing the claim too:
 
-// New: Claim-based authorization possible
-[Authorize(Policy = "CanDeleteActions")]
+```csharp
+options.AddPolicy("SongsCreate", policy => policy.RequireAssertion(ctx =>
+    ctx.User.IsInRole("Admin") || ctx.User.IsInRole("SuperAdmin") ||
+    ctx.User.HasClaim("Permission", "nasheed.songs.create")));
 ```
+
+See `Doc/SHARED_IDENTITY_SERVICE_GUIDE.md`'s "Permission Claims" section for the full pattern and `src/Apps/Nasheed/Doc/API_ENDPOINTS.md`'s "Content-Editor Permission Claims" for the endpoint list.
 
 ---
 
@@ -636,13 +659,13 @@ Identity.API/Extensions/
 
 ```bash
 # 1. Create custom role
-POST /api/admin/roles {"name": "Editor"}
+POST /api/v1/admin/roles {"name": "Editor"}
 
 # 2. Create custom claim
-POST /api/admin/claims {"name": "Edit Posts", "claimValue": "posts.edit"}
+POST /api/v1/admin/claims {"name": "Edit Posts", "claimValue": "posts.edit"}
 
 # 3. Assign claim to role
-POST /api/admin/roles/{roleId}/claims {"claimIds": [{claimId}]}
+POST /api/v1/admin/roles/{roleId}/claims {"claimIds": [{claimId}]}
 
 # 4. Create user with custom role
 POST /api/admin/users {"roleIds": [{roleId}], ...}
@@ -651,14 +674,14 @@ POST /api/admin/users {"roleIds": [{roleId}], ...}
 POST /api/auth/login
 
 # 6. Verify cache invalidation
-GET /api/admin/roles (cache miss)
-GET /api/admin/roles (cache hit - faster)
-PUT /api/admin/roles/{id} (cache invalidated)
-GET /api/admin/roles (cache miss again)
+GET /api/v1/admin/roles (cache miss)
+GET /api/v1/admin/roles (cache hit - faster)
+PUT /api/v1/admin/roles/{id} (cache invalidated)
+GET /api/v1/admin/roles (cache miss again)
 
 # 7. Verify system role protection
-DELETE /api/admin/roles/1 (should fail)
-PUT /api/admin/roles/1 {"name": "NewName"} (should fail)
+DELETE /api/v1/admin/roles/1 (should fail)
+PUT /api/v1/admin/roles/1 {"name": "NewName"} (should fail)
 ```
 
 ---

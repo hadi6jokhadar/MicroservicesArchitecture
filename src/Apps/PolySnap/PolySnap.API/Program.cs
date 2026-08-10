@@ -156,6 +156,16 @@ await app.Services.WarmTenantDatabaseMigrationsAsync<PolySnapDbContext>(warmedTe
 // ============================================
 // Middleware Pipeline (ORDER IS CRITICAL)
 // ============================================
+// Exception handler must be the FIRST middleware so it wraps everything downstream —
+// including correlation-ID/localization, HTTPS-redirect, and compression — not just what
+// happens to be registered after it. Earlier middleware catches exceptions from later
+// middleware (ASP.NET Core wraps each Use() call's next() inside the previous one's
+// try/catch), so anything registered before this line would bypass it entirely.
+// See Dotnet.instructions.md.
+app.UseGlobalExceptionHandler();
+app.UseCorrelationId();
+app.UseLocalization();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -166,9 +176,6 @@ app.UseHttpsRedirection();
 app.UseResponseCompression();
 // Note: Standard UseCors() is NOT needed/used because TenantAwareCors (below) handles everything.
 // DO NOT call app.UseCors() here - it conflicts with TenantAwareCorsMiddleware.
-app.UseCorrelationId();
-app.UseLocalization();
-app.UseGlobalExceptionHandler();
 
 // Migrate global/default DB BEFORE tenant resolution so the DbContext uses the
 // default connection string (no tenant context set yet). This ensures the global

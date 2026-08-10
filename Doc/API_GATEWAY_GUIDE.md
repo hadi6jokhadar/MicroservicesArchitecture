@@ -39,6 +39,12 @@ The API Gateway is the single entry point for all client-to-service traffic. It 
 
 **Note:** All routes are versioned (`/api/v1/...`) per the API Versioning Standard (Section 7 of `PLATFORM_CAPABILITIES_ROADMAP.md`). Unversioned service-to-service internal endpoints (e.g. `/api/filemanager/internal/...`) and the audit-log endpoint (`/api/admin/audit-logs`) are the only exceptions — see the Admin Endpoint Routing section below.
 
+**PolySnap (port 5011) has no Gateway route yet.** It's proof-of-concept/scaffolding-only (per `MicroservicesArchitecture-Web/CLAUDE.md`), not wired into `appsettings.json`'s `Clusters`/`Routes`, and therefore excluded from `/health/aggregate`'s fan-out too. Add it here once PolySnap's API is ready to be reachable through the Gateway.
+
+Two other routes exist outside this table:
+- **`/hubs/notifications/{**catch-all}`** (Order 10) — forwards SignalR hub connections to Notification (5004). Needed because the frontend connects to the hub through the Gateway, not directly to port 5004.
+- **`/{**catch-all}`** (Order 100, lowest priority) — the broad root-level catch-all that forwards to FileManager (5005) so uploaded-file URLs (e.g. `http://gateway/{filePath}`) resolve without a `/api/v1/filemanager/` prefix. Safe only because no other route claims bare-root paths — don't add a new bare-root route without checking this one first.
+
 ---
 
 ## Admin Endpoint Routing
@@ -204,7 +210,7 @@ All three gateway-level limiters use a **token bucket** algorithm, not a fixed w
 | Policy | Partition | `TokenLimit` (burst) | `TokensPerPeriod` (sustained rate) | Config key |
 |---|---|---|---|---|
 | GlobalLimiter | platform-wide, single bucket | 20,000 | 5,000/s | `RateLimiting:Global` |
-| per-ip (general API) | per client IP | 200 | 50/s | `RateLimiting:PerIp` |
+| per-ip (general API) | per client IP | 5,000 | 2,000/s | `RateLimiting:PerIp` |
 | per-ip (auth) | per client IP, **separate** bucket from general API | 20 | 5/s | `RateLimiting:PerIpAuth` |
 | health-aggregate | per client IP | 60 | 20/s | `RateLimiting:HealthAggregate` |
 

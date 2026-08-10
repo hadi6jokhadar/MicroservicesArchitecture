@@ -42,6 +42,8 @@
   "exception_backup_run_not_found": "عملية النسخ الاحتياطي غير موجودة",
   "exception_backup_tool_not_found": "لم يتم العثور على الملف التنفيذي '{0}'. قم بتثبيت أدوات عميل PostgreSQL أو تهيئة مساره في إعدادات خدمة النسخ الاحتياطي",
   "exception_backup_process_failed_with_details": "فشلت أداة {0} لقاعدة البيانات '{1}' (رمز الخروج {2}): {3}",
+  "exception_system_claim_cannot_be_renamed": "لا يمكن إعادة تسمية الصلاحيات النظامية",
+  "exception_system_claim_cannot_be_deleted": "لا يمكن حذف الصلاحيات النظامية",
 
   "validation_required": "{0} مطلوب",
   "validation_email_invalid": "عنوان البريد الإلكتروني غير صالح",

@@ -1113,5 +1113,122 @@ public class RoleClaimEndpointsTests : IntegrationTestBase
     }
 
     #endregion
+
+    #region System Claim Protection Tests
+
+    /// <summary>
+    /// System claims are only ever created by DatabaseSeeder (from SystemPermissionCatalog) —
+    /// CreateClaimCommand has no IsSystemClaim input — so tests insert one directly via EF.
+    /// </summary>
+    private async Task<Identity.Domain.Entities.Claim> CreateSystemClaimAsync(string testId)
+    {
+        return await ExecuteDbContextAsync(async context =>
+        {
+            var claim = new Identity.Domain.Entities.Claim
+            {
+                Name = $"SystemClaim_{testId}",
+                NormalizedName = $"SYSTEMCLAIM_{testId}",
+                ClaimType = "Permission",
+                ClaimValue = $"system.claim.{testId}",
+                IsSuperAdminOnly = false,
+                IsSystemClaim = true,
+                Status = true
+            };
+            context.Claims.Add(claim);
+            await context.SaveChangesAsync();
+            return claim;
+        });
+    }
+
+    [Fact]
+    public async Task DeleteClaim_SystemClaim_ShouldThrowBadRequestException()
+    {
+        // Arrange
+        var testId = Guid.NewGuid().ToString("N")[..8];
+        var systemClaim = await CreateSystemClaimAsync(testId);
+
+        var deleteCommand = new DeleteClaimCommand(systemClaim.Id);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<BadRequestException>(
+            async () => await SendAsync(deleteCommand)
+        );
+
+        // Verify NOT deleted
+        var stillExists = await ExecuteDbContextAsync(async context =>
+            await context.Claims.FirstOrDefaultAsync(c => c.Id == systemClaim.Id));
+        stillExists.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task UpdateClaim_SystemClaim_ChangingClaimValue_ShouldThrowBadRequestException()
+    {
+        // Arrange
+        var testId = Guid.NewGuid().ToString("N")[..8];
+        var systemClaim = await CreateSystemClaimAsync(testId);
+
+        var updateCommand = new UpdateClaimCommand(
+            Id: systemClaim.Id,
+            Name: systemClaim.Name,
+            ClaimType: systemClaim.ClaimType,
+            ClaimValue: $"changed.value.{testId}", // attempting to change the wire-contract value
+            IsSuperAdminOnly: false,
+            Description: "Attempted change"
+        );
+
+        // Act & Assert
+        await Assert.ThrowsAsync<BadRequestException>(
+            async () => await SendAsync(updateCommand)
+        );
+    }
+
+    [Fact]
+    public async Task UpdateClaim_SystemClaim_ChangingClaimType_ShouldThrowBadRequestException()
+    {
+        // Arrange
+        var testId = Guid.NewGuid().ToString("N")[..8];
+        var systemClaim = await CreateSystemClaimAsync(testId);
+
+        var updateCommand = new UpdateClaimCommand(
+            Id: systemClaim.Id,
+            Name: systemClaim.Name,
+            ClaimType: "Feature", // attempting to change the type half of the wire contract
+            ClaimValue: systemClaim.ClaimValue,
+            IsSuperAdminOnly: false,
+            Description: "Attempted change"
+        );
+
+        // Act & Assert
+        await Assert.ThrowsAsync<BadRequestException>(
+            async () => await SendAsync(updateCommand)
+        );
+    }
+
+    [Fact]
+    public async Task UpdateClaim_SystemClaim_ChangingNameAndDescriptionOnly_ShouldSucceed()
+    {
+        // Arrange — ClaimType/ClaimValue are the only fields the system-claim guard protects
+        var testId = Guid.NewGuid().ToString("N")[..8];
+        var systemClaim = await CreateSystemClaimAsync(testId);
+
+        var updateCommand = new UpdateClaimCommand(
+            Id: systemClaim.Id,
+            Name: $"RenamedDisplayName_{testId}",
+            ClaimType: systemClaim.ClaimType,
+            ClaimValue: systemClaim.ClaimValue,
+            IsSuperAdminOnly: false,
+            Description: "Updated description text"
+        );
+
+        // Act
+        var result = await SendAsync(updateCommand);
+
+        // Assert
+        result.Name.Should().Be($"RenamedDisplayName_{testId}");
+        result.Description.Should().Be("Updated description text");
+        result.ClaimValue.Should().Be(systemClaim.ClaimValue);
+    }
+
+    #endregion
 }
 

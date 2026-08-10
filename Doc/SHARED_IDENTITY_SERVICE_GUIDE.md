@@ -17,8 +17,9 @@
 7. [When to Use Separate Identity Services](#when-to-use-separate-identity-services)
 8. [**Tenant Service Architecture (NEW)**](#tenant-service-architecture)
 9. [Security Best Practices](#security-best-practices)
-10. [Troubleshooting](#troubleshooting)
-11. [Summary & Action Plan](#summary--action-plan)
+10. [Permission Claims (Fine-Grained Authorization Below Role Level)](#permission-claims-fine-grained-authorization-below-role-level)
+11. [Troubleshooting](#troubleshooting)
+12. [Summary & Action Plan](#summary--action-plan)
 
 ---
 
@@ -1306,6 +1307,54 @@ public async Task<IActionResult> Login([FromBody] LoginRequest request)
 
 ---
 
+## Permission Claims (Fine-Grained Authorization Below Role Level)
+
+Every service today authorizes with **roles only** (`RequireRole("Admin", "SuperAdmin", ...)`) at the endpoint level — see each service's `Program.cs`. Identity's `Claim`/`Role`/`RoleClaim` tables (per-tenant, Strategy B) support a second, finer-grained axis — a `"Permission"`-typed claim — checked for the first time by Nasheed's content-editor policies (August 2026).
+
+### Claims and their bundling roles are seeded automatically, not created by hand
+
+`Identity.Infrastructure/Seeding/SystemPermissionCatalog.cs` is a declarative, append-only list of every claim and role the platform ships, consumed generically by `DatabaseSeeder` (`Identity.Infrastructure/Services/DatabaseSeeder.cs`) on every tenant's first request after each Identity restart (`DatabaseSeederMiddleware` — idempotent, additive-only, self-heals every tenant, old and new, with no manual step). **You do not create these claims/roles through the admin UI** — the UI (`/identity/claims`, `/identity/roles`) is for ad-hoc, tenant-specific customization beyond the catalog, and for assigning a catalog role to a specific user (`/identity/users`).
+
+Each catalog entry can be:
+- **Platform-wide** (`TenantIds = null`) — seeded into every tenant, e.g. `User`/`Admin`/`SuperAdmin` and `actions.delete`.
+- **Tenant-scoped** (`TenantIds = ["anashid"]`, etc.) — seeded only into the listed tenant(s)' Identity database. **Required for any app-specific claim** — Nasheed is deployed for a single tenant (`anashid`), so its `nasheed.*` claims and `NasheedDataEntry` role only make sense there; seeding them into every other tenant would be irrelevant noise nobody there could use or understand. `DatabaseSeeder.AppliesToCurrentTenant` filters every catalog entry against `ITenantContext.CurrentTenant.TenantId` before creating anything.
+
+Seeded rows are flagged `IsSystemClaim`/`IsSystemRole = true`, enforced the same way for both (`DeleteClaimCommandHandler`/`UpdateClaimCommandHandler` and their Role equivalents): the row can't be deleted, and its code-meaningful fields (`ClaimType`/`ClaimValue` for a claim, `Name` for a role) can't be changed — but an admin can still freely assign/unassign a system claim to/from any role (including custom ones), and the seeder never revokes a claim an admin added beyond the catalog on a system role.
+
+Violating either restriction returns **400 Bad Request** (`SystemClaimCannotBeDeleted`/`SystemClaimCannotBeRenamed`, mirroring `SystemRoleCannotBeDeleted`/`SystemRoleCannotBeRenamed`) — distinct from the **403 Forbidden** thrown by the separate, pre-existing `IsSuperAdminOnly` protection. Renaming only the `Name`/`Description` of a system claim (leaving `ClaimType`/`ClaimValue` unchanged) is still allowed.
+
+### Adding a new app's permissions
+
+Append to `SystemPermissionCatalog.cs` — no other seeder code needed:
+```csharp
+private static readonly string[] MyAppTenantIds = ["my-tenant-id"]; // omit for platform-wide
+
+private static readonly SystemClaimDefinition[] MyAppClaims =
+[
+    new() { ClaimValue = "myapp.things.create", Name = "Create Things", TenantIds = MyAppTenantIds },
+];
+// add MyAppClaims to AllClaims, and any bundling SystemRoleDefinition to AllRoles
+```
+The consuming service still needs its own `AddAuthorization` policy that combines the existing role check with a claim check — never claim-only, so Admin/SuperAdmin keep full access without needing the claim too:
+```csharp
+options.AddPolicy("SongsCreate", policy => policy.RequireAssertion(ctx =>
+    ctx.User.IsInRole("Admin") || ctx.User.IsInRole("SuperAdmin") ||
+    ctx.User.HasClaim("Permission", "nasheed.songs.create")));
+```
+On next login, `UserService.GenerateTokensAsync` (`Identity.Infrastructure/Services/UserService.cs`) loads every claim reachable through the user's role(s) (`IClaimRepository.GetUserClaimsAsync`) and forwards each one into the JWT verbatim: `claims.Add(new JwtClaim(claim.ClaimType, claim.ClaimValue))` — no extra plumbing needed once the claim exists.
+
+See Nasheed's `Program.cs` (`SongsCreate`/`SongsEdit`/`ArtistsCreate` policies) and `src/Apps/Nasheed/Doc/API_ENDPOINTS.md` ("Content-Editor Permission Claims") for the reference implementation.
+
+### Design rules for a new lower-privileged role
+
+- **Grant narrowly.** Only add a claim for the specific actions the role needs (create/edit). If there's no claim for an action (e.g. delete), that action stays role-gated and unreachable by the new role — don't add a claim "just in case."
+- **Scope to the tenant(s) that actually run the app.** Set `TenantIds` unless the claim genuinely applies platform-wide.
+- **Claims can't express row ownership.** `RequireClaim`/`HasClaim` only sees the JWT, not which row a request targets. If a role should only edit records it created (not everyone's), enforce that inside the command handler by comparing the entity's `CreatedBy` (auto-stamped by `BaseDbContext.SaveChangesAsync`) to `ICurrentUserService.UserId` — see Nasheed's `UpdateSongCommandHandler` (`Nasheed.Infrastructure/Handlers/UpdateSong/`).
+- **Claim values are per-service, not global.** Prefix with the owning service (`nasheed.*`, `category.*`, ...) so two services' claim spaces never collide.
+- **Frontend page/menu visibility** needs the same claim surfaced through the SPA — see `MicroservicesArchitecture-Web/Doc/PERMISSIONS_GUIDE.md`.
+
+---
+
 ## Troubleshooting
 
 ### **Problem 1: "Unauthorized" when calling Project A/B**
@@ -1656,5 +1705,5 @@ curl -X GET https://projectb.com/api/inventory \
 
 ---
 
-**Last Updated:** October 19, 2025  
-**Version:** 2.1.0 (Added File Manager Service reference)
+**Last Updated:** August 9, 2026  
+**Version:** 2.2.0 (Added Permission Claims — fine-grained authorization below role level)

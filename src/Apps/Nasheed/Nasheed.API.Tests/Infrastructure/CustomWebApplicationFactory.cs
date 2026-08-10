@@ -69,10 +69,10 @@ public class CustomWebApplicationFactory : IhsanDev.Shared.Testing.Infrastructur
             services.RemoveAll<IAiApiClient>();
             var aiMock = new Mock<IAiApiClient>();
             aiMock.Setup(x => x.ChatAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<string?>(), It.IsAny<IReadOnlyList<int>?>(), It.IsAny<CancellationToken>()))
+                    It.IsAny<string?>(), It.IsAny<IReadOnlyList<int>?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync("mock-ai-response");
             aiMock.Setup(x => x.EmbedAsync(It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                    It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new float[] { 0.1f, 0.2f, 0.3f });
             services.AddSingleton(aiMock.Object);
 

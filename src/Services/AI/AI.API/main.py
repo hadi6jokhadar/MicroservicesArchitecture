@@ -7,9 +7,10 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from core.config import settings
-from core.database import ensure_database_exists, ensure_schema_exists, engine
+from core.database import ensure_database_exists, ensure_schema_exists, engine, get_schema_health
 from core.exceptions import (
     AppException,
     app_exception_handler,
@@ -171,7 +172,18 @@ app.include_router(transcription_router.router, prefix="/api/v1/transcription", 
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": settings.ServiceCommunication.ServiceName}
+    # Matches every .NET service's /health, which runs a real AddNpgSql check — without this,
+    # a migration that failed at startup (logged but never blocked readiness, see the lifespan
+    # handler above) would show "healthy" here and in Gateway's /health/aggregate forever.
+    healthy, detail = await get_schema_health()
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={
+            "status": "healthy" if healthy else "unhealthy",
+            "service": settings.ServiceCommunication.ServiceName,
+            "database": detail,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

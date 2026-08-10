@@ -514,6 +514,8 @@ console.log("Connected to notification hub!");
 }
 ```
 
+**`PerUser` requires `UseRateLimiter()` to run after `UseAuthentication()` (fixed August 2026).** This policy partitions on `context.User`'s `NameIdentifier` claim, but the pipeline used to call `app.UseRateLimiter()` before `app.UseAuthentication()` — `context.User` was always the unauthenticated principal at that point, so every request fell into one shared `"anonymous"` bucket regardless of who was calling, silently defeating the 2k/min per-user quota. See `.claude/instructions/Dotnet.instructions.md` pitfall #41 for the full root cause (also hit Identity, FileManager, and Category) and `Doc/SERVICE_STARTUP_SEQUENCES.md` for this service's corrected middleware order. `PerTenant` was unaffected — it reads the raw `x-tenant-id` header directly, not through any middleware-populated state.
+
 ---
 
 ## API Endpoints
@@ -854,6 +856,8 @@ Clients are automatically added to groups based on authentication:
 | `tenant:{id}`               | Tenant members          | `tenant:ihsandev`                    |
 | `tenant:{id}:user:{userId}` | Specific user in tenant | `tenant:ihsandev:user:1`             |
 | `user:{userId}`             | User across tenants     | `user:1`                             |
+
+**Tenant-group source of truth (August 2026 security fix):** the hub is registered with `[OptionalTenant]`, which means `JwtTenantVerificationMiddleware`'s usual JWT-vs-header mismatch check never runs for this route — so `NotificationHub.OnConnectedAsync` cannot rely on that middleware to catch a spoofed tenant. For an **authenticated** connection, it now derives the `tenant:{id}` group from the JWT's own `tenant_id` claim, never the client-supplied `x-tenant-id` header / `?tenantId=` query string (which drive tenant resolution for the request but are otherwise attacker-controlled, and SignalR's WebSocket handshake can't carry custom headers at all, so the frontend always uses the query string). Previously any authenticated — or even anonymous — client could join another tenant's broadcast group just by connecting with `?tenantId=<victim-tenant>`. A JWT with no `tenant_id` claim (a cross-tenant SuperAdmin/Service account under `JwtMode = "Shared"`) still uses the client-supplied value, same as an anonymous connection, since there's no tenant identity on the token to pin to.
 
 ---
 
@@ -1296,6 +1300,8 @@ Authorization: Bearer eyJhbGci...
 ```
 
 **Priority:** Header > JWT Claim
+
+This ordering applies to ordinary HTTP endpoints, resolved by `TenantMiddleware` from the `x-tenant-id` header (with `JwtTenantVerificationMiddleware` separately rejecting a header/JWT mismatch). **The SignalR hub reverses this for authenticated connections** — see "Tenant-group source of truth" under Connection Groups below: `NotificationHub.OnConnectedAsync` prefers the JWT's `tenant_id` claim over the client-supplied header/query value, precisely because that route is `[OptionalTenant]` and the usual JWT-vs-header cross-check doesn't run for it.
 
 ### Database Isolation
 

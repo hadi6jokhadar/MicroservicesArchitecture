@@ -272,6 +272,16 @@ await app.Services.WarmTenantDatabaseMigrationsAsync<FileManagerDbContext>(warme
 // ============================================
 // Middleware Pipeline
 // ============================================
+// Exception handler must be the FIRST middleware so it wraps everything downstream —
+// including correlation-ID/localization, HTTPS-redirect, compression, and static-file serving
+// — not just what happens to be registered after it. Earlier middleware catches exceptions
+// from later middleware (ASP.NET Core wraps each Use() call's next() inside the previous
+// one's try/catch), so anything registered before this line would bypass it entirely.
+// See Dotnet.instructions.md.
+app.UseGlobalExceptionHandler();
+app.UseCorrelationId();
+app.UseLocalization();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -282,9 +292,6 @@ app.UseHttpsRedirection();
 
 // Response Compression
 app.UseResponseCompression();
-
-// Rate limiting (before authentication)
-app.UseRateLimiter();
 
 // ============================================
 // Static Files Middleware - Serve uploaded files directly
@@ -321,14 +328,6 @@ app.UseStaticFiles(new StaticFileOptions
 // Note: Standard UseCors() is NOT needed/used because TenantAwareCors (below) handles everything.
 // DO NOT call app.UseCors() here - it conflicts with TenantAwareCorsMiddleware.
 
-app.UseCorrelationId();
-
-// Localization middleware (must be before exception handler)
-app.UseLocalization();
-
-// Global exception handling
-app.UseGlobalExceptionHandler();
-
 // Migrate global/default DB BEFORE tenant resolution. When multi-tenancy is enabled,
 // AddDatabaseContext leaves IsConfigured=false so OnConfiguring uses ITenantContext to
 // pick a connection string. If UseDefaultDatabaseMigration runs after UseTenantResolution,
@@ -355,6 +354,14 @@ if (multiTenancyEnabled)
 app.UseServiceAuthentication();
 
 app.UseAuthentication();
+
+// Rate limiting — MUST be AFTER UseAuthentication(): the "PerUser" policy partitions by
+// context.User's NameIdentifier claim, which UseAuthentication() populates. Running this
+// before authentication (as it previously did) meant context.User was always the default
+// unauthenticated principal, so PerUser's key was always "anonymous" — one shared bucket for
+// every user instead of a real per-user limit. "PerTenant" is unaffected by this ordering
+// either way, since it reads the raw x-tenant-id request header directly, not ITenantContext.
+app.UseRateLimiter();
 
 // JWT tenant verification — MUST be AFTER UseAuthentication(): it reads context.User,
 // which UseAuthentication() populates. Prevents users from accessing other tenants by

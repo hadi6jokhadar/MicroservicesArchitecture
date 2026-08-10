@@ -1,4 +1,5 @@
 using IhsanDev.Shared.Application.Exceptions;
+using Microsoft.EntityFrameworkCore;
 using Nasheed.API.Tests.Infrastructure;
 using Nasheed.Application.Commands;
 using Nasheed.Application.Queries;
@@ -282,16 +283,23 @@ public class SongEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task UpdateSong_ChangingArtistId_ShouldThrowBadRequestException()
+    public async Task UpdateSong_ChangingArtistId_ShouldMoveSongToNewArtist()
     {
-        // Arrange
+        // Arrange — UpdateSongCommandHandler supports moving a song between artists,
+        // adjusting each artist's SongCount accordingly (see its artistChanged branch).
         var artistA = await CreateTestArtistAsync();
         var artistB = await CreateTestArtistAsync();
         var song = await CreateTestSongAsync(artistA.Id);
 
-        // Act & Assert — moving songs between artists is not supported
-        await Assert.ThrowsAsync<BadRequestException>(() =>
-            SendAsync(new UpdateSongCommand(Id: song.Id, Title: null, ArtistId: artistB.Id)));
+        // Act
+        var result = await SendAsync(new UpdateSongCommand(Id: song.Id, Title: null, ArtistId: artistB.Id));
+
+        // Assert
+        result.ArtistId.Should().Be(artistB.Id);
+
+        var songFromDb = await ExecuteDbContextAsync(async context =>
+            await context.Songs.FirstOrDefaultAsync(s => s.Id == song.Id));
+        songFromDb!.ArtistId.Should().Be(artistB.Id);
     }
 
     [Fact]

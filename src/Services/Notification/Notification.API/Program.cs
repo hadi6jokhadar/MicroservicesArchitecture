@@ -432,21 +432,21 @@ await app.Services.InitializeDatabaseAsync<TenantNotificationDbContext>(
 var warmedTenants = await app.Services.WarmTenantConfigCacheAsync();
 await app.Services.WarmTenantDatabaseMigrationsAsync<TenantNotificationDbContext>(warmedTenants);
 
+// Exception handler must be the FIRST middleware so it wraps everything downstream —
+// including correlation-ID/localization themselves — not just what happens to be registered
+// after it. Earlier middleware catches exceptions from later middleware (ASP.NET Core wraps
+// each Use() call's next() inside the previous one's try/catch), so anything registered
+// before this line would bypass it entirely. See Dotnet.instructions.md.
+app.UseGlobalExceptionHandler();
+app.UseCorrelationId();
+app.UseLocalization();
+
 // Enable Swagger in all environments (for debugging)
 // TODO: Restrict to Development only in production
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseCorrelationId();
-
-// Localization middleware (must be before exception handler)
-app.UseLocalization();
-
-app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance
-
-// Rate limiting (must be early in pipeline)
-app.UseRateLimiter();
 
 // Only redirect to HTTPS in production (disabled in development for easier testing)
 if (!app.Environment.IsDevelopment())
@@ -512,6 +512,14 @@ if (multiTenancyEnabled)
 app.UseServiceAuthentication();
 
 app.UseAuthentication();
+
+// Rate limiting — MUST be AFTER UseAuthentication(): the "PerUser" policy partitions by
+// context.User's NameIdentifier claim, which UseAuthentication() populates. Running this
+// before authentication (as it previously did) meant context.User was always the default
+// unauthenticated principal, so PerUser's key was always "anonymous" — one shared bucket for
+// every user instead of a real per-user limit. "PerTenant" is unaffected by this ordering
+// either way, since it reads the raw x-tenant-id request header directly, not ITenantContext.
+app.UseRateLimiter();
 
 // JWT tenant verification — MUST be AFTER UseAuthentication(): it reads context.User,
 // which UseAuthentication() populates. Prevents users from accessing other tenants by

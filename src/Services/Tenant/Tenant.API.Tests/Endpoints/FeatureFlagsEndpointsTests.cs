@@ -39,6 +39,21 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
         await cache.SetAsync(FlagsCacheKey(tenantId), flags, TimeSpan.FromDays(7));
     }
 
+    /// <summary>
+    /// GetDefaultFlags() currently returns 5 entries — 4 default to true, and
+    /// NasheedNewLyricsExtractionEnabled deliberately defaults to false (opt-in feature).
+    /// Asserts an unmodified defaults result matches that shape exactly.
+    /// </summary>
+    private static void AssertUnmodifiedDefaults(Dictionary<string, bool> flags)
+    {
+        flags.Should().HaveCount(5);
+        flags.Should().ContainKey(FeatureFlags.AiChatEnabled).WhoseValue.Should().BeTrue();
+        flags.Should().ContainKey(FeatureFlags.NasheedIngestionEnabled).WhoseValue.Should().BeTrue();
+        flags.Should().ContainKey(FeatureFlags.IsBackgroundJobPageEnabled).WhoseValue.Should().BeTrue();
+        flags.Should().ContainKey(FeatureFlags.IsAuditLogPageEnabled).WhoseValue.Should().BeTrue();
+        flags.Should().ContainKey(FeatureFlags.NasheedNewLyricsExtractionEnabled).WhoseValue.Should().BeFalse();
+    }
+
     #region Default Flags — No TenantId
 
     [Fact]
@@ -46,11 +61,7 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
     {
         var result = await SendAsync(new GetTenantFeatureFlagsQuery(null));
 
-        result.Should().HaveCount(4);
-        result.Should().ContainKey(FeatureFlags.AiChatEnabled).WhoseValue.Should().BeTrue();
-        result.Should().ContainKey(FeatureFlags.NasheedIngestionEnabled).WhoseValue.Should().BeTrue();
-        result.Should().ContainKey(FeatureFlags.IsBackgroundJobPageEnabled).WhoseValue.Should().BeTrue();
-        result.Should().ContainKey(FeatureFlags.IsAuditLogPageEnabled).WhoseValue.Should().BeTrue();
+        AssertUnmodifiedDefaults(result);
     }
 
     [Fact]
@@ -58,8 +69,7 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
     {
         var result = await SendAsync(new GetTenantFeatureFlagsQuery(string.Empty));
 
-        result.Should().HaveCount(4);
-        result.Should().OnlyContain(kv => kv.Value);
+        AssertUnmodifiedDefaults(result);
     }
 
     [Fact]
@@ -67,8 +77,7 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
     {
         var result = await SendAsync(new GetTenantFeatureFlagsQuery("   "));
 
-        result.Should().HaveCount(4);
-        result.Should().OnlyContain(kv => kv.Value);
+        AssertUnmodifiedDefaults(result);
     }
 
     #endregion
@@ -83,8 +92,7 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
 
         var result = await SendAsync(new GetTenantFeatureFlagsQuery(tenantId));
 
-        result.Should().HaveCount(4);
-        result.Should().OnlyContain(kv => kv.Value);
+        AssertUnmodifiedDefaults(result);
 
         // Handler skips SetAsync for non-existent tenants — cache must remain empty
         var cached = await GetFromCacheAsync(tenantId);
@@ -105,8 +113,7 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
 
         var result = await SendAsync(new GetTenantFeatureFlagsQuery(tenantId));
 
-        result.Should().HaveCount(4);
-        result.Should().OnlyContain(kv => kv.Value);
+        AssertUnmodifiedDefaults(result);
 
         // Even with empty flags, tenant exists → result is cached
         var cached = await GetFromCacheAsync(tenantId);
@@ -150,7 +157,9 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
 
         var result = await SendAsync(new GetTenantFeatureFlagsQuery(tenantId));
 
-        result.Should().HaveCount(4);
+        // NasheedNewLyricsExtractionEnabled isn't overridden by this test's config but already
+        // defaults to false, so all 5 entries end up false.
+        result.Should().HaveCount(5);
         result.Should().NotContain(kv => kv.Value);
     }
 
@@ -173,7 +182,8 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
         result.Should().ContainKey(FeatureFlags.AiChatEnabled).WhoseValue.Should().BeFalse();
         result.Should().ContainKey("myAppSpecificFeature").WhoseValue.Should().BeTrue();
         result.Should().ContainKey(FeatureFlags.NasheedIngestionEnabled).WhoseValue.Should().BeTrue();
-        result.Should().HaveCount(5);
+        // 5 system defaults (AiChatEnabled overridden to false) + 1 tenant-specific custom flag.
+        result.Should().HaveCount(6);
     }
 
     [Fact]
@@ -201,8 +211,7 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
         // Must never throw — falls back to defaults on any deserialization error
         var result = await SendAsync(new GetTenantFeatureFlagsQuery(tenantId));
 
-        result.Should().HaveCount(4);
-        result.Should().OnlyContain(kv => kv.Value);
+        AssertUnmodifiedDefaults(result);
     }
 
     [Fact]
@@ -229,8 +238,7 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
 
         var result = await SendAsync(new GetTenantFeatureFlagsQuery(tenantId));
 
-        result.Should().HaveCount(4);
-        result.Should().OnlyContain(kv => kv.Value);
+        AssertUnmodifiedDefaults(result);
     }
 
     #endregion
@@ -459,8 +467,7 @@ public class FeatureFlagsEndpointsTests : IntegrationTestBase
         // Query: tenant is archived → GetByTenantIdAsync returns null → handler returns defaults
         var result = await SendAsync(new GetTenantFeatureFlagsQuery(tenantId));
 
-        result.Should().OnlyContain(kv => kv.Value,
-            "soft-deleted tenant is invisible to GetByTenantIdAsync; defaults are returned");
+        AssertUnmodifiedDefaults(result);
     }
 
     [Fact]

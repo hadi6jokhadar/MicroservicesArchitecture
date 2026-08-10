@@ -274,25 +274,33 @@ await app.Services.InitializeDatabaseAsync<IdentityDbContext>(
     applyMigrations: true,
     seedData: true);
 
+// Fire-and-forget: gives Redis a head start on connecting instead of leaving it entirely to the
+// first real request. Deliberately NOT awaited — a cold Redis handshake can take several seconds,
+// and blocking startup on it just trades one race for another. Safe to discard: this method has
+// its own internal catch-all and can never throw (see Dotnet.instructions.md pitfall #28).
+_ = app.Services.WarmUpCacheAsync();
+
 // Warm the tenant-config cache and eagerly run each tenant's migration check at startup
 // instead of paying that cost lazily on the tenant's first real request. No-ops if
 // multi-tenancy is disabled (returns an empty tenant list). See TenantWarmupExtensions.
 var warmedTenants = await app.Services.WarmTenantConfigCacheAsync();
 await app.Services.WarmTenantDatabaseMigrationsAsync<IdentityDbContext>(warmedTenants);
 
+// Exception handler must be the FIRST middleware so it wraps everything downstream —
+// including correlation-ID/localization themselves — not just what happens to be registered
+// after it. Earlier middleware catches exceptions from later middleware (ASP.NET Core wraps
+// each Use() call's next() inside the previous one's try/catch), so anything registered
+// before this line would bypass it entirely. See Dotnet.instructions.md.
+app.UseGlobalExceptionHandler();
+app.UseCorrelationId();
+app.UseLocalization();
+
 // Enable Swagger in all environments (for debugging)
 // TODO: Restrict to Development only in production
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseCorrelationId();
-
-// Localization middleware (must be before exception handler)
-app.UseLocalization();
-
-app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance
-app.UseRateLimiter(); // Rate limiting middleware (before authentication)
 app.UseHttpsRedirection();
 
 // Migrate global/default DB BEFORE tenant resolution. When multi-tenancy is enabled,
@@ -332,6 +340,14 @@ app.UseDatabaseSeeding();
 app.UseServiceAuthentication();
 
 app.UseAuthentication();
+
+// Rate limiting — MUST be AFTER UseAuthentication(): the "PerUser" policy partitions by
+// context.User's NameIdentifier claim, which UseAuthentication() populates. Running this
+// before authentication (as it previously did) meant context.User was always the default
+// unauthenticated principal, so PerUser's key was always "anonymous" — one shared bucket for
+// every user instead of a real per-user limit. "PerTenant" is unaffected by this ordering
+// either way, since it reads the raw x-tenant-id request header directly, not ITenantContext.
+app.UseRateLimiter();
 
 // JWT tenant verification — MUST be AFTER UseAuthentication(): it reads context.User,
 // which UseAuthentication() populates. Prevents users from accessing other tenants by

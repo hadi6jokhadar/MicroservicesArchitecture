@@ -40,6 +40,10 @@ public class DeleteClaimCommandHandler : IRequestHandler<DeleteClaimCommand, boo
             if (claim.IsSuperAdminOnly && !_currentUserService.IsSuperAdmin)
                 throw new ForbiddenException(LocalizationKeys.Exceptions.SuperAdminClaimProtected);
 
+            // System claims cannot be deleted
+            if (claim.IsSystemClaim)
+                throw new BadRequestException(LocalizationKeys.Exceptions.SystemClaimCannotBeDeleted);
+
             await _claimRepository.DeleteAsync(claim.Id, cancellationToken);
 
             // Invalidate group caches

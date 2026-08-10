@@ -47,6 +47,9 @@ public sealed class NasheedTenantConfigUpdatedListenerService : BackgroundServic
         _logger = logger;
     }
 
+    private static readonly TimeSpan InitialRetryDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromSeconds(30);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (_redis is null)
@@ -56,15 +59,13 @@ public sealed class NasheedTenantConfigUpdatedListenerService : BackgroundServic
             return;
         }
 
-        var subscriber = _redis.GetSubscriber();
-
-        await subscriber.SubscribeAsync(
-            RedisChannel.Literal(TenantConfigUpdatedEventMessage.Channel),
-            (channel, message) => _ = HandleMessageAsync(message, stoppingToken));
-
-        _logger.LogInformation(
-            "Subscribed to '{Channel}' for live tenant config refresh.",
-            TenantConfigUpdatedEventMessage.Channel);
+        // This is a pure optimization (see class summary) — a missed/failed subscription just
+        // means config changes are only picked up by NasheedTenantLoaderService's periodic fallback
+        // loop, exactly as if this listener didn't exist. So a subscribe failure must never escape
+        // ExecuteAsync (fatal to the whole host under the default BackgroundServiceExceptionBehavior),
+        // and it must not be given up on for the rest of the process's life either — retry with
+        // backoff so a transient Redis hiccup self-heals instead of requiring a full restart.
+        await SubscribeWithRetryAsync(stoppingToken);
 
         try
         {
@@ -73,6 +74,46 @@ public sealed class NasheedTenantConfigUpdatedListenerService : BackgroundServic
         catch (TaskCanceledException)
         {
             // Expected on shutdown.
+        }
+    }
+
+    private async Task SubscribeWithRetryAsync(CancellationToken stoppingToken)
+    {
+        var delay = InitialRetryDelay;
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                var subscriber = _redis!.GetSubscriber();
+
+                await subscriber.SubscribeAsync(
+                    RedisChannel.Literal(TenantConfigUpdatedEventMessage.Channel),
+                    (channel, message) => _ = HandleMessageAsync(message, stoppingToken));
+
+                _logger.LogInformation(
+                    "Subscribed to '{Channel}' for live tenant config refresh.",
+                    TenantConfigUpdatedEventMessage.Channel);
+                return;
+            }
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to subscribe to '{Channel}' for live tenant config refresh — retrying in " +
+                    "{DelaySeconds}s (falling back to the periodic refresh loop until this succeeds)",
+                    TenantConfigUpdatedEventMessage.Channel, delay.TotalSeconds);
+
+                try
+                {
+                    await Task.Delay(delay, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, MaxRetryDelay.TotalSeconds));
+            }
         }
     }
 

@@ -1,9 +1,22 @@
 # Nasheed Service — API Endpoints
 
 **Base URL:** `http://localhost:5009`  
-**Auth:** All business endpoints require `Authorization: Bearer <token>`. Endpoints marked **AdminOnly** below additionally require the `"AdminOnly"` authorization policy — any catalog-mutation endpoint (artist/song create/update/delete) or ingestion-control endpoint (retry/reindex/delete) is AdminOnly; read endpoints (Get/GetAll/analysis/similar/search) and end-user interactions (favorites/ratings/play) only require authentication.  
+**Auth:** All business endpoints require `Authorization: Bearer <token>`. Endpoints marked **AdminOnly** below require the `"AdminOnly"` policy (`RequireRole("Admin","Superadmin","SuperAdmin")`) — most ingestion-control endpoints (retry/reindex/delete) and all delete/update-artist endpoints are AdminOnly. Three endpoints instead use a narrower **content-editor policy** that also admits a non-admin user holding the matching `Permission` claim (see "Content-Editor Permission Claims" below): `POST /api/artists` (`ArtistsCreate`), `POST /api/songs` (`SongsCreate`), `PUT /api/songs/{id}` (`SongsEdit`, plus an ownership check — see its own section). Read endpoints (Get/GetAll/analysis/similar/search) and end-user interactions (favorites/ratings/play) only require authentication.  
 `x-tenant-id` should be sent by clients for tenant-aware routing, but this service also runs with configured single-tenant fallback (`MultiTenancy:TenantId`).  
-**Last Updated:** August 6, 2026
+**Last Updated:** August 9, 2026
+
+## Content-Editor Permission Claims
+
+For a lower-privileged role (e.g. a "data entry" hire who only inserts songs) that shouldn't hold the full `Admin` role, the `NasheedDataEntry` role and its claims are **seeded automatically** — nothing to create by hand. `Identity.Infrastructure/Seeding/SystemPermissionCatalog.cs` declares them, scoped to the `anashid` tenant only (`TenantIds = ["anashid"]` — Nasheed only runs for that tenant, so seeding these into every other tenant's Identity database would be meaningless noise), and Identity's `DatabaseSeeder` creates them idempotently on that tenant's first request after each Identity restart. To use it:
+
+1. Confirm the role/claims exist: `/identity/roles` should already list `NasheedDataEntry` (badged "System Role"), and `/identity/claims` should already list its five claims (badged "System Claim") — `nasheed.songs.create`, `nasheed.songs.edit`, `nasheed.artists.create`, `nasheed.pages.songs`, `nasheed.pages.artists`. If Identity hasn't restarted since this catalog entry was added, hit any Identity endpoint for the `anashid` tenant once (e.g. log in) to trigger the seed.
+2. Assign the `NasheedDataEntry` role to the hire's user account via `/identity/users`.
+
+That's it — no manual claim creation or role-claim assignment needed. An admin *can* still adjust the bundle afterward (assign an extra claim to `NasheedDataEntry`, or grant one of its claims to a different custom role) via the claims/roles admin UI; the seeder only adds what's missing on restart, it never removes a manual addition. The `NasheedDataEntry` role and its five claims themselves can't be deleted or renamed (system-protected) — see `MicroservicesArchitecture/Doc/SHARED_IDENTITY_SERVICE_GUIDE.md`'s "Permission Claims" section for the full mechanism and how to add a new app's permissions to the catalog.
+
+Admin/SuperAdmin always pass these policies regardless of claims (see `Nasheed.API/Program.cs`'s `AddAuthorization` block). Delete endpoints (`DELETE /api/songs/{id}`, `DELETE /api/artists/{id}`) and artist update (`PUT /api/artists/{id}`) remain **AdminOnly only** — there is no `Permission` claim that grants delete or artist-edit, by design, to keep a data-entry role's blast radius small.
+
+**Ownership check on `PUT /api/songs/{id}`:** a caller without an Admin/SuperAdmin role may only edit a song whose `CreatedBy` (stamped automatically on creation) matches their own user id — enforced in `Nasheed.Infrastructure/Handlers/UpdateSong/UpdateSongCommandHandler.cs` (not the endpoint policy, since claims can't express row ownership). Editing someone else's song returns a `403 Forbidden`.
 
 ---
 
@@ -11,7 +24,7 @@
 
 ### `POST /api/artists`
 
-Create a new artist. **AdminOnly.**
+Create a new artist. **`ArtistsCreate` policy** — Admin/SuperAdmin, or a user holding the `nasheed.artists.create` claim.
 
 **Request body:**
 
@@ -76,7 +89,7 @@ For each song owned by the artist, the full song cascade runs first (see `DELETE
 
 ### `POST /api/songs`
 
-Create a new song (triggers ingestion pipeline). **AdminOnly.**
+Create a new song (triggers ingestion pipeline). **`SongsCreate` policy** — Admin/SuperAdmin, or a user holding the `nasheed.songs.create` claim.
 
 **Request body:**
 
@@ -121,7 +134,7 @@ Get paginated list of songs with optional filters.
 
 ### `PUT /api/songs/{id}`
 
-Update song metadata allowed by command contract. **AdminOnly.**
+Update song metadata allowed by command contract. **`SongsEdit` policy** — Admin/SuperAdmin may edit any song; a user holding only the `nasheed.songs.edit` claim may edit only songs they created themselves (`403` otherwise — see "Content-Editor Permission Claims" above).
 
 **Request body:**
 
@@ -372,12 +385,13 @@ Log a play event for a user.
   "publishedAt": null,
   "lyricsVerified": false,
   "moodTags": [],
+  "createdBy": "42",
   "created": "2026-05-02T10:00:00Z",
   "lastModified": null
 }
 ```
 
-`artistId` may be `null` for songs without an artist.
+`artistId` may be `null` for songs without an artist. `createdBy` is the id of the user who created the song (stamped automatically, string form) — used by the `SongsEdit` ownership check described above.
 
 ### `IngestionJobDto`
 

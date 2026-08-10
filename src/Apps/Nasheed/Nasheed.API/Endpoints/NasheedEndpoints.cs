@@ -21,7 +21,7 @@ public static class NasheedEndpoints
             .WithName("CreateArtist")
             .Produces<ArtistDto>(StatusCodes.Status201Created)
             .AddEndpointFilter<ValidationFilter<CreateArtistCommand>>()
-            .RequireAuthorization("AdminOnly");
+            .RequireAuthorization("ArtistsCreate");
 
         artists.MapGet("/{id:int}", NasheedArtistApiHandlers.GetById)
             .WithName("GetArtistById")
@@ -54,7 +54,7 @@ public static class NasheedEndpoints
             .WithName("CreateSong")
             .Produces<SongDto>(StatusCodes.Status201Created)
             .AddEndpointFilter<ValidationFilter<CreateSongCommand>>()
-            .RequireAuthorization("AdminOnly");
+            .RequireAuthorization("SongsCreate");
 
         songs.MapGet("/{id:int}", NasheedSongApiHandlers.GetById)
             .WithName("GetSongById")
@@ -69,7 +69,7 @@ public static class NasheedEndpoints
             .WithName("UpdateSong")
             .Produces<SongDto>()
             .AddEndpointFilter<ValidationFilter<UpdateSongCommand>>()
-            .RequireAuthorization("AdminOnly");
+            .RequireAuthorization("SongsEdit");
 
         songs.MapDelete("/{id:int}", NasheedSongApiHandlers.Delete)
             .WithName("DeleteSong")

@@ -43,15 +43,28 @@ public class NotificationHub : Hub
         try
         {
             var httpContext = Context.GetHttpContext();
-            
-            // Get tenant ID from header OR query string
-            var tenantId = httpContext?.Request.Headers["x-tenant-id"].FirstOrDefault()
-                ?? httpContext?.Request.Query["tenantId"].FirstOrDefault();
-            
+
             // Get authenticated user ID from claims (optional)
             var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier);
             var userId = userIdClaim?.Value;
             var isAuthenticated = !string.IsNullOrEmpty(userId);
+
+            // An authenticated connection is pinned to the tenant baked into its OWN JWT
+            // (the "tenant_id" claim set by Identity's UserService.GenerateTokensAsync) — never
+            // the client-supplied header/query value. This hub is registered with
+            // [OptionalTenant], which makes JwtTenantVerificationMiddleware skip its usual
+            // JWT-vs-header mismatch check entirely for this route; reading the raw header/query
+            // here instead of the validated claim let any authenticated (or anonymous) client
+            // join another tenant's "tenant:{tenantId}" broadcast group just by connecting with
+            // ?tenantId=<victim-tenant> — a cross-tenant notification leak. A JWT with no
+            // tenant_id claim means a cross-tenant SuperAdmin/Service account (Shared JWT mode),
+            // which legitimately picks its tenant via the client-supplied value, same as an
+            // anonymous connection.
+            var jwtTenantId = Context.User?.FindFirst("tenant_id")?.Value;
+            var tenantId = isAuthenticated && !string.IsNullOrWhiteSpace(jwtTenantId)
+                ? jwtTenantId
+                : httpContext?.Request.Headers["x-tenant-id"].FirstOrDefault()
+                    ?? httpContext?.Request.Query["tenantId"].FirstOrDefault();
 
             // Always add to global group (for global broadcasts)
             await Groups.AddToGroupAsync(Context.ConnectionId, "global");

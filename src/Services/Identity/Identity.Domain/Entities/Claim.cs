@@ -24,7 +24,14 @@ public class Claim : BaseEntity
     /// If true, only SuperAdmin can assign this claim to users
     /// </summary>
     public bool IsSuperAdminOnly { get; set; } = false;
-    
+
+    /// <summary>
+    /// If true, this claim was created by <see cref="Identity.Infrastructure.Seeding.SystemPermissionCatalog"/>
+    /// and cannot be deleted or renamed via the admin API/UI — its ClaimValue is a literal contract
+    /// referenced by another service's authorization policy code.
+    /// </summary>
+    public bool IsSystemClaim { get; set; } = false;
+
     // Navigation properties
     public ICollection<RoleClaim> RoleClaims { get; set; } = [];
 }

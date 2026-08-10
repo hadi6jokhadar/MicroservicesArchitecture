@@ -3,8 +3,8 @@
 **🎯 START HERE** - This is the **ONLY** file AI agents need to read first.
 
 **Purpose:** Single source of truth for what documentation exists and when to read each file.  
-**Last Updated:** July 31, 2026  
-**Total Files:** 46
+**Last Updated:** August 10, 2026  
+**Total Files:** 47
 
 ---
 
@@ -78,9 +78,19 @@ Files are organized by category. Each entry includes:
 - A new tenant isn't usable in some services until they're restarted (should not happen — see Layer 3)
 - Adding seed data for a new tenant (`SeedAsync()` on the DbContext)
 
+### SERVICE_STARTUP_SEQUENCES.md
+
+**Description:** Exact, ordered startup sequence for every service (Identity, Tenant, Notification, FileManager, Translation, Category, AI, Nasheed, Backup, PolySnap, Gateway), read directly from each `Program.cs`/`main.py`. Marks which steps are blocking (delay startup) vs. which hosted/background services actually start at `app.Run()` — the highest-risk moment for a background-service crash to take down the whole host.  
+**Read When:**
+
+- Debugging why a service is slow to start or fails to start
+- Adding a new blocking startup call or a new background/hosted service
+- Understanding which services register `TenantProvisioningListenerService` or other custom `BackgroundService`s
+- Diagnosing a "BackgroundService failed" / host-shutdown crash at startup
+
 ### SHARED_IDENTITY_SERVICE_GUIDE.md
 
-**Description:** Complete JWT authentication, user management, login/registration flows. Used by ALL services.  
+**Description:** Complete JWT authentication, user management, login/registration flows, and Permission Claims (fine-grained authorization below role level, catalog-seeded via `SystemPermissionCatalog`). Used by ALL services.  
 **Read When:**
 
 - Implementing authentication

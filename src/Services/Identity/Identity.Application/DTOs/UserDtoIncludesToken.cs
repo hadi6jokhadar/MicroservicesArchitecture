@@ -53,6 +53,7 @@ public class UserDtoIncludesToken : BaseUserDto
                     ClaimType = rc.Claim.ClaimType,
                     ClaimValue = rc.Claim.ClaimValue,
                     IsSuperAdminOnly = rc.Claim.IsSuperAdminOnly,
+                    IsSystemClaim = rc.Claim.IsSystemClaim,
                     Status = rc.Claim.Status
                 }).ToList()
             }).ToList() ?? []) : [],

@@ -133,7 +133,8 @@ The Identity Service dynamically routes database connections based on tenant con
    → Uses connection string to connect to Tenant 123's database
    → Validates john@acme.com credentials in that database
    → Generates JWT with TenantId: 123
-   → Caches tenant config for 5 minutes (IMemoryCache)
+   → Caches tenant config for 30 minutes (Redis distributed cache, `tenant_config_{tenantId}`;
+     falls back to in-memory only when Redis is disabled — see "Caching Tenant Configuration" below)
 ```
 
 #### **3. API Request with JWT**
@@ -1105,16 +1106,25 @@ optionsBuilder.UseNpgsql(connectionString, ...);
 ### **3. Caching Tenant Configuration**
 
 ```csharp
-// Your current implementation (5-minute cache)
-_cache.Set($"tenant_config_{tenantId}", tenantConfig, TimeSpan.FromMinutes(5));
+// Actual implementation — Redis distributed cache (ICacheService), 30-minute TTL by default,
+// key `tenant_config_{tenantId}`, configurable via MultiTenancy:CacheExpirationMinutes.
+// Falls back to in-memory (IMemoryCache) only when Redis:Enabled=false for that service.
+_cache.Set($"tenant_config_{tenantId}", tenantConfig, TimeSpan.FromMinutes(cacheExpirationMinutes));
 
 // Benefits:
 // ✅ Reduces API calls to Tenant Service
 // ✅ Faster response times (0.001ms vs 50ms)
+// ✅ Shared across every service instance on the same Redis (not per-process like IMemoryCache)
 
-// Drawbacks:
-// ⚠️ Tenant DB connection change takes 5 minutes to propagate
-// ⚠️ Solution: Provide "clear cache" API endpoint
+// Propagation is push-based, not "wait out the TTL": UpdateTenantCommandHandler/
+// ToggleTenantArchivedStatusCommandHandler/DeleteTenantCommandHandler invalidate the
+// tenant's own cache key immediately on save, AND publish a `tenant:updated` Redis
+// Pub/Sub broadcast. Every subscribed service's listener re-fetches within seconds —
+// no manual "clear cache" endpoint needed. See Doc/MULTI_TENANCY_GUIDE.md → "Live
+// Config-Change Push for Local-Snapshot Consumers" for the full mechanism, including
+// the exponential-backoff resubscription that keeps a listener self-healing if its
+// initial SubscribeAsync call fails. The 30-minute TTL is only a fallback for a
+// missed broadcast, not the primary propagation path.
 ```
 
 ### **4. Database Migrations Per Tenant**

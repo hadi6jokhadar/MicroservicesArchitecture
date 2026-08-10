@@ -28,6 +28,7 @@ public class RoleDto
                 ClaimType = rc.Claim.ClaimType,
                 ClaimValue = rc.Claim.ClaimValue,
                 IsSuperAdminOnly = rc.Claim.IsSuperAdminOnly,
+                IsSystemClaim = rc.Claim.IsSystemClaim,
                 Status = rc.Claim.Status
             }).ToList()
         };
@@ -42,6 +43,7 @@ public class ClaimDto
     public string ClaimType { get; set; } = string.Empty;
     public string ClaimValue { get; set; } = string.Empty;
     public bool IsSuperAdminOnly { get; set; }
+    public bool IsSystemClaim { get; set; }
     public bool Status { get; set; }
 
     public static ClaimDto MapFrom(Domain.Entities.Claim claim)
@@ -54,6 +56,7 @@ public class ClaimDto
             ClaimType = claim.ClaimType,
             ClaimValue = claim.ClaimValue,
             IsSuperAdminOnly = claim.IsSuperAdminOnly,
+            IsSystemClaim = claim.IsSystemClaim,
             Status = claim.Status
         };
     }

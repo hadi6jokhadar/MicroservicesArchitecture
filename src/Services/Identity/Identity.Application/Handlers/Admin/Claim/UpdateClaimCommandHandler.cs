@@ -41,6 +41,12 @@ public class UpdateClaimCommandHandler : IRequestHandler<UpdateClaimCommand, Cla
             if (claim.IsSuperAdminOnly && !_currentUserService.IsSuperAdmin)
                 throw new ForbiddenException(LocalizationKeys.Exceptions.SuperAdminClaimProtected);
 
+            // System claims' ClaimType/ClaimValue cannot change — that pair is a literal string
+            // another service's authorization policy code checks. Name/Description stay editable.
+            if (claim.IsSystemClaim &&
+                (claim.ClaimType != request.ClaimType || claim.ClaimValue != request.ClaimValue))
+                throw new BadRequestException(LocalizationKeys.Exceptions.SystemClaimCannotBeRenamed);
+
             claim.Name = request.Name;
             claim.NormalizedName = request.Name.ToUpperInvariant();
             claim.ClaimType = request.ClaimType;

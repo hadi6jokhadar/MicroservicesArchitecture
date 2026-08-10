@@ -51,6 +51,7 @@ public class SongDto : BaseDto
         Status = entity.Status,
         IsArchived = entity.IsArchived,
         Created = entity.Created.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
+        CreatedBy = entity.CreatedBy,
         LastModified = entity.LastModified?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
     };
 }

@@ -1,6 +1,7 @@
 using Identity.Domain.Entities;
 using Identity.Domain.Repositories;
 using Identity.Application.Services;
+using Identity.Infrastructure.Seeding;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using IhsanDev.Shared.Kernel.Interfaces.Tenant;
@@ -60,109 +61,125 @@ public class DatabaseSeeder
         _logger.LogInformation("Database seeding completed successfully.");
     }
 
+    private bool AppliesToCurrentTenant(string[]? tenantIds) =>
+        AppliesToTenant(tenantIds, _tenantContext.CurrentTenant?.TenantId);
+
+    /// <summary>
+    /// True for platform-wide catalog entries (<c>tenantIds</c> null/empty) or when
+    /// <paramref name="currentTenantId"/> is explicitly listed (case-insensitive) — false
+    /// otherwise, and false when <paramref name="currentTenantId"/> is null (a tenant-scoped
+    /// entry has no meaning outside multi-tenant mode). Pure/static so it's testable without a
+    /// database or DI container — see <c>DatabaseSeederTenantScopingTests</c>.
+    /// </summary>
+    public static bool AppliesToTenant(string[]? tenantIds, string? currentTenantId)
+    {
+        if (tenantIds == null || tenantIds.Length == 0)
+        {
+            return true;
+        }
+
+        return currentTenantId != null &&
+            tenantIds.Any(t => string.Equals(t, currentTenantId, StringComparison.OrdinalIgnoreCase));
+    }
+
     private async Task SeedDefaultRolesAsync(CancellationToken cancellationToken)
     {
-        var defaultRoles = new[]
+        foreach (var roleDef in SystemPermissionCatalog.AllRoles)
         {
-            new { Name = "User", Description = "Default user role with basic permissions" },
-            new { Name = "Admin", Description = "Administrator role with management permissions" },
-            new { Name = "SuperAdmin", Description = "Super administrator role with full system access" }
-        };
+            if (!AppliesToCurrentTenant(roleDef.TenantIds))
+            {
+                continue;
+            }
 
-        foreach (var roleData in defaultRoles)
-        {
-            var existingRole = await _roleRepository.GetByNameAsync(roleData.Name, cancellationToken);
+            var existingRole = await _roleRepository.GetByNameAsync(roleDef.Name, cancellationToken);
             if (existingRole == null)
             {
                 var role = new Role
                 {
-                    Name = roleData.Name,
-                    NormalizedName = roleData.Name.ToUpperInvariant(),
-                    Description = roleData.Description,
-                    IsSystemRole = true, // System roles cannot be deleted
+                    Name = roleDef.Name,
+                    NormalizedName = roleDef.Name.ToUpperInvariant(),
+                    Description = roleDef.Description,
+                    IsSystemRole = true, // System roles cannot be deleted or renamed
                     Status = true
                 };
 
                 await _roleRepository.CreateAsync(role, cancellationToken);
-                _logger.LogInformation("Created system role: {RoleName}", roleData.Name);
+                _logger.LogInformation("Created system role: {RoleName}", roleDef.Name);
             }
             else
             {
-                _logger.LogDebug("System role already exists: {RoleName}", roleData.Name);
+                _logger.LogDebug("System role already exists: {RoleName}", roleDef.Name);
             }
         }
     }
 
     private async Task SeedDefaultClaimsAsync(CancellationToken cancellationToken)
     {
-        var defaultClaims = new[]
+        foreach (var claimDef in SystemPermissionCatalog.AllClaims)
         {
-            new
+            if (!AppliesToCurrentTenant(claimDef.TenantIds))
             {
-                Name = "Delete Actions",
-                ClaimType = "Permission",
-                ClaimValue = "actions.delete",
-                Description = "Permission to perform delete actions",
-                IsSuperAdminOnly = false // Can be assigned by Admin
+                continue;
             }
-        };
 
-        foreach (var claimData in defaultClaims)
-        {
-            var existingClaim = await _claimRepository.GetByClaimValueAsync(claimData.ClaimValue, cancellationToken);
+            var existingClaim = await _claimRepository.GetByClaimValueAsync(claimDef.ClaimValue, cancellationToken);
             if (existingClaim == null)
             {
                 var claim = new Claim
                 {
-                    Name = claimData.Name,
-                    NormalizedName = claimData.Name.ToUpperInvariant(),
-                    ClaimType = claimData.ClaimType,
-                    ClaimValue = claimData.ClaimValue,
-                    Description = claimData.Description,
-                    IsSuperAdminOnly = claimData.IsSuperAdminOnly,
+                    Name = claimDef.Name,
+                    NormalizedName = claimDef.Name.ToUpperInvariant(),
+                    ClaimType = claimDef.ClaimType,
+                    ClaimValue = claimDef.ClaimValue,
+                    Description = claimDef.Description,
+                    IsSuperAdminOnly = claimDef.IsSuperAdminOnly,
+                    IsSystemClaim = true, // System claims cannot be deleted or renamed
                     Status = true
                 };
 
                 await _claimRepository.CreateAsync(claim, cancellationToken);
-                _logger.LogInformation("Created default claim: {ClaimValue}", claimData.ClaimValue);
+                _logger.LogInformation("Created system claim: {ClaimValue}", claimDef.ClaimValue);
             }
             else
             {
-                _logger.LogDebug("Default claim already exists: {ClaimValue}", claimData.ClaimValue);
+                _logger.LogDebug("System claim already exists: {ClaimValue}", claimDef.ClaimValue);
             }
         }
     }
 
     private async Task AssignDefaultClaimsToRolesAsync(CancellationToken cancellationToken)
     {
-        // Assign "actions.delete" claim to Admin and SuperAdmin roles
-        var deleteClaim = await _claimRepository.GetByClaimValueAsync("actions.delete", cancellationToken);
-        if (deleteClaim == null)
+        // Additive only — never revokes a claim, so an admin's own manual extra assignments on a
+        // catalog role (or removal of one of these) survive across restarts/reseeds.
+        foreach (var roleDef in SystemPermissionCatalog.AllRoles)
         {
-            _logger.LogWarning("Delete claim not found, skipping role-claim assignment");
-            return;
-        }
-
-        var adminRole = await _roleRepository.GetByNameAsync("Admin", cancellationToken);
-        var superAdminRole = await _roleRepository.GetByNameAsync("SuperAdmin", cancellationToken);
-
-        if (adminRole != null)
-        {
-            var hasClaimAlready = await _roleClaimRepository.RoleHasClaimAsync(adminRole.Id, deleteClaim.Id, cancellationToken);
-            if (!hasClaimAlready)
+            if (roleDef.ClaimValues.Length == 0 || !AppliesToCurrentTenant(roleDef.TenantIds))
             {
-                await _roleClaimRepository.AssignClaimsToRoleAsync(adminRole.Id, [deleteClaim.Id], cancellationToken);
-                _logger.LogInformation("Assigned 'actions.delete' claim to Admin role");
+                continue;
             }
-        }
 
-        if (superAdminRole != null)
-        {
-            var hasClaimAlready = await _roleClaimRepository.RoleHasClaimAsync(superAdminRole.Id, deleteClaim.Id, cancellationToken);
-            if (!hasClaimAlready)
+            var role = await _roleRepository.GetByNameAsync(roleDef.Name, cancellationToken);
+            if (role == null)
             {
-                await _roleClaimRepository.AssignClaimsToRoleAsync(superAdminRole.Id, [deleteClaim.Id], cancellationToken);
-                _logger.LogInformation("Assigned 'actions.delete' claim to SuperAdmin role");
+                _logger.LogWarning("Role '{RoleName}' not found, skipping its claim assignments", roleDef.Name);
+                continue;
+            }
+
+            foreach (var claimValue in roleDef.ClaimValues)
+            {
+                var claim = await _claimRepository.GetByClaimValueAsync(claimValue, cancellationToken);
+                if (claim == null)
+                {
+                    _logger.LogWarning("Claim '{ClaimValue}' not found, skipping assignment to role '{RoleName}'", claimValue, roleDef.Name);
+                    continue;
+                }
+
+                var hasClaimAlready = await _roleClaimRepository.RoleHasClaimAsync(role.Id, claim.Id, cancellationToken);
+                if (!hasClaimAlready)
+                {
+                    await _roleClaimRepository.AssignClaimsToRoleAsync(role.Id, [claim.Id], cancellationToken);
+                    _logger.LogInformation("Assigned '{ClaimValue}' claim to {RoleName} role", claimValue, roleDef.Name);
+                }
             }
         }
     }

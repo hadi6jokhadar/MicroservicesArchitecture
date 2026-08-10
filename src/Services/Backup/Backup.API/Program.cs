@@ -190,18 +190,21 @@ await using (var startupScope = app.Services.CreateAsyncScope())
     }
 }
 
+// Exception handler must be the FIRST middleware so it wraps everything downstream —
+// including correlation-ID/localization themselves — not just what happens to be registered
+// after it. Earlier middleware catches exceptions from later middleware (ASP.NET Core wraps
+// each Use() call's next() inside the previous one's try/catch), so anything registered
+// before this line would bypass it entirely. See Dotnet.instructions.md.
+app.UseGlobalExceptionHandler();
+app.UseCorrelationId();
+app.UseLocalization();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseCorrelationId();
-
-// Localization middleware (must be before exception handler)
-app.UseLocalization();
-
-app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance
 app.UseHttpsRedirection();
 app.UseCors();

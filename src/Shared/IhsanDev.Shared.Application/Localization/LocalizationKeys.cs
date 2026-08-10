@@ -44,6 +44,8 @@ public static class LocalizationKeys
         public const string ClaimAlreadyExists = "exception_claim_already_exists";
         public const string SystemRoleCannotBeRenamed = "exception_system_role_cannot_be_renamed";
         public const string SystemRoleCannotBeDeleted = "exception_system_role_cannot_be_deleted";
+        public const string SystemClaimCannotBeRenamed = "exception_system_claim_cannot_be_renamed";
+        public const string SystemClaimCannotBeDeleted = "exception_system_claim_cannot_be_deleted";
         public const string SuperAdminRoleProtected = "exception_superadmin_role_protected";
         public const string SuperAdminClaimProtected = "exception_superadmin_claim_protected";
         public const string ValidationError = "exception_validation_error";

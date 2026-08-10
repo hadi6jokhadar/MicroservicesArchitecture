@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace IhsanDev.Shared.Testing.Infrastructure;
 
@@ -122,6 +123,21 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+
+        // Strip default logging providers before anything else. On Windows, the host builder's
+        // defaults include EventLogLoggerProvider — and ConfigureServices below builds a SEPARATE,
+        // throwaway ServiceProvider from the same IServiceCollection (needed to seed the test DB
+        // before the real host starts). That second instance ends up with its own
+        // EventLogLoggerProvider fighting the real host's over the same underlying Windows EventLog
+        // handle; one gets disposed mid-run, and any later handler that calls _logger.LogError
+        // (e.g. a transient cache hiccup) throws ObjectDisposedException instead of logging
+        // gracefully, crashing the test. EventLog has no reason to exist in a test run — replace
+        // every default provider with Console only.
+        builder.ConfigureLogging(logging =>
+        {
+            logging.ClearProviders();
+            logging.AddConsole();
+        });
 
         builder.ConfigureAppConfiguration((context, config) =>
         {

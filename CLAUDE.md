@@ -120,6 +120,7 @@ Full patterns (DbContext code, Program.cs pipeline, appsettings) → `.claude/in
 | File | Purpose |
 |---|---|
 | `Doc/DOCUMENTATION_INDEX.md` | **START HERE** |
+| `Doc/SERVICE_STARTUP_SEQUENCES.md` | Exact, ordered startup sequence for every service — blocking calls vs. background/hosted services started at `app.Run()` |
 | `.claude/instructions/database-strategy.instructions.md` | Database strategy A/B/C/D patterns |
 | `Doc/BYPASS_TENANT_ENDPOINTS_GUIDE.md` | Admin/global endpoints **(CRITICAL)** |
 | `Doc/SHARED_IDENTITY_SERVICE_GUIDE.md` | JWT auth pattern |

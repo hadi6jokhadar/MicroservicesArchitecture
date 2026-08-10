@@ -3,6 +3,7 @@ using Identity.Application.Commands;
 using Identity.Domain.Entities;
 using Identity.Infrastructure.Persistence;
 using IhsanDev.Shared.Testing.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Identity.API.Tests.Infrastructure;
 
@@ -81,5 +82,29 @@ public abstract class IntegrationTestBase :
             
             return user;
         });
+    }
+
+    /// <summary>
+    /// Resolve an arbitrary scoped service (e.g. <c>DatabaseSeeder</c>) and run an action against
+    /// it within a fresh DI scope — mirrors <c>ExecuteDbContextAsync</c> for non-DbContext services.
+    /// </summary>
+    protected async Task<TResult> ResolveScopedAsync<TService, TResult>(Func<TService, Task<TResult>> action)
+        where TService : notnull
+    {
+        using var scope = Factory.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<TService>();
+        return await action(service);
+    }
+
+    /// <summary>
+    /// Resolve an arbitrary scoped service and run a fire-and-forget action against it within a
+    /// fresh DI scope.
+    /// </summary>
+    protected async Task ResolveScopedAsync<TService>(Func<TService, Task> action)
+        where TService : notnull
+    {
+        using var scope = Factory.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<TService>();
+        await action(service);
     }
 }

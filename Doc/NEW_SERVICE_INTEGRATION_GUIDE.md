@@ -92,11 +92,11 @@ The project `Doc/` folder is the **single source of truth** for that app. Do not
 
 | Service  | Endpoint                      | Purpose                         |
 | -------- | ----------------------------- | ------------------------------- |
-| Identity | `POST /api/auth/login`        | Get JWT access token            |
-| Identity | `POST /api/auth/register`     | Create new user                 |
-| Identity | `GET /api/user/profile`       | Get current user info           |
-| Tenant   | `GET /api/tenants/{tenantId}` | Get tenant configuration        |
-| Tenant   | `POST /api/tenants`           | Create new tenant (admin only)  |
+| Identity | `POST /api/v1/auth/login`        | Get JWT access token            |
+| Identity | `POST /api/v1/auth/register`     | Create new user                 |
+| Identity | `GET /api/v1/user/profile`       | Get current user info           |
+| Tenant   | `GET /api/v1/tenants/{tenantId}` | Get tenant configuration        |
+| Tenant   | `POST /api/v1/tenants`           | Create new tenant (admin only)  |
 | Your API | Any protected endpoint        | Requires `Authorization` header |
 
 ---
@@ -381,7 +381,7 @@ Add multi-tenancy configuration to `appsettings.json`:
 {
   "MultiTenancy": {
     "Enabled": true,
-    "TenantServiceUrl": "https://localhost:5003",
+    "TenantServiceUrl": "https://localhost:5002",
     "CacheDurationMinutes": 60
   }
 }
@@ -510,7 +510,7 @@ public class TenantDto
 ```csharp
 builder.Services.AddHttpClient("TenantService", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["MultiTenancy:TenantServiceUrl"] ?? "https://localhost:5003");
+    client.BaseAddress = new Uri(builder.Configuration["MultiTenancy:TenantServiceUrl"] ?? "https://localhost:5002");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
 });
 
@@ -1464,7 +1464,7 @@ The default implementation uses the `x-tenant-id` header. To use subdomain:
 - `GET /api/user/profile` - Get current user profile
 - `GET /api/admin/users` - Get all users (Admin only)
 
-#### Tenant Service (Port 5003)
+#### Tenant Service (Port 5002)
 
 - `GET /api/tenants/{tenantId}` - Get tenant by ID
 - `GET /api/tenants/user/{userId}` - Get tenant by user ID
@@ -1582,7 +1582,7 @@ var userId = int.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier).Val
 {
   "MultiTenancy": {
     "Enabled": true,
-    "TenantServiceUrl": "https://localhost:5003"
+    "TenantServiceUrl": "https://localhost:5002"
   }
 }
 

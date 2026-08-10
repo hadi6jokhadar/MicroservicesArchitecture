@@ -230,7 +230,20 @@ await app.Services.InitializeDatabaseAsync<TenantDbContext>(
 // Connect to Redis now instead of on the first real request — otherwise the first
 // request(s) after a cold start pay the connection cost inline and can get cancelled
 // by callers' fail-fast resilience timeouts (e.g. TenantServiceClient's 2s AttemptTimeout).
-await app.Services.WarmUpCacheAsync();
+// Fire-and-forget: gives Redis a head start on connecting instead of leaving it entirely to the
+// first real request. Deliberately NOT awaited — a cold Redis handshake can take several seconds,
+// and blocking startup on it just trades one race for another. Safe to discard: this method has
+// its own internal catch-all and can never throw (see Dotnet.instructions.md pitfall #28).
+_ = app.Services.WarmUpCacheAsync();
+
+// Exception handler must be the FIRST middleware so it wraps everything downstream —
+// including correlation-ID/localization themselves — not just what happens to be registered
+// after it. Earlier middleware catches exceptions from later middleware (ASP.NET Core wraps
+// each Use() call's next() inside the previous one's try/catch), so anything registered
+// before this line would bypass it entirely. See Dotnet.instructions.md.
+app.UseGlobalExceptionHandler();
+app.UseCorrelationId();
+app.UseLocalization();
 
 if (app.Environment.IsDevelopment())
 {
@@ -238,12 +251,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCorrelationId();
-
-// Localization middleware (must be before exception handler)
-app.UseLocalization();
-
-app.UseGlobalExceptionHandler();
 app.UseResponseCompression(); // Enable response compression for better network performance
 app.UseRateLimiter(); // Rate limiting middleware (before authentication)
 app.UseHttpsRedirection();

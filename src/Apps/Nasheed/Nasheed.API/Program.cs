@@ -20,10 +20,14 @@ var builder = WebApplication.CreateBuilder(args);
 // MediatR + FluentValidation
 // ============================================
 var applicationAssembly = typeof(CreateArtistCommandHandler).Assembly;
+var infrastructureAssembly = typeof(NasheedDbContext).Assembly;
 
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(applicationAssembly);
+    // UpdateSongCommandHandler lives in .Infrastructure (needs ICurrentUserService for the
+    // ownership check) — see Dotnet.instructions.md pitfall #14.
+    cfg.RegisterServicesFromAssembly(infrastructureAssembly);
     cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
     cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
 });
@@ -93,6 +97,23 @@ builder.Services.AddAuthorization(options =>
     // ServiceAuthenticationMiddleware assigns role "SuperAdmin" (capital A) for S2S calls.
     options.AddPolicy("AdminOnly", policy =>
         policy.RequireRole("Admin", "Superadmin", "SuperAdmin"));
+
+    // Content-editor policies: Admin/SuperAdmin always pass (same roles as AdminOnly), OR a
+    // lower-privileged user (e.g. a "NasheedDataEntry" role created via the Identity admin UI)
+    // holding the matching "Permission" claim. These are additive, narrower alternatives to
+    // AdminOnly for create/edit — delete stays AdminOnly-only, see NasheedEndpoints.cs.
+    // The claim itself is plain data (ClaimType="Permission", ClaimValue="nasheed.songs.create"
+    // etc.) created and assigned through Identity's existing Roles/Claims admin UI — no seeding
+    // required. See Doc/SHARED_IDENTITY_SERVICE_GUIDE.md "Permission Claims" section.
+    static bool IsAdmin(Microsoft.AspNetCore.Authorization.AuthorizationHandlerContext ctx) =>
+        ctx.User.IsInRole("Admin") || ctx.User.IsInRole("Superadmin") || ctx.User.IsInRole("SuperAdmin");
+
+    options.AddPolicy("SongsCreate", policy => policy.RequireAssertion(ctx =>
+        IsAdmin(ctx) || ctx.User.HasClaim("Permission", "nasheed.songs.create")));
+    options.AddPolicy("SongsEdit", policy => policy.RequireAssertion(ctx =>
+        IsAdmin(ctx) || ctx.User.HasClaim("Permission", "nasheed.songs.edit")));
+    options.AddPolicy("ArtistsCreate", policy => policy.RequireAssertion(ctx =>
+        IsAdmin(ctx) || ctx.User.HasClaim("Permission", "nasheed.artists.create")));
 });
 
 // ============================================
@@ -171,6 +192,16 @@ var app = builder.Build();
 // ============================================
 // Middleware Pipeline (ORDER IS CRITICAL)
 // ============================================
+// Exception handler must be the FIRST middleware so it wraps everything downstream —
+// including correlation-ID/localization, HTTPS-redirect, and compression — not just what
+// happens to be registered after it. Earlier middleware catches exceptions from later
+// middleware (ASP.NET Core wraps each Use() call's next() inside the previous one's
+// try/catch), so anything registered before this line would bypass it entirely.
+// See Dotnet.instructions.md.
+app.UseGlobalExceptionHandler();
+app.UseCorrelationId();
+app.UseLocalization();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -181,9 +212,6 @@ app.UseHttpsRedirection();
 app.UseResponseCompression();
 // Note: Standard UseCors() is NOT needed/used because TenantAwareCors (below) handles everything.
 // DO NOT call app.UseCors() here - it conflicts with TenantAwareCorsMiddleware.
-app.UseCorrelationId();
-app.UseLocalization();
-app.UseGlobalExceptionHandler();
 
 // Multi-tenancy (Strategy B)
 app.UseTenantResolution(builder.Configuration);

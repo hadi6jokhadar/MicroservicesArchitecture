@@ -1,5 +1,6 @@
 using IhsanDev.Shared.Application.Exceptions;
 using IhsanDev.Shared.Application.Localization;
+using IhsanDev.Shared.Infrastructure.Services.Identity;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -10,14 +11,20 @@ using Nasheed.Domain.Entities;
 using Nasheed.Domain.Enums;
 using Nasheed.Domain.Interfaces;
 
-namespace Nasheed.Application.Handlers.UpdateSong;
+namespace Nasheed.Infrastructure.Handlers.UpdateSong;
 
+// Lives in .Infrastructure (not .Application) solely because it needs ICurrentUserService for
+// the ownership check below — that interface is defined in IhsanDev.Shared.Infrastructure, and
+// Nasheed.Application has no reference to it (mirrors Dotnet.instructions.md pitfall #14: a
+// handler needing a type only available in Infrastructure belongs in Infrastructure, not
+// Application). Program.cs registers MediatR against both assemblies to pick this up.
 public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongDto>
 {
     private readonly ISongRepository _repository;
     private readonly IArtistRepository _artistRepository;
     private readonly ISongIngestionJobRepository _jobRepository;
     private readonly NasheedFileManagerHelper _fileManagerHelper;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<UpdateSongCommandHandler> _logger;
 
     public UpdateSongCommandHandler(
@@ -25,12 +32,14 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
         IArtistRepository artistRepository,
         ISongIngestionJobRepository jobRepository,
         NasheedFileManagerHelper fileManagerHelper,
+        ICurrentUserService currentUserService,
         ILogger<UpdateSongCommandHandler> logger)
     {
         _repository = repository;
         _artistRepository = artistRepository;
         _jobRepository = jobRepository;
         _fileManagerHelper = fileManagerHelper;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -38,6 +47,15 @@ public class UpdateSongCommandHandler : IRequestHandler<UpdateSongCommand, SongD
     {
         var entity = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException(LocalizationKeys.Exceptions.SongNotFound);
+
+        // Admins/service accounts may edit any song; everyone else (e.g. a data-entry role
+        // holding only the "nasheed.songs.edit" claim, not a role) is restricted to songs
+        // they created themselves — CreatedBy is stamped automatically by BaseDbContext.
+        var isAdmin = _currentUserService.HasRole("Admin") || _currentUserService.HasRole("Superadmin") || _currentUserService.HasRole("SuperAdmin");
+        if (!isAdmin && !string.Equals(entity.CreatedBy, _currentUserService.UserId, StringComparison.Ordinal))
+        {
+            throw new ForbiddenException(LocalizationKeys.Exceptions.Forbidden);
+        }
 
         var titleChanged = !string.IsNullOrWhiteSpace(request.Title) && !string.Equals(request.Title, entity.Title, StringComparison.Ordinal);
         var languageChanged = request.LanguageCode != null && !string.Equals(request.LanguageCode, entity.LanguageCode, StringComparison.Ordinal);

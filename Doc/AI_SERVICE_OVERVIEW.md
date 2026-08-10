@@ -360,6 +360,10 @@ If Alembic upgrade fails, the failure is logged and startup continues to the sch
 
 This combination prevents first-run failures when revision files are missing while still supporting migration-based updates.
 
+**`GET /health` checks migration drift, not just DB connectivity.** Because a failed Alembic upgrade never stops startup, `/health` (`core/database.py`'s `get_schema_health()`) reads the `alembic_version` table and compares it against the head revision resolved from `alembic/versions/` — if they don't match (or the table is empty), it returns `503` with `{"status": "unhealthy", "database": "schema out of sync — ..."}` instead of a blind `{"status": "healthy"}`. This mirrors every .NET service's `/health`, which already runs a real `AddNpgSql` check — AI's endpoint used to be a hardcoded `{"status": "healthy"}` with no DB check at all, which meant a swallowed migration failure was invisible both directly and through Gateway's `/health/aggregate` (which always calls `/health`, never a separate readiness endpoint — see `SERVICE_STARTUP_SEQUENCES.md`).
+
+A plain unreachable database is a separate, distinct branch — `get_schema_health()` catches that case on its own and returns `False, "database unreachable: {ex}"` rather than falling through to the drift check. And `_alembic_head_revision()` resolves `alembic.ini` relative to `core/database.py`'s own file location (`AI.API/alembic.ini`) — if a deployment doesn't ship that file (e.g. a Docker image built without the `alembic/` folder), the head-revision lookup itself fails and `get_schema_health()` degrades to `True, "connected (revision {current}); could not verify against head: {ex}"` — a "healthy but unverified" response, not a 503. Any AI.API Docker image must include `alembic.ini` and `alembic/versions/` or this drift check silently stops working.
+
 ## Configuration
 
 Main config file:

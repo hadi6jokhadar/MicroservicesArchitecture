@@ -86,33 +86,45 @@ public static class RedisCacheExtensions
     }
 
     /// <summary>
-    /// Forces the cache's underlying Redis connections to connect now, during startup,
-    /// instead of lazily on the first real request. Call this once, right after
-    /// <c>app.Build()</c> and before <c>app.Run()</c> (same spot as DB migration warm-up).
-    /// Without this, the first request(s) after a cold start pay the full connection
-    /// cost inline, which can exceed a caller's fail-fast resilience timeout
-    /// (e.g. TenantServiceClient's 2s AttemptTimeout in MultiTenancyExtensions) and get
-    /// cancelled before the handler ever finishes. Safe to call even if Redis is down —
-    /// connection failures are swallowed the same way they are on the normal request path.
+    /// Gives the cache's underlying Redis connections a head start on connecting, instead of
+    /// leaving it entirely to the first real request. Call this once, right after
+    /// <c>app.Build()</c>, as fire-and-forget (<c>_ = app.Services.WarmUpCacheAsync();</c>) — do
+    /// NOT <c>await</c> it before <c>app.Run()</c>. A cold Redis connection can take several
+    /// seconds to finish its handshake (observed 11s+ under load), and blocking startup on that is
+    /// trading one race for another — the real fix is every Redis consumer tolerating "not
+    /// connected yet" on its own (see <see cref="Services.Cache.RedisCacheService"/>'s try/catch,
+    /// and the retry-with-backoff loops in the tenant-provisioning/config-updated listener
+    /// services), not winning a timing race at startup. This method is purely a best-effort
+    /// optimization on top of that — it has an internal catch-all specifically so it is safe to
+    /// discard without observing the result; it must never throw regardless of what changes here.
     /// </summary>
     /// <param name="services">The root service provider (app.Services)</param>
     public static async Task WarmUpCacheAsync(this IServiceProvider services)
     {
-        var cacheService = services.GetService<ICacheService>();
-        if (cacheService == null)
-        {
-            return;
-        }
-
         var logger = services.GetService<ILoggerFactory>()?.CreateLogger("RedisCacheExtensions");
-        var stopwatch = Stopwatch.StartNew();
 
-        await cacheService.GetAsync<object>("__cache_warmup__");
+        try
+        {
+            var cacheService = services.GetService<ICacheService>();
+            if (cacheService == null)
+            {
+                return;
+            }
 
-        // Also resolve the pattern-removal multiplexer so its connection is established now too.
-        services.GetService<IConnectionMultiplexer>();
+            var stopwatch = Stopwatch.StartNew();
 
-        stopwatch.Stop();
-        logger?.LogInformation("Cache warm-up completed in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+            await cacheService.GetAsync<object>("__cache_warmup__");
+
+            // Also resolve the pattern-removal multiplexer so its connection is established now too.
+            services.GetService<IConnectionMultiplexer>();
+
+            stopwatch.Stop();
+            logger?.LogInformation("Cache warm-up completed in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            // Must never throw — this is fire-and-forget from the caller's perspective (see summary).
+            logger?.LogWarning(ex, "Cache warm-up failed — proceeding without it, the cache will connect lazily on first use");
+        }
     }
 }
