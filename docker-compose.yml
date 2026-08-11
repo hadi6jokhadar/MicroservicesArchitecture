@@ -309,7 +309,7 @@ services:
     depends_on:
       - gateway
     ports:
-      - "80:80"
+      - "4200:80"
     restart: unless-stopped
     networks:
       - ihsandev-network
@@ -326,7 +326,7 @@ services:
     depends_on:
       - gateway
     ports:
-      - "8081:80"
+      - "4300:80"
     restart: unless-stopped
     networks:
       - ihsandev-network
@@ -343,7 +343,7 @@ services:
     depends_on:
       - gateway
     ports:
-      - "8082:80"
+      - "4301:80"
     restart: unless-stopped
     networks:
       - ihsandev-network
