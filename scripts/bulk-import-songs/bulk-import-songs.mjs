@@ -5,16 +5,14 @@
 //
 // Usage:
 //   node bulk-import-songs.mjs --source "/path/to/mp3s" --email admin@example.com --password '...' --tenant-id ihsandev [--concurrency 5] [--limit 5] [--csv ./import-results.csv]
-//   node bulk-import-songs.mjs --source "C:\Users\Hady Joukhadar\Music\اناشيد منقحة" --email anashid@ihsandev.com --password @Test123 --tenant-id anashid --limit 5
+//   node bulk-import-songs.mjs --source "C:\Users\Hady Joukhadar\Music\رفع اناشيد" --email anashid@ihsandev.com --password @Test123 --tenant-id anashid --limit 1
 //
 // Requires Node 18+ (built-in fetch/FormData/Blob).
 
 import fs from "node:fs";
 import path from "node:path";
 
-const IDENTITY_URL = "http://localhost:5001";
-const FILEMANAGER_URL = "http://localhost:5005";
-const NASHEED_URL = "http://localhost:5009";
+const GATEWAY_URL = "http://ihsandev.gleeze.com:5000";
 const FILE_GROUP_PROJECT = 4;
 
 function parseArgs(argv) {
@@ -82,7 +80,7 @@ async function uploadFile(filePath, fileName, token, tenantId) {
   form.append("file", new Blob([buffer], { type: "audio/mpeg" }), fileName);
   form.append("group", String(FILE_GROUP_PROJECT));
 
-  const res = await fetch(`${FILEMANAGER_URL}/api/v1/filemanager/files`, {
+  const res = await fetch(`${GATEWAY_URL}/api/v1/filemanager/files`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -101,7 +99,7 @@ async function uploadFile(filePath, fileName, token, tenantId) {
 }
 
 async function createSong(title, fileId, token, tenantId) {
-  const res = await fetch(`${NASHEED_URL}/api/v1/songs`, {
+  const res = await fetch(`${GATEWAY_URL}/api/v1/songs`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

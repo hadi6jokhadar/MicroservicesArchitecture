@@ -24,6 +24,18 @@ from core.config import settings
 # and at a Docker-internal hostname in production. Every other destination
 # is expected to be a public URL (e.g. the Cloudflare R2 external_url).
 _FILE_MANAGER_HOST = urlparse(settings.FileManagerSettings.BaseUrl).hostname
+_FILE_MANAGER_BASE_URL = settings.FileManagerSettings.BaseUrl.rstrip("/") if settings.FileManagerSettings.BaseUrl else None
+
+
+def _resolve_internal_url(meta: dict) -> Optional[str]:
+    """Build the fetch URL from FileManager's Docker-internal host + relative path
+    instead of trusting FileManager's 'url' field, which is the public gateway
+    hostname (RootStoragePath) — not actually Docker-internal — and can trip the
+    SSRF guard below if that hostname's DNS resolves to a private/CGNAT address."""
+    relative_path = meta.get("path")
+    if _FILE_MANAGER_BASE_URL and relative_path:
+        return f"{_FILE_MANAGER_BASE_URL}/{str(relative_path).lstrip('/')}"
+    return meta.get("url") or None
 
 # ---------------------------------------------------------------------------
 # MIME type sets
@@ -321,7 +333,7 @@ async def build_media_content_blocks(
         external_url: Optional[str] = (
             meta.get("external_url") or meta.get("externalUrl") or None
         )
-        internal_url: Optional[str] = meta.get("url") or None
+        internal_url: Optional[str] = _resolve_internal_url(meta)
         primary_url = external_url or internal_url
         if not primary_url:
             continue
