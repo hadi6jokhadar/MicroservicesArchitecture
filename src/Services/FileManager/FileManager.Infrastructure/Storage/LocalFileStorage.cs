@@ -58,7 +58,7 @@ public class LocalFileStorage : IFileStorage
         {
             // The relativePath stored in DB includes tenant folder (e.g., "ihsandev/system/image/file.webp")
             // We need to construct the full physical path directly from storage root
-            var fullPath = Path.Combine(_options.FilesSavePath, relativePath.Replace("/", "\\"));
+            var fullPath = Path.Combine(_options.FilesSavePath, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
             if (File.Exists(fullPath))
             {
@@ -82,7 +82,7 @@ public class LocalFileStorage : IFileStorage
     public Task<bool> ExistsAsync(string relativePath, CancellationToken cancellationToken = default)
     {
         // The relativePath stored in DB includes tenant folder (e.g., "ihsandev/system/image/file.webp")
-        var fullPath = Path.Combine(_options.FilesSavePath, relativePath.Replace("/", "\\"));
+        var fullPath = Path.Combine(_options.FilesSavePath, relativePath.Replace('/', Path.DirectorySeparatorChar));
         return Task.FromResult(File.Exists(fullPath));
     }
 
@@ -91,7 +91,7 @@ public class LocalFileStorage : IFileStorage
         try
         {
             // The relativePath stored in DB includes tenant folder (e.g., "ihsandev/system/image/file.webp")
-            var fullPath = Path.Combine(_options.FilesSavePath, relativePath.Replace("/", "\\"));
+            var fullPath = Path.Combine(_options.FilesSavePath, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
             if (!File.Exists(fullPath))
             {

@@ -338,7 +338,7 @@ public static class FileManagerEndpoints
 
             // Construct physical path from storage root + relative path
             var storageRoot = configuration["FileManagerOptions:FilesSavePath"] ?? "C:/FileStorage";
-            var physicalPath = Path.Combine(storageRoot, fileMetadata.Path.Replace("/", "\\"));
+            var physicalPath = Path.Combine(storageRoot, fileMetadata.Path.Replace('/', Path.DirectorySeparatorChar));
 
             if (!File.Exists(physicalPath))
                 return Results.NotFound(new { error = localizationService.GetString(LocalizationKeys.Exceptions.FileNotFoundOnDisk), path = physicalPath });
