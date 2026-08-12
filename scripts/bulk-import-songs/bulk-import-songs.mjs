@@ -54,7 +54,7 @@ function loadExistingResults(csvPath) {
 }
 
 async function login(email, password, tenantId) {
-  const res = await fetch(`${IDENTITY_URL}/api/v1/auth/login`, {
+  const res = await fetch(`${GATEWAY_URL}/api/v1/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
