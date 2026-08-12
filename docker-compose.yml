@@ -15,6 +15,17 @@
 #
 # Usage on PC1 (build + push, normally done via the Nx target instead — see docker/build-and-push.mjs):
 #   docker compose build --push
+#
+# Resource limits: every service below sets deploy.resources.limits, sized for an 8GB PC2
+# (e.g. Mac mini M2, 8GB) — `docker compose` (v2 CLI) enforces deploy.resources.limits even
+# without Swarm. Core services total ~4.3GB memory ceiling, leaving headroom inside Docker
+# Desktop's VM (recommend capping the VM itself at ~6GB, leaving ~2GB for macOS) for bursts
+# and for jaeger/prometheus/grafana, which are NOT started by default — they're gated behind
+# the "observability" profile:
+#   docker compose --profile observability up -d     # include the dashboards
+#   docker compose up -d                              # core stack only (default)
+# See Doc/DOCKER_DEPLOYMENT_GUIDE.md → "Resource limits (8GB host sizing)" for the full table
+# and rationale, and for what to do if a container gets OOM-killed under load.
 # Note: every custom service builds for linux/amd64 AND linux/arm64 (PC2 is Apple Silicon).
 # Multi-platform images can't be built to the local Docker engine and pushed separately —
 # `--push` is required in the same step, or docker errors with "cannot load: this image is
@@ -42,6 +53,11 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1024M
     networks:
       - ihsandev-network
 
@@ -59,6 +75,11 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
     networks:
       - ihsandev-network
 
@@ -82,6 +103,11 @@ services:
     ports:
       - "127.0.0.1:5001:5001"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
     networks:
       - ihsandev-network
 
@@ -105,6 +131,11 @@ services:
     ports:
       - "127.0.0.1:5002:5002"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
     networks:
       - ihsandev-network
 
@@ -127,6 +158,11 @@ services:
     ports:
       - "127.0.0.1:5004:5004"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 200M
     networks:
       - ihsandev-network
 
@@ -151,6 +187,11 @@ services:
     ports:
       - "127.0.0.1:5005:5005"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 300M
     networks:
       - ihsandev-network
 
@@ -172,6 +213,11 @@ services:
     ports:
       - "127.0.0.1:5006:5006"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 200M
     networks:
       - ihsandev-network
 
@@ -194,6 +240,11 @@ services:
     ports:
       - "127.0.0.1:5007:5007"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 200M
     networks:
       - ihsandev-network
 
@@ -222,6 +273,11 @@ services:
     ports:
       - "127.0.0.1:5008:5008"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
     networks:
       - ihsandev-network
 
@@ -245,6 +301,11 @@ services:
     ports:
       - "127.0.0.1:5009:5009"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 200M
     networks:
       - ihsandev-network
 
@@ -267,6 +328,11 @@ services:
     ports:
       - "127.0.0.1:5010:5010"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 200M
     networks:
       - ihsandev-network
 
@@ -294,6 +360,11 @@ services:
     ports:
       - "5000:5000"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
     networks:
       - ihsandev-network
 
@@ -311,6 +382,11 @@ services:
     ports:
       - "4200:80"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64M
     networks:
       - ihsandev-network
 
@@ -328,6 +404,11 @@ services:
     ports:
       - "4300:80"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64M
     networks:
       - ihsandev-network
 
@@ -345,15 +426,24 @@ services:
     ports:
       - "4301:80"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64M
     networks:
       - ihsandev-network
 
   # ── Observability (Jaeger/Prometheus/Grafana) — official images, not built by us.
   # Bound to 127.0.0.1 only: these are ops dashboards, not meant to be internet-exposed,
-  # even if the router happened to forward these ports.
+  # even if the router happened to forward these ports. Also opt-in, not started by a
+  # plain `docker compose up -d` (see the sizing note at the top of this file) — start
+  # explicitly with:
+  #   docker compose --profile observability up -d
   jaeger:
     image: jaegertracing/jaeger:latest
     container_name: jaeger
+    profiles: ["observability"]
     # 4317 (OTLP gRPC) / 4318 (OTLP HTTP) intentionally have no host `ports:` entry —
     # they only carry container-to-container trace export over the internal
     # ihsandev-network bridge; every backend's appsettings.Docker.json points its
@@ -365,12 +455,18 @@ services:
       - ./jaeger-v2.yml:/etc/jaeger/config.yml:ro
     command: ["--config=/etc/jaeger/config.yml"]
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 300M
     networks:
       - ihsandev-network
 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
+    profiles: ["observability"]
     volumes:
       # docker/prometheus.yml targets containers by service name (identity:5001, etc.) —
       # NOT the root prometheus.yml, which targets host.docker.internal for host-level dev.
@@ -378,12 +474,18 @@ services:
     ports:
       - "127.0.0.1:9090:9090"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 300M
     networks:
       - ihsandev-network
 
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
+    profiles: ["observability"]
     ports:
       - "127.0.0.1:3100:3000"
     environment:
@@ -397,6 +499,11 @@ services:
       - prometheus
       - jaeger
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 256M
     networks:
       - ihsandev-network
 

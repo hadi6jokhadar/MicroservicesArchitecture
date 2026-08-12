@@ -1,7 +1,14 @@
 // Shared PC2-deploy logic used by deploy-pc2.mjs, deploy-changed.mjs, and
 // build-and-deploy-changed.mjs. Reads PC2_SSH_HOST + PC2_REPO_PATH from .env and SSHes in to run
-// `docker compose pull` + `docker compose up -d` for the given services (or every service if the
-// list is empty).
+// `git pull` + `docker compose pull` + `docker compose up -d` for the given services (or every
+// service if the list is empty).
+//
+// The `git pull` step exists because docker-compose.yml (and anything else tracked, unlike the
+// gitignored appsettings.Docker.json files) only reaches PC2's checkout through git — pulling new
+// images was never enough on its own for a compose-level change (new deploy.resources.limits, a
+// new profile, a new service block, etc.), since PC2's on-disk docker-compose.yml stayed whatever
+// it was at the last manual pull. See Doc/DOCKER_DEPLOYMENT_GUIDE.md's stale-config pitfalls for
+// the appsettings.Docker.json version of this same class of bug.
 //
 // Requires PC2_SSH_HOST to already work as a plain `ssh <PC2_SSH_HOST>` (i.e. already set up in
 // this machine's ~/.ssh/config with a User + IdentityFile, exactly like the "SSH connection" used
@@ -54,6 +61,7 @@ export function deployToPc2(repoRoot, services) {
     `echo '{"credsStore":""}' > /tmp/docker-nocreds/config.json`,
     'export DOCKER_CONFIG=/tmp/docker-nocreds',
     `cd '${PC2_REPO_PATH}'`,
+    'git pull',
     `/usr/local/bin/docker compose pull ${target}`,
     `/usr/local/bin/docker compose up -d ${target}`,
   ].join(' && ');
