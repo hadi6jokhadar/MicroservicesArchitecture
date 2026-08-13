@@ -1,5 +1,7 @@
 # 🔑 Project Isolation Strategy Guide
 
+> **⚠️ DESIGN PROPOSAL — NOT YET IMPLEMENTED.** Everything below (`UserProjects`, per-project role/data isolation, the hybrid approach, the migration strategy, etc.) describes a proposed architecture, not the current codebase. Confirmed by grep: there is no `UserProjects` entity/table anywhere in `src/`, and no real `ProjectId`-based user/permission model exists in Identity or FileManager (or any other service). Read this doc as "if we build project isolation, here's how" — not as documentation of existing behavior. If this is ever implemented, remove this banner and update the doc to reflect the real code.
+
 ## Critical Question: Should Users Be Shared Across Projects or Isolated?
 
 **User's Scenario:** "Some users will use same email in different projects but same identity DB. How do I handle this?"

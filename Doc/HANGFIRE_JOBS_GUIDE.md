@@ -59,7 +59,9 @@ When the browser first opens a dashboard URL, the filter returns `401` with a `W
 
 ### Filter Implementation
 
-Lives in each service's `HangfireExtensions.cs` (e.g., `Category.Infrastructure/Extensions/HangfireExtensions.cs`):
+Lives in each service's `HangfireExtensions.cs` (e.g., `Category.Infrastructure/Extensions/HangfireExtensions.cs`). The shape below is the baseline used by Category, FileManager, and Tenant.
+
+> **Not uniform across all five services:** Backup's and Notification's `HangfireBasicAuthFilter` (`Backup.Infrastructure/Extensions/HangfireExtensions.cs`, `Notification.API/Extensions/HangfireExtensions.cs`) are hardened beyond the version shown below — they add per-IP throttling (a `ConcurrentDictionary<string, FailedAttemptWindow>` keyed by `httpContext.Connection.RemoteIpAddress`, capping failed attempts at 5 per 5-minute window and returning `429` once exceeded) and a constant-time credential comparison instead of a plain `==`/string equality check. Category, FileManager, and Tenant still use the simpler unthrottled version below. When adding a new Hangfire dashboard, prefer copying the Backup/Notification version as the current best-practice baseline.
 
 ```csharp
 internal sealed class HangfireBasicAuthFilter : IDashboardAuthorizationFilter

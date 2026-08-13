@@ -1,7 +1,7 @@
 # File Manager Service
 
 **Purpose:** Complete guide to the File Manager Service - handles file upload, storage, retrieval, and management with multi-tenancy support.  
-**Last Updated:** August 3, 2026  
+**Last Updated:** August 13, 2026  
 **Status:** ✅ Production Ready (v3.1.0)
 
 ---
@@ -134,13 +134,17 @@ FileManager/
   },
 
   "FileManagerOptions": {
-    "RootStoragePath": "C:\\FileStorage",
-    "FilesSavePath": "uploads",
+    "RootStoragePath": "http://localhost:5005",
+    "FilesSavePath": "C:/FileStorage",
     "FfmpegPath": "ffmpeg",
     "FfmpegTimeoutSeconds": 60,
-    "MaxFileSizeInMB": 50,
+    "MaxFileSizeBytes": 104857600,
     "AllowedExtensions": [".jpg", ".png", ".pdf", ".docx", ".xlsx", ".zip"],
-    "TempFileRetentionDays": 30
+    "ExtensionToTypeMapping": {
+      ".jpg": "Image",
+      ".png": "Image",
+      ".pdf": "Other"
+    }
   },
 
   "BlobStorage": {
@@ -155,6 +159,8 @@ FileManager/
   }
 }
 ```
+
+> **`RootStoragePath` vs `FilesSavePath` — these are NOT nested.** `RootStoragePath` is the **public URL prefix** used to build the `url` field returned in every response (`FileManagerService` reads it as `_urlPrefix` and passes it to `FileManagerResponse.MapFrom`) — it is a URL like `http://localhost:5005`, never a filesystem path. `FilesSavePath` is the **actual physical disk root** where files are written and read (`LocalFileStorage`, the static-file middleware, and the `/files/{id}/download` endpoint all resolve the physical path as `Path.Combine(FilesSavePath, relativePath)`) — e.g. `C:/FileStorage` in dev, a container-mounted path in Docker. See **File Storage** below for the exact on-disk layout.
 
 ### Environment Variables
 
@@ -171,7 +177,8 @@ ASPNETCORE_URLS=https://localhost:5005;http://localhost:5004
 ASPNETCORE_ENVIRONMENT=Production
 DatabaseSettings__ConnectionString="Server=prod-db.azure.com;..."
 Redis__ConnectionString="prod-redis.azure.com:6380,ssl=true,password=xxx"
-FileManagerOptions__RootStoragePath="/var/filemanager/storage"
+FileManagerOptions__FilesSavePath="/var/filemanager/storage"
+FileManagerOptions__RootStoragePath="https://files.example.com"
 ```
 
 ---
@@ -259,7 +266,7 @@ In the tenant's `Configuration` field, add a `BlobStorage` block following the s
 | `/files/{id}`                  | GET    | Get file metadata                                                        |
 | `/files`                       | GET    | List files (paginated, filtered)                                         |
 | `/files/{id}`                  | PUT    | Update file metadata                                                     |
-| `/files/{id}`                  | DELETE | Delete file (soft delete)                                                |
+| `/files/{id}`                  | DELETE | Delete file (**hard delete** — removed from DB, local disk, and blob if `ExternalUrl` is set) |
 | `/files/{id}/download`         | GET    | Download file (anonymous)                                                |
 | `/files/{id}/upload-to-blob`   | POST   | Upload file to third-party blob (e.g. Cloudflare R2), sets `ExternalUrl` |
 | `/files/{id}/remove-from-blob` | DELETE | Remove file from blob storage, clears `ExternalUrl`                      |
@@ -274,13 +281,15 @@ Content-Type: multipart/form-data
 
 Form Data:
   file: [binary file data]
-  name: "invoice.pdf"
   group: 1
-  type: 3
-  temp: false
   userId: 123   # only honored for Service/Admin/SuperAdmin callers — see note below
 ```
 
+> **Only `file`, `group`, and `userId` are accepted form fields** — `FileManagerApiHandlers.SaveFile` binds exactly `IFormFile file`, `[FromForm] int? group` (defaults to `1` if omitted), and `[FromForm] int? userId`. There is no `name`, `type`, or `temp` form field:
+> - **`name`** is always server-derived from the uploaded file's own filename (`Path.GetFileNameWithoutExtension`) — a client cannot rename the stored file via this field.
+> - **`type`** is always server-computed from the extension/content-type (`FileManagerService.MapExtensionToFileType`, using `FileManagerOptions:ExtensionToTypeMapping` with a built-in fallback) — never taken from the client.
+> - **`temp`** is always initialized to `true` on save; it only changes afterward through the usage-tracking mechanism (`ChangeTempStatusAsync` / `PATCH /internal/files/{id}/temp-status`), never as a direct upload field.
+>
 > **Uploader identity:** the `userId` form field is only trusted when the authenticated caller has the `Service`, `Admin`, or `SuperAdmin` role (service-to-service uploads on behalf of another user). For a plain `User`-role caller, the form field is ignored entirely — the file's owner is always the JWT-authenticated caller's own ID (via `ICurrentUserService.UserId`), so one user can never tag an upload as belonging to another user. See `FileManager.API/Handlers/FileManagerApiHandlers.cs`.
 
 **Response:**
@@ -370,39 +379,30 @@ If FFmpeg is missing in the container, `.webm` upload conversion will fail.
 **Authentication:** Requires JWT (no `x-tenant-id` header)  
 **Authorization:** Service, SuperAdmin roles
 
-| Endpoint                                    | Method | Description                                 |
-| ------------------------------------------- | ------ | ------------------------------------------- |
-| `/files?tenantId=xxx`                       | POST   | Upload file to specific tenant or global DB |
-| `/files/{id}`                               | GET    | Get file from any tenant                    |
-| `/files`                                    | GET    | List files across tenants                   |
-| `/files/{id}`                               | PUT    | Update file in any tenant                   |
-| `/files/{id}`                               | DELETE | Delete file from any tenant                 |
-| `/files/temp/all`                           | DELETE | Delete all temp files (cross-tenant)        |
-| `/files/temp/old?days=30`                   | DELETE | Delete old temp files                       |
-| `/files/{id}/upload-to-blob?tenantId=xxx`   | POST   | Upload file to blob for any tenant          |
-| `/files/{id}/remove-from-blob?tenantId=xxx` | DELETE | Remove file from blob for any tenant        |
+> **Only five admin endpoints actually exist** (`FileManager.API/Endpoints/FileManagerEndpoints.cs`, `adminGroup`). There is **no** admin `POST /files` (upload), `GET /files/{id}`, `GET /files` (list), or `PUT /files/{id}` — the source file has a literal comment noting those were deferred (`// ... (Keep admin endpoints logic here or move to handlers if you wish, but for now focus on tenant)`) and never implemented. Admin/cross-tenant file uploads, reads, and updates do not exist today — only delete and blob operations do.
 
-**Upload to Global Database:**
+| Endpoint                                     | Method | Description                                                              |
+| --------------------------------------------- | ------ | ------------------------------------------------------------------------- |
+| `/files/{id}?tenantId=xxx`                    | DELETE | Delete file from any tenant (or global DB if `tenantId` omitted)         |
+| `/files/temp/all`                             | DELETE | Delete all temp files (cross-tenant)                                     |
+| `/files/temp/old?olderThanDays=7`              | DELETE | Delete old temp files (default `olderThanDays=7` if omitted)             |
+| `/files/{id}/upload-to-blob?tenantId=xxx`     | POST   | Upload file to blob for any tenant (or global DB if `tenantId` omitted)  |
+| `/files/{id}/remove-from-blob?tenantId=xxx`   | DELETE | Remove file from blob for any tenant (or global DB if `tenantId` omitted) |
+
+**Delete a file from a specific tenant:**
 
 ```http
-POST https://localhost:5005/api/v1/filemanager/admin/files
+DELETE https://localhost:5005/api/v1/filemanager/admin/files/456?tenantId=ihsandev
 Authorization: Bearer {global-jwt}
-Content-Type: multipart/form-data
-
-Form Data:
-  file: [binary file data]
-  name: "system-logo.png"
-
-# No tenantId = Uses global database
 ```
 
-**Upload to Specific Tenant:**
+**Delete a file from the global database:**
 
 ```http
-POST https://localhost:5005/api/v1/filemanager/admin/files?tenantId=ihsandev
+DELETE https://localhost:5005/api/v1/filemanager/admin/files/456
 Authorization: Bearer {global-jwt}
 
-# SuperAdmin uploads to tenant "ihsandev"
+# No tenantId = targets the global database
 ```
 
 ### Static File Access
@@ -438,7 +438,7 @@ Example: https://localhost:5005/ihsandev/123/personal/abc-123.jpg
 | Size           | bigint         | Size in bytes                                   | ❌      |
 | Path           | varchar(500)   | Storage path (relative)                         | ❌      |
 | Group          | int            | FileGroup enum (1-6)                            | ✅      |
-| Type           | int            | FileType enum (0-3)                             | ✅      |
+| Type           | int            | FileType enum (1-4)                             | ✅      |
 | Temp           | bool           | Temporary flag (auto-managed by usage tracking) | ✅      |
 | UserId         | int (nullable) | Owner user ID                                   | ✅      |
 | IsArchived     | bool           | Soft delete flag                                | ✅      |
@@ -491,10 +491,10 @@ public enum FileGroup
 ```csharp
 public enum FileType
 {
-    Music = 0,   // .mp3, .wav, .flac, .aac
-    Video = 1,   // .mp4, .avi, .mov, .mkv
-    Image = 2,   // .jpg, .png, .gif, .bmp, .svg
-    Other = 3    // All other extensions
+    Music = 1,   // .mp3, .wav, .flac, .aac
+    Video = 2,   // .mp4, .avi, .mov, .mkv
+    Image = 3,   // .jpg, .png, .gif, .bmp, .svg
+    Other = 4    // All other extensions
 }
 ```
 
@@ -571,41 +571,53 @@ else
 
 ## File Storage
 
-### Storage Structure
+> **`FilesSavePath` is the physical disk root — `RootStoragePath` is only a URL prefix, never a folder.** `LocalFileStorage.GetFullPath`/`DeleteAsync`/`ExistsAsync`/`GetAsync` all resolve the on-disk path as `Path.Combine(FilesSavePath, sanitized-tenant-id, relativePath)`; `RootStoragePath` never touches the filesystem — it's only concatenated onto the stored relative path to build the `url` field in `FileManagerService`'s `_urlPrefix` (`FileManagerResponse.MapFrom(entity, _urlPrefix)`).
+
+### Storage Structure (on disk, under `FilesSavePath`)
 
 ```
-{RootStoragePath}/
+{FilesSavePath}/
 ├── {sanitized-tenant-id}/
-│   └── {FilesSavePath}/
-│       ├── {userId}/
-│       │   ├── Personal/
-│       │   │   └── {guid}.jpg
-│       │   ├── Shared/
-│       │   ├── Project/
-│       │   └── Archive/
-│       └── system/
-│           └── System/
+│   ├── {userId}/
+│   │   ├── music/
+│   │   ├── video/
+│   │   ├── image/
+│   │   │   └── {guid}.jpg
+│   │   └── other/
+│   └── system/
+│       ├── music/
+│       ├── video/
+│       ├── image/
+│       └── other/
 └── {another-tenant}/
     └── ...
 ```
 
-**Path Pattern:**  
-`{RootStoragePath}/{sanitized-tenant-id}/{FilesSavePath}/{userId|system}/{category}/{guid.ext}`
+Category folders come from `FileType.ToString().ToLowerInvariant()` (`music`/`video`/`image`/`other`), not from `FileGroup` — `FileGroup` (Personal/Shared/System/Project/Archive/AI) is stored as a column on the entity but is not part of the physical folder path.
 
-**Example:**  
-`C:\FileStorage\ihsandev\uploads\123\personal\abc-123-def-456.pdf`
+**Physical path pattern:**  
+`{FilesSavePath}/{sanitized-tenant-id}/{userId|system}/{fileType}/{guid.ext}`
+
+**Physical path example:**  
+`C:/FileStorage/ihsandev/123/image/abc-123-def-456.jpg`
+
+**Stored `Path` value (relative, forward slashes, includes tenant prefix):**  
+`ihsandev/123/image/abc-123-def-456.jpg`
+
+**Public `Url` value (`RootStoragePath` + stored `Path`):**  
+`http://localhost:5005/ihsandev/123/image/abc-123-def-456.jpg`
 
 ### Response Fields
 
 ```json
 {
-  "path": "ihsandev/123/personal/abc-123.pdf", // Storage path (backend)
-  "url": "https://localhost:5005/ihsandev/123/personal/abc-123.pdf" // Public URL (frontend)
+  "path": "ihsandev/123/image/abc-123.jpg", // Storage path (backend) — relative, tenant-prefixed
+  "url": "http://localhost:5005/ihsandev/123/image/abc-123.jpg" // Public URL = RootStoragePath + Path
 }
 ```
 
-- **Path**: Relative path stored in database (forward slashes normalized)
-- **Url**: Full public URL constructed from configuration (for direct access)
+- **Path**: Relative path stored in database (forward slashes normalized, includes the sanitized tenant folder)
+- **Url**: `RootStoragePath` concatenated with `Path` (for direct access) — `RootStoragePath` is a URL, not a filesystem location
 
 ---
 
@@ -645,36 +657,31 @@ else
 
 ## Background Jobs
 
-### TempFileCleanupService
+### TempFileCleanupJob (Hangfire recurring job)
 
-**Purpose:** Automatically delete temporary files older than configured retention period.
+**Purpose:** Automatically delete temporary files older than a retention period.
 
-**Schedule:** Daily at 2:00 AM
+> **This runs as a Hangfire recurring job (`FileManager.Infrastructure/Jobs/TempFileCleanupJob.cs`), not as a plain `BackgroundService` polling loop.** An older `TempFileCleanupService` (`FileManager.Infrastructure/BackgroundJobs/TempFileCleanupService.cs`, a 24-hour `Task.Delay` loop) still exists in the codebase but is **not registered anywhere** (`InfrastructureServiceExtensions.AddInfrastructureServices` only calls `AddFileManagerHangfire`) — it is dead code superseded by the Hangfire job, the same pattern as Dotnet.instructions.md pitfall #25's `TenantCacheRefreshService`. Registered via `HangfireExtensions.RegisterFileManagerRecurringJobs()`, dashboard at `/admin/jobs/filemanager` (Basic Auth via `Hangfire:Dashboard:Username`/`Password`).
+
+**Schedule:** Daily at **02:00 UTC** — Hangfire cron `"0 2 * * *"` with `TimeZoneInfo.Utc`.
+
+**Retention period:** **Hardcoded as constants in `TempFileCleanupJob`** — `OlderThanDays = 7` for normal files, `AiOlderThanDays = 30` for `FileGroup.AI` files. There is **no** `FileManagerOptions:TempFileRetentionDays` (or any other) config key controlling this — `FileManagerOptions` has no retention-related property at all. Changing the retention window requires editing the constants in code.
 
 **Features:**
 
-- ✅ **Parallel Processing**: 5-10x faster than sequential cleanup
-- ✅ **Batch Operations**: Processes files in configurable batches
-- ✅ **Physical Deletion**: Removes files from both database and disk storage
-- ✅ **Error Handling**: Continues on individual file failures
-- ✅ **Logging**: Detailed cleanup metrics
-
-**Configuration:**
-
-```json
-{
-  "FileManagerOptions": {
-    "TempFileRetentionDays": 30 // Delete temp files older than 30 days
-  }
-}
-```
+- ✅ **Parallel Processing**: cleans all tenants concurrently via `Task.WhenAll` (multi-tenant mode)
+- ✅ **Physical Deletion**: removes files from the database, local disk (`IFileStorage.DeleteAsync`), and blob storage (if `ExternalUrl` is set)
+- ✅ **Error Handling**: continues on individual tenant/file failures
+- ✅ **Logging**: per-tenant success/failure counts
 
 **Manual Trigger (Admin Endpoint):**
 
 ```http
-DELETE https://localhost:5005/api/v1/filemanager/admin/files/temp/old?days=30
+DELETE https://localhost:5005/api/v1/filemanager/admin/files/temp/old?olderThanDays=7
 Authorization: Bearer {global-jwt}
 ```
+
+> Query parameter is **`olderThanDays`** (default `7` if omitted) — not `days`. This admin endpoint only accepts `olderThanDays`; the AI-specific 30-day window is not exposed as a query parameter (it's a separate hardcoded `aiOlderThanDays` argument on the underlying command, defaulted to `30`).
 
 ---
 
@@ -809,7 +816,9 @@ await _fileManagerClient.ChangeTempStatusAsync(newFileId, "Artist", entity.Id.To
 
 ### What it means
 
-Entities store only a `FileId` (int) FK to FileManager. API responses must include the full `FileManagerDto` object (name, url, externalUrl, etc.) populated by calling FileManager before returning.
+Entities store only a `FileId` (int) FK to FileManager. API responses must include the full `FileManagerDto` object (name, url, etc.) populated by calling FileManager before returning.
+
+> **`FileManagerDto` (the shared client model used for this enrichment) has NO `ExternalUrl` property.** `IFileManagerServiceClient.GetFileByIdAsync`/`GetFilesByIdsAsync` (`IhsanDev.Shared.Application/Common/Interfaces/IFileManagerServiceClient.cs`) return `FileManagerDto`, whose fields are `Id, Name, Extension, Size, Path, Url, Group, Type, Temp, Status, IsArchived, UserId, Created, LastModified` — `ExternalUrl` is not one of them. Only FileManager's **own** internal response type, `FileManagerResponse` (returned directly by FileManager's `/files/*` endpoints), carries `ExternalUrl`. Any enrichment done through this DTO-enrichment pattern will therefore always leave `externalUrl` absent/null on the enriched DTO — do not build frontend logic that expects an enriched `file.externalUrl` to ever be populated. If a consuming service genuinely needs the blob URL, either extend `FileManagerDto` (and the client's mapping) to include it, or read `FileManagerResponse.ExternalUrl` from FileManager's own endpoints directly instead of through this shared enrichment path.
 
 **DTO before enrichment (not what clients want):**
 
@@ -817,7 +826,7 @@ Entities store only a `FileId` (int) FK to FileManager. API responses must inclu
 { "fileId": 42, "file": null }
 ```
 
-**DTO after enrichment (correct):**
+**DTO after enrichment (correct — note no `externalUrl`, since `FileManagerDto` doesn't carry it):**
 
 ```json
 {
@@ -826,7 +835,6 @@ Entities store only a `FileId` (int) FK to FileManager. API responses must inclu
     "id": 42,
     "name": "song.mp3",
     "url": "https://localhost:5005/ihsandev/1/music/abc.mp3",
-    "externalUrl": "https://pub-xxx.r2.dev/abc.mp3",
     "extension": ".mp3",
     "size": 5242880
   }
@@ -998,30 +1006,22 @@ export interface ArtistModel {
 **For images (artist image, profile picture):**
 
 ```html
-@if (artist.imageFile?.externalUrl || artist.imageFile?.url) {
-<img
-  [src]="artist.imageFile.externalUrl ?? artist.imageFile.url"
-  [alt]="artist.name"
-  class="artist-image"
-/>
+@if (artist.imageFile?.url) {
+<img [src]="artist.imageFile.url" [alt]="artist.name" class="artist-image" />
 }
 ```
 
 **For audio files (songs):**
 
 ```html
-@if (song.file?.externalUrl || song.file?.url) {
+@if (song.file?.url) {
 <audio controls>
-  <source [src]="song.file.externalUrl ?? song.file.url" />
+  <source [src]="song.file.url" />
 </audio>
 }
 ```
 
-**URL priority:** Always prefer `externalUrl` (Cloudflare R2 / CDN) over `url` (direct server) when available:
-
-```html
-[src]="item.file.externalUrl ?? item.file.url"
-```
+> **`externalUrl` is not available through this enrichment path.** As noted above, the backend's `FileManagerDto` (what powers `song.file`/`artist.imageFile` here) has no `ExternalUrl` field, so a frontend model that mirrors it (`IFileManagerResponse`) should not rely on `externalUrl ?? url` fallbacks for data that arrived via cross-service enrichment — only `url` is guaranteed to be populated. `externalUrl` is only meaningful when the data came directly from FileManager's own `/files/*` responses (`FileManagerResponse`), which do include it.
 
 ### Real implementations in this codebase
 
@@ -1036,23 +1036,23 @@ export interface ArtistModel {
 
 ### File Size Limits
 
-**Configuration:**
+**Configuration:** the key is **`MaxFileSizeBytes`** (a `long`, in bytes) — there is no `MaxFileSizeInMB` key.
 
 ```json
 {
   "FileManagerOptions": {
-    "MaxFileSizeInMB": 50
+    "MaxFileSizeBytes": 104857600
   }
 }
 ```
 
-**Validation:**
+**Validation:** happens inline in `FileManagerService.SaveFileAsync` (`FileManager.Infrastructure/Services/FileManagerService.cs`) — **not** in `SaveFileCommandValidator`. The FluentValidation validator only checks that `File` is non-null and `Group` is a valid enum value; size and extension checks are business logic performed directly in the service before the file is saved:
 
 ```csharp
-// Automatic validation in SaveFileCommandValidator
-if (file.Length > maxSizeBytes)
+// FileManagerService.SaveFileAsync
+if (file.Length > _options.MaxFileSizeBytes)
 {
-    throw new FileSizeExceededException($"File exceeds {maxSizeMB} MB limit");
+    throw new Domain.Exceptions.FileValidationException(LocalizationKeys.Exceptions.FileSizeExceeded, _localizationService);
 }
 ```
 
@@ -1068,14 +1068,13 @@ if (file.Length > maxSizeBytes)
 }
 ```
 
-**Validation:**
+**Validation:** also inline in `FileManagerService.SaveFileAsync`, immediately after the size check:
 
 ```csharp
-// Automatic validation in SaveFileCommandValidator
 var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-if (!allowedExtensions.Contains(extension))
+if (string.IsNullOrEmpty(extension) || !_options.AllowedExtensions.Contains(extension))
 {
-    throw new FileExtensionNotAllowedException($"Extension {extension} not allowed");
+    throw new Domain.Exceptions.FileValidationException(LocalizationKeys.Exceptions.InvalidFileType, _localizationService);
 }
 ```
 
@@ -1106,21 +1105,11 @@ An earlier version of this fix forced `attachment` on SVG too, on the theory tha
 
 ### Access Control
 
-**File Access Levels:**
-
-- **Private**: Only owner can access
-- **TenantWide**: Anyone in same tenant
-- **Public**: Anyone with the link (no auth)
-
-**System File Protection:**
-
-```csharp
-// Cannot delete system files
-if (userId == null || userId == 0)
-{
-    throw new FileDeletionException("Cannot delete system files");
-}
-```
+> **No file-level access-control or ownership enforcement exists today.** `FileManagerEntity` has no access-level field (no `Private`/`TenantWide`/`Public` enum, no equivalent column) and no owner-check logic exists anywhere in the delete path. `DeleteFileCommandHandler` calls `IFileManagerService.DeleteFileAsync(id)` directly, and `FileManagerService.DeleteFileAsync` only checks whether the entity exists — it never compares the entity's `UserId` against the caller's identity, and there is no "system file" (`UserId == null`) protection that blocks deletion. Any authenticated caller with the `User`, `Admin`, or `SuperAdmin` role (and, in multi-tenant mode, a JWT whose `tenant_id` matches the `x-tenant-id` header) can delete **any** file ID in that tenant's database, including files owned by another user or files with no owner (`UserId == null`, e.g. system files uploaded via `system/{category}/...`).
+>
+> Actual access boundaries today are: (1) the tenant JWT/header cross-check (`JwtTenantVerificationMiddleware`), which prevents cross-**tenant** access but does nothing within a tenant, and (2) the role check on each endpoint (`User`/`Admin`/`SuperAdmin` for tenant endpoints, `Service`/`SuperAdmin` for admin endpoints). There is no per-file, per-owner authorization layer. If per-file access control is ever required, it does not exist yet and would need to be designed and added — do not assume it's already enforced.
+>
+> **Static file serving is fully anonymous by design** (see Static File Access above) — any file's public URL is accessible to anyone who has or guesses it, regardless of `FileGroup` or `UserId`.
 
 ---
 
@@ -1141,12 +1130,16 @@ if (userId == null || userId == 0)
 
 ### Custom Exceptions
 
+The actual exception types defined in `FileManager.Domain/Exceptions/FileManagerExceptions.cs` are:
+
 ```csharp
-// FileManager.Domain/Exceptions/
-public class FileSizeExceededException : Exception { }
-public class FileExtensionNotAllowedException : Exception { }
-public class FileDeletionException : Exception { }
+// FileManager.Domain/Exceptions/FileManagerExceptions.cs
+public class FileNotFoundException : NotFoundException      // LocalizationKeys.Exceptions.FileNotFound; carries FileId
+public class FileValidationException : BadRequestException  // used for size, extension, magic-byte, and SVG-sanitization failures
+public class FileStorageException : Exception                // physical save/read/delete failures in LocalFileStorage
 ```
+
+There is **no** `FileSizeExceededException`, `FileExtensionNotAllowedException`, or `FileDeletionException` — those classes do not exist. Size limit, disallowed extension, magic-byte mismatch, and invalid SVG all throw the same `FileValidationException` (a `BadRequestException` subclass), distinguished only by which `LocalizationKeys.Exceptions.*` key is passed in (`FileSizeExceeded`, `InvalidFileType`, etc.) — see **Security & Validation** above.
 
 **Delete Operations:**
 
@@ -1176,9 +1169,7 @@ Content-Type: multipart/form-data
 
 Form Data:
   file: [select file]
-  name: "test.pdf"
   group: 1
-  temp: false
   userId: 123
 ```
 
@@ -1238,8 +1229,8 @@ else
 
 **Solution:**
 
-- Verify `FileManagerOptions:RootStoragePath` exists and is accessible
-- Check file path in database matches physical location
+- Verify `FileManagerOptions:FilesSavePath` (the physical disk root — **not** `RootStoragePath`, which is only the URL prefix) exists and is accessible
+- Check file path in database matches physical location under `FilesSavePath`
 - Ensure static files middleware is registered: `app.UseStaticFiles()`
 
 ### Issue: Cache not working
@@ -1317,6 +1308,6 @@ dotnet ef database update
 
 ---
 
-**Last Updated:** August 3, 2026  
-**Version:** 2.0.0  
+**Last Updated:** August 13, 2026  
+**Version:** 3.1.0  
 **Status:** ✅ Production Ready

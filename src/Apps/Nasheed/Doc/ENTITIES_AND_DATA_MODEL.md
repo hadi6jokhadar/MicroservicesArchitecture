@@ -1,6 +1,6 @@
 # Nasheed Service — Entities and Data Model
 
-**Last Updated:** August 6, 2026
+**Last Updated:** August 13, 2026
 
 ---
 
@@ -56,7 +56,7 @@ The execution state of an ingestion job.
 
 ## Entities
 
-All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides `Id` (int, auto-increment), `CreatedAt`, `UpdatedAt`, and soft-delete via `IsDeleted`. Exceptions are noted below.
+All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides `Id` (int, auto-increment), `Created` (DateTime), `CreatedBy` (string?), `LastModified`/`LastModifiedBy` (nullable), `Status` (bool, default `true`), and soft-delete/archive via `IsArchived` (bool, default `false`) — not `CreatedAt`/`UpdatedAt`/`IsDeleted` as this doc previously said; those property names don't exist on `BaseEntity`. `CreatedBy` is stamped automatically (by `BaseDbContext`) and is what `UpdateSongCommandHandler`'s ownership check compares against the current user — see `Doc/OVERVIEW.md` "Content-Editor Permission Claims". Exceptions to inheriting `BaseEntity` are noted below.
 
 ### `ArtistEntity`
 
@@ -92,7 +92,9 @@ All entities extend `BaseEntity` (from `IhsanDev.Shared.Kernel`) which provides 
 | `PublishedAt`       | DateTime?                       | When the song was published                              |
 | `LyricsVerified`    | bool                            | Admin-controlled flag indicating the song's lyrics have been manually reviewed/approved. Default `false`. Unrelated to `LyricsVerifiedLrc` (the verified LRC lyrics text) — toggled independently via `PATCH /api/v1/songs/{id}/toggle-lyrics-verified`, or force-reset to `false` (alongside a full pipeline re-queue) via `POST /api/v1/songs/{id}/retry-analysis` |
 
-**Domain methods:** `Create(artistId?, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `UpdateLegalComplianceFromAi(copyrightRiskLevel?, contentSafetyFlag?, riskReason?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateTitle(title)`, `UpdateArtist(artistId?)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`, `SetLyricsVerified(verified)`
+**Domain methods:** `Create(artistId?, title, fileId)`, `UpdateMetadata(languageCode?, lyricsRaw?, summary?, vocalStyle?, durationSeconds?)`, `UpdateLegalComplianceFromAi(copyrightRiskLevel?, contentSafetyFlag?, riskReason?)`, `SetVerifiedLyrics(lrc, plainText)`, `UpdateVerifiedLyrics(lyricsVerifiedLrc?, lyricsPlainText?)`, `UpdateTitle(title)`, `UpdateArtist(artistId?)`, `SetState(SongState)`, `SetSearchIndexStatus(SearchIndexStatus)`, `Publish()`, `SetLyricsVerified(verified)`
+
+`UpdateVerifiedLyrics` is a partial-update variant used by `UpdateSongCommandHandler` (only overwrites the field(s) actually provided, `null` = leave unchanged) — distinct from `SetVerifiedLyrics`, which unconditionally sets both fields together (used by the ingestion worker's `LyricsVerification` job).
 
 `ArtistId` is optional. Songs can be created without linking an artist.
 
@@ -177,14 +179,14 @@ Tracks each AI processing job with full retry state.
 | `JobType`     | `IngestionJobType`   | Which stage to run                         |
 | `JobStatus`   | `IngestionJobStatus` | Current execution state                    |
 | `RetryCount`  | int                  | How many times this job has been attempted |
-| `MaxRetries`  | int                  | Default 3                                  |
+| `MaxRetries`  | int                  | Default 10 (this doc previously said 3; corrected — `SongIngestionJobEntity.Create`'s `maxRetries` parameter defaults to 10, and every call site in the codebase omits the argument, so every job actually gets 10) |
 | `LastError`   | string?              | Last error message                         |
 | `NextRetryAt` | DateTime?            | When to retry after failure                |
 | `StartedAt`   | DateTime?            | When the current run began                 |
 | `CompletedAt` | DateTime?            | When successfully completed                |
 | `RemovedAt`   | DateTime?            | When manually removed                      |
 
-**Domain methods:** `Create(songId, fileId, jobType, maxRetries=3)`, `MarkRunning()`, `MarkCompleted()`, `MarkFailed(error, nextRetryAt, retryable=true)`, `MarkRemoved()`, `ResetForRetry()`
+**Domain methods:** `Create(songId, fileId, jobType, maxRetries=10)`, `MarkRunning()`, `MarkCompleted()`, `MarkFailed(error, nextRetryAt, retryable=true)`, `MarkRemoved()`, `ResetForRetry()`
 
 > **Unique index:** `(SongId, JobType)` has a unique index guarding against duplicate concurrent jobs for the same song+type pair. The worker checks for an existing pending/running job before inserting a new one.
 

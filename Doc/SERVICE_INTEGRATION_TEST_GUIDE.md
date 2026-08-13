@@ -534,6 +534,8 @@ See `src/Apps/Nasheed/Nasheed.API.Tests/README.md` as the canonical example.
 | ------------------------------------------- | -------------------------------------------------------------------------------- |
 | `CustomWebApplicationFactory<TProgram>`     | SQLite/PostgreSQL DB swap, `ConfigureDbContext<T>()`, `InitializeDatabase<T>()`  |
 | `IntegrationTestBase<TDbContext, TFactory>` | `SendAsync()`, `ExecuteDbContextAsync()`, `GenerateUniqueString()`, auth helpers |
+| `Helpers/TestHelpers.cs`                    | Static utilities: `GenerateUniqueEmail()`, `GenerateUniqueString()`, `GenerateUniqueInt()`, `WaitForConditionAsync()`/`WaitForCondition()` |
+| `Helpers/TenantTestHelper.cs`               | Static utilities for cross-service tenant setup: `GenerateUniqueUserId()`, `GenerateUniqueTenantId()`, `CreateUserAndTenantAsync()` (via HTTP against Tenant Service), `GetTenantByIdAsync()`, `IsTenantEnabledAsync()` |
 
 Full API: `src/Shared/IhsanDev.Shared.Testing/README.md`  
 Migration log: `Doc/SHARED_TESTING_FILES.md`

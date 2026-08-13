@@ -70,7 +70,7 @@ The Gateway exposes:
 
 ### Correlation ID — end-to-end request chain
 
-**Backend:** `CorrelationIdMiddleware` in `IhsanDev.Shared.Infrastructure` is registered in every service via `app.UseCorrelationId()` (placed before `UseLocalization`). It:
+**Backend:** `CorrelationIdMiddleware` in `IhsanDev.Shared.Infrastructure` is registered in every service via `app.UseCorrelationId()`. **Pipeline position (updated August 2026):** `app.UseGlobalExceptionHandler()` must be the very first middleware in every service (it wraps, and therefore catches exceptions from, everything registered after it — see `.claude/instructions/Dotnet.instructions.md` pitfall #42 and `Doc/SERVICE_STARTUP_SEQUENCES.md`), with `app.UseCorrelationId()` immediately next and `app.UseLocalization()` right after that: `UseGlobalExceptionHandler() → UseCorrelationId() → UseLocalization() → ...`. This moved `UseCorrelationId()`/`UseLocalization()` inside the exception handler's coverage — previously they ran *before* the handler was registered, so an exception thrown by either of them (rare, but possible) went unhandled. It:
 1. Reads `X-Correlation-Id` from the inbound request (or generates a new UUID if missing)
 2. Stores it in `HttpContext.Items["CorrelationId"]`
 3. Echoes it back in the `X-Correlation-Id` response header

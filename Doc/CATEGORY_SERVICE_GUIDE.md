@@ -3,7 +3,7 @@
 **Purpose:** Complete reference for the Category microservice — architecture, data model, API endpoints, CQRS handlers, caching, File Manager integration, and configuration.
 
 **Service Port:** `5007`  
-**Last Updated:** May 19, 2026
+**Last Updated:** August 13, 2026
 
 ---
 
@@ -81,8 +81,12 @@ src/Services/Category/
 │
 ├── Category.Infrastructure/
 │   ├── BackgroundServices/
-│   │   └── OutboxEventProcessorService.cs          # Polls outbox table, publishes to Redis
-│   ├── Extensions/InfrastructureServiceExtensions.cs
+│   │   └── OutboxEventProcessorService.cs          # ⚠️ Dead code: superseded by Jobs/OutboxEventProcessorJob.cs — not registered anywhere
+│   ├── Jobs/
+│   │   └── OutboxEventProcessorJob.cs              # ✅ Active: Hangfire recurring job, polls outbox table, publishes to Redis
+│   ├── Extensions/
+│   │   ├── InfrastructureServiceExtensions.cs
+│   │   └── HangfireExtensions.cs                   # AddCategoryHangfire — registers Hangfire server + recurring job + dashboard
 │   ├── Services/
 │   │   ├── OutboxCategoryEventPublisher.cs         # ✅ Active: writes to EF outbox
 │   │   ├── NoOpCategoryEventPublisher.cs           # Used when Redis:Enabled = false
@@ -161,7 +165,7 @@ src/Services/Category/
 
 ### `OutboxEventEntity` (table: `category_outbox_events`)
 
-Persisted record of a pending category event. Written atomically alongside the entity mutation by `OutboxCategoryEventPublisher`. The background `OutboxEventProcessorService` reads unprocessed rows and delivers them to Redis Pub/Sub.
+Persisted record of a pending category event. Written atomically alongside the entity mutation by `OutboxCategoryEventPublisher`. The `OutboxEventProcessorJob` Hangfire recurring job reads unprocessed rows and delivers them to Redis Pub/Sub.
 
 | Column         | Type           | Description                                                                       |
 | -------------- | -------------- | --------------------------------------------------------------------------------- |
@@ -242,9 +246,9 @@ When `x-tenant-id` is omitted the global fallback database is used (`OptionalTen
 
 ---
 
-### Tenant Endpoints — `/api/categories`
+### Tenant Endpoints — `/api/v1/categories`
 
-#### `POST /api/categories`
+#### `POST /api/v1/categories`
 
 Creates a new category node.
 
@@ -275,7 +279,7 @@ Creates a new category node.
 
 ---
 
-#### `GET /api/categories`
+#### `GET /api/v1/categories`
 
 Returns a paginated flat list of categories (non-archived).
 
@@ -292,7 +296,7 @@ Returns a paginated flat list of categories (non-archived).
 
 ---
 
-#### `GET /api/categories/tree`
+#### `GET /api/v1/categories/tree`
 
 Returns the full category tree for the tenant (nested `children` populated).
 
@@ -302,17 +306,17 @@ Returns the full category tree for the tenant (nested `children` populated).
 
 ---
 
-#### `GET /api/categories/{id}`
+#### `GET /api/v1/categories/{id}`
 
 Returns a single category by ID.
 
 **Response:** `CategoryDto` — `200 OK` | `404 Not Found`
 
-**Cache key:** `categories:id:{id}:{tenantKey}` — TTL 10 minutes
+**Cache key:** `categories:id:{id}:{tenantKey}` — TTL 30 minutes
 
 ---
 
-#### `PUT /api/categories/{id}`
+#### `PUT /api/v1/categories/{id}`
 
 Updates an existing category's fields. All fields are optional (partial update).
 
@@ -341,7 +345,7 @@ Updates an existing category's fields. All fields are optional (partial update).
 
 ---
 
-#### `PUT /api/categories/{id}/move`
+#### `PUT /api/v1/categories/{id}/move`
 
 Moves a category to a new parent. Pass `newParentId: null` to promote to root.
 
@@ -362,7 +366,7 @@ Moves a category to a new parent. Pass `newParentId: null` to promote to root.
 
 ---
 
-#### `DELETE /api/categories/{id}`
+#### `DELETE /api/v1/categories/{id}`
 
 Soft-deletes a category (sets `is_archived = true`).
 
@@ -374,16 +378,16 @@ Soft-deletes a category (sets `is_archived = true`).
 
 ---
 
-### Admin Endpoints — `/api/admin/categories`
+### Admin Endpoints — `/api/v1/admin/categories`
 
 Admin endpoints bypass tenant context (`BypassTenantAttribute`) and always use the global database.
 
 **Required role:** `SuperAdmin` only. (Prior to a July 2026 security-audit fix this also accepted the `Admin` role — but `Admin` is an ordinary per-tenant role, so that let any tenant's own Admin reach every other tenant's data through these bypass routes. See `BYPASS_TENANT_ENDPOINTS_GUIDE.md` Pattern A.)
 
-| Method | Path                         | Description                           |
-| ------ | ---------------------------- | ------------------------------------- |
-| `GET`  | `/api/admin/categories`      | Paginated list across global database |
-| `GET`  | `/api/admin/categories/tree` | Full tree from global database        |
+| Method | Path                            | Description                           |
+| ------ | -------------------------------- | ------------------------------------- |
+| `GET`  | `/api/v1/admin/categories`      | Paginated list across global database |
+| `GET`  | `/api/v1/admin/categories/tree` | Full tree from global database        |
 
 ---
 
@@ -418,7 +422,7 @@ See `CATEGORY_EVENT_DRIVEN_CONSUMER_GUIDE.md` for the consumer-side implementati
 
 | Query                          | Handler                           | Description                                                                                             |
 | ------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `GetCategoryByIdQuery(int Id)` | `GetCategoryByIdQueryHandler`     | Single category with file enrichment; cached 10 min                                                     |
+| `GetCategoryByIdQuery(int Id)` | `GetCategoryByIdQueryHandler`     | Single category with file enrichment; cached 30 min                                                     |
 | `GetCategoryListQuery`         | `GetCategoryListQueryHandler`     | Paginated flat list with file enrichment; cached 10 min                                                 |
 | `GetCategoryTreeQuery`         | `GetCategoryTreeQueryHandler`     | Full tree with nested children and file enrichment; cached 30 min                                       |
 | `GetCategorySnapshotQuery`     | `GetCategorySnapshotQueryHandler` | All non-archived categories as `List<CategoryEventMessage>` — used by consumers to seed local snapshots |
@@ -462,7 +466,7 @@ All read operations use **Redis** with tenant-scoped cache keys.
 | --------- | -------------------------------------------------------------- | ------ |
 | Get tree  | `categories:tree:full:{tenantId\|global}`                      | 30 min |
 | Get list  | `categories:list:{tenantId\|global}:p{page}:s{size}:f{filter}` | 10 min |
-| Get by ID | `categories:id:{id}:{tenantId\|global}`                        | 10 min |
+| Get by ID | `categories:id:{id}:{tenantId\|global}`                        | 30 min |
 
 ### Cache invalidation
 
@@ -539,8 +543,8 @@ Handler:
                     ▼  committed to DB
           category_outbox_events  (processed_at = null)
 
-                    ▼  every ~5 s
-     OutboxEventProcessorService (BackgroundService)
+                    ▼  every 1 minute (Hangfire cron "* * * * *")
+     OutboxEventProcessorJob (Hangfire recurring job "category-outbox-processor")
 
                     ▼  on success
           Redis Pub/Sub channel  (category:events:{tenantId|global})
@@ -548,15 +552,21 @@ Handler:
 
 > **Ordering rule:** `PublishAsync` must always be called **before** the final repository save so both writes share the same transaction. Exception: for `CreateCategory`, `PublishAsync` is called after the first save (which generates the `Id`) but before the second save that writes the final path.
 
-### `OutboxEventProcessorService` (background worker)
+### `OutboxEventProcessorJob` (Hangfire recurring job)
 
-| Setting       | Value                                                               |
-| ------------- | ------------------------------------------------------------------- |
-| Poll interval | 5 seconds                                                           |
-| Batch size    | 100 events per cycle                                                |
-| Max retries   | 5 attempts                                                          |
-| Dead-letter   | `processed_at = now()`, `LogError` emitted for manual investigation |
-| Registered as | `HostedService` — only when `Redis:Enabled = true`                  |
+The outbox is drained by a **Hangfire recurring job**, not a `BackgroundService`. `Category.Infrastructure/Extensions/InfrastructureServiceExtensions.cs` calls `AddCategoryHangfire(configuration)` (defined in `Category.Infrastructure/Extensions/HangfireExtensions.cs`) only when `Redis:Enabled = true` — this registers the Hangfire server, PostgreSQL job storage (schema `hangfire_category`), and `OutboxEventProcessorJob` as a transient job class. `HangfireExtensions.RegisterCategoryRecurringJobs()` schedules `OutboxEventProcessorJob.ProcessAsync` under job id `category-outbox-processor` on cron `"* * * * *"` (every 1 minute, UTC).
+
+| Setting       | Value                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------- |
+| Job class     | `Category.Infrastructure/Jobs/OutboxEventProcessorJob.cs`                               |
+| Schedule      | Hangfire recurring job, cron `"* * * * *"` — every 1 minute                             |
+| Batch size    | 100 events per run                                                                      |
+| Max retries   | 5 attempts                                                                              |
+| Dead-letter   | `processed_at = now()`, `LogError` emitted for manual investigation                     |
+| Registered as | `AddCategoryHangfire` — only when `Redis:Enabled = true`                               |
+| Dashboard     | `/admin/jobs/category` — HTTP Basic Auth via `Hangfire:Dashboard:Username`/`Password`   |
+
+> **⚠️ Dead code:** `Category.Infrastructure/BackgroundServices/OutboxEventProcessorService.cs` (a `BackgroundService`-based poller with a 5-second interval) still exists on disk but is **not registered anywhere** in DI — it was superseded by `OutboxEventProcessorJob` and left in place unintentionally. Do not treat it as the live mechanism.
 
 ### Redis Channel Pattern
 
@@ -631,9 +641,17 @@ See `DATABASE_PER_TENANT_ARCHITECTURE.md` and `BYPASS_TENANT_ENDPOINTS_GUIDE.md`
     "PerIP": { "PermitLimit": 200, "WindowMinutes": 1 },
     "PerTenant": { "PermitLimit": 2000, "WindowMinutes": 1 },
     "PerUser": { "PermitLimit": 500, "WindowMinutes": 1 }
+  },
+  "Hangfire": {
+    "Dashboard": {
+      "Username": "admin",
+      "Password": "CHANGE_ME_HANGFIRE_PASSWORD"
+    }
   }
 }
 ```
+
+`Hangfire:Dashboard:Username`/`Password` gate HTTP Basic Auth on the Hangfire dashboard at `/admin/jobs/category` (see `HangfireBasicAuthFilter` in `HangfireExtensions.cs`) — required whenever `Redis:Enabled = true`, since that's what registers `AddCategoryHangfire`.
 
 ### Rate limiting tiers
 

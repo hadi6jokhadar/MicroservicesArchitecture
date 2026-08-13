@@ -1,7 +1,7 @@
 # 🌍 Translation Service - Complete Guide
 
-**Version:** 1.2  
-**Last Updated:** August 1, 2026  
+**Version:** 1.3  
+**Last Updated:** August 13, 2026  
 **Port:** 5006  
 **Database Pattern:** Global Database with Optional Tenant Context  
 **Test Status:** ✅ 45/45 Tests Passing (100%)
@@ -79,7 +79,7 @@ Translation Service follows the same pattern as:
 │  │                                                          │    │
 │  │  TranslationKeys                                        │    │
 │  │  ├─ Id, Key, Category, Description                     │    │
-│  │  └─ (No TenantId - shared across tenants)              │    │
+│  │  └─ TenantId (nullable) ← NULL = global key            │    │
 │  │                                                          │    │
 │  │  TranslationValues                                      │    │
 │  │  ├─ Id, TranslationKeyId, Language, Value              │    │
@@ -108,7 +108,7 @@ Translation Service follows the same pattern as:
 #### Without `x-tenant-id` Header (Global Translations)
 
 ```
-1. Request: GET /api/translations/en
+1. Request: GET /api/v1/translations/en
    Headers: (none)
 
 2. Translation Service:
@@ -128,7 +128,7 @@ Translation Service follows the same pattern as:
 #### With `x-tenant-id` Header (Global + Tenant Overrides)
 
 ```
-1. Request: GET /api/translations/en
+1. Request: GET /api/v1/translations/en
    Headers: x-tenant-id: tenant-123
 
 2. Translation Service:
@@ -204,10 +204,11 @@ Complete CRUD operations for administrators.
 │ TranslationKey                          │
 ├─────────────────────────────────────────┤
 │ Id              INT (PK)                │
-│ Key             VARCHAR(200) UNIQUE     │
+│ Key             VARCHAR(200)            │
 │ Category        VARCHAR(100)            │
 │ Description     VARCHAR(500) NULLABLE   │
 │ IsActive        BOOLEAN                 │
+│ TenantId        VARCHAR(450) NULLABLE   │ ← NULL = global key, non-null = tenant-owned key
 │ Created         DATETIME                │
 │ LastModified    DATETIME NULLABLE       │
 │ Status          BOOLEAN                 │
@@ -222,15 +223,31 @@ Complete CRUD operations for administrators.
 │ TranslationKeyId INT (FK)               │
 │ Language        VARCHAR(10)             │
 │ Value           TEXT                    │
-│ TenantId        VARCHAR(450) NULLABLE   │ ← Optional tenant ID
+│ TenantId        VARCHAR(450) NULLABLE   │ ← NULL = global value, non-null = tenant override
 │ Created         DATETIME                │
 │ LastModified    DATETIME NULLABLE       │
 └─────────────────────────────────────────┘
 
-Unique Constraint: (TranslationKeyId, Language, TenantId)
-Index: TenantId (for efficient tenant queries)
+Unique Constraint (TranslationKey):   (Key, TenantId) WHERE IsArchived = false
+Unique Constraint (TranslationValue): (TranslationKeyId, Language, TenantId)
+Index: TenantId on both tables (for efficient tenant queries)
 Index: Language (for language queries)
 ```
+
+Both entities carry their own nullable `TenantId` today, not just `TranslationValue`:
+
+- `TranslationKey.TenantId` (`Translation.Domain/Entities/TranslationKey.cs`) — `null` for a
+  global key created via `TranslationKey.Create(key, category, description)`, or set to a real
+  tenant id for a key created via `TranslationKey.CreateForTenant(key, category, tenantId, description)`.
+  This makes a key itself genuinely tenant-owned (e.g. every key imported with a `#tenantId#`
+  prefix that doesn't already exist globally), not merely a shared key with tenant-scoped
+  *values* layered on top.
+- `TranslationValue.TenantId` — unchanged from before: `null` for a global value, a tenant id for
+  a per-tenant override of a (usually global) key's translation.
+
+In practice a tenant-owned key still needs at least one `TranslationValue` row (also tenant-scoped)
+to have any actual translated text — `TranslationKey.TenantId` controls who the *key* belongs to,
+`TranslationValue.TenantId` controls who a specific language's *text* belongs to.
 
 ### Key Design Decisions
 
@@ -242,11 +259,14 @@ Index: Language (for language queries)
 
 #### 2. Why Nullable TenantId?
 
+Both `TranslationKey` and `TranslationValue` carry a nullable `TenantId` — not just
+`TranslationValue` as an earlier version of this doc stated:
+
 ```sql
--- Global translation (all tenants)
+-- Global translation key/value (all tenants)
 TenantId = NULL
 
--- Tenant-specific override
+-- Tenant-owned key or tenant-specific value override
 TenantId = 'tenant-123'
 
 -- Query for tenant with fallback to global
@@ -254,14 +274,25 @@ WHERE Language = 'en'
   AND (TenantId IS NULL OR TenantId = @tenantId)
 ```
 
-#### 3. Composite Unique Constraint
+`TranslationKey.TenantId` lets a key itself be genuinely tenant-owned (via the
+`TranslationKey.CreateForTenant` factory), separately from `TranslationValue.TenantId`, which lets
+any (usually global) key have a per-tenant override of its translated text (via
+`TranslationValue.CreateTenantOverride`).
+
+#### 3. Unique Constraints
 
 ```sql
-UNIQUE (TranslationKeyId, Language, TenantId)
+-- TranslationKey: one key string per tenant scope, ignoring archived rows
+UNIQUE (Key, TenantId) WHERE IsArchived = false  -- IX_TranslationKeys_Key_TenantId
+
+-- TranslationValue: one value per key + language + tenant
+UNIQUE (TranslationKeyId, Language, TenantId)  -- IX_TranslationValues_Key_Lang_Tenant
 ```
 
 **Ensures:**
 
+- One global key (or one tenant-owned key with the same string) per key + tenant scope, and a
+  deleted (archived) key doesn't block re-creating the same key string (see Troubleshooting below)
 - One global translation per key + language
 - One tenant override per key + language + tenant
 - Prevents duplicate translations
@@ -272,7 +303,7 @@ UNIQUE (TranslationKeyId, Language, TenantId)
 
 ### Public Endpoints (No Authentication Required)
 
-#### GET /api/translations/{language}
+#### GET /api/v1/translations/{language}
 
 Get all translations for a specific language.
 
@@ -284,59 +315,64 @@ Get all translations for a specific language.
 
 **Responses:**
 
+Note: `TranslationsDto` (`Translation.Application/DTOs/TranslationsDto.cs`) has no `category`
+field — the requested category filter is not echoed back in the response. It does have a
+`cachedAt` field (`GetTranslationsQueryHandler` sets it to the UTC time the response was
+computed/cached), shown below.
+
 ```http
-GET /api/translations/en
+GET /api/v1/translations/en
 ```
 
 ```json
 {
   "language": "en",
-  "category": null,
   "tenantId": null,
   "translations": {
     "welcome.message": "Welcome",
     "login.button": "Login",
     "error.required": "{0} is required"
-  }
+  },
+  "cachedAt": "2026-08-13T10:15:00Z"
 }
 ```
 
 **With Tenant Override:**
 
 ```http
-GET /api/translations/en
+GET /api/v1/translations/en
 x-tenant-id: tenant-123
 ```
 
 ```json
 {
   "language": "en",
-  "category": null,
   "tenantId": "tenant-123",
   "translations": {
     "welcome.message": "Welcome to Acme Corp",  ← Tenant override
     "login.button": "Login",
     "error.required": "{0} is required"
-  }
+  },
+  "cachedAt": "2026-08-13T10:15:00Z"
 }
 ```
 
 **With Category Filter:**
 
 ```http
-GET /api/translations/en?category=Validation
+GET /api/v1/translations/en?category=Validation
 ```
 
 ```json
 {
   "language": "en",
-  "category": "Validation",
   "tenantId": null,
   "translations": {
     "error.required": "{0} is required",
     "error.maxLength": "{0} cannot exceed {1} characters",
     "error.email": "{0} must be a valid email"
-  }
+  },
+  "cachedAt": "2026-08-13T10:15:00Z"
 }
 ```
 
@@ -344,7 +380,7 @@ GET /api/translations/en?category=Validation
 
 ### Admin Endpoints (Require Admin/SuperAdmin Role)
 
-#### GET /api/translations/keys
+#### GET /api/v1/translations/keys
 
 Get paginated list of translation keys.
 
@@ -353,15 +389,20 @@ Get paginated list of translation keys.
 **Parameters:**
 
 - `pageNumber` (query, optional): Page number (default: 1)
-- `pageSize` (query, optional): Items per page (default: 10)
-- `category` (query, optional): Filter by category
-- `searchTerm` (query, optional): Search in key names
-- `isActive` (query, optional): Filter by active status
+- `pageSize` (query, optional): Items per page (default: 10, max: 100)
+- `category` (query, optional): Filter by category (substring match)
+- `tenantId` (query, optional): Include this tenant's keys alongside global keys. Also read from
+  the `x-tenant-id` header if not passed as a query param (`TranslationApiHandlers.GetTranslationKeysHandler`).
+  Omitted → only global keys (`TenantId == null`) are returned.
+- `searchTerm` (query, optional): Search in key name or description
+- `isArchived` (query, optional): Filter by archived status (default: `false`) — there is no
+  `isActive` filter; `GetTranslationKeysQuery.IsArchived` is the real parameter name
+  (`Translation.Application/Queries/GetTranslationKeysQuery.cs`)
 
 **Response:**
 
 ```http
-GET /api/translations/keys?pageNumber=1&pageSize=10&category=General
+GET /api/v1/translations/keys?pageNumber=1&pageSize=10&category=General
 Authorization: Bearer {jwt-token}
 ```
 
@@ -396,7 +437,7 @@ Authorization: Bearer {jwt-token}
 }
 ```
 
-#### POST /api/translations/keys
+#### POST /api/v1/translations/keys
 
 Create a new translation key.
 
@@ -426,7 +467,7 @@ Create a new translation key.
 }
 ```
 
-#### PUT /api/translations/keys/{id}
+#### PUT /api/v1/translations/keys/{id}
 
 Update a translation key's description.
 
@@ -455,7 +496,7 @@ Update a translation key's description.
 }
 ```
 
-#### DELETE /api/translations/keys/{id}
+#### DELETE /api/v1/translations/keys/{id}
 
 Delete a translation key (and all its translations).
 
@@ -463,7 +504,7 @@ Delete a translation key (and all its translations).
 
 **Response:** `204 No Content`
 
-#### POST /api/translations/values
+#### POST /api/v1/translations/values
 
 Set or update a translation value.
 
@@ -508,7 +549,7 @@ Set or update a translation value.
 }
 ```
 
-#### DELETE /api/translations/values/{id}
+#### DELETE /api/v1/translations/values/{id}
 
 Delete a specific translation value without deleting the entire key.
 
@@ -518,7 +559,7 @@ Delete a specific translation value without deleting the entire key.
 
 ```bash
 # Delete a specific translation value (e.g., remove Arabic translation but keep English)
-DELETE /api/translations/values/5
+DELETE /api/v1/translations/values/5
 ```
 
 **Use Cases:**
@@ -529,9 +570,9 @@ DELETE /api/translations/values/5
 
 **Response:** `204 No Content`
 
-**Note:** This deletes only the translation value, not the translation key. To delete the key and all its values, use `DELETE /api/translations/keys/{id}`.
+**Note:** This deletes only the translation value, not the translation key. To delete the key and all its values, use `DELETE /api/v1/translations/keys/{id}`.
 
-#### POST /api/translations/import
+#### POST /api/v1/translations/import
 
 Bulk import translations from JSON.
 
@@ -554,11 +595,19 @@ Bulk import translations from JSON.
 
 **Response:** `200 OK`
 
+The response shape is `ImportTranslationsResult` (`Translation.Application/Commands/ImportTranslationsCommand.cs`),
+serialized as camelCase — there is no `imported`/`updated`/`errors` shape. `totalKeys` is the
+number of entries in the request's `translations` dictionary; `createdKeys` is how many of those
+did not already exist as a key; `updatedValues` is how many translation rows were written this
+call (every processed entry counts here, whether it created a new value or overwrote an existing
+one — see `ImportTranslationsCommandHandler`):
+
 ```json
 {
-  "imported": 3,
-  "updated": 0,
-  "errors": []
+  "totalKeys": 3,
+  "createdKeys": 3,
+  "updatedValues": 3,
+  "message": "3 translations imported, 3 new keys created"
 }
 ```
 
@@ -607,7 +656,7 @@ import { Observable } from "rxjs";
   providedIn: "root",
 })
 export class TranslationService {
-  private apiUrl = "http://localhost:5006/api/translations";
+  private apiUrl = "http://localhost:5006/api/v1/translations";
 
   constructor(private http: HttpClient) {}
 
@@ -636,9 +685,9 @@ export class TranslationService {
 
 interface TranslationsDto {
   language: string;
-  category: string | null;
   tenantId: string | null;
   translations: { [key: string]: string };
+  cachedAt: string;
 }
 ```
 
@@ -710,9 +759,9 @@ public interface ITranslationServiceClient
 
 public record TranslationsDto(
     string Language,
-    string? Category,
     string? TenantId,
-    Dictionary<string, string> Translations
+    Dictionary<string, string> Translations,
+    string CachedAt
 );
 ```
 
@@ -741,7 +790,7 @@ public class TranslationServiceClient : ITranslationServiceClient
     {
         var client = _httpClientFactory.CreateClient("TranslationService");
 
-        var url = $"/api/translations/{language}";
+        var url = $"/api/v1/translations/{language}";
         if (!string.IsNullOrEmpty(category))
             url += $"?category={category}";
 
@@ -972,7 +1021,7 @@ this.http.get(url, {
 });
 
 // Check translation exists for tenant
-GET /api/translations/keys?searchTerm=welcome.message
+GET /api/v1/translations/keys?searchTerm=welcome.message&tenantId=tenant-123
 // Verify entry exists with correct TenantId
 ```
 
@@ -990,14 +1039,14 @@ GET /api/translations/keys?searchTerm=welcome.message
 
 ```http
 # Verify JWT has Admin role
-GET /api/user/profile
+GET /api/v1/user/profile
 Authorization: Bearer {token}
 
 # Check token expiration
 # JWT tokens expire after AccessTokenExpirationMinutes
 
 # Login again to get fresh token
-POST /api/auth/login
+POST /api/v1/auth/login
 ```
 
 ### Issue: 500 Error When Re-Adding Deleted Translation Key
@@ -1006,14 +1055,17 @@ POST /api/auth/login
 
 **Cause:** Soft-delete keeps records with `IsArchived = true`. The unique index needs filtering.
 
-**Solution:** The unique index now filters archived records:
+**Solution:** The real index is a composite unique index on `(Key, TenantId)`, filtered to
+non-archived rows (`TranslationDbContext.OnModelCreating`, `Translation.Infrastructure/Persistence/`)
+— not a single-column index on `Key` alone (a single-column unique index on `Key` would incorrectly
+prevent a tenant-owned key and a global key from ever sharing the same key string):
 
 ```sql
-CREATE UNIQUE INDEX "IX_TranslationKeys_Key" ON "TranslationKeys" ("Key")
+CREATE UNIQUE INDEX "IX_TranslationKeys_Key_TenantId" ON "TranslationKeys" ("Key", "TenantId")
 WHERE "IsArchived" = false;
 ```
 
-You can now delete and re-create keys with the same name without errors.
+You can now delete and re-create keys with the same name (within the same tenant scope) without errors.
 
 ---
 
@@ -1022,11 +1074,12 @@ You can now delete and re-create keys with the same name without errors.
 ### Database Indexes
 
 ```sql
--- Already created by EF Core migrations
-CREATE INDEX IX_TranslationKeys_Key ON TranslationKeys(Key);
+-- Already created by EF Core migrations (see TranslationDbContext.OnModelCreating)
+CREATE UNIQUE INDEX IX_TranslationKeys_Key_TenantId ON TranslationKeys(Key, TenantId) WHERE "IsArchived" = false;
 CREATE INDEX IX_TranslationKeys_Category ON TranslationKeys(Category);
 CREATE INDEX IX_TranslationKeys_IsActive ON TranslationKeys(IsActive);
-CREATE INDEX IX_TranslationValues_Key_Lang_Tenant ON TranslationValues(TranslationKeyId, Language, TenantId);
+CREATE INDEX IX_TranslationKeys_TenantId ON TranslationKeys(TenantId);
+CREATE UNIQUE INDEX IX_TranslationValues_Key_Lang_Tenant ON TranslationValues(TranslationKeyId, Language, TenantId);
 CREATE INDEX IX_TranslationValues_TenantId ON TranslationValues(TenantId);
 CREATE INDEX IX_TranslationValues_Language ON TranslationValues(Language);
 ```
@@ -1069,6 +1122,6 @@ ORDER BY tv.TenantId DESC; -- Tenant overrides first
 
 ---
 
-**Last Updated:** August 1, 2026  
-**Version:** 1.2  
+**Last Updated:** August 13, 2026  
+**Version:** 1.3  
 **Status:** ✅ Production Ready | ✅ Tests: 45/45 Passing

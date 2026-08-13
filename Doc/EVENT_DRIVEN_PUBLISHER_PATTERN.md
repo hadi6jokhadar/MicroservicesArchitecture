@@ -1,6 +1,6 @@
 # Event-Driven Publisher Pattern
 
-**Last Updated:** May 19, 2026  
+**Last Updated:** August 13, 2026  
 **Status:** ✅ Production Ready  
 **Reference Implementation:** Category service  
 **Applies to:** Any microservice that needs to broadcast state changes to other services via Redis Pub/Sub.
@@ -65,7 +65,8 @@ Your Service ──publishes──▶ Redis Pub/Sub channel ──▶ Consumer S
 | `{Name}.Infrastructure/Configurations/`     | `OutboxEventEntityConfiguration.cs`                                           | EF table/column/index config                                                                    |
 | `{Name}.Infrastructure/Persistence/`        | `{Name}DbContext.cs`                                                          | Add `DbSet<OutboxEventEntity>`                                                                  |
 | `{Name}.Infrastructure/Services/`           | `Outbox{Name}EventPublisher.cs`                                               | **Scoped** — writes to outbox table (not Redis directly)                                        |
-| `{Name}.Infrastructure/BackgroundServices/` | `OutboxEventProcessorService.cs`                                              | BackgroundService — polls outbox, publishes to Redis                                            |
+| `{Name}.Infrastructure/Jobs/`               | `OutboxEventProcessorJob.cs`                                                  | Hangfire recurring job — polls outbox, publishes to Redis                                       |
+| `{Name}.Infrastructure/Extensions/`         | `HangfireExtensions.cs`                                                       | Registers Hangfire server/storage, the job class, and the recurring-job schedule (cron)         |
 | `{Name}.Infrastructure/Services/`           | `NoOp{Name}EventPublisher.cs`                                                 | Local dev fallback (Redis disabled)                                                             |
 | `{Name}.Infrastructure/Extensions/`         | `InfrastructureServiceExtensions.cs`                                          | Conditional DI registration                                                                     |
 | Every mutation handler                      | Call `_eventPublisher.PublishAsync(...)` **before** the final repository save | Queues outbox row in EF change tracker; repository's `SaveChangesAsync` commits both atomically |
@@ -161,9 +162,11 @@ public interface IYourEntityEventPublisher
 
 ---
 
-## Step 3 — Outbox Publisher + Background Processor
+## Step 3 — Outbox Publisher + Hangfire Processor Job
 
 The direct Redis publisher (write to Redis inside the handler) has a reliability gap: if Redis is down when the handler runs, the event is silently lost. The **Transactional Outbox** pattern fixes this.
+
+> **Reference implementation note:** an earlier draft of this pattern (and of Category, its reference implementation) used a `BackgroundService`-based poller (`OutboxEventProcessorService`, polling every 5 seconds). Category has since moved the outbox-draining mechanism to a **Hangfire recurring job** instead — see Step 3d below. The old `BackgroundService` class is still present on disk in `Category.Infrastructure/BackgroundServices/OutboxEventProcessorService.cs` as unregistered dead code; do not copy it into a new service. Build new services on the Hangfire pattern described here.
 
 ### 3a — OutboxEventEntity (Domain)
 
@@ -301,56 +304,44 @@ public sealed class OutboxYourEntityEventPublisher : IYourEntityEventPublisher
 > **Scoped** — depends on `DbContext`. Register as `Scoped`, not `Singleton`.
 > **Important** — `PublishAsync` only queues the row in the EF change tracker. The handler must call `_eventPublisher.PublishAsync(...)` **before** the final `repository.UpdateAsync/DeleteAsync` call so both are committed atomically.
 
-### 3d — Background Processor (Infrastructure)
+### 3d — Hangfire Processor Job (Infrastructure)
 
-Create `{Name}.Infrastructure/BackgroundServices/OutboxEventProcessorService.cs`:
+Create `{Name}.Infrastructure/Jobs/OutboxEventProcessorJob.cs`:
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using YourService.Infrastructure.Persistence;
 
-namespace YourService.Infrastructure.BackgroundServices;
+namespace YourService.Infrastructure.Jobs;
 
 /// <summary>
-/// Singleton BackgroundService: polls the outbox table and publishes pending rows to Redis.
-/// Uses IServiceScopeFactory to safely resolve the Scoped DbContext per poll cycle.
+/// Hangfire recurring job: reads unprocessed outbox rows and publishes each to Redis Pub/Sub.
+/// Uses IServiceScopeFactory to safely resolve the Scoped DbContext per run — Hangfire resolves
+/// this class itself as Transient through the ASP.NET Core DI container.
 /// </summary>
-public sealed class OutboxEventProcessorService : BackgroundService
+public class OutboxEventProcessorJob
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IConnectionMultiplexer _redis;
-    private readonly ILogger<OutboxEventProcessorService> _logger;
-    private readonly TimeSpan _pollInterval;
-
     private const int BatchSize = 100;
     private const int MaxRetries = 5;
 
-    public OutboxEventProcessorService(
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IConnectionMultiplexer _multiplexer;
+    private readonly ILogger<OutboxEventProcessorJob> _logger;
+
+    public OutboxEventProcessorJob(
         IServiceScopeFactory scopeFactory,
-        IConnectionMultiplexer redis,
-        ILogger<OutboxEventProcessorService> logger,
-        TimeSpan? pollInterval = null)
+        IConnectionMultiplexer multiplexer,
+        ILogger<OutboxEventProcessorJob> logger)
     {
         _scopeFactory = scopeFactory;
-        _redis = redis;
-        _logger = logger;
-        _pollInterval = pollInterval ?? TimeSpan.FromSeconds(5);
+        _multiplexer  = multiplexer;
+        _logger       = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            await ProcessBatchAsync(stoppingToken);
-            await Task.Delay(_pollInterval, stoppingToken).ConfigureAwait(false);
-        }
-    }
-
-    private async Task ProcessBatchAsync(CancellationToken ct)
+    public async Task ProcessAsync(CancellationToken ct = default)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<YourServiceDbContext>();
@@ -363,7 +354,7 @@ public sealed class OutboxEventProcessorService : BackgroundService
 
         if (pending.Count == 0) return;
 
-        var sub = _redis.GetSubscriber();
+        var sub = _multiplexer.GetSubscriber();
 
         foreach (var row in pending)
         {
@@ -398,6 +389,57 @@ public sealed class OutboxEventProcessorService : BackgroundService
     }
 }
 ```
+
+Create `{Name}.Infrastructure/Extensions/HangfireExtensions.cs` (mirrors Category's — see `HangfireExtensions.AddCategoryHangfire`/`RegisterCategoryRecurringJobs`):
+
+```csharp
+public static class HangfireExtensions
+{
+    public static IServiceCollection Add{Name}Hangfire(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddHangfire((sp, config) =>
+        {
+            var connectionString = sp.GetRequiredService<IConfiguration>()["DatabaseSettings:ConnectionString"]
+                ?? throw new InvalidOperationException("DatabaseSettings:ConnectionString not configured");
+            config.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                  .UseSimpleAssemblyNameTypeSerializer()
+                  .UseRecommendedSerializerSettings()
+                  .UsePostgreSqlStorage(o => o.UseNpgsqlConnection(connectionString),
+                      new PostgreSqlStorageOptions { SchemaName = "hangfire_{name}" });
+        });
+
+        services.AddHangfireServer(options =>
+        {
+            options.ServerName = "{name}-hangfire";
+            options.WorkerCount = 2;
+            options.Queues = ["critical", "default"];
+        });
+
+        services.AddTransient<OutboxEventProcessorJob>();
+        return services;
+    }
+
+    public static IApplicationBuilder Use{Name}HangfireDashboard(this IApplicationBuilder app, IConfiguration configuration)
+    {
+        app.UseHangfireDashboard("/admin/jobs/{name}", new DashboardOptions
+        {
+            Authorization = [new HangfireBasicAuthFilter(configuration)]
+        });
+        return app;
+    }
+
+    public static void Register{Name}RecurringJobs()
+    {
+        RecurringJob.AddOrUpdate<OutboxEventProcessorJob>(
+            "{name}-outbox-processor",
+            job => job.ProcessAsync(CancellationToken.None),
+            "* * * * *",   // every 1 minute
+            new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+    }
+}
+```
+
+> **Why Hangfire, not `BackgroundService`?** A Hangfire recurring job gives you a dashboard (`/admin/jobs/{name}`), persistent PostgreSQL-backed job storage, and built-in retry/observability tooling for free — a plain `BackgroundService` poller has none of that and requires hand-rolled logging to see what it's doing. Category's own `OutboxEventProcessorService.cs` (`BackgroundService`) is left on disk unregistered as a cautionary example — don't copy it.
 
 ### 3e — Create EF migration
 
@@ -462,21 +504,22 @@ In `{Name}.Infrastructure/Extensions/InfrastructureServiceExtensions.cs`, add th
 // Add these usings at the top:
 using YourService.Application.Events;
 using YourService.Infrastructure.Services;
-using YourService.Infrastructure.BackgroundServices;
 
 // Inside AddInfrastructureServices():
 
-// Event publisher — Outbox pattern (writes to DB, background worker publishes to Redis).
+// Event publisher — Outbox pattern (writes to DB, Hangfire recurring job publishes to Redis).
 // Falls back to no-op when Redis is disabled so local dev still works.
 var redisEnabled = configuration.GetValue<bool>("Redis:Enabled", false);
 if (redisEnabled)
 {
     services.AddScoped<IYourEntityEventPublisher, OutboxYourEntityEventPublisher>();
-    services.AddHostedService<OutboxEventProcessorService>();
+    services.Add{Name}Hangfire(configuration);   // registers Hangfire server + OutboxEventProcessorJob
 }
 else
     services.AddScoped<IYourEntityEventPublisher, NoOpYourEntityEventPublisher>();
 ```
+
+Then, after `app.Build()` (or wherever the service calls its other `Register*RecurringJobs()`-style startup calls), call `HangfireExtensions.Register{Name}RecurringJobs()` once so the cron schedule is registered, and map `app.Use{Name}HangfireDashboard(configuration)` if you want the dashboard exposed.
 
 > **Why Scoped?** `OutboxYourEntityEventPublisher` depends on `YourServiceDbContext` which is Scoped.  
 > `NoOpYourEntityEventPublisher` is also registered as Scoped for symmetry.
@@ -578,9 +621,10 @@ Replace the following placeholders throughout all files:
 ├── Services/
 │   ├── Outbox{Name}EventPublisher.cs    ← Scoped: writes to outbox table
 │   └── NoOp{Name}EventPublisher.cs      ← local dev fallback
-├── BackgroundServices/
-│   └── OutboxEventProcessorService.cs   ← Singleton: polls outbox → publishes to Redis
+├── Jobs/
+│   └── OutboxEventProcessorJob.cs       ← Transient: Hangfire recurring job, polls outbox → publishes to Redis
 └── Extensions/
+    ├── HangfireExtensions.cs               ← Hangfire server/storage registration + recurring-job schedule (cron)
     └── InfrastructureServiceExtensions.cs  ← MODIFIED: conditional DI registration
 
 {Name}.Application/Handlers/

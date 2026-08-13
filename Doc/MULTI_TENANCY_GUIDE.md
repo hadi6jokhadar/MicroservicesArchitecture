@@ -609,9 +609,9 @@ public class MyDbContext : BaseDbContext
     {
         // Use tenant-specific connection string if available
         if (_tenantContext.HasTenant &&
-            _tenantContext.CurrentTenant?.Configuration?.Database?.ConnectionString != null)
+            _tenantContext.CurrentTenant?.Configuration?.DatabaseSettings?.ConnectionString != null)
         {
-            var connectionString = _tenantContext.CurrentTenant.Configuration.Database.ConnectionString;
+            var connectionString = _tenantContext.CurrentTenant.Configuration.DatabaseSettings.ConnectionString;
             optionsBuilder.UseNpgsql(connectionString);
         }
 

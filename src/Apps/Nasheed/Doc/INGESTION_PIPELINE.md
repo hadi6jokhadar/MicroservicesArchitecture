@@ -1,6 +1,6 @@
 # Nasheed Service — Ingestion Pipeline
 
-**Last Updated:** August 7, 2026
+**Last Updated:** August 13, 2026
 
 ---
 
@@ -31,25 +31,36 @@ The worker cannot start processing until the DB is ready. The startup chain is:
 
 ```
 NasheedTenantLoaderService.StartAsync()
-  → reads MultiTenancy:TenantId from appsettings.json (default: "anashid")
+  → reads MultiTenancy:TenantId from appsettings.json (currently configured as "anashid";
+    throws InvalidOperationException at startup if the key is missing — there is no in-code default)
   → calls ITenantConfigurationProvider.GetTenantConfigurationAsync(tenantId)
-        [retries: up to 12 times, 5 seconds apart = up to 60s wait]
-  → on success:
-      INasheedTenantCache.SetTenant(tenantInfo)    ← signals ready
-      NasheedDbContext.Database.MigrateAsync()     ← runs EF migrations
-      starts a background refresh loop (fire-and-forget, does not block StartAsync)
+        [fast retries: up to 12 times, 5 seconds apart = up to 60s wait]
+  → on success (TryLoadTenantAsync):
+      INasheedTenantCache.SetTenant(tenantInfo)         ← signals ready
+      NasheedDbContext.Database.MigrateWithRecoveryAsync() ← runs EF migrations (with built-in retry)
+      starts a background refresh loop (fire-and-forget, does not block StartAsync) — see
+      "Background Tenant Config Refresh" below
+  → on repeated failure (all 12 fast retries exhausted): logs an error, then StartAsync returns —
+    but this is NOT a dead end. It kicks off RetryTenantLoadInBackgroundAsync, a fire-and-forget
+    loop that keeps retrying TryLoadTenantAsync every 1 minute indefinitely (until the host shuts
+    down), so a Tenant Service outage longer than ~60s can still self-heal without a service restart.
 
 NasheedIngestionWorker.ExecuteAsync()
   → await _tenantCache.WaitUntilReadyAsync(stoppingToken)  ← blocks here until SetTenant() is called
   → starts polling loop (every 10 seconds)
 ```
 
-If TenantService is unreachable and all 12 retries fail:
+If TenantService is unreachable and all 12 fast retries fail:
 
-- `NasheedTenantLoaderService` logs an error and returns
-- `INasheedTenantCache` never becomes ready
-- `NasheedIngestionWorker` stays blocked (WaitAsync + cancellation token)
-- HTTP requests also fail (NasheedDbContext throws if neither `ITenantContext` nor `INasheedTenantCache` is ready)
+- `NasheedTenantLoaderService` logs an error, and `StartAsync` returns — but it does NOT give up:
+  `RetryTenantLoadInBackgroundAsync` keeps calling `TryLoadTenantAsync` every 1 minute in the
+  background until it succeeds or the host shuts down (this doc previously said the service "logs
+  an error and returns" with no further recovery — corrected here; that was true only of the fast
+  retry loop, not of `NasheedTenantLoaderService` as a whole)
+- `INasheedTenantCache` stays not-ready until one of those background attempts succeeds
+- `NasheedIngestionWorker` stays blocked (`WaitUntilReadyAsync` has no timeout of its own) until then
+- HTTP requests also fail in the meantime (`NasheedDbContext` throws if neither `ITenantContext` nor `INasheedTenantCache` is ready)
+- Once a background retry succeeds, the cache becomes ready, migration runs, and both the worker and HTTP requests recover with no restart required
 
 ### Background Tenant Config Refresh (no restart needed for flag/config changes)
 
@@ -181,7 +192,7 @@ It currently does not append mood tags or vocal style.
 
 ## Retry Logic
 
-- Max retries: **3** (configurable via `MaxRetries` on the entity, default 3)
+- Max retries: **10** (configurable via `MaxRetries` on the entity; `SongIngestionJobEntity.Create`'s `maxRetries` parameter defaults to 10, and every call site in the codebase — `CreateSongCommandHandler`, `RetrySongAnalysisCommandHandler`, `ReindexSongCommandHandler`, both `EmbeddingGeneration` queueing call sites — omits the argument, so every job actually gets 10. This doc previously said 3; corrected per the self-correcting-docs protocol.)
 - Retry delay: exponential back-off via `NasheedIngestionWorker.GetRetryDelay(retryCount)` — attempt 1 → 30s, attempt 2 → 2min, attempt 3 → 10min, attempt 4+ → 30min (this doc previously said "fixed 5 minutes"; corrected here per the self-correcting-docs protocol — the code has always used exponential back-off)
 - The worker only picks up `Pending` jobs where `NextRetryAt` is null or in the past
 - Non-retryable failures are marked `Failed` immediately and are not auto-retried
@@ -293,9 +304,11 @@ Hook points in `ProcessJobAsync`:
 
 - Implements `IHostedService`
 - Registered as `AddHostedService<NasheedTenantLoaderService>()` — runs before `NasheedIngestionWorker`
-- `StartAsync` is awaited by the host — migration completes before HTTP traffic begins
-- After the initial load, `StartAsync` also starts (but does not await) `RefreshTenantConfigurationPeriodicallyAsync` — a 5-minute fallback loop that keeps `INasheedTenantCache` in sync with Tenant Service in case the push-based listener below ever misses an event; see "Background Tenant Config Refresh" above
-- `StopAsync` cancels the refresh loop via an internal `CancellationTokenSource`
+- `StartAsync` is awaited by the host — migration completes before HTTP traffic begins (for however long the fast 12×5s retry loop takes; it does not block on the background fallback below)
+- Tenant-load logic (fetch config → `SetTenant` → migrate → start periodic refresh) is factored into `TryLoadTenantAsync`, shared by both the fast startup retry loop and the background fallback below, so a caller can never populate the cache without also migrating
+- If all 12 fast retries fail, `StartAsync` logs an error and returns, but first kicks off `RetryTenantLoadInBackgroundAsync` — a fire-and-forget loop that retries `TryLoadTenantAsync` every 1 minute indefinitely (bounded only by host shutdown), so a Tenant Service outage longer than ~60s doesn't permanently strand `NasheedIngestionWorker` (which has no timeout on `WaitUntilReadyAsync`) until someone notices and restarts the process
+- After a successful load (fast path or background fallback), `StartAsync`/`TryLoadTenantAsync` also starts (but does not await) `RefreshTenantConfigurationPeriodicallyAsync` — a 5-minute fallback loop that keeps `INasheedTenantCache` in sync with Tenant Service in case the push-based listener below ever misses an event; see "Background Tenant Config Refresh" above
+- `StopAsync` cancels both background loops (refresh and the fallback retry) via one internal `CancellationTokenSource`
 
 **File:** `Nasheed.Infrastructure/Services/NasheedTenantConfigUpdatedListenerService.cs`
 

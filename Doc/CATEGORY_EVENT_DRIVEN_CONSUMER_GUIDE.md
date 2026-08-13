@@ -1,6 +1,6 @@
 # Category Event-Driven Consumer Guide
 
-**Last Updated:** May 19, 2026  
+**Last Updated:** August 13, 2026  
 **Status:** ✅ Production Ready  
 **Applies to:** Any service that needs a list or single item from the Category service without calling it at runtime.
 
@@ -505,7 +505,7 @@ A **Move** triggers a single `Updated` event for the moved node only (with its n
 
 **Mitigation options (choose one):**
 
-1. On receiving an `Updated` event where `Path` changed, call `GET /internal/categories/all` once to re-sync all snapshots.
+1. On receiving an `Updated` event where `Path` changed, call `GET /internal/categories/snapshot` once to re-sync all snapshots.
 2. Store only `ParentId` in your snapshot and rebuild hierarchies at query time.
 3. If strict path consistency is not required, accept brief staleness — path updates will self-heal as items in the subtree are eventually updated.
 

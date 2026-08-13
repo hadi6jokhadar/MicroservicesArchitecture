@@ -118,28 +118,31 @@ FluentValidation rules in: `src/Services/Identity/Identity.Application/Validator
 
 ## API Endpoints
 
-All endpoints require JWT authentication.
+All endpoints require `Service`, `User`, `Admin`, or `SuperAdmin` role authorization (a service calling with `X-Service-Secret`/`X-Service-Name` is authorized the same as a real user token). The group carries `[OptionalTenant]` — `x-tenant-id` is optional on every endpoint below.
 
-Base URL: `/api/device-tokens`
+Base URL: `/api/v1/device-tokens`
 
 ### Endpoints
 
-| Method | Endpoint                                   | Description                 |
-| ------ | ------------------------------------------ | --------------------------- |
-| POST   | `/`                                        | Add new device token        |
-| GET    | `/{id}`                                    | Get token by ID             |
-| GET    | `/user/{userId}`                           | Get all user tokens         |
-| GET    | `/user/{userId}/platform?platform={value}` | Get user tokens by platform |
-| PUT    | `/{id}`                                    | Update token                |
-| DELETE | `/{id}`                                    | Delete token                |
-| DELETE | `/user/{userId}`                           | Delete all user tokens      |
+| Method | Endpoint                                   | Description                                        |
+| ------ | ------------------------------------------ | --------------------------------------------------- |
+| POST   | `/`                                        | Add new device token                                |
+| GET    | `/{id}`                                    | Get token by ID                                     |
+| GET    | `/user/{userId}`                           | Get all user tokens                                 |
+| GET    | `/user/{userId}/platform?platform={value}` | Get user tokens by platform                         |
+| PUT    | `/{id}`                                    | Update token                                        |
+| DELETE | `/{id}`                                    | Delete token                                        |
+| DELETE | `/user/{userId}`                           | Delete all user tokens                              |
+| POST   | `/batch`                                   | Get device tokens for multiple users in one call (service-to-service — used by `NotificationProcessor` to batch-fetch tokens for a tenant group) |
+| DELETE | `/batch`                                   | Delete multiple device tokens in one call (service-to-service — used to clean up invalid/expired tokens after a failed Firebase send) |
+| GET    | `/tenant`                                  | Get all device tokens for the current tenant (or global if no `x-tenant-id`) — used to broadcast a tenant-wide push notification |
 
 ### Request Examples
 
 #### Add Device Token
 
 ```bash
-POST /api/device-tokens
+POST /api/v1/device-tokens
 Content-Type: application/json
 Authorization: Bearer {token}
 
@@ -170,7 +173,7 @@ Authorization: Bearer {token}
 #### Get User Device Tokens
 
 ```bash
-GET /api/device-tokens/user/1
+GET /api/v1/device-tokens/user/1
 Authorization: Bearer {token}
 ```
 
@@ -204,7 +207,7 @@ Authorization: Bearer {token}
 #### Update Device Token
 
 ```bash
-PUT /api/device-tokens/1
+PUT /api/v1/device-tokens/1
 Content-Type: application/json
 Authorization: Bearer {token}
 
@@ -217,7 +220,7 @@ Authorization: Bearer {token}
 #### Delete Device Token
 
 ```bash
-DELETE /api/device-tokens/1
+DELETE /api/v1/device-tokens/1
 Authorization: Bearer {token}
 ```
 
@@ -226,7 +229,7 @@ Authorization: Bearer {token}
 #### Delete All User Tokens
 
 ```bash
-DELETE /api/device-tokens/user/1
+DELETE /api/v1/device-tokens/user/1
 Authorization: Bearer {token}
 ```
 
@@ -267,55 +270,41 @@ CREATE INDEX IX_DeviceTokens_UserId_Platform ON DeviceTokens(UserId, Platform);
 
 ## Integration with Notification Service
 
-### Retrieving Device Tokens for Push Notifications
+This integration is **already built and in production** — not a recommended pattern to implement. This section describes what actually runs today.
 
-```csharp
-// In Notification Service (or any service sending notifications)
-public class NotificationSender
-{
-    private readonly HttpClient _httpClient;
+### `IdentityServiceClient` (Notification.Infrastructure/Services/IdentityServiceClient.cs)
 
-    public async Task<List<DeviceTokenDto>> GetUserDeviceTokensAsync(int userId)
-    {
-        var response = await _httpClient.GetAsync(
-            $"https://identity-service/api/device-tokens/user/{userId}");
+Notification Service talks to Identity's device-token endpoints via `IIdentityServiceClient`, registered through `AddIdentityServiceClient<IIdentityServiceClient, IdentityServiceClient>(...)` (see `SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md`). It wraps all four device-token read/write calls needed by the notification pipeline:
 
-        return await response.Content.ReadFromJsonAsync<List<DeviceTokenDto>>();
-    }
+| Method | Calls | Notes |
+|---|---|---|
+| `GetUserDeviceTokensAsync(userId, tenantId)` | `GET /api/v1/device-tokens/user/{userId}` | Per-user fallback path; result cached 5 minutes in `IMemoryCache` keyed by `device_tokens_{userId}_{tenantId}` |
+| `GetBatchDeviceTokensAsync(userIds, tenantId)` | `POST /api/v1/device-tokens/batch` | Bulk path used by `NotificationProcessor` to fetch tokens for an entire tenant batch in one call instead of N calls |
+| `GetTenantDeviceTokensAsync(tenantId)` | `GET /api/v1/device-tokens/tenant` | Used for tenant-wide broadcasts |
+| `DeleteBatchDeviceTokensAsync(tokenIds, tenantId)` | `DELETE /api/v1/device-tokens/batch` | Automatic cleanup — see "Automatic Invalid-Token Cleanup" below |
 
-    public async Task SendPushNotification(int userId, string title, string message)
-    {
-        // Get user's device tokens
-        var tokens = await GetUserDeviceTokensAsync(userId);
+### `NotificationProcessor.SendViaFirebaseAsync` (Notification.API/BackgroundServices/NotificationProcessor.cs)
 
-        // Send to each device
-        foreach (var deviceToken in tokens)
-        {
-            await SendToDevice(deviceToken, title, message);
-        }
-    }
-}
-```
+This is the actual dispatch logic, handling three distinct notification scopes:
 
-### Recommended Integration Pattern
+1. **Global** (no `UserId`, no `TenantId`) — calls `ITenantServiceClient.GetAllActiveTenantIdsAsync()`, then loops every active tenant **in parallel** (`Task.WhenAll`), calling `GetTenantDeviceTokensAsync(tenantId)` for each and sending to every device found.
+2. **Tenant** (`TenantId` set, no `UserId`) — calls `GetTenantDeviceTokensAsync(tenantId)` once and sends to every device for that tenant.
+3. **User** (`UserId` + `TenantId` set) — checks the batch-fetched `deviceTokensCache` (populated once per tenant-group by `GetBatchDeviceTokensAsync` before the per-item loop starts) first; on a cache miss, falls back to the single-user `GetUserDeviceTokensAsync` call.
 
-1. **Service-to-Service Communication:**
+All three scopes funnel into `IFirebaseService.SendToMultipleDevicesAsync(tokens, title, message, data, ct)`.
 
-   - Notification Service calls Identity Service API
-   - Uses service authentication with shared secret
-   - Caches frequently used tokens
+### Automatic Invalid-Token Cleanup
 
-2. **Token Lifecycle:**
+`SendToMultipleDevicesAsync`'s result includes `InvalidTokenIds` — tokens Firebase itself rejected (uninstalled app, expired registration, etc.). `SendViaFirebaseAsync` matches those back to `DeviceTokenDto.Id` and calls `DeleteBatchDeviceTokensAsync` immediately, so a dead token is removed from Identity's `DeviceTokens` table the same processing cycle it fails in — no separate cleanup job, no manual admin action, and no notification is ever retried against a token already known to be dead.
 
-   - Client apps register tokens on login/app start
-   - Update token on app update
-   - Delete token on logout
-   - Identity Service provides tokens to Notification Service
+### Batch Fetch — Why It Exists
 
-3. **Primary Device Logic:**
-   - Only one primary device per platform per user
-   - Send critical notifications to primary device only
-   - Send all notifications to all devices by default
+Before a tenant group's per-item send loop runs, `ProcessTenantGroupAsync` collects every distinct `UserId` in the batch (excluding SignalR-only deliveries) and calls `GetBatchDeviceTokensAsync` **once** for the whole group, populating `deviceTokensCache`. This is what keeps a 500-notification batch for one tenant from making up to 500 individual `GET /user/{userId}` calls to Identity — it's one `POST /batch` call instead.
+
+### Primary Device Logic
+
+- Only one primary device per platform per user (enforced by `AddDeviceTokenCommand`/`UpdateDeviceTokenCommand` in Identity)
+- The current dispatch logic above sends to **all** of a user's/tenant's devices by default — it does not yet special-case "critical → primary device only" (see "Future Enhancements" below for this as an open item)
 
 ## Migration Guide
 
@@ -390,8 +379,10 @@ WHERE FirebaseToken IS NOT NULL AND FirebaseToken != '';
 - [ ] Device metadata (model, OS version, app version)
 - [ ] Push notification preferences per device
 - [ ] Token rotation and security auditing
-- [ ] Batch token operations API
+- [ ] Primary-device-only routing for critical notifications (currently sends to all devices — see "Primary Device Logic" above)
 - [ ] WebSocket-based token updates
+
+(Batch token operations — `POST /batch` and `DELETE /batch` — are already built; see the Endpoints table and "Integration with Notification Service" above.)
 
 ## Related Documentation
 
@@ -401,6 +392,6 @@ WHERE FirebaseToken IS NOT NULL AND FirebaseToken != '';
 
 ---
 
-**Last Updated:** November 13, 2025  
-**Version:** 1.0.0  
+**Last Updated:** August 2026  
+**Version:** 1.1.0 (Corrected against actual source: base URL and all request examples fixed to `/api/v1/device-tokens`; added the 3 missing endpoints — `POST /batch`, `DELETE /batch`, `GET /tenant`; rewrote "Integration with Notification Service" to describe the real, already-built `IdentityServiceClient`/`NotificationProcessor.SendViaFirebaseAsync` integration — batch fetch, 3 broadcast scenarios, automatic invalid-token cleanup — instead of presenting it as a DIY/recommended pattern)  
 **Status:** ✅ Production Ready

@@ -85,9 +85,9 @@ This solution implements a **microservices architecture** with a focus on:
 
 ### Core Framework
 
-- **ASP.NET Core 9.0** - Web API framework
-- **Entity Framework Core 9.0** - Object-relational mapping
-- **C# 13** - Programming language
+- **ASP.NET Core 10** - Web API framework
+- **Entity Framework Core 10** - Object-relational mapping
+- **C# 14** - Programming language
 
 ### Key Libraries & Packages
 
@@ -95,11 +95,11 @@ This solution implements a **microservices architecture** with a focus on:
 | --------------------- | ----------------------------------------------- | ------- | ---------------------- |
 | **CQRS & Mediator**   | MediatR                                         | 12.4.1  | Command/Query handling |
 | **Validation**        | FluentValidation                                | 12.0.0  | Input validation       |
-| **Authentication**    | Microsoft.AspNetCore.Authentication.JwtBearer   | 8.0.0   | JWT authentication     |
+| **Authentication**    | Microsoft.AspNetCore.Authentication.JwtBearer   | 10.0.0  | JWT authentication     |
 | **Security**          | BCrypt.Net-Next                                 | 4.0.3   | Password hashing       |
-| **Caching**           | StackExchange.Redis                             | 2.7.10  | Distributed caching    |
+| **Caching**           | StackExchange.Redis                             | 2.7.27  | Distributed caching    |
 | **Caching**           | Microsoft.Extensions.Caching.StackExchangeRedis | 8.0.0   | Redis integration      |
-| **Database**          | Multiple EF Core providers                      | 9.0.0   | Data access            |
+| **Database**          | Multiple EF Core providers                      | 10.0.0  | Data access            |
 | **API Documentation** | Swashbuckle.AspNetCore                          | 6.5.0   | Swagger/OpenAPI        |
 | **Tracing**           | OpenTelemetry.Extensions.Hosting                | 1.15.3  | Distributed tracing    |
 | **Tracing**           | OpenTelemetry.Exporter.OpenTelemetryProtocol    | 1.15.3  | OTLP export to Jaeger  |
@@ -117,22 +117,21 @@ This solution implements a **microservices architecture** with a focus on:
 ```
 MicroservicesArchitecture/
 ├── 📁 src/
-│   ├── 📁 Services/
-│   │   ├── 📁 Identity/                    # Identity & Authentication Service
-│   │   │   ├── Identity.API/              # 🌐 API Layer (Controllers, Program.cs)
-│   │   │   ├── Identity.Application/      # 📋 Application Layer (Commands, Handlers)
-│   │   │   ├── Identity.Domain/           # 🏛️ Domain Layer (Entities, Repositories)
-│   │   │   └── Identity.Infrastructure/   # 🔧 Infrastructure Layer (Data, Services)
-│   │   ├── 📁 Tenant/                      # 🏢 Tenant Management Service
-│   │   │   ├── Tenant.API/                # 🌐 API Layer (Endpoints, Configuration)
-│   │   │   ├── Tenant.Application/        # 📋 Application Layer (Commands, Handlers)
-│   │   │   ├── Tenant.Domain/             # 🏛️ Domain Layer (Entities, Repositories)
-│   │   │   └── Tenant.Infrastructure/     # 🔧 Infrastructure Layer (Data, Services)
-│   │   └── 📁 Notification/                # 🔔 Notification Service (NEW!)
-│   │       ├── Notification.API/          # 🌐 API Layer (SignalR Hub, Endpoints)
-│   │       ├── Notification.Application/  # 📋 Application Layer (Commands, Queries)
-│   │       ├── Notification.Domain/       # 🏛️ Domain Layer (Entities, Enums)
-│   │       └── Notification.Infrastructure/ # 🔧 Infrastructure (Handlers, Background Services)
+│   ├── 📁 Services/                        # Foundational platform microservices
+│   │   ├── 📁 Identity/                    # 🔐 Identity & Authentication Service (5001)
+│   │   ├── 📁 Tenant/                      # 🏢 Tenant Management Service (5002)
+│   │   ├── 📁 Notification/                # 🔔 Notification Service — SignalR + FCM (5004)
+│   │   ├── 📁 FileManager/                 # 📁 File Manager Service (5005)
+│   │   ├── 📁 Translation/                 # 🌍 Translation Service (5006)
+│   │   ├── 📁 Category/                    # 🗂️ Category Service (5007)
+│   │   ├── 📁 AI/                          # 🤖 AI Service (Python/FastAPI, 5008)
+│   │   └── 📁 Backup/                      # 💾 Backup/Restore Service (5010)
+│   │       # Each .NET service follows Clean Architecture:
+│   │       # {Service}.API/ (Minimal APIs) · {Service}.Application/ (CQRS)
+│   │       # {Service}.Domain/ (Entities) · {Service}.Infrastructure/ (EF Core, DI)
+│   ├── 📁 Apps/                            # Domain-specific apps consuming platform Services
+│   │   ├── 📁 Nasheed/                     # 🎵 Nasheed library service (5009)
+│   │   └── 📁 PolySnap/                    # 🗺️ PolySnap spatial-boundary POC (5011)
 │   └── 📁 Shared/                          # 🤝 Shared Libraries
 │       ├── IhsanDev.Shared.Application/   # 📋 Application abstractions
 │       ├── IhsanDev.Shared.Authentication/ # 🔐 Auth components
@@ -140,17 +139,14 @@ MicroservicesArchitecture/
 │       ├── IhsanDev.Shared.Kernel/        # 🏛️ Domain kernel & primitives
 │       ├── IhsanDev.Shared.Messaging/     # 📨 Message bus & events
 │       └── IhsanDev.Shared.Notifications/ # 📢 Notification services
+├── 📁 src/Gateway/Gateway.API/              # 🌐 YARP API Gateway (5000) — single entry point
 ├── 📄 Directory.Packages.props            # 📦 Centralized package management
 ├── 📄 MicroservicesArchitecture.sln       # 🏗️ Solution file
 ├── 📄 update-csproj.ps1                   # 🔄 Package update utility
-├── 📄 MINIMAL_API_MIGRATION.md            # 📋 Migration documentation
-├── 📄 MULTI_TENANCY_GUIDE.md              # 🏢 Multi-tenancy comprehensive guide (NEW!)
-├── 📄 MULTI_TENANCY_QUICK_START.md        # 🚀 Quick start guide (NEW!)
-├── 📄 MULTI_TENANT_DEPLOYMENT_GUIDE.md    # 🐳 Deployment guide (NEW!)
-├── 📄 MULTI_TENANT_DEPLOYMENT_GUIDE.md    # 📦 Single build & deployment strategy
-├── 📄 DATABASE_PER_TENANT_ARCHITECTURE.md # 🎨 Architecture overview & diagrams
-└── 📄 MULTI_TENANCY_STRICT_MODE.md        # 📊 Implementation summary & rules
+└── 📁 Doc/                                 # 📚 All documentation — start at Doc/DOCUMENTATION_INDEX.md
 ```
+
+> See `Doc/DOCUMENTATION_INDEX.md` for the complete, current documentation set. `MULTI_TENANCY_GUIDE.md` and `DATABASE_PER_TENANT_ARCHITECTURE.md` are both in `Doc/`; the other multi-tenancy files once planned here (quick-start, deployment, "strict mode") were consolidated into those two and no longer exist as separate files.
 
 ### Layer Responsibilities
 
@@ -394,13 +390,9 @@ The Notification Service has been fully optimized to handle enterprise-scale wor
 ### Quick Access
 
 - 📖 **Complete Guide**: [`NOTIFICATION_SERVICE_README.md`](NOTIFICATION_SERVICE_README.md)
-- 🔧 **Hub Guide**: [`NOTIFICATION_HUB_GUIDE.md`](NOTIFICATION_HUB_GUIDE.md)
-- ⚡ **Quick Reference**: [`NOTIFICATION_HUB_QUICK_REFERENCE.md`](NOTIFICATION_HUB_QUICK_REFERENCE.md)
-- 💡 **JWT Example**: [`JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md`](JWT_AND_NOTIFICATION_FLOW_EXAMPLE.md)
-- 🔐 **JWT Validation**: [`JWT_SECRET_AND_VALIDATION_FLOW.md`](JWT_SECRET_AND_VALIDATION_FLOW.md)
-- 🔌 **Service Integration**: [`SERVICE_TO_NOTIFICATION_INTEGRATION_GUIDE.md`](SERVICE_TO_NOTIFICATION_INTEGRATION_GUIDE.md)
+- 🔥 **Firebase Push**: [`FIREBASE_PUSH_NOTIFICATIONS_GUIDE.md`](FIREBASE_PUSH_NOTIFICATIONS_GUIDE.md)
+- 🔌 **Service-to-Service Integration**: [`SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md`](SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md), [`SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md`](SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md)
 - 💾 **Database Replication**: [`DATABASE_REPLICATION_SETUP_GUIDE.md`](DATABASE_REPLICATION_SETUP_GUIDE.md)
-- 🎉 **Performance Summary**: [`BOTTLENECKS_COMPLETION_SUMMARY.md`](BOTTLENECKS_COMPLETION_SUMMARY.md)
 - 🌐 **SignalR Hub**: `https://localhost:5004/hubs/notifications` (when running)
 
 ### How It Works
@@ -491,7 +483,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, UserDtoIncludes
 ### Documentation
 
 - 📖 **Complete Guide**: [`SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md`](SERVICE_TO_SERVICE_AUTHENTICATION_GUIDE.md) - Full implementation details
-- 🔌 **Integration Guide**: [`SERVICE_TO_NOTIFICATION_INTEGRATION_GUIDE.md`](SERVICE_TO_NOTIFICATION_INTEGRATION_GUIDE.md) - Step-by-step integration
+- 🔌 **HTTP Client Extensions**: [`SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md`](SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md) - Typed client registration and resilience
 
 ### Service Communication Matrix
 
@@ -517,12 +509,10 @@ The Tenant service enables optional multi-tenancy support, allowing different pr
 
 ### Multi-Tenancy Documentation
 
-- 📖 **Comprehensive Guide**: [`MULTI_TENANCY_GUIDE.md`](MULTI_TENANCY_GUIDE.md) - Full documentation
-- 🚀 **Quick Start Guide**: [`MULTI_TENANCY_QUICK_START.md`](MULTI_TENANCY_QUICK_START.md) - Get started in minutes
-- 🐳 **Deployment Guide**: [`MULTI_TENANT_DEPLOYMENT_GUIDE.md`](MULTI_TENANT_DEPLOYMENT_GUIDE.md) - Docker, K8s, environments
-- 📦 **Deployment Guide**: [`MULTI_TENANT_DEPLOYMENT_GUIDE.md`](MULTI_TENANT_DEPLOYMENT_GUIDE.md) - One binary, multiple modes
+- 📖 **Comprehensive Guide**: [`MULTI_TENANCY_GUIDE.md`](MULTI_TENANCY_GUIDE.md) - Full documentation, tenant resolution, cache warm-up
 - 🎨 **Architecture Overview**: [`DATABASE_PER_TENANT_ARCHITECTURE.md`](DATABASE_PER_TENANT_ARCHITECTURE.md) - Visual architecture
-- 📊 **Strict Mode Reference**: [`MULTI_TENANCY_STRICT_MODE.md`](MULTI_TENANCY_STRICT_MODE.md) - What was built
+- 🔄 **Migration Details**: [`AUTOMATIC_DATABASE_MIGRATION.md`](AUTOMATIC_DATABASE_MIGRATION.md) - How tenant databases are created/migrated
+- 🐳 **Deployment**: [`DOCKER_DEPLOYMENT_GUIDE.md`](DOCKER_DEPLOYMENT_GUIDE.md) - Docker build/push/deploy across both PC1 and PC2
 
 ### How It Works
 
@@ -586,36 +576,36 @@ Requests with `x-tenant-id` header use tenant-specific config, others use defaul
 
 | Method | Endpoint                    | Description            | Auth Required |
 | ------ | --------------------------- | ---------------------- | ------------- |
-| `POST` | `/api/auth/register`        | Register new user      | ❌            |
-| `POST` | `/api/auth/login`           | User login             | ❌            |
-| `POST` | `/api/auth/refresh`         | Refresh token          | ❌            |
-| `POST` | `/api/auth/logout`          | User logout            | ✅            |
-| `POST` | `/api/auth/forgot-password` | Request password reset | ❌            |
+| `POST` | `/api/v1/auth/register`        | Register new user      | ❌            |
+| `POST` | `/api/v1/auth/login`           | User login             | ❌            |
+| `POST` | `/api/v1/auth/refresh`         | Refresh token          | ❌            |
+| `POST` | `/api/v1/auth/logout`          | User logout            | ✅            |
+| `POST` | `/api/v1/auth/forgot-password` | Request password reset | ❌            |
 
 #### User Management Endpoints
 
 | Method   | Endpoint            | Description         | Auth Required |
 | -------- | ------------------- | ------------------- | ------------- |
-| `GET`    | `/api/user/profile` | Get user profile    | ✅            |
-| `PUT`    | `/api/user/profile` | Update user profile | ✅            |
-| `DELETE` | `/api/user/me`      | Delete user account | ✅            |
+| `GET`    | `/api/v1/user/profile` | Get user profile    | ✅            |
+| `PUT`    | `/api/v1/user/profile` | Update user profile | ✅            |
+| `DELETE` | `/api/v1/user/me`      | Delete user account | ✅            |
 
 #### Admin Endpoints
 
 | Method   | Endpoint                | Description     | Auth Required |
 | -------- | ----------------------- | --------------- | ------------- |
-| `GET`    | `/api/admin/users`      | Get all users   | ✅ (Admin)    |
-| `GET`    | `/api/admin/users/{id}` | Get user by ID  | ✅ (Admin)    |
-| `POST`   | `/api/admin/users`      | Create new user | ✅ (Admin)    |
-| `PUT`    | `/api/admin/users/{id}` | Update user     | ✅ (Admin)    |
-| `DELETE` | `/api/admin/users/{id}` | Delete user     | ✅ (Admin)    |
+| `GET`    | `/api/v1/admin/users`      | Get all users   | ✅ (Admin)    |
+| `GET`    | `/api/v1/admin/users/{id}` | Get user by ID  | ✅ (Admin)    |
+| `POST`   | `/api/v1/admin/users`      | Create new user | ✅ (Admin)    |
+| `PUT`    | `/api/v1/admin/users/{id}` | Update user     | ✅ (Admin)    |
+| `DELETE` | `/api/v1/admin/users/{id}` | Delete user     | ✅ (Admin)    |
 
 ### Example Requests
 
 #### Register User
 
 ```bash
-curl -X POST "https://localhost:5001/api/auth/register" \
+curl -X POST "https://localhost:5001/api/v1/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
@@ -628,7 +618,7 @@ curl -X POST "https://localhost:5001/api/auth/register" \
 #### Login
 
 ```bash
-curl -X POST "https://localhost:5001/api/auth/login" \
+curl -X POST "https://localhost:5001/api/v1/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
@@ -639,14 +629,14 @@ curl -X POST "https://localhost:5001/api/auth/login" \
 #### Get User Profile
 
 ```bash
-curl -X GET "https://localhost:5001/api/user/profile" \
+curl -X GET "https://localhost:5001/api/v1/user/profile" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 #### Admin - Get All Users
 
 ```bash
-curl -X GET "https://localhost:5001/api/admin/users?pageNumber=1&pageSize=10" \
+curl -X GET "https://localhost:5001/api/v1/admin/users?pageNumber=1&pageSize=10" \
   -H "Authorization: Bearer YOUR_ADMIN_JWT_TOKEN"
 ```
 
@@ -800,15 +790,17 @@ Import the API endpoints into Postman for testing:
 
 ## 🐳 Docker Support
 
+> **For the actual, current deployment process** (PC1 builds & pushes to Docker Hub, PC2 pulls & runs via `docker compose`, `appsettings.Docker.json` handling, Nx build/deploy scripts) **see `Doc/DOCKER_DEPLOYMENT_GUIDE.md`** — the example below is illustrative only and does not reflect the real per-service Dockerfiles.
+
 ### Dockerfile Example
 
 ```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["src/Services/Identity/Identity.API/Identity.API.csproj", "src/Services/Identity/Identity.API/"]
 RUN dotnet restore "src/Services/Identity/Identity.API/Identity.API.csproj"
@@ -852,23 +844,22 @@ services:
       - "5432:5432"
 ```
 
-## 🔄 Migration to Minimal APIs
+## 🔄 Minimal APIs — No Controllers
 
-The Identity Service has been successfully migrated from traditional controllers to **Grouped Minimal APIs** for improved performance and modern .NET practices.
+Every service on this platform uses **Grouped Minimal APIs** exclusively — `[ApiController]`-style controllers are prohibited by design.
 
-### Migration Benefits
+### Benefits
 
-- **🚀 Performance**: ~15% faster startup, ~10% lower memory usage
-- **📝 Maintainability**: Better organized handlers and endpoint grouping
-- **🔧 Testability**: Simplified unit testing of handler methods
-- **📚 Documentation**: Enhanced OpenAPI integration
+- **🚀 Performance**: Faster startup, lower memory usage than MVC controllers
+- **📝 Maintainability**: Endpoint handlers organized by domain, grouped with shared middleware
+- **🔧 Testability**: Simplified unit/integration testing of MediatR handler methods
+- **📚 Documentation**: Enhanced OpenAPI integration via `NewVersionedApi`/`MapGroup`
 
-### Migration Details
+### Details
 
-- 📋 **Full Documentation**: [`MINIMAL_API_MIGRATION.md`](MINIMAL_API_MIGRATION.md)
-- 🔧 **Handler Structure**: Organized by domain (Auth, User, Admin)
-- 🎯 **Endpoint Grouping**: Logical API grouping with shared middleware
-- ✅ **Backward Compatibility**: All existing API contracts maintained
+- 🔧 **Handler Structure**: Organized by domain (Auth, User, Admin, etc.) — see `EndpointMappingExtensions.cs` in each service's `.API` project
+- 🎯 **Endpoint Grouping**: `app.NewVersionedApi(...).MapGroup("/api/v{version:apiVersion}/...")` — see `Doc/PLATFORM_CAPABILITIES_ROADMAP.md` (API Versioning Standard) for the versioning pattern
+- ✅ **Consistent Contracts**: All endpoints follow the same CQRS/MediatR handler pattern — see `.claude/instructions/Dotnet.instructions.md`
 
 ## 🤝 Contributing
 

@@ -2,42 +2,50 @@
 
 ## The Short Answer
 
-**Q: Do I need to implement tenant middleware in every new service?**
+**Q: Do I need to write tenant-resolution middleware in every new service?**
 
-**A: NO!** The tenant middleware is already implemented in the shared infrastructure library. You just need **ONE LINE** to enable it:
+**A: NO — the middleware class itself is shared.** But you do need to register it explicitly in `Program.cs`; it is **not** wired up automatically by `AddMultiTenancy()` alone. For a Strategy B/C service you write four lines, not one:
 
 ```csharp
-builder.Services.AddMultiTenancy(builder.Configuration);
+// Program.cs — DI
+builder.Services.AddMultiTenancy(builder.Configuration);   // registers ITenantContext, ITenantConfigurationProvider, the Tenant Service HttpClient
+
+// Program.cs — pipeline, after app.Build()
+app.UseTenantResolution(builder.Configuration);   // reads x-tenant-id, resolves ITenantContext
+app.UseTenantAwareCors();                          // tenant-aware CORS (replaces UseCors())
+app.UseTenantDatabaseMigration<MyServiceDbContext>(builder.Configuration); // only if multi-tenancy enabled
 ```
 
-That's it. Nothing more to implement.
+`AddMultiTenancy()` only registers DI services. It never touches `IApplicationBuilder` — skip the `app.Use...` calls and tenant resolution simply never runs for that service, with no startup error to warn you. See `.claude/instructions/database-strategy.instructions.md` for the full, strategy-specific pipeline order (`UseDefaultDatabaseMigration` → `UseTenantResolution` → `UseTenantAwareCors` → `UseTenantDatabaseMigration` → `UseAuthentication` → `UseJwtTenantVerification` → `UseAuthorization`).
 
 ---
 
 ## How It Works
 
-### What Happens When You Call AddMultiTenancy()
+### What `AddMultiTenancy()` Registers (DI only)
 
 ```
 Your Code:
 ┌──────────────────────────────────────────────┐
-│ builder.Services.AddMultiTenancy(config);   │
+│ builder.Services.AddMultiTenancy(config);     │
 └──────────────────────────────────────────────┘
                     │
                     ↓
-Shared Library Automatically:
+Shared Library Registers (no pipeline changes):
 ┌──────────────────────────────────────────────┐
-│ 1. ✅ Registers TenantResolutionMiddleware   │
-│ 2. ✅ Adds it to middleware pipeline         │
-│ 3. ✅ Configures in-memory caching           │
-│ 4. ✅ Sets up HttpClient for Tenant Service  │
-│ 5. ✅ Registers ITenantContext               │
-│ 6. ✅ Registers ITenantService               │
-│ 7. ✅ Enforces strict tenant validation      │
+│ 1. ✅ ITenantContext                          │
+│ 2. ✅ ITenantConfigurationProvider            │
+│ 3. ✅ HttpClient for Tenant Service            │
+│    (with resilience: retry, circuit breaker)  │
+│ 4. ✅ ICacheService-backed tenant-config cache │
 └──────────────────────────────────────────────┘
 ```
 
-### The Middleware Flow (Automatic)
+### What `app.UseTenantResolution(configuration)` Adds (pipeline)
+
+This is the separate call that actually wires `TenantMiddleware` into the request pipeline. Without it, `ITenantContext.CurrentTenant` is always `null`, no matter what `AddMultiTenancy()` registered.
+
+### The Middleware Flow
 
 ```
 1. HTTP Request arrives
@@ -45,27 +53,29 @@ Shared Library Automatically:
    ├─ Header: x-tenant-id: customer-123
    │
    ↓
-2. TenantResolutionMiddleware (from shared lib) intercepts
+2. TenantMiddleware (from shared lib) intercepts
+   │  Bypasses immediately for: OPTIONS preflight, static files,
+   │  /metrics, /health, and any [BypassTenant]/[OptionalTenant] endpoint
    │
    ↓
-3. Extract tenant ID from header
+3. Extract tenant ID from the x-tenant-id header
    │
    ↓
-4. Check in-memory cache
+4. ITenantConfigurationProvider checks its cache (Redis, or in-memory if Redis is disabled)
    │
-   ├─ Found → Use cached data
+   ├─ Found → Use cached config
    │
-   └─ Not Found → Call Tenant Service API
+   └─ Not Found → Call Tenant Service's GET /api/v1/tenant/config/{tenantId}
        │
        ↓
 5. Load tenant configuration
    │
-   ├─ Success → Cache for 60 minutes
+   ├─ Success → Cache for MultiTenancy:CacheExpirationMinutes (default 30)
    │
-   └─ Failed → Return error (no fallback when multi-tenancy enabled)
+   └─ Failed → 404/400 JSON error via ILocalizationService (no silent fallback)
        │
        ↓
-6. Set ITenantContext.CurrentTenant (if successful)
+6. Set ITenantContext.CurrentTenant, set request culture
    │
    ↓
 7. Continue to your handler
@@ -83,16 +93,17 @@ Shared Library Automatically:
 ```
 src/Shared/IhsanDev.Shared.Infrastructure/
 ├── Extensions/
-│   └── MultiTenancyExtensions.cs       ← AddMultiTenancy() method
+│   ├── MultiTenancyExtensions.cs        ← AddMultiTenancy() — DI only
+│   └── TenantResolutionExtensions.cs    ← UseTenantResolution()/UseTenantAwareCors() — pipeline
 │
 ├── Middleware/
-│   └── TenantResolutionMiddleware.cs   ← The actual middleware
+│   └── TenantMiddleware.cs              ← The actual middleware
 │
-└── Services/
-    └── TenantService.cs                ← Calls Tenant Service API
+└── Services/Tenant/
+    └── TenantConfigurationProvider.cs   ← Calls Tenant Service API, owns the cache
 ```
 
-**You don't need to create or modify these files.** They're already implemented and ready to use.
+**You don't need to create or modify these files.** They're already implemented and ready to use — you only need to call the two extension methods above from `Program.cs`.
 
 ---
 
@@ -104,28 +115,38 @@ src/Shared/IhsanDev.Shared.Infrastructure/
 {
   "MultiTenancy": {
     "Enabled": true,
-    "TenantServiceUrl": "https://localhost:5003",
-    "CacheDurationMinutes": 60
+    "TenantServiceUrl": "https://localhost:5002",
+    "CacheExpirationMinutes": 30
   }
 }
 ```
 
-### Step 2: Register in Program.cs (ONE LINE)
+### Step 2: Register in Program.cs
 
 ```csharp
 using IhsanDev.Shared.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Your other service registrations...
-
-// Enable multi-tenancy (one line!)
+// DI
 builder.Services.AddMultiTenancy(builder.Configuration);
+builder.Services.AddDatabaseContext<MyServiceDbContext>(builder.Configuration, "MyService");
 
 var app = builder.Build();
 
-// Your middleware pipeline...
-// No need to call app.UseMultiTenancy() or anything else!
+// Pipeline — order matters, see database-strategy.instructions.md for the full sequence
+app.UseDefaultDatabaseMigration<MyServiceDbContext>();
+app.UseTenantResolution(builder.Configuration);
+app.UseTenantAwareCors();
+
+if (builder.Configuration.GetValue<bool>("MultiTenancy:Enabled", false))
+{
+    app.UseTenantDatabaseMigration<MyServiceDbContext>(builder.Configuration);
+}
+
+app.UseAuthentication();
+app.UseJwtTenantVerification(builder.Configuration);
+app.UseAuthorization();
 
 app.Run();
 ```
@@ -144,19 +165,15 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderDto>
 
     public async Task<OrderDto> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
     {
-        // Access tenant data (if available)
         if (_tenantContext.HasTenant && _tenantContext.CurrentTenant != null)
         {
             var tenantId = _tenantContext.CurrentTenant.TenantId;
-            var tenantName = _tenantContext.CurrentTenant.TenantName;
             var tenantConfig = _tenantContext.CurrentTenant.Configuration;
-
             // Use tenant data in your logic
         }
         else
         {
-            // No tenant (non-tenant request or tenant not found)
-            // Use default behavior
+            // No tenant (non-tenant request, or a [BypassTenant]/[OptionalTenant] endpoint with no header)
         }
 
         // Your business logic...
@@ -169,59 +186,71 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderDto>
 
 ## Common Misconceptions
 
-### ❌ WRONG: "I need to create TenantMiddleware in my service"
+### ❌ WRONG: "I need to write my own tenant-resolution middleware class"
 
 ```csharp
-// ❌ DON'T DO THIS!
-public class TenantMiddleware
+// ❌ DON'T DO THIS! — TenantMiddleware already exists in the shared library
+public class MyOwnTenantMiddleware
 {
-    public async Task InvokeAsync(HttpContext context)
-    {
-        // You don't need to write this!
-    }
+    public async Task InvokeAsync(HttpContext context) { /* ... */ }
 }
-
-// ❌ DON'T DO THIS!
-app.UseMiddleware<TenantMiddleware>();
 ```
 
-### ✅ CORRECT: "I just call AddMultiTenancy()"
+### ❌ ALSO WRONG: "AddMultiTenancy() alone is enough, no pipeline registration needed"
 
 ```csharp
-// ✅ DO THIS!
+// ❌ Tenant resolution never runs with only this line — ITenantContext stays empty for every request
 builder.Services.AddMultiTenancy(builder.Configuration);
+var app = builder.Build();
+app.Run(); // no app.UseTenantResolution() call!
+```
+
+### ✅ CORRECT: register the DI services, then wire the pipeline
+
+```csharp
+// ✅ DI
+builder.Services.AddMultiTenancy(builder.Configuration);
+
+var app = builder.Build();
+
+// ✅ Pipeline — this is the part that actually resolves the tenant per request
+app.UseTenantResolution(builder.Configuration);
+app.UseTenantAwareCors();
 ```
 
 ---
 
 ## Comparison: What You Implement vs What's Automatic
 
-| Task                               | You Implement? | Shared Library Does? |
-| ---------------------------------- | -------------- | -------------------- |
-| Write middleware class             | ❌ No          | ✅ Yes               |
-| Register middleware in pipeline    | ❌ No          | ✅ Yes               |
-| Extract tenant ID from header      | ❌ No          | ✅ Yes               |
-| Call Tenant Service API            | ❌ No          | ✅ Yes               |
-| Implement caching                  | ❌ No          | ✅ Yes               |
-| Enforce tenant validation          | ❌ No          | ✅ Yes               |
-| Register ITenantContext            | ❌ No          | ✅ Yes               |
-| **Call AddMultiTenancy()**         | **✅ YES**     | ❌ No                |
-| **Use ITenantContext in handlers** | **✅ YES**     | ❌ No                |
+| Task                                             | You Implement? | Shared Library Does? |
+| ------------------------------------------------- | -------------- | --------------------- |
+| Write the middleware class                        | ❌ No          | ✅ Yes                |
+| Extract tenant ID from header                      | ❌ No          | ✅ Yes                |
+| Call Tenant Service API                            | ❌ No          | ✅ Yes                |
+| Implement caching                                  | ❌ No          | ✅ Yes                |
+| Enforce tenant validation                          | ❌ No          | ✅ Yes                |
+| **Call `AddMultiTenancy()` in `Program.cs`**       | **✅ Yes**     | ❌ No                 |
+| **Call `app.UseTenantResolution(...)`/`UseTenantAwareCors()` in the pipeline** | **✅ Yes** | ❌ No |
+| **Use `ITenantContext` in handlers**               | **✅ Yes**     | ❌ No                 |
 
-**You only do 2 things:**
+**You do 3 things, not 1:**
 
-1. Call `AddMultiTenancy()` in Program.cs
-2. Use `ITenantContext` in your handlers
+1. Call `AddMultiTenancy()` in the DI section of `Program.cs`
+2. Call `app.UseTenantResolution(...)` and `app.UseTenantAwareCors()` in the pipeline section
+3. Use `ITenantContext` in your handlers
 
 ---
 
 ## Services That Already Use This
 
-### Identity Service
+### Identity Service (Strategy B — per-tenant DB)
 
 ```csharp
 // src/Services/Identity/Identity.API/Program.cs
 builder.Services.AddMultiTenancy(builder.Configuration);
+// ...
+app.UseTenantResolution(builder.Configuration);
+app.UseTenantAwareCors();
 ```
 
 ### Tenant Service
@@ -233,50 +262,12 @@ builder.Services.AddMultiTenancy(builder.Configuration);
 // - Database: DatabaseSettings:ConnectionString
 // - JWT: Jwt section
 // - CORS: Cors section
-// No MultiTenancy configuration needed in Tenant Service
+// No MultiTenancy configuration or UseTenantResolution() call needed here
 ```
 
-### Your New Service
+### A New Service
 
-```csharp
-// src/Services/Order/Order.API/Program.cs
-builder.Services.AddMultiTenancy(builder.Configuration);
-```
-
-Same code. Same implementation. Zero custom middleware needed.
-
----
-
-## Advanced: Customizing Tenant Resolution
-
-### Default Behavior
-
-The middleware extracts tenant ID from the `x-tenant-id` HTTP header.
-
-### Custom Behavior (e.g., from subdomain)
-
-If you need to extract tenant from subdomain instead of header:
-
-1. **Modify the shared middleware** (affects ALL services):
-
-   ```csharp
-   // In IhsanDev.Shared.Infrastructure/Middleware/TenantResolutionMiddleware.cs
-
-   // OLD (header-based):
-   var tenantId = context.Request.Headers["x-tenant-id"].FirstOrDefault();
-
-   // NEW (subdomain-based):
-   var host = context.Request.Host.Host; // e.g., "customer123.myapp.com"
-   var tenantId = host.Split('.')[0];    // Extract "customer123"
-   ```
-
-2. **Rebuild shared library**:
-
-   ```bash
-   dotnet build src/Shared/IhsanDev.Shared.Infrastructure/
-   ```
-
-3. **All services automatically use the new logic** (no service-specific changes needed)
+Copy Identity's or Category's `Program.cs` pipeline section exactly (see `.claude/instructions/database-strategy.instructions.md` for the strategy-specific full order) — no custom middleware needed, but the pipeline calls are not optional.
 
 ---
 
@@ -289,73 +280,45 @@ In integration tests, you typically disable multi-tenancy:
 protected override Dictionary<string, string?> GetTestConfiguration()
 {
     var config = base.GetTestConfiguration();
-
-    // Disable multi-tenancy for tests
     config["MultiTenancy:Enabled"] = "false";
-
     return config;
 }
-```
-
-Then use `TenantTestHelper` to generate test data:
-
-```csharp
-var userId = TenantTestHelper.GenerateUniqueUserId();
-var tenantId = TenantTestHelper.GenerateUniqueTenantId();
 ```
 
 ---
 
 ## Troubleshooting
 
-### Issue: ITenantContext.CurrentTenant is always null
+### Issue: `ITenantContext.CurrentTenant` is always null
 
-**Possible Causes**:
+**Possible causes**, roughly in order of how often each one is actually the culprit:
 
-1. Multi-tenancy not enabled in configuration
-
-   ```json
-   { "MultiTenancy": { "Enabled": true } }
-   ```
-
-2. `x-tenant-id` header not sent in request
-
+1. **`app.UseTenantResolution(...)` was never called** — `AddMultiTenancy()` alone does not resolve anything per request. This is the single most common cause and is easy to miss because nothing errors at startup.
+2. Multi-tenancy not enabled in configuration: `{ "MultiTenancy": { "Enabled": true } }`.
+3. `x-tenant-id` header not sent in the request:
    ```bash
-   curl -H "x-tenant-id: customer-123" https://localhost:5002/api/orders
+   curl -H "x-tenant-id: customer-123" https://localhost:5002/api/v1/orders
    ```
-
-3. Tenant doesn't exist in Tenant Service
-
+4. Tenant doesn't exist, or is archived, in Tenant Service:
    ```bash
-   # Verify tenant exists
-   curl https://localhost:5003/api/tenants/customer-123
+   curl https://localhost:5002/api/v1/tenant/config/customer-123
    ```
-
-4. Tenant Service is not running
+5. Tenant Service is not running:
    ```bash
-   # Check Tenant Service is accessible
-   curl https://localhost:5003/health
+   curl https://localhost:5002/health
    ```
 
 ### Issue: "Cannot resolve ITenantContext"
 
-**Solution**: Call `AddMultiTenancy()` in Program.cs:
+**Solution**: Call `AddMultiTenancy()` in the DI section of `Program.cs`:
 
 ```csharp
 builder.Services.AddMultiTenancy(builder.Configuration);
 ```
 
-### Issue: Middleware not intercepting requests
+### Issue: Middleware not intercepting requests at all
 
-**Solution**: Make sure you're calling `AddMultiTenancy()`, not `UseMultiTenancy()`. The middleware is registered automatically:
-
-```csharp
-// ✅ Correct
-builder.Services.AddMultiTenancy(builder.Configuration);
-
-// ❌ Wrong - this method doesn't exist
-app.UseMultiTenancy();
-```
+**Solution**: Confirm `app.UseTenantResolution(builder.Configuration)` is actually present in the pipeline (not just `AddMultiTenancy()` in DI) — there is no `app.UseMultiTenancy()` method; the pipeline registration is `UseTenantResolution`, a separate call from the DI registration.
 
 ---
 
@@ -363,22 +326,21 @@ app.UseMultiTenancy();
 
 ### What You Need to Remember
 
-1. **The tenant middleware is already implemented** in `IhsanDev.Shared.Infrastructure`
-2. **You only need ONE LINE** to enable it: `builder.Services.AddMultiTenancy(configuration)`
-3. **The middleware automatically**:
-   - Intercepts requests
-   - Extracts tenant ID from header
-   - Calls Tenant Service
-   - Caches tenant data
-   - Sets ITenantContext
-4. **You just use** `ITenantContext` in your handlers to access tenant data
-5. **Multi-tenancy is optional** - works fine without it
+1. **The tenant middleware class is already implemented** in `IhsanDev.Shared.Infrastructure` — you never write your own.
+2. **You still need both a DI call and a pipeline call**: `AddMultiTenancy(configuration)` in DI, then `UseTenantResolution(configuration)` + `UseTenantAwareCors()` in the pipeline.
+3. **The middleware automatically**: intercepts requests, extracts the tenant ID from the header, calls Tenant Service, caches the result (`MultiTenancy:CacheExpirationMinutes`, default 30), and sets `ITenantContext`.
+4. **You use** `ITenantContext` in your handlers to access tenant data.
+5. **Multi-tenancy is optional** per service — a Strategy A/D service (Tenant Service, Translation) skips all of this.
 
 ### Quick Reference
 
 ```csharp
-// Enable multi-tenancy (one line in Program.cs)
+// DI
 builder.Services.AddMultiTenancy(builder.Configuration);
+
+// Pipeline (after app.Build())
+app.UseTenantResolution(builder.Configuration);
+app.UseTenantAwareCors();
 
 // Access tenant in any handler
 if (_tenantContext.HasTenant)
@@ -387,19 +349,16 @@ if (_tenantContext.HasTenant)
 }
 ```
 
-That's all you need to know! 🎉
-
 ---
 
 ## Related Documentation
 
-- [NEW_SERVICE_INTEGRATION_GUIDE.md](NEW_SERVICE_INTEGRATION_GUIDE.md) - Complete guide
-- [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md) - Comprehensive multi-tenancy docs
-- [MULTI_TENANCY_QUICK_START.md](MULTI_TENANCY_QUICK_START.md) - Quick start guide
+- [NEW_SERVICE_INTEGRATION_GUIDE.md](NEW_SERVICE_INTEGRATION_GUIDE.md) — complete new-service guide
+- [MULTI_TENANCY_GUIDE.md](MULTI_TENANCY_GUIDE.md) — comprehensive multi-tenancy docs
+- [DATABASE_PER_TENANT_ARCHITECTURE.md](DATABASE_PER_TENANT_ARCHITECTURE.md) — per-tenant database architecture
+- `.claude/instructions/database-strategy.instructions.md` — full, strategy-specific `Program.cs` pipeline order
 
 ---
 
-**Last Updated**: October 19, 2025  
-**Status**: ✅ Complete and verified
-
-**Built with ❤️ for the Microservices Architecture**
+**Last Updated**: August 2026
+**Status**: ✅ Corrected to match the current `TenantMiddleware`/`UseTenantResolution` implementation

@@ -34,7 +34,7 @@ builder.Services.AddFileManagerServiceClient(
 }
 ```
 
-**Used By:** Identity Service, Notification Service
+**Used By:** Identity Service
 
 ---
 
@@ -177,15 +177,15 @@ All service clients automatically include authentication headers:
 |---|---|---|
 | `X-Service-Secret` | Shared secret for auth | Startup (static) |
 | `X-Service-Name` | Name of calling service | Startup (static) |
-| `X-Correlation-Id` | Current request correlation ID | Per-request (dynamic) |
+| `X-Correlation-Id` | Current request correlation ID | Per-request (dynamic) — **FileManager and Notification clients only, see below** |
 
 ### X-Correlation-Id Propagation
 
-Every service client registered via these extension methods automatically forwards the `X-Correlation-Id` from the inbound request to all outbound calls, via `CorrelationIdForwardingHandler` (`IhsanDev.Shared.Infrastructure.Middleware`).
+**Only `AddFileManagerServiceClient` and `AddNotificationServiceClient` actually wire up `CorrelationIdForwardingHandler`** (`IhsanDev.Shared.Infrastructure.Middleware`) — both call `services.AddTransient<CorrelationIdForwardingHandler>()` and `.AddHttpMessageHandler<CorrelationIdForwardingHandler>()` on their `HttpClient` builder. **`AddIdentityServiceClient`/`AddIdentityServiceClient<T>` and `AddTenantServiceClient`/`AddTenantServiceClient<T>` do not** — neither registers nor attaches the handler, so calls made through those two clients do **not** forward `X-Correlation-Id` today.
 
-This means when Identity calls Notification (e.g., on login), both services log the **same** correlation ID — allowing a single grep across all log files to reconstruct the full call chain.
+This means when Identity calls Notification (e.g., on login), both services log the **same** correlation ID — allowing a single grep across all log files to reconstruct the full call chain. It does **not** currently hold for Notification → Identity or Notification/FileManager → Tenant calls.
 
-The handler is wired automatically — no changes needed in `Program.cs` or handlers. It is a no-op for background tasks that have no `HttpContext` (the header is simply not added).
+Where it is wired, the handler is automatic — no changes needed in `Program.cs` or handlers beyond calling the extension method — and it is a no-op for background tasks that have no `HttpContext` (the header is simply not added). If you need correlation-ID forwarding on the Identity or Tenant clients, add the same two calls (`AddTransient<CorrelationIdForwardingHandler>()` + `.AddHttpMessageHandler<CorrelationIdForwardingHandler>()`) to `IdentityServiceExtensions.cs`/`TenantServiceExtensions.cs` — it is not there today.
 
 ### SSL Configuration
 
@@ -371,7 +371,7 @@ public static IServiceCollection Add[Service]ServiceClient(
 - Standardized error handling
 - Automatic resilience pipeline: retry + circuit breaker + timeout (via `Microsoft.Extensions.Http.Resilience`)
 - Request/response logging
-- Automatic `X-Correlation-Id` forwarding for end-to-end request tracing across services
+- Automatic `X-Correlation-Id` forwarding for end-to-end request tracing — **FileManager and Notification clients only** (see "X-Correlation-Id Propagation" above; Identity and Tenant clients don't wire this up yet)
 
 ### ✅ Type Safety
 
@@ -407,15 +407,16 @@ Every service client registered via these extension methods has a built-in resil
 
 ### FileManager client (fast internal calls)
 
-Tighter settings to fail fast on a slow file-metadata service:
+Tighter settings to fail fast on a slow file-metadata service — this call sits inline in user-facing request paths (e.g. profile picture enrichment on every `/api/v1/user/profile` call), so it must fail in ~1-3s, not eventually succeed within many seconds:
 
 | Layer | Setting | Value |
 |---|---|---|
+| Retry | Max attempts | 2 |
 | Retry | Initial delay | 100 ms |
-| Attempt timeout | Per attempt | 4 s |
-| Total timeout | Across all retries | 15 s |
+| Attempt timeout | Per attempt | 1 s |
+| Total timeout | Across all retries | 3 s |
 
-(Circuit breaker settings are the same as standard clients.)
+(Circuit breaker settings are the same as standard clients: 50% failure ratio, 10s sampling window, 5 minimum throughput, 15s break duration.)
 
 ### Nasheed AI client (long-running model calls)
 
@@ -464,8 +465,10 @@ Do **not** catch it for critical paths (e.g. tenant resolution) — let the exce
 If a job reaches `Failed` status (all retries exhausted), call the `RetryIngestionJob` endpoint to reset it:
 
 ```http
-POST /api/nasheed/ingestion/jobs/{id}/retry
+POST /api/v1/ingestion/{id}/retry
 ```
+
+(Nasheed.API endpoint group is `/api/v{version:apiVersion}/ingestion`, not `/api/nasheed/ingestion/...`; `RequireAuthorization("AdminOnly")`. Routes are versioned `/api/v1/...` per the API Versioning Standard.)
 
 `BrokenCircuitException` inside `RunEmbeddingGenerationAsync` logs at `Warning` level (not `Error`) and re-throws, so the outer catch handles retry scheduling as normal.
 
@@ -722,5 +725,7 @@ builder.Services.AddNotificationServiceClient(
 
 ---
 
-**Last Updated:** June 7, 2026  
+**Last Updated:** August 2026  
+**Version:** 1.4 (Corrected against actual source: FileManager client's resilience table now shows the real tight 1s attempt/3s total timeout instead of 4s/15s; `X-Correlation-Id` forwarding documented as FileManager+Notification only, not all four clients — `IdentityServiceExtensions`/`TenantServiceExtensions` don't wire `CorrelationIdForwardingHandler`; `RetryIngestionJob`'s route corrected to `/api/v1/ingestion/{id}/retry`; FileManager Client's "Used By" list corrected to Identity Service only, matching the Service Dependency Matrix and Notification.API's actual `Program.cs` registrations)
+
 **Version:** 1.3

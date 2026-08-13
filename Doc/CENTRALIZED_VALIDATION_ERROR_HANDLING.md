@@ -1,5 +1,31 @@
 # Centralized Validation Error Handling - Implementation Summary
 
+> **Audit correction (August 2026):** this doc only ever described the FluentValidation/endpoint-filter
+> half of the pipeline. The other half — what actually turns *any* exception (including a
+> FluentValidation `ValidationException` thrown from the MediatR `ValidationBehavior` pipeline
+> behavior, not just one caught by the endpoint filter below) into the JSON response — is
+> `GlobalExceptionHandler` (`IhsanDev.Shared.Infrastructure/Middleware/GlobalExceptionHandler.cs`),
+> an ASP.NET Core `IExceptionHandler` registered via `AddGlobalExceptionHandler()`/
+> `app.UseGlobalExceptionHandler()`. **Do not confuse it with `GlobalExceptionHandlingMiddleware`**
+> (same folder) — that class is dead code with a different, older response shape; no service
+> registers it. `app.UseGlobalExceptionHandler()` must be the very first middleware in every
+> service's `Program.cs` (it wraps everything registered after it — see
+> `.claude/instructions/Dotnet.instructions.md` pitfall #42), immediately followed by
+> `UseCorrelationId()` then `UseLocalization()`. See `Doc/LOCALIZATION_GUIDE.md`'s "Doc correction
+> (August 2026)" note for the fuller writeup of this same dead-code/real-code distinction, and
+> `Doc/OBSERVABILITY_GUIDE.md` for the correlation-ID pipeline-position detail.
+>
+> Both paths produce the **same** RFC 7807 `ProblemDetails` shape shown below (`status`/`title`/
+> `detail`/`instance`/`traceId`/`errors`) — `SharedValidationFilter<T>` builds it inline for
+> endpoint-filter-level validation failures (minimal-API model binding already succeeded, so there's
+> a concrete `T` to validate before the handler runs); `GlobalExceptionHandler.CreateProblemDetails`
+> builds the identical shape for a `FluentValidation.ValidationException` thrown deeper in the
+> pipeline (e.g. by `ValidationBehavior<TRequest, TResponse>` in
+> `IhsanDev.Shared.Application/Common/Behaviors/`). The "Service-Level Wrappers" list below was also
+> stale — `ValidationFilter<T> : SharedValidationFilter<T>` wrappers now exist in **all** services
+> that expose validated commands, not just the original four: Identity, Notification, Tenant,
+> FileManager, Category, Translation, Backup, and the Nasheed/PolySnap apps.
+
 ## Overview
 
 Implemented a **centralized, localized validation error handling solution** across all microservices. This ensures consistent error responses with proper localization support when validation errors occur.
@@ -54,6 +80,11 @@ public class ValidationFilter<T> : SharedValidationFilter<T> where T : class
 ```csharp
 public class ValidationFilter<T> : SharedValidationFilter<T> where T : class
 ```
+
+**Also present (identical one-line wrapper pattern, added since this doc was first written):**
+Category (`Category.API/Filters/ValidationFilter.cs`), Translation (`Translation.API/Filters/ValidationFilter.cs`),
+Backup (`Backup.API/Filters/ValidationFilter.cs`), Nasheed (`Nasheed.API/Filters/ValidationFilter.cs`),
+and PolySnap (`PolySnap.API/Filters/ValidationFilter.cs`).
 
 ### 3. Endpoint Integration
 

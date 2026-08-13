@@ -2,8 +2,22 @@
 
 **Purpose:** This file teaches AI agents how to create, update, and maintain documentation in this project.
 
-**Version:** 1.0  
-**Last Updated:** January 27, 2026
+**Version:** 1.1  
+**Last Updated:** August 13, 2026
+
+---
+
+## 📍 Where Documentation Lives (Multiple Doc/ Folders)
+
+This project has grown into **three separate `Doc/` locations** — "one file per topic" applies within each, but don't assume there is only one `Doc/` folder in the repo:
+
+| Location | Scope | Index |
+|---|---|---|
+| `MicroservicesArchitecture/Doc/` (this folder) | Backend platform docs — all `src/Services/*` foundational microservices, shared libraries, cross-service patterns | `DOCUMENTATION_INDEX.md` (this repo's index) |
+| `src/Apps/{AppName}/Doc/` (e.g. `src/Apps/Nasheed/Doc/`, `src/Apps/PolySnap/Doc/`) | App-specific docs for a domain app under `src/Apps/` that consumes platform Services | Each app's own `DOCUMENTATION_INDEX.md` |
+| Monorepo root `Doc/` (one level above `MicroservicesArchitecture/`) | Cross-stack topics spanning both the .NET backend and the Angular frontend (e.g. `POLYSNAP_PROJECT_OVERVIEW.md`) | Linked from both stacks' indexes/CLAUDE.md files |
+
+**Rule:** when creating a new app under `src/Apps/`, give it its own `Doc/` folder (minimum: `DOCUMENTATION_INDEX.md`, `OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md` — see `NEW_SERVICE_INTEGRATION_GUIDE.md`) rather than adding its files to this backend-platform `Doc/` folder. A topic that genuinely spans both stacks goes in the monorepo root `Doc/`, not here.
 
 ---
 
@@ -354,7 +368,7 @@ BEFORE creating a file, ask yourself:
 
 ### Good Documentation Repo
 
-- ✅ **30-40 total files** (for a microservices project with 5-8 services)
+- ✅ **A file count proportional to the number of services/apps** — this backend platform has grown to 8 foundational services (`src/Services/`) plus 2 domain apps (`src/Apps/`) and now sits at ~48 files in this `Doc/` folder alone (domain apps keep their own `Doc/` folders on top of that — see "Where Documentation Lives" above). Don't treat a fixed number as the target; treat "one file per topic, no fragmentation" as the target.
 - ✅ **One file per major topic**
 - ✅ **No files with dates in names** (e.g., `*_JAN_2026.md`)
 - ✅ **No files with status words** (e.g., `*_COMPLETE.md`, `*_FIX.md`)
@@ -498,9 +512,9 @@ When you finish ANY task:
    - Did I fix broken links in other files? ✅
 
 4. **Is the Doc/ folder clean?**
-   - No files with "_\_SUMMARY", "_\_FIX", "\*\_MIGRATION"? ✅
+   - No files with "_\_SUMMARY", "_\_FIX", "\*\_MIGRATION" (as temporary logs — a file like `AUTOMATIC_DATABASE_MIGRATION.md` or `AI_SERVICE_MIGRATION_GUIDE.md` is fine since "migration" is the actual topic, not a change-log)? ✅
    - No duplicate topics (Guide + Quick Ref)? ✅
-   - 30-40 files total? ✅
+   - Every file listed in `DOCUMENTATION_INDEX.md`, and the index's file count matches `Doc/*.md` on disk? ✅
 
 ---
 

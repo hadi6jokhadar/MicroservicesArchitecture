@@ -134,12 +134,14 @@
 │                         IDENTITY SERVICE                             │
 │                         (Port 5001)                                  │
 │                                                                       │
-│  Endpoints:                                                          │
-│  • POST /api/v1/auth/register   - Create new user                   │
+│  Endpoints (see full table below):                                   │
 │  • POST /api/v1/auth/login      - Get JWT token                     │
+│  • POST /api/v1/auth/register   - Create new user                   │
 │  • POST /api/v1/auth/refresh    - Refresh expired token             │
 │  • GET  /api/v1/user/profile    - Get current user info             │
 │  • PUT  /api/v1/user/profile    - Update user info                  │
+│  • Plus: OTP login/register, logout, forgot-password, admin/role/   │
+│    claim/device-token route groups                                  │
 │                                                                       │
 │  Database: PostgreSQL (User accounts, roles, refresh tokens)        │
 └───────────────────────────┬─────────────────────────────────────────┘
@@ -163,6 +165,64 @@
 │  • Roles      │   │  • Roles      │   │  • Roles      │
 └───────────────┘   └───────────────┘   └───────────────┘
 ```
+
+### **Full Endpoint Reference**
+
+Source of truth: `Identity.API/Extensions/EndpointMappingExtensions.cs`. All routes are versioned (`/api/v{version:apiVersion}/...`, currently `v1`).
+
+**Auth** (`MapAuthEndpoints` → `/api/v1/auth`, unauthenticated, `[OptionalTenant]`, rate-limited by `PerTenant` policy):
+
+| Method | Route | Notes |
+|---|---|---|
+| POST | `/auth/login` | Email + password → `UserDtoIncludesToken` |
+| POST | `/auth/register` | Create account with email + password (see Registration section) |
+| POST | `/auth/forgot-password` | **Stub — see "Password Reset" note below** |
+| POST | `/auth/refresh` | Exchange refresh token for a new token pair |
+| POST | `/auth/logout` | `[RequireAuthorization]` — revokes refresh token |
+| POST | `/auth/get-verification-code-by-phone` | Sends a 5-digit OTP to a phone number |
+| POST | `/auth/get-verification-code-by-email` | Sends a 5-digit OTP to an email address |
+| POST | `/auth/login-with-code-by-phone` | OTP login by phone |
+| POST | `/auth/login-with-code-by-email` | OTP login by email |
+| POST | `/auth/register-with-code-by-phone` | OTP-based registration, no password required |
+| POST | `/auth/register-with-code-by-email` | OTP-based registration, no password required |
+
+**User profile** (`MapUserEndpoints` → `/api/v1/user`, roles `User`/`Admin`/`SuperAdmin`, `[OptionalTenant]`): `GET /user/profile`, `PUT /user/profile`, `DELETE /user/me`.
+
+**Admin, roles, claims, device tokens** — each is its own route group, `Admin`/`SuperAdmin`-gated (device tokens also allow `Service`/`User`), all `[OptionalTenant]`:
+
+| Group | Base route | Reference |
+|---|---|---|
+| Admin user management | `/api/v1/admin/users` | CRUD + toggle-status + toggle-archive |
+| Role management | `/api/v1/admin/roles` | See `Doc/ROLES_AND_CLAIMS_GUIDE.md` |
+| Claim management | `/api/v1/admin/claims` | See `Doc/ROLES_AND_CLAIMS_GUIDE.md` and the "Permission Claims" section below |
+| Device tokens | `/api/v1/device-tokens` | See `Doc/DEVICE_TOKEN_MANAGEMENT_GUIDE.md` |
+
+> **⚠️ Password reset is NOT implemented end-to-end.** `POST /auth/forgot-password` (`ForgetPasswordCommandHandler.cs`) generates a reset token via `IUserService.GeneratePasswordResetToken()` and then **discards it** — there is no email delivery and no persistence of the token anywhere (`// TODO: Send email with reset token` in the handler). The endpoint always returns the same generic success message (`LocalizationKeys.Success.PasswordResetEmailSent`) regardless of whether a user exists (correct anti-enumeration behavior), but **no actual reset email is ever sent and the generated token cannot be redeemed by any endpoint** — do not build a frontend "reset password" flow on top of this until email delivery + token persistence + a redeem endpoint are added.
+
+### **Registration Requirements**
+
+`POST /auth/register` is more than email + password. Per `RegisterCommand`/`RegisterCommandValidator` (`Identity.Application/Commands/Auth/RegisterCommand.cs`):
+
+| Field | Required | Rule |
+|---|---|---|
+| `Email` | Yes | Valid email format, max 256 chars |
+| `Password` | Yes | Min 8 chars; must contain an uppercase letter, a lowercase letter, a digit, and a non-alphanumeric character |
+| `FirstName` | Yes | Max 100 chars, letters/spaces only |
+| `LastName` | Yes | Max 100 chars, letters/spaces only |
+| `PhoneNumber` | No | If provided, must match `^\+?[1-9]\d{1,14}$` |
+| `Data` | No | Free-form additional data string |
+
+```json
+{
+  "email": "john@example.com",
+  "password": "SecurePass123!",
+  "firstName": "John",
+  "lastName": "Doe",
+  "phoneNumber": "+15551234567"
+}
+```
+
+The OTP-based routes (`/auth/register-with-code-by-phone`, `/auth/register-with-code-by-email`) are a separate, no-password registration path — see the endpoint table above.
 
 ### **Key Components**
 
@@ -241,7 +301,9 @@ Looking at your `Identity.API/appsettings.json`:
 
 ### **JWT Token Structure**
 
-When a user logs in, the Identity Service generates a JWT token like this:
+The actual issuance path is `UserService.GenerateTokensAsync` (`Identity.Infrastructure/Services/UserService.cs`) — **not** `JwtTokenGenerator.cs`, which is dead code (registered in DI via `services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>()` but never injected or called by any handler; it uses different claim types (`sub`, `email` short names) than what's actually issued below).
+
+`GenerateTokensAsync` uses full **`ClaimTypes`** URIs (not JWT short names like `sub`/`email`), one `ClaimTypes.Role` entry per role the user has, one entry per permission claim reachable through those roles, and — if the request has a resolved tenant — a `tenant_id` claim:
 
 ```json
 {
@@ -250,24 +312,35 @@ When a user logs in, the Identity Service generates a JWT token like this:
     "typ": "JWT"
   },
   "payload": {
-    "sub": "12345", // User ID
-    "email": "john@example.com", // User email
-    "name": "John Doe", // User name
-    "role": "User", // User role
-    "iss": "IdentityService", // Issuer
-    "aud": "MicroservicesApp", // Audience
-    "exp": 1729360800, // Expiration (Unix timestamp)
-    "iat": 1729357200 // Issued at
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier": "12345",
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": "john@example.com",
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname": "John",
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname": "Doe",
+    "http://schemas.microsoft.com/ws/2008/06/identity/claims/role": "User",
+    "tenant_id": "acme-corp",
+    "iss": "IhsanDev",
+    "aud": "MicroservicesApp",
+    "exp": 1729360800,
+    "iat": 1729357200
   },
-  "signature": "..." // HMAC signature using secret key
+  "signature": "..."
 }
 ```
 
+Notes on the real fields above:
+
+- These are `ClaimTypes.NameIdentifier`, `.Email`, `.GivenName`, `.Surname`, `.Role` — .NET serializes each as its full URI, not the short JWT name (`sub`, `email`, etc.) shown in older examples of this doc.
+- **Multiple roles** produce multiple `role` entries (one `ClaimTypes.Role` claim per role), not a single string.
+- **Permission claims** (see "Permission Claims" section below) are added as additional entries, one per claim reachable through the user's role(s), with whatever `ClaimType`/`ClaimValue` was seeded (e.g. `"Permission": "nasheed.songs.create"`).
+- `tenant_id` is only present when `ITenantContext.HasTenant` is true for the request (i.e. `x-tenant-id` was provided and resolved).
+- **Issuer is config-driven, not hardcoded to `"IdentityService"`.** It reads `Jwt:Issuer` — the tenant's own `Configuration.Jwt.Issuer` if multi-tenancy is enabled and the tenant has custom JWT settings, otherwise falling back to `appsettings.json`'s `Jwt:Issuer`, which in this repo's tracked config is `"IhsanDev"` (not `"IdentityService"` — that string only appears as a hardcoded fallback if the config key itself is missing).
+
 **All projects (A, B, C) can decode this token to get:**
 
-- User ID: `12345`
-- Email: `john@example.com`
-- Role: `User`
+- User ID via `ClaimTypes.NameIdentifier`
+- Email via `ClaimTypes.Email`
+- Role(s) via `ClaimTypes.Role` (may be more than one)
+- Tenant ID via `"tenant_id"` (if present)
 
 ---
 
@@ -372,50 +445,41 @@ var app = builder.Build();
 app.UseAuthentication();  // Must come before UseAuthorization
 app.UseAuthorization();
 
-app.MapControllers();
-
 app.Run();
 ```
 
-#### **Project A - Controller Example**
+#### **Project A - Endpoint Example**
+
+> **Note:** This monorepo's own convention is **Minimal APIs only** — controllers (`[ApiController]`/`ControllerBase`) are prohibited here (see `.claude/instructions/Dotnet.instructions.md`). The snippet below shows the same pattern as a Minimal API, matching how every service in *this* repo actually consumes a shared-Identity JWT. Use this shape for any new service here, not the controller style from older versions of this doc.
 
 ```csharp
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
-namespace ProjectA.Controllers;
+var ordersGroup = app.MapGroup("/api/orders");
 
-[ApiController]
-[Route("api/[controller]")]
-public class OrdersController : ControllerBase
+ordersGroup.MapGet("/", (ClaimsPrincipal user) =>
 {
-    [HttpGet]
-    [Authorize] // Requires valid JWT token
-    public IActionResult GetOrders()
-    {
-        // Get user ID from JWT token claims
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var email = User.FindFirst(ClaimTypes.Email)?.Value;
-        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+    // Get user info from JWT token claims
+    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var email = user.FindFirst(ClaimTypes.Email)?.Value;
+    var role = user.FindFirst(ClaimTypes.Role)?.Value;
 
-        return Ok(new
-        {
-            Message = "Orders for user",
-            UserId = userId,
-            Email = email,
-            Role = role
-        });
-    }
-
-    [HttpPost]
-    [Authorize(Roles = "Admin")] // Only Admin role can access
-    public IActionResult CreateOrder()
+    return Results.Ok(new
     {
-        // Only users with "Admin" role can reach here
-        return Ok("Order created");
-    }
-}
+        Message = "Orders for user",
+        UserId = userId,
+        Email = email,
+        Role = role
+    });
+})
+.RequireAuthorization(); // Requires valid JWT token
+
+ordersGroup.MapPost("/", () =>
+{
+    // Only users with "Admin" role can reach here
+    return Results.Ok("Order created");
+})
+.RequireAuthorization(policy => policy.RequireRole("Admin")); // Only Admin role can access
 ```
 
 ---
@@ -462,28 +526,22 @@ app.UseAuthentication();
 app.UseAuthorization();
 ```
 
-#### **Project B - Controller Example**
+#### **Project B - Endpoint Example**
 
 ```csharp
-namespace ProjectB.Controllers;
+using System.Security.Claims;
 
-[ApiController]
-[Route("api/[controller]")]
-public class InventoryController : ControllerBase
+app.MapGet("/api/inventory", (ClaimsPrincipal user) =>
 {
-    [HttpGet]
-    [Authorize] // Same JWT token from Project A works here!
-    public IActionResult GetInventory()
-    {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        return Ok(new
-        {
-            Message = "Inventory for user",
-            UserId = userId
-        });
-    }
-}
+    return Results.Ok(new
+    {
+        Message = "Inventory for user",
+        UserId = userId
+    });
+})
+.RequireAuthorization(); // Same JWT token from Project A works here!
 ```
 
 ---
@@ -527,11 +585,14 @@ For each new project, **repeat the exact same configuration**:
      │ {                             │
      │   "accessToken": "eyJhbGc...",│
      │   "refreshToken": "...",      │
-     │   "expiresIn": 3600           │
+     │   "refreshTokenExpiryTime":   │
+     │     "2026-08-20T12:00:00Z"    │
      │ }                             │
      │◀──────────────────────────────│
      │                               │
 ```
+
+**Note:** The real response field (`UserDtoIncludesToken.RefreshTokenExpiryTime`, `Identity.Application/DTOs/UserDtoIncludesToken.cs`) is an **absolute UTC timestamp string** (`"yyyy-MM-ddTHH:mm:ssZ"`), not a duration in seconds — there is no `expiresIn` field in the actual response. The timestamp reflects the access token's own expiry (`Jwt:AccessTokenExpirationMinutes`, default/global config value is 21600 minutes = 15 days), reused for both fields since `UserService.GenerateTokensAsync` sets `RefreshTokenExpiryTime` from the same `tokenDescriptor.Expires` value as the access token — despite the name suggesting it tracks the separate `RefreshTokenExpirationDays` setting.
 
 ### **Flow 2: Access Project A with JWT**
 
@@ -1221,16 +1282,37 @@ options.TokenValidationParameters = new TokenValidationParameters
 - ✅ Forces re-authentication via refresh token
 - ✅ Allows role/permission changes to take effect quickly
 
+### **4a. Account Lockout (Already Implemented)**
+
+This isn't just a "best practice to add" — Identity already enforces it. `LoginCommandHandler.cs` reads two settings from `appsettings.json`'s `LoginSecurity` section:
+
+```json
+{
+  "LoginSecurity": {
+    "MaxFailedAttempts": 5,
+    "LockoutMinutes": 15
+  }
+}
+```
+
+- Every failed password check increments `User.FailedLoginAttempts`.
+- On the attempt that reaches `MaxFailedAttempts` (default 5), `User.LoginLockoutUntil` is set to `UtcNow + LockoutMinutes` (default 15) and the request throws `ForbiddenException` (**403**), not `UnauthorizedException` (401) — even though the immediate cause was a wrong password.
+- While `LoginLockoutUntil` is still in the future, **every** login attempt for that account — even with the correct password — is rejected with the same 403 before the password is even checked, so a locked-out account cannot be brute-forced during the lockout window.
+- A successful login resets `FailedLoginAttempts` to 0 and clears `LoginLockoutUntil`.
+
+See the Troubleshooting section below — a 403 on login is no longer only a role problem.
+
 ### **5. Implement Refresh Token Rotation**
 
+> **Note:** Minimal API equivalent of the pattern above — this repo does not use `[ApiController]`/`ControllerBase` (see `.claude/instructions/Dotnet.instructions.md`). Illustrative only; Identity's actual refresh flow is `RefreshTokenCommandHandler` → `UserService.RefreshTokenAsync` → `GenerateTokensAsync`.
+
 ```csharp
-[HttpPost("refresh")]
-public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+app.MapPost("/auth/refresh", async (RefreshTokenRequest request, AppDbContext db) =>
 {
     // 1. Validate refresh token
-    var storedToken = await _db.RefreshTokens.FirstOrDefaultAsync(t => t.Token == request.RefreshToken);
+    var storedToken = await db.RefreshTokens.FirstOrDefaultAsync(t => t.Token == request.RefreshToken);
     if (storedToken == null || storedToken.ExpiresAt < DateTime.UtcNow)
-        return Unauthorized("Invalid refresh token");
+        return Results.Unauthorized();
 
     // 2. Generate new access token + new refresh token
     var newAccessToken = GenerateAccessToken(storedToken.UserId);
@@ -1238,19 +1320,19 @@ public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest req
 
     // 3. Revoke old refresh token (one-time use)
     storedToken.RevokedAt = DateTime.UtcNow;
-    await _db.SaveChangesAsync();
+    await db.SaveChangesAsync();
 
     // 4. Store new refresh token
-    await _db.RefreshTokens.AddAsync(new RefreshToken
+    await db.RefreshTokens.AddAsync(new RefreshToken
     {
         Token = newRefreshToken,
         UserId = storedToken.UserId,
         ExpiresAt = DateTime.UtcNow.AddDays(7)
     });
-    await _db.SaveChangesAsync();
+    await db.SaveChangesAsync();
 
-    return Ok(new { accessToken = newAccessToken, refreshToken = newRefreshToken });
-}
+    return Results.Ok(new { accessToken = newAccessToken, refreshToken = newRefreshToken });
+});
 ```
 
 ### **6. Rate Limiting on Authentication Endpoints**
@@ -1277,32 +1359,33 @@ app.UseIpRateLimiting();
 
 ### **7. Audit Logging**
 
+> **Note:** Minimal API equivalent — this repo does not use `[ApiController]`/`ControllerBase`. Identity itself doesn't need hand-written logging like this for entity changes (see `AddAuditService()`'s automatic `audit_log` capture in `.claude/instructions/Dotnet.instructions.md`), but auth-attempt logging (success/failure by IP) isn't an entity change, so a login endpoint may still want explicit log lines like these.
+
 ```csharp
-[HttpPost("login")]
-public async Task<IActionResult> Login([FromBody] LoginRequest request)
+app.MapPost("/auth/login", async (LoginRequest request, IAuthService authService, ILogger<Program> logger, HttpContext httpContext) =>
 {
     try
     {
-        var result = await _authService.LoginAsync(request.Email, request.Password);
+        var result = await authService.LoginAsync(request.Email, request.Password);
 
         // Log successful login
-        _logger.LogInformation("User {Email} logged in successfully from IP {IP}",
+        logger.LogInformation("User {Email} logged in successfully from IP {IP}",
             request.Email,
-            HttpContext.Connection.RemoteIpAddress);
+            httpContext.Connection.RemoteIpAddress);
 
-        return Ok(result);
+        return Results.Ok(result);
     }
     catch (Exception ex)
     {
         // Log failed login attempt
-        _logger.LogWarning("Failed login attempt for {Email} from IP {IP}: {Error}",
+        logger.LogWarning("Failed login attempt for {Email} from IP {IP}: {Error}",
             request.Email,
-            HttpContext.Connection.RemoteIpAddress,
+            httpContext.Connection.RemoteIpAddress,
             ex.Message);
 
-        return Unauthorized("Invalid credentials");
+        return Results.Unauthorized();
     }
-}
+});
 ```
 
 ---
@@ -1428,11 +1511,11 @@ ValidAudience = "DifferentAudience"
 }
 ```
 
-#### **Cause: User lacks required role**
+#### **Cause 1: User lacks required role**
 
 ```csharp
-[Authorize(Roles = "Admin")] // Endpoint requires Admin role
-public IActionResult CreateOrder() { }
+app.MapPost("/api/orders", CreateOrder)
+   .RequireAuthorization(policy => policy.RequireRole("Admin")); // Endpoint requires Admin role
 ```
 
 **User's JWT has:**
@@ -1442,6 +1525,21 @@ public IActionResult CreateOrder() { }
 ```
 
 **✅ FIX:** Assign Admin role to user in Identity Service
+
+#### **Cause 2: Account is locked out (as of the account-lockout feature — see Security Best Practices)**
+
+A 403 from `POST /auth/login` itself (not a downstream endpoint) can now mean the account is temporarily locked, not just "wrong role" — check the response body:
+
+```json
+{
+  "status": 403,
+  "title": "Account locked. Try again in 15 minute(s)."
+}
+```
+
+This happens once `User.FailedLoginAttempts` reaches `LoginSecurity:MaxFailedAttempts` (default 5); the lockout self-clears after `LoginSecurity:LockoutMinutes` (default 15) or immediately on the next successful login attempt after it expires.
+
+**✅ FIX:** Wait out the lockout window, or have an Admin reset `FailedLoginAttempts`/`LoginLockoutUntil` directly if immediate access is required.
 
 ### **Problem 3: Authentication middleware not working**
 
@@ -1465,23 +1563,31 @@ var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;  // Returns null
 
 #### **Cause: Claims not added to token**
 
-Check Identity Service token generation:
+Check Identity Service token generation — the real code is `UserService.GenerateTokensAsync` (`Identity.Infrastructure/Services/UserService.cs`), not the dead-code `JwtTokenGenerator.cs`:
 
 ```csharp
 var claims = new List<Claim>
 {
-    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),  // ← Must be added
-    new Claim(ClaimTypes.Email, user.Email),
-    new Claim(ClaimTypes.Role, user.Role)
+    new(ClaimTypes.NameIdentifier, user.Id.ToString()),  // ← Must be added
+    new(ClaimTypes.Email, user.Email ?? string.Empty),
+    new(ClaimTypes.GivenName, user.FirstName),
+    new(ClaimTypes.Surname, user.LastName)
 };
 
-var token = new JwtSecurityToken(
-    issuer: _configuration["Jwt:Issuer"],
-    audience: _configuration["Jwt:Audience"],
-    claims: claims,  // ← Must include claims
-    expires: DateTime.UtcNow.AddMinutes(60),
-    signingCredentials: credentials
-);
+foreach (var role in userRoles)                          // one Role claim PER role, not a single string
+    claims.Add(new Claim(ClaimTypes.Role, role.Name));
+
+foreach (var claim in userClaims)                         // permission claims, if any
+    claims.Add(new Claim(claim.ClaimType, claim.ClaimValue));
+
+var tokenDescriptor = new SecurityTokenDescriptor
+{
+    Subject = new ClaimsIdentity(claims),                 // ← Must include claims
+    Expires = DateTime.UtcNow.AddMinutes(expiryMinutes),
+    Issuer = jwtIssuer,                                   // config-driven, e.g. "IhsanDev" — not hardcoded
+    Audience = jwtAudience,
+    SigningCredentials = credentials
+};
 ```
 
 ---
@@ -1581,7 +1687,7 @@ curl -X POST https://identity-api.com/api/v1/auth/login \
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "refreshToken": "...",
-  "expiresIn": 3600
+  "refreshTokenExpiryTime": "2026-08-20T12:00:00Z"
 }
 ```
 
@@ -1643,6 +1749,8 @@ curl -X GET https://projectb.com/api/inventory \
 - **TENANT_MIDDLEWARE_EXPLAINED.md** - Multi-tenancy integration (optional)
 - **CACHING_STRATEGY_COMPARISON.md** - Caching decisions for configuration data
 - **FILE_MANAGER_SERVICE_GUIDE.md** - File storage service architecture (NEW)
+- **ROLES_AND_CLAIMS_GUIDE.md** - Role/claim admin endpoints and system-role rules
+- **DEVICE_TOKEN_MANAGEMENT_GUIDE.md** - Device token endpoints for push notifications
 - **Identity.API Documentation** - Your Identity Service API reference
 
 ---
@@ -1705,5 +1813,5 @@ curl -X GET https://projectb.com/api/inventory \
 
 ---
 
-**Last Updated:** August 9, 2026  
-**Version:** 2.2.0 (Added Permission Claims — fine-grained authorization below role level)
+**Last Updated:** August 13, 2026  
+**Version:** 2.3.0 (Accuracy pass: full endpoint reference table, password-reset stub warning, real JWT claim/issuer shape, real refresh-token-expiry field, account lockout, real registration fields, Minimal API code samples replacing MVC controller examples — Permission Claims section untouched from 2.2.0)

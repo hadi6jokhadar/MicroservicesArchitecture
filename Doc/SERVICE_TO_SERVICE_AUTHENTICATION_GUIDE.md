@@ -96,11 +96,13 @@ This was missed for both `CategoryService` and `NasheedService` (July 2026) — 
 
 **When adding a new multi-tenant service, add its `ServiceName` to Tenant Service's `AllowedServices` in both `appsettings.json` and `appsettings.Development.json` — this is easy to forget because nothing fails until the cache goes cold.**
 
-### ⚠️ A missing `SharedSecret` override in `appsettings.Development.json` fails the exact same way
+### ⚠️ A placeholder or too-short `SharedSecret` now crashes the service at startup — it is no longer a silent 401
 
-`ServiceAuthenticationMiddleware` treats "secret mismatch" and "service not whitelisted" identically — both silently skip the `Service`/`SuperAdmin` claims instead of rejecting the request outright. This means a service whose base `appsettings.json` only has the placeholder `SharedSecret: "CHANGE_ME_..."`, with no real value supplied via `appsettings.Development.json` (or environment variables), produces the **same symptom** as an `AllowedServices` gap: a confusing 401 (or, for Tenant's `/config/{tenantId}` specifically, a downstream "Tenant not found or inactive" 404 once `TenantConfigurationProvider` degrades the failed call to `null`).
+`ServiceAuthenticationMiddleware`'s constructor calls `JwtAuthenticationExtensions.ValidateSecretStrength(secret, "ServiceCommunication:SharedSecret")` before the app finishes starting. This throws `InvalidOperationException` — a hard startup crash, not a runtime 401 — if the configured secret is missing, is one of the known committed placeholders (`CHANGE_ME_JWT_SECRET`, `CHANGE_ME_SHARED_SECRET`, etc.), or is under 32 bytes. This means a service whose base `appsettings.json` only has the placeholder `SharedSecret: "CHANGE_ME_..."`, with no real value supplied via `appsettings.Development.json` (or environment variables), now **fails loudly at startup** instead of silently accepting service calls with a weak secret.
 
-Found for `NasheedService` (July 2026): its `AllowedServices` gap in Tenant Service was fixed first, but tenant resolution still failed — `Nasheed.API/appsettings.Development.json` had no `ServiceCommunication` section at all, so the placeholder secret from the base `appsettings.json` was genuinely in effect at runtime. Fixed by adding the real shared secret to `appsettings.Development.json`. **When scaffolding a new service, verify both halves — the whitelist entry on the receiving side AND the real secret override on the calling side — since either one missing produces the same symptom and neither one fails at startup.**
+**This is a distinct failure mode from the `AllowedServices` gap above** — a startup crash is easy to spot (the service never comes up), whereas the whitelist gap is a silent per-request 401 that can hide for hours behind the 30-minute cache. What `ValidateSecretStrength` does **not** catch: two services each configured with a different *real*, strong secret (e.g. a typo when copying the value into one service's `appsettings.Development.json`). That case passes the strength check on both sides but still fails service-to-service auth at runtime — `ServiceAuthenticationMiddleware` logs `Invalid service secret from IP: ..., Path: ...` and, exactly like the whitelist gap, silently skips the `Service`/`SuperAdmin` claims rather than rejecting the request outright, surfacing later as a plain 401 from the endpoint's own role check.
+
+Found for `NasheedService` (July 2026, before `ValidateSecretStrength` existed): its `AllowedServices` gap in Tenant Service was fixed first, but tenant resolution still failed — `Nasheed.API/appsettings.Development.json` had no `ServiceCommunication` section at all, so the placeholder secret from the base `appsettings.json` was genuinely in effect at runtime. Fixed by adding the real shared secret to `appsettings.Development.json`; a `ValidateSecretStrength`-style check was added afterward specifically to turn this class of gap into a startup failure. **When scaffolding a new service, verify both halves — the whitelist entry on the receiving side AND a real, matching secret override on the calling side.** A missing/placeholder secret now fails fast at startup; a real-but-mismatched secret between two services still fails silently at request time, same as the whitelist gap.
 
 ### Automatic Service Authentication for Tenant Service Client
 
@@ -113,6 +115,8 @@ When using multi-tenancy, the `TenantServiceClient` is **automatically configure
 - Reads `ServiceCommunication:SharedSecret` from configuration
 - Reads `ServiceCommunication:ServiceName` from configuration (or falls back to `ApplicationName`)
 - Automatically adds `X-Service-Secret` and `X-Service-Name` headers to all Tenant Service API calls
+- Bypasses SSL certificate validation in local Development (`ASPNETCORE_ENVIRONMENT == "Development"`) so self-signed dev certs work
+- Wraps every call in a resilience pipeline (`.AddStandardResilienceHandler()`) tuned to fail fast, since this client is invoked by `TenantConfigurationProvider` on **every** tenant-scoped request across every multi-tenant service whenever the 30-minute Redis cache misses
 - No manual HttpClient configuration needed for tenant config fetching
 
 **Code:**
@@ -135,10 +139,37 @@ services.AddHttpClient("TenantServiceClient", client =>
             ?? "UnknownService";
         client.DefaultRequestHeaders.Add("X-Service-Name", serviceName);
     }
+})
+.ConfigurePrimaryHttpMessageHandler(() =>
+{
+    var handler = new HttpClientHandler();
+
+    // In development, bypass SSL certificate validation for self-signed certificates
+    if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+    {
+        handler.ServerCertificateCustomValidationCallback =
+            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+    }
+
+    return handler;
+})
+.AddStandardResilienceHandler(options =>
+{
+    options.Retry.MaxRetryAttempts = 2;
+    options.Retry.Delay = TimeSpan.FromMilliseconds(100);
+    options.Retry.BackoffType = DelayBackoffType.Exponential;
+
+    options.CircuitBreaker.FailureRatio = 0.5;
+    options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(10);
+    options.CircuitBreaker.MinimumThroughput = 5;
+    options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
+
+    options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(2);
+    options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(4);
 });
 ```
 
-**This means:** When you enable multi-tenancy with `AddMultiTenancy()`, the Tenant Service client is automatically ready for service-to-service authentication!
+**This means:** When you enable multi-tenancy with `AddMultiTenancy()`, the Tenant Service client is automatically ready for service-to-service authentication — and tuned to fail fast (≈4s worst case) rather than hold a caller's request thread open on a slow/unhealthy Tenant Service.
 
 ---
 
@@ -167,9 +198,28 @@ services.AddHttpClient("TenantServiceClient", client =>
 }
 ```
 
-**HttpClient Setup (Program.cs):**
+**HttpClient Setup (Program.cs) — actual current pattern:**
+
+Identity.API no longer configures `HttpClient` inline. It calls the shared extension methods from `SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md` instead, which already wire up the base URL, timeout, service-auth headers, dev SSL bypass, correlation-ID forwarding, and resilience pipeline:
 
 ```csharp
+// Register Notification service client for service-to-service communication
+builder.Services.AddNotificationServiceClient(
+    builder.Configuration,
+    "IdentityService",
+    builder.Environment.IsDevelopment());
+
+// Register FileManager service client for service-to-service communication
+builder.Services.AddFileManagerServiceClient(
+    builder.Configuration,
+    "IdentityService",
+    builder.Environment.IsDevelopment());
+```
+
+See `SERVICE_TO_SERVICE_HTTP_CLIENT_EXTENSIONS.md` for the full extension-method reference (resilience settings, correlation-ID propagation, configuration priority). The verbose inline `AddHttpClient(...)` pattern below is kept only as a historical "before" reference — do not copy it for new code.
+
+```csharp
+// Historical / deprecated — do not use for new code, see AddNotificationServiceClient above
 builder.Services.AddHttpClient("NotificationService", client =>
 {
     var baseUrl = builder.Configuration["Services:NotificationService:BaseUrl"]
@@ -220,7 +270,7 @@ var notificationGroup = app.MapGroup("/api/notifications")
 
 ### Tenant Service
 
-**Called by:** Identity Service, Notification Service
+**Called by:** Every multi-tenant service via `AddMultiTenancy()`'s `TenantServiceClient` — Identity, Notification, FileManager, Category, Nasheed, Backup, PolySnap
 
 **Configuration:**
 
@@ -229,22 +279,33 @@ var notificationGroup = app.MapGroup("/api/notifications")
   "ServiceCommunication": {
     "Enabled": true,
     "ServiceName": "TenantService",
-    "SharedSecret": "CHANGE_ME_JWT_SECRET-service-secret-key",
-    "AllowedServices": ["IdentityService", "NotificationService"]
+    "SharedSecret": "CHANGE_ME_SHARED_SECRET",
+    "AllowedServices": [
+      "IdentityService",
+      "NotificationService",
+      "FileManagerService",
+      "CategoryService",
+      "NasheedService",
+      "BackupService",
+      "PolySnapService"
+    ]
   }
 }
 ```
 
+**This is the actual, current `AllowedServices` list from `Tenant.API/appsettings.json`.** This is exactly the list the "whitelist gap" warning above is about — every one of these seven entries corresponds to a real multi-tenant service that calls `/config/{tenantId}` on every cache miss; missing even one silently breaks that service the next time its cache goes cold. When adding an eighth service, add it here (and to `appsettings.Development.json`) immediately, not after a bug report.
+
 **Endpoint Authorization:**
 
 ```csharp
-// Tenant config endpoint is now restricted to Service role ONLY
+// Accessible ONLY by services with service authentication, or a SuperAdmin token
+// (SuperAdmin is included so the Angular admin dashboard's tenant-edit/config UI can call it too)
 publicGroup.MapGet("/config/{tenantId}", TenantApiHandlers.GetTenantConfigHandler)
-    .RequireAuthorization(policy => policy.RequireRole("Service"))  // ← Service-only endpoint
+    .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
     .WithName("GetTenantConfig");
 ```
 
-**Important:** The `/api/tenant/config/{tenantId}` endpoint is now **service-only** and requires service authentication. Any service calling this endpoint must include service authentication headers.
+**Important:** The `/api/v1/tenant/config/{tenantId}` endpoint requires either the `Service` role (via `X-Service-Secret`/`X-Service-Name`) or the `SuperAdmin` role (via a normal JWT) — it is **not** anonymous and **not** `Service`-only. Any service calling this endpoint must include service authentication headers; any admin UI calling it must send a SuperAdmin JWT.
 
 ---
 
@@ -382,28 +443,33 @@ notificationGroup.MapPost("/send", NotificationApiHandlers.SendNotificationHandl
 ### Pattern 2: Allow Anonymous (Including Services)
 
 ```csharp
-publicGroup.MapGet("/config/{tenantId}", TenantApiHandlers.GetTenantConfigHandler)
+publicGroup.MapGet("/feature-flags", TenantApiHandlers.GetTenantFeatureFlagsHandler)
     .AllowAnonymous()
-    .WithName("GetTenantConfig");
+    .WithName("GetTenantFeatureFlags");
 ```
 
 **Use When:**
 
 - Endpoint must be accessible without any authentication
-- Example: Tenant config endpoint (used by middleware)
+- Example: Tenant Service's `/feature-flags` endpoint — returns tenant-specific or default feature flags and is deliberately safe to call from any app with no auth. (**Not** `/config/{tenantId}` — that endpoint requires `Service` or `SuperAdmin`, see Pattern 3.)
 
-### Pattern 3: Service Only
+### Pattern 3: Service Only (or Service + SuperAdmin)
 
 ```csharp
 internalGroup.MapPost("/internal/operation", InternalHandlers.OperationHandler)
     .RequireAuthorization(policy => policy.RequireRole("Service"))
     .WithName("InternalOperation");
+
+// A variant that also allows an admin UI to call the same endpoint with a normal JWT:
+publicGroup.MapGet("/config/{tenantId}", TenantApiHandlers.GetTenantConfigHandler)
+    .RequireAuthorization(policy => policy.RequireRole("Service", "SuperAdmin"))
+    .WithName("GetTenantConfig");
 ```
 
 **Use When:**
 
-- Endpoint should ONLY be accessible by services, not users
-- Example: Internal administrative operations
+- Endpoint should ONLY be accessible by services (and optionally SuperAdmin), not ordinary users
+- Example: Internal administrative operations; Tenant Service's `/config/{tenantId}` (Service **or** SuperAdmin)
 
 ---
 
@@ -428,6 +494,14 @@ internalGroup.MapPost("/internal/operation", InternalHandlers.OperationHandler)
 ```
 [Warning] Service 'UnknownService' is not in the allowed services list. IP: 127.0.0.1, Path: /api/notifications/send
 ```
+
+**Secret Present but `X-Service-Name` Missing:**
+
+```
+[Warning] Service secret presented with no X-Service-Name header. IP: 127.0.0.1, Path: /api/notifications/send
+```
+
+A valid `X-Service-Secret` with no `X-Service-Name` header (or an empty one) is rejected outright by this check — it no longer falls through to the whitelist check with a blank service name. Like the other two warnings above, the request still proceeds unauthenticated (no `Service` claims) rather than short-circuiting with a 401 directly from the middleware; the 401 comes from whichever endpoint's own role check runs next.
 
 ### Checking Service Authentication
 
@@ -664,6 +738,8 @@ client.DefaultRequestHeaders.Add("X-Service-Name", "IdentityService");
 ---
 
 **Last Updated:** August 2026  
+**Version:** 1.4.0 (Corrected against actual source: Tenant Service's real 7-entry `AllowedServices` list; `/config/{tenantId}`'s real `RequireRole("Service", "SuperAdmin")` policy made consistent everywhere it's referenced, replacing the previous 3 contradicting descriptions; `TenantServiceClient` code snippet now includes the real dev-SSL-bypass handler and `AddStandardResilienceHandler` values; corrected the missing-`SharedSecret` pitfall to describe the real `ValidateSecretStrength` startup-crash behavior instead of a silent 401; added the third rejection log line (`X-Service-Name` missing); Identity Service's HttpClient snippet now shows the real `AddNotificationServiceClient`/`AddFileManagerServiceClient` extension-method pattern instead of inline `AddHttpClient`)
+
 **Version:** 1.3.0 (Added Nasheed → Notification consumer for real-time ingestion progress broadcasts; whitelisted `NasheedService` in Notification's `AllowedServices`)
 
 **Version:** 1.2.0 (Added missing-`SharedSecret`-override pitfall found for Nasheed; Service Communication Matrix corrected to match actual code; `AllowedServices` whitelist pitfall added; fixed dead link to non-existent JWT_SECRET_AND_VALIDATION_FLOW.md)

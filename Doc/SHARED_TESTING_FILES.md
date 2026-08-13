@@ -2,7 +2,23 @@
 
 This document tracks which files were extracted from the Identity.API.Tests project and moved to the shared testing library.
 
-**Last Updated:** January 27, 2026
+**Last Updated:** January 27, 2026 (correction added August 13, 2026)
+
+> **Audit correction (August 2026):** the "❌ DON'T: Drop Database During Tests" section further
+> below is only half the current picture. The shared base class itself —
+> `CustomWebApplicationFactory<TProgram>.InitializeDatabase<TDbContext>()` in
+> `src/Shared/IhsanDev.Shared.Testing/Infrastructure/CustomWebApplicationFactory.cs` — still calls
+> `context.Database.EnsureDeleted(); context.Database.Migrate();` for the PostgreSQL path, and none
+> of the current service test factories (Identity, Tenant, Category, FileManager, Notification,
+> Translation, Nasheed) override it to avoid that. This is safe in practice because it runs
+> **once**, inside `ConfigureWebHost` at factory-construction time (the factory is shared across an
+> entire `[Collection("Sequential")]` test class via `IClassFixture`), not per test method — the
+> crash/slowness this section warns about was specifically calling `EnsureDeleted()` repeatedly
+> *during* a test run under concurrent access. Per-test isolation is handled separately, by each
+> service's own test classes truncating/cleaning up their own data in `IAsyncLifetime.InitializeAsync()`
+> (see the "✅ DO: Use IAsyncLifetime for Automatic Cleanup" section below), not by re-running
+> `InitializeDatabase()`. If you add a new service's test factory, follow the existing pattern
+> (don't override `InitializeDatabase()`) rather than the letter of the warning below.
 
 ## 📦 New Shared Library
 

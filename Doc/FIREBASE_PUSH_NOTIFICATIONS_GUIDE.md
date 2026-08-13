@@ -1,7 +1,7 @@
 # Firebase Push Notifications Implementation Guide
 
-**Version:** 1.0.0  
-**Last Updated:** November 13, 2025  
+**Version:** 1.1.0  
+**Last Updated:** August 13, 2026  
 **Status:** ✅ Production Ready
 
 ---
@@ -40,19 +40,39 @@ The Notification Service now supports Firebase Cloud Messaging (FCM) for sending
 
 ### System Flow
 
+`NotificationProcessor.SendViaFirebaseAsync` (`Notification.API/BackgroundServices/NotificationProcessor.cs`) branches into one of three delivery scenarios based on whether the queue item carries a `tenantId`/`userId`:
+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    NOTIFICATION PROCESSOR                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  1. Fetch queue item with DeliveryType = Firebase or Both       │
-│  2. Get user's device tokens from Identity Service              │
-│  3. Send FCM notification to each device token                  │
-│  4. Check delivery status for each token                        │
-│  5. Remove invalid/expired tokens from Identity Service         │
-│  6. Mark notification as Sent or Failed                         │
-│                                                                   │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         NOTIFICATION PROCESSOR                            │
+├──────────────────────────────────────────────────────────────────────────┤
+│  1. Fetch queue item(s) with DeliveryType = Firebase or Both             │
+│  2. Branch by (tenantId, userId):                                        │
+│                                                                            │
+│     ┌─ no tenantId, no userId ─────────────────────────────────────────┐ │
+│     │  GLOBAL BROADCAST                                                │ │
+│     │  Loop every active tenant (ITenantServiceClient                 │ │
+│     │  .GetAllActiveTenantIdsAsync) → per-tenant device tokens        │ │
+│     │  (IIdentityServiceClient.GetTenantDeviceTokensAsync), sent in    │ │
+│     │  parallel across tenants                                        │ │
+│     └───────────────────────────────────────────────────────────────────┘ │
+│     ┌─ tenantId, no userId ────────────────────────────────────────────┐ │
+│     │  TENANT-WIDE BROADCAST                                          │ │
+│     │  All device tokens for that tenant                              │ │
+│     │  (IIdentityServiceClient.GetTenantDeviceTokensAsync)             │ │
+│     └───────────────────────────────────────────────────────────────────┘ │
+│     ┌─ tenantId + userId ──────────────────────────────────────────────┐ │
+│     │  PER-USER                                                        │ │
+│     │  Tokens served from a batch cache built once per tenant group   │ │
+│     │  (IIdentityServiceClient.GetBatchDeviceTokensAsync); falls back  │ │
+│     │  to a per-user fetch (GetUserDeviceTokensAsync) on a cache miss │ │
+│     └───────────────────────────────────────────────────────────────────┘ │
+│                                                                            │
+│  3. Send FCM notification to each device token (multicast)               │
+│  4. Check delivery status for each token                                 │
+│  5. Batch-delete invalid/expired tokens from Identity Service            │
+│  6. Mark notification as Sent or Failed                                  │
+└──────────────────────────────────────────────────────────────────────────┘
          │                                        │
          ▼                                        ▼
 ┌──────────────────┐                    ┌──────────────────┐
@@ -140,7 +160,7 @@ Configure shared secret for service-to-service communication:
     "Enabled": true,
     "ServiceName": "NotificationService",
     "SharedSecret": "your-shared-secret-here",
-    "AllowedServices": ["IdentityService", "TenantService"]
+    "AllowedServices": ["IdentityService", "TenantService", "NasheedService"]
   }
 }
 ```
@@ -154,7 +174,7 @@ Configure shared secret for service-to-service communication:
 ### 1. Device Token Registration (Client → Identity Service)
 
 ```http
-POST https://localhost:5001/api/device-tokens
+POST https://localhost:5001/api/v1/device-tokens
 Authorization: Bearer {jwt_token}
 Content-Type: application/json
 
@@ -170,7 +190,7 @@ Content-Type: application/json
 ### 2. Notification Queuing (Any Service → Notification Service)
 
 ```http
-POST https://localhost:5104/api/notifications/send
+POST https://localhost:5004/api/v1/notifications/send
 Authorization: Bearer {jwt_token}
 Content-Type: application/json
 
@@ -185,28 +205,35 @@ Content-Type: application/json
 }
 ```
 
+The request body determines which of three delivery scenarios `NotificationProcessor.SendViaFirebaseAsync` runs — see [Notification Processor Integration](#3-notification-processor-integration) below:
+
+| `tenantId` | `userId` | Scenario | Device tokens fetched via |
+| --- | --- | --- | --- |
+| absent/null | absent/null | **Global broadcast** — every active tenant | Looped: `ITenantServiceClient.GetAllActiveTenantIdsAsync` → `IIdentityServiceClient.GetTenantDeviceTokensAsync` per tenant |
+| present | absent/null | **Tenant-wide broadcast** — every device in that tenant | `IIdentityServiceClient.GetTenantDeviceTokensAsync(tenantId)` |
+| present | present | **Per-user** — that user's devices only | Batch-cached via `IIdentityServiceClient.GetBatchDeviceTokensAsync` (per tenant group), falling back to `GetUserDeviceTokensAsync` on a cache miss |
+
 ### 3. Background Processing (Notification Service)
 
 ```csharp
 // NotificationProcessor automatically processes queue
 1. Fetch pending notifications with DeliveryType = Firebase or Both
-2. For each notification with userId:
-   a. Call Identity Service: GET /api/device-tokens/user/{userId}
-   b. Send FCM notification to each device token
-   c. Check Firebase response for each token
-   d. If token invalid/expired:
-      - Call Identity Service: DELETE /api/device-tokens/{tokenId}
-   e. Mark notification as Sent or Failed
+2. Determine scenario (Global / Tenant / User) from tenantId + userId, then fetch device tokens accordingly (see table above)
+3. Send FCM notification to each device token
+4. Check Firebase response for each token
+5. If token invalid/expired:
+   - Call Identity Service: DELETE /api/v1/device-tokens/batch (batch delete — see IIdentityServiceClient)
+6. Mark notification as Sent or Failed
 ```
 
 ### 4. Firebase Delivery
 
 ```
-Notification Service → Firebase FCM → Mobile Device
+Notification Service → Firebase FCM → Mobile Device(s)
                      ↓
-            (Invalid Token Detected)
+            (Invalid Token(s) Detected)
                      ↓
-Notification Service → Identity Service (Delete Token)
+Notification Service → Identity Service (Batch Delete Tokens)
 ```
 
 ---
@@ -259,11 +286,15 @@ if (firebaseService.IsEnabled)
 ### 2. Identity Service Client (`IIdentityServiceClient`)
 
 **Location:** `Notification.Infrastructure/Services/IdentityServiceClient.cs`
+**Interface:** `Notification.Application/Interfaces/IIdentityServiceClient.cs`
 
 **Key Methods:**
 
-- `GetUserDeviceTokensAsync()` - Get all device tokens for user
-- `DeleteDeviceTokenAsync()` - Delete invalid token
+- `GetUserDeviceTokensAsync()` - Get all device tokens for a single user (per-user fallback on a batch-cache miss)
+- `DeleteDeviceTokenAsync()` - Delete a single invalid token. **Not currently called anywhere in `NotificationProcessor`'s Firebase send path** — `SendViaFirebaseAsync` always uses `DeleteBatchDeviceTokensAsync` instead, even for a single invalid token. Kept for other/future single-token callers.
+- `GetBatchDeviceTokensAsync()` - Get device tokens for multiple users in one request; used to build the per-tenant-group cache for per-user notifications
+- `DeleteBatchDeviceTokensAsync()` - Delete multiple invalid/expired tokens in one request; the actual cleanup path used after every Firebase send (global, tenant, and per-user scenarios alike)
+- `GetTenantDeviceTokensAsync()` - Get all device tokens for a tenant; used for tenant-wide broadcasts, and per-tenant inside the global-broadcast loop
 
 **Features:**
 
@@ -277,14 +308,20 @@ if (firebaseService.IsEnabled)
 ```csharp
 var identityClient = serviceProvider.GetRequiredService<IIdentityServiceClient>();
 
-// Get device tokens
+// Get device tokens for a single user (per-user fallback path)
 var tokens = await identityClient.GetUserDeviceTokensAsync(
     userId: 1,
     tenantId: "ihsandev");
 
-// Delete invalid token
-var deleted = await identityClient.DeleteDeviceTokenAsync(
-    tokenId: 123,
+// Get device tokens for multiple users in one call (used to build the per-tenant batch cache)
+var batchTokens = await identityClient.GetBatchDeviceTokensAsync(
+    userIds: [1, 2, 3],
+    tenantId: "ihsandev");
+
+// Delete invalid tokens — NotificationProcessor always uses the batch method,
+// even for a single invalid token (see IIdentityServiceClient "Key Methods" above)
+var deletedCount = await identityClient.DeleteBatchDeviceTokensAsync(
+    tokenIds: [123],
     tenantId: "ihsandev");
 ```
 
@@ -297,25 +334,34 @@ var deleted = await identityClient.DeleteDeviceTokenAsync(
 **Flow:**
 
 ```csharp
-1. Check if Firebase is enabled
-2. Check if notification has userId
-3. Get device tokens from Identity Service
-4. Prepare FCM payload with custom data
-5. Send to all devices using multicast
-6. Process results:
+1. Check if Firebase is enabled and IIdentityServiceClient is registered
+2. Determine scenario from (tenantId, userId) and fetch device tokens accordingly:
+   a. GLOBAL (no tenantId, no userId): loop every active tenant
+      (ITenantServiceClient.GetAllActiveTenantIdsAsync), fetching and sending
+      to each tenant's devices in parallel (GetTenantDeviceTokensAsync per tenant)
+   b. TENANT (tenantId, no userId): GetTenantDeviceTokensAsync(tenantId) — all
+      devices in that tenant
+   c. USER (tenantId + userId): read from the batch-fetched cache built once per
+      tenant group (GetBatchDeviceTokensAsync); on a cache miss, fall back to
+      GetUserDeviceTokensAsync(userId, tenantId)
+3. Prepare FCM payload with custom data
+4. Send to all devices using multicast (SendToMultipleDevicesAsync)
+5. Process results:
    - Log success for each device
    - Collect invalid token IDs
-7. Delete invalid tokens from Identity Service
-8. Log summary (success count, failure count)
+6. Batch-delete invalid tokens from Identity Service (DeleteBatchDeviceTokensAsync)
+7. Log summary (success count, failure count) — per tenant for the global
+   scenario, and again in total across all tenants
 ```
 
 **Key Features:**
 
-- Skips notifications without userId (can't send to devices without user context)
-- Handles empty device token list gracefully
-- Efficient batch processing with multicast
-- Automatic cleanup of invalid tokens
-- Detailed logging for troubleshooting
+- Supports all three scenarios — global broadcast, tenant-wide broadcast, and per-user — not just per-user delivery
+- A notification with neither `tenantId` nor `userId` is a valid, fully supported global broadcast, not a skipped/invalid case
+- Handles empty device token list gracefully for any scenario
+- Efficient batch processing with multicast, plus per-tenant batch caching for user-scoped notifications
+- Automatic cleanup of invalid tokens via batch delete
+- Detailed logging for troubleshooting, scoped per tenant for global broadcasts
 
 ---
 
@@ -327,7 +373,7 @@ var deleted = await identityClient.DeleteDeviceTokenAsync(
 
 ```bash
 # Login to get JWT token
-curl -X POST "https://localhost:5001/api/auth/login" \
+curl -X POST "https://localhost:5001/api/v1/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
@@ -335,7 +381,7 @@ curl -X POST "https://localhost:5001/api/auth/login" \
   }'
 
 # Register device token
-curl -X POST "https://localhost:5001/api/device-tokens" \
+curl -X POST "https://localhost:5001/api/v1/device-tokens" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {jwt_token}" \
   -d '{
@@ -350,7 +396,7 @@ curl -X POST "https://localhost:5001/api/device-tokens" \
 #### Step 2: Send Notification
 
 ```bash
-curl -X POST "https://localhost:5104/api/notifications/send" \
+curl -X POST "https://localhost:5004/api/v1/notifications/send" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {jwt_token}" \
   -d '{
@@ -381,7 +427,7 @@ Look for these log entries in Notification Service:
 
 ```bash
 # Register invalid token
-curl -X POST "https://localhost:5001/api/device-tokens" \
+curl -X POST "https://localhost:5001/api/v1/device-tokens" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {jwt_token}" \
   -d '{
@@ -392,7 +438,7 @@ curl -X POST "https://localhost:5001/api/device-tokens" \
   }'
 
 # Send notification
-curl -X POST "https://localhost:5104/api/notifications/send" \
+curl -X POST "https://localhost:5004/api/v1/notifications/send" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {jwt_token}" \
   -d '{
@@ -405,8 +451,8 @@ curl -X POST "https://localhost:5104/api/notifications/send" \
 
 # Check logs for automatic token deletion
 # [WARN] Invalid or unregistered device token: invalid_...2345. Error: Unregistered
-# [INFO] Removing 1 invalid/expired device tokens for user 1
-# [INFO] Deleted invalid device token 123 for user 1
+# [INFO] Removing 1 invalid/expired device tokens for user 1 using batch delete
+# [INFO] Successfully deleted 1 of 1 invalid device tokens for user 1
 ```
 
 ### 3. End-to-End Testing with Mobile App
@@ -482,12 +528,13 @@ All errors in Firebase/Identity Service calls are caught and logged. The notific
 - Set appropriate priority (Immediate for critical, Waitable for non-urgent)
 - Include meaningful data payload for app routing
 - Test with real device tokens before production
+- Deliberately omit `userId` (and `tenantId`) when a global or tenant-wide broadcast is intended — `SendViaFirebaseAsync` treats "no userId" as a first-class scenario (tenant-wide broadcast if `tenantId` is present, global broadcast across every active tenant if it isn't), not an error condition
 
 ❌ **DON'T:**
 
-- Send Firebase notifications without userId
 - Assume all users have device tokens
 - Send too many notifications (respect user preferences)
+- Use a global or tenant-wide broadcast (no `userId`) for anything that should only reach one user — that's what per-user notifications (`userId` + `tenantId`) are for
 
 ### 3. Firebase Configuration
 
@@ -647,6 +694,6 @@ Firebase push notifications are now fully integrated with the Notification Servi
 
 ---
 
-**Last Updated:** November 13, 2025  
-**Version:** 1.0.0  
+**Last Updated:** August 13, 2026  
+**Version:** 1.1.0  
 **Status:** ✅ Production Ready

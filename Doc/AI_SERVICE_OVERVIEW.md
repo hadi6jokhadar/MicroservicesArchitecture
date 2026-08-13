@@ -121,11 +121,11 @@ When `generate_session_title=true` is included in `POST /api/v1/chat/stream` or 
 When `file_ids` is provided in a chat request the `multimodal_transform` node handles the full encoding pipeline:
 
 1. **Metadata fetch** — `file_manager_client.get_files_by_ids` retrieves name, extension, MIME type, and URLs for every file ID.
-2. **Byte download** — `fetch_file_bytes_with_fallback` downloads raw bytes from `external_url` (CDN). If that request fails, it retries using the internal `url` field. Before every fetch, `fetch_file_bytes` (SSRF guard) resolves the destination hostname and rejects loopback/private/link-local addresses (including the `169.254.169.254` cloud metadata address) — the sole exception is `FileManagerSettings.BaseUrl`'s own host, since that's expected to be internal (localhost in dev, a Docker-internal name in production). Redirects are never followed (`follow_redirects=False`); a 3xx response is treated as a rejected fetch.
+2. **Byte download** — `fetch_file_bytes_with_fallback` downloads raw bytes from `external_url` (CDN). If that request fails, it retries using an internal URL built by `resolve_internal_url(meta)` — **not** FileManager's own `url` field (August 2026). FileManager's `url` is the public gateway hostname (`RootStoragePath`), which isn't actually Docker-internal and can trip the SSRF guard below if that hostname's DNS resolves to a private/CGNAT address; `resolve_internal_url` instead builds the fetch URL directly from `FileManagerSettings.BaseUrl` (the real Docker-internal host) plus the file's relative `path`, falling back to the raw `url` field only if `path` is missing. Before every fetch, `fetch_file_bytes` (SSRF guard) resolves the destination hostname and rejects loopback/private/link-local addresses (including the `169.254.169.254` cloud metadata address) — the sole exception is `FileManagerSettings.BaseUrl`'s own host, since that's expected to be internal (localhost in dev, a Docker-internal name in production). Redirects are never followed (`follow_redirects=False`); a 3xx response is treated as a rejected fetch.
 3. **MIME classification** — `classify_media_type` groups each file into `image`, `audio`, `document`, or `unknown`.
 4. **Block encoding** (provider-aware):
    - Images → `{"type": "image_url", "image_url": {"url": "data:<mime>;base64,..."}}`
-   - Audio (OpenAI / Gemini / Groq) → `{"type": "input_audio", "input_audio": {"data": "<base64>", "format": "mp3"}}` — file bytes downloaded and base64-encoded.
+   - Audio (OpenAI / Gemini) → `{"type": "input_audio", "input_audio": {"data": "<base64>", "format": "mp3"}}` — file bytes downloaded and base64-encoded.
    - Audio (Qwen omni / Dashscope) → `{"type": "input_audio", "input_audio": {"data": "<https-url>", "format": "mp3"}}` — CDN URL passed directly; Dashscope fetches the file server-side. The `data` field accepts a URL, avoiding an unnecessary download.
    - Anthropic/Claude audio → text-context fallback (Claude has no native audio API).
    - Documents → `{"type": "text", "text": "Attached document: name.pdf (https://...)"}` (URL-as-context fallback)
@@ -235,6 +235,7 @@ Chat endpoint tenant behavior:
 ## Main Endpoints
 
 - `GET /health`
+- `GET /metrics` — Prometheus scrape endpoint, registered unconditionally by `prometheus_fastapi_instrumentator` (see "Configuration" → `Observability`).
 - `POST /api/v1/chat/stream`
 - `POST /api/v1/chat/single`
 - `GET /api/v1/settings/`
@@ -269,7 +270,7 @@ Shared request fields for both chat endpoints include:
 - `messages`: ordered chat messages.
 - `system_prompt_key` (optional): resolved to `AiSystemPrompt`.
 - `file_ids` (optional): FileManager file IDs. The multimodal transform node fetches each file's raw bytes and encodes them as OpenAI-compatible content blocks (`image_url` for images, `input_audio` for audio, text-context for documents). External CDN URL is tried first; internal FileManager URL is used as fallback.
-- `max_completion_tokens` (optional): explicit output token cap forwarded to LiteLLM as `max_tokens`.
+- `max_completion_tokens` (optional): explicit output token cap forwarded to LiteLLM as `max_tokens`. Bounded by Pydantic in `core/ai/schemas.py` to `1 <= max_completion_tokens <= 32768`; a value outside that range is rejected with a 422 validation error before the workflow runs.
 - `generate_session_title` (optional): defaults to `false`. When `true`, schedules background session title generation after a successful chat response.
 
 Streaming completion metadata payload fields:
@@ -302,7 +303,7 @@ Filter and pagination support on list endpoints:
 
 - `chat-sessions`: `user_id`, `title`, `pipeline_run_id` (exact match), `created_from`, `created_to`, `skip`, `limit`.
 - `chat-messages`: `session_id`, `role`, `created_from`, `created_to`, `skip`, `limit`.
-- `chat-message-files`: `message_id`, `file_id`, `skip`, `limit`.
+- `chat-message-files`: `message_id`, `file_id`, `skip`, `limit`. **Unimplemented data path:** nothing in `core/ai/persistence.py` or `core/ai/chat_workflow.py` ever inserts a row into `AiChatMessageFile` — chat persistence only ever writes `AiChatMessage` rows (see "Chat Message Persistence" above). `GET /api/v1/chat-message-files/` therefore currently always returns an empty list regardless of filters; do not rely on it to resolve which files were attached to a message.
 - `token-usage-logs`: `user_id`, `model_name`, `endpoint`, `pipeline_run_id` (exact match), `created_from`, `created_to`, `skip`, `limit`.
 
 ### Token Usage Statistics Endpoint
@@ -378,6 +379,7 @@ Important sections:
 - `Cors` — `AllowedOrigins` is a required, non-empty list (Pydantic validator in `CorsSettings` raises at startup otherwise). CORS is always registered with `allow_credentials=True`, so there is no `["*"]` fallback: an empty/missing list would let any origin make credentialed cross-site requests (Starlette reflects the request `Origin` header instead of a literal wildcard whenever credentials are enabled).
 - `ServiceCommunication`
 - `FileManagerSettings`
+- `Observability` — `OtlpEndpoint` (`ObservabilitySettings` in `core/config.py`, default `""`). When non-empty, `main.py`'s `_setup_tracing()` configures an OTLP `TracerProvider` and instruments outbound HTTP calls (`HTTPXClientInstrumentor`) and the async engine's `sync_engine` (`SQLAlchemyInstrumentor`); when empty, `_setup_tracing()` returns immediately and neither runs. Independently of `OtlpEndpoint`, `main.py` always attempts to register `FastAPIInstrumentor.instrument_app` (inbound request spans, `excluded_urls="health,metrics"`) and a Prometheus `/metrics` endpoint via `prometheus_fastapi_instrumentator`'s `Instrumentator().instrument(app).expose(app, endpoint="/metrics")`, guarded only by a try/except `ImportError` if those packages aren't installed.
 
 Provider setting behavior for chat endpoints:
 
@@ -386,7 +388,9 @@ Provider setting behavior for chat endpoints:
 - `ApiBaseUrl` stored on the `AiProviderSettings` record is passed to LiteLLM as `api_base` (e.g. set this to the Qwen OpenAI-compatible URL for Qwen providers).
 - `MaxCompletionTokens` stored on `AiProviderSettings` is used as the default limit; the caller can override it per-request via the `max_completion_tokens` field.
 - `Temperature`, `TopP`, `FrequencyPenalty`, and `PresencePenalty` stored on `AiProviderSettings` are forwarded to LiteLLM when set.
+- `Stream` stored on `AiProviderSettings` is currently dead: `api/routes/chat.py` hardcodes `"stream": True` for `POST /api/v1/chat/stream` and `"stream": False` for `POST /api/v1/chat/single` regardless of this field's value, and no other code path reads `ai_settings.Stream`. It is still persisted (settable via the settings CRUD endpoints) but has no effect on request behavior.
 - If `ModelName` already includes a provider prefix (`provider/model`), the value is used as-is.
+- `AudioDataMode` (`AudioDataModeEnum`: `Auto` / `Url` / `Base64`, stored on `AiProviderSettings`, nullable, defaults to `None`/`Auto`) overrides how the `multimodal_transform` node encodes audio attachments for that setting, instead of relying purely on the provider-based auto-detection described above. Exposed on `ProviderSettingsCreate`/`ProviderSettingsResponse` in `api/routes/settings.py`. `chat_workflow.py` reads it into `ChatWorkflowState.audio_data_mode` and applies it in the audio-format resolution step: `Url` forces an `audio_url` block (except for text-fallback providers like Claude, which never get audio blocks), `Base64` forces an `input_audio` block; `None`/`Auto` (or any other value) leaves the existing per-provider auto-detection (Qwen → URL, OpenAI/Gemini → Base64, Claude → text fallback) unchanged.
 
 FileManager context enrichment behavior for chat endpoints:
 
@@ -409,8 +413,13 @@ Tests:
 
 - `tests/` directory
 - `tests/test_chat.py` includes coverage for chat stream and single endpoints, provider-failure paths, token fallback estimation, file-context injection, and LangGraph orchestration behavior.
+- `tests/test_chat_workflow.py` covers the LangGraph workflow nodes directly (e.g. multimodal/audio-mode handling) rather than through the HTTP endpoint.
 - `tests/test_settings.py` and `tests/test_system_prompts.py` cover CRUD and scoped lookup behavior.
 - `tests/test_chat_sessions.py`, `tests/test_chat_messages.py`, `tests/test_chat_message_files.py`, and `tests/test_token_usage_logs.py` cover list endpoints, filter validation, and pagination-bound validation.
+- `tests/test_embedding.py` covers `POST /api/v1/embedding`, including the local BAAI bge-m3 inference path.
+- `tests/test_health.py` covers the basic `GET /health` happy-path response shape (does not exercise the migration-drift-detection branches).
+- `tests/test_persistence.py` covers the background message-persistence and token-usage-logging helpers in `core/ai/persistence.py`.
+- `tests/test_dependencies.py` covers the auth/tenant resolution helpers in `api/dependencies.py`.
 - `tests/conftest.py` uses dependency overrides to simulate authenticated SuperAdmin access and deterministic tenant context for route tests.
 
 ## Troubleshooting Notes

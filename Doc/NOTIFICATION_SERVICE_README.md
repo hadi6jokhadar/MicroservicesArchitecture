@@ -531,9 +531,10 @@ The Notification Service provides two groups of endpoints with different authent
 
 **Endpoints:**
 
-- `POST /api/notifications/send` - Send notification
-- `GET /api/notifications/status/{id}` - Get queue status
-- `GET /api/notifications/queue` - Get all queue items with filters
+- `POST /api/v1/notifications/send` - Send notification
+- `GET /api/v1/notifications/status/{id}` - Get queue status
+- `GET /api/v1/notifications/queue` - Get all queue items with filters
+- `PATCH /api/v1/notifications/queue/{id}/toggle-archive` - Toggle queue item archived status
 
 ### 👤 User Endpoints (Tenant-Specific Access)
 
@@ -545,14 +546,14 @@ The Notification Service provides two groups of endpoints with different authent
 
 **Endpoints:**
 
-- `GET /api/notifications/user` - Get my notifications
-- `PUT /api/notifications/{id}/read` - Mark notification as read
+- `GET /api/v1/notifications/user` - Get my notifications
+- `PUT /api/v1/notifications/{id}/read` - Mark notification as read
 
 ---
 
 ### Send Notification (Service/Admin)
 
-**POST** `/api/notifications/send`
+**POST** `/api/v1/notifications/send`
 
 Send a new notification to the queue.
 
@@ -580,7 +581,7 @@ Send a new notification to the queue.
 
 ```bash
 # User-specific notification (requires tenantId)
-curl -X POST "https://localhost:5104/api/notifications/send" \
+curl -X POST "https://localhost:5104/api/v1/notifications/send" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer JWT_TOKEN" \
   -d '{
@@ -594,7 +595,7 @@ curl -X POST "https://localhost:5104/api/notifications/send" \
   }'
 
 # Tenant broadcast notification
-curl -X POST "https://localhost:5104/api/notifications/send" \
+curl -X POST "https://localhost:5104/api/v1/notifications/send" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer JWT_TOKEN" \
   -d '{
@@ -606,7 +607,7 @@ curl -X POST "https://localhost:5104/api/notifications/send" \
   }'
 
 # Global notification (SuperAdmin only)
-curl -X POST "https://localhost:5104/api/notifications/send" \
+curl -X POST "https://localhost:5104/api/v1/notifications/send" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer SUPERADMIN_JWT_TOKEN" \
   -d '{
@@ -622,7 +623,10 @@ curl -X POST "https://localhost:5104/api/notifications/send" \
 ```json
 {
   "queueItemId": 123,
-  "status": "Pending"
+  "status": "Pending",
+  "queuedAt": "2025-11-07T14:00:00Z",
+  "priority": "Immediate",
+  "deliveryType": "Both"
 }
 ```
 
@@ -637,7 +641,7 @@ curl -X POST "https://localhost:5104/api/notifications/send" \
 
 ### Get Queue Status (Service/Admin)
 
-**GET** `/api/notifications/status/{queueItemId}`
+**GET** `/api/v1/notifications/status/{queueItemId}`
 
 Check the status of a queued notification.
 
@@ -645,7 +649,7 @@ Check the status of a queued notification.
 **Tenant Context:** NOT required
 
 ```bash
-curl "https://localhost:5104/api/notifications/status/123" \
+curl "https://localhost:5104/api/v1/notifications/status/123" \
   -H "Authorization: Bearer GLOBAL_JWT_TOKEN"
 ```
 
@@ -653,16 +657,19 @@ curl "https://localhost:5104/api/notifications/status/123" \
 
 ```json
 {
-  "id": 123,
+  "queueItemId": 123,
   "status": "Sent",
-  "createdAt": "2025-11-07T14:00:00Z",
-  "lastAttemptAt": "2025-11-07T14:00:05Z"
+  "retryCount": 0,
+  "processedAt": "2025-11-07T14:00:05Z",
+  "error": null,
+  "notificationId": 456,
+  "createdAt": "2025-11-07T14:00:00Z"
 }
 ```
 
 ### Get User Notifications (User/Admin)
 
-**GET** `/api/notifications/user`
+**GET** `/api/v1/notifications/user`
 
 Get all notifications for the authenticated user. UserId is automatically extracted from JWT token.
 
@@ -670,8 +677,10 @@ Get all notifications for the authenticated user. UserId is automatically extrac
 **Required Header:** `x-tenant-id: {tenantId}` (for tenant users)
 **JWT:** Tenant-specific JWT (when JwtMode=PerTenant) or Global JWT (when JwtMode=Shared)
 
+**Note:** This endpoint returns a bare array, not a paginated envelope. `NotificationApiHandlers.GetUserNotificationsHandler` does not bind any query-string parameters at all — it always calls `GetUserNotificationsCommand` with its defaults (`Skip=0`, `Take=20`, `UnreadOnly=null`). Passing `?pageNumber=`/`?pageSize=` (or `?skip=`/`?take=`) in a request is silently ignored; there is currently no way to request a different page from this endpoint over HTTP.
+
 ```bash
-curl "https://localhost:5104/api/notifications/user?pageNumber=1&pageSize=20" \
+curl "https://localhost:5104/api/v1/notifications/user" \
   -H "Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN" \
   -H "x-tenant-id: ihsandev"
 ```
@@ -679,26 +688,24 @@ curl "https://localhost:5104/api/notifications/user?pageNumber=1&pageSize=20" \
 **Response:**
 
 ```json
-{
-  "items": [
-    {
-      "id": 456,
-      "title": "New Message",
-      "message": "You have a new message",
-      "data": "{\"messageId\": 123}",
-      "isRead": false,
-      "createdAt": "2025-11-07T14:00:00Z"
-    }
-  ],
-  "totalCount": 50,
-  "pageNumber": 1,
-  "pageSize": 20
-}
+[
+  {
+    "id": 456,
+    "userId": 1,
+    "title": "New Message",
+    "message": "You have a new message",
+    "data": "{\"messageId\": 123}",
+    "isRead": false,
+    "readAt": null,
+    "created": "2025-11-07T14:00:00Z",
+    "isArchived": false
+  }
+]
 ```
 
 ### Mark as Read
 
-**PUT** `/api/notifications/{notificationId}/read`
+**PUT** `/api/v1/notifications/{notificationId}/read`
 
 Mark a notification as read. UserId is automatically extracted from JWT token.
 
@@ -707,7 +714,7 @@ Mark a notification as read. UserId is automatically extracted from JWT token.
 **JWT:** Tenant-specific JWT (when JwtMode=PerTenant) or Global JWT (when JwtMode=Shared)
 
 ```bash
-curl -X PUT "https://localhost:5104/api/notifications/456/read" \
+curl -X PUT "https://localhost:5104/api/v1/notifications/456/read" \
   -H "Authorization: Bearer TENANT_SPECIFIC_JWT_TOKEN" \
   -H "x-tenant-id: ihsandev"
 ```
@@ -731,12 +738,12 @@ curl -X PUT "https://localhost:5104/api/notifications/456/read" \
 
 ### Get Queue Items (Service/SuperAdmin)
 
-**GET** `/api/notifications/admin/queue`
+**GET** `/api/v1/notifications/queue`
 
 Retrieve all notification queue items across all tenants with filtering and pagination.
 
 ```bash
-curl "https://localhost:5104/api/notifications/admin/queue?pageSize=20&status=0&tenantId=ihsandev" \
+curl "https://localhost:5104/api/v1/notifications/queue?pageSize=20&status=0&tenantId=ihsandev" \
   -H "Authorization: Bearer GLOBAL_SUPERADMIN_JWT_TOKEN"
 ```
 
@@ -752,6 +759,7 @@ curl "https://localhost:5104/api/notifications/admin/queue?pageSize=20&status=0&
 - `fromDate` (DateTime): Filter from date
 - `toDate` (DateTime): Filter to date
 - `searchTerm` (string): Search in title/message
+- `isArchived` (bool): Filter by archived status (default: false)
 
 **Response:**
 
@@ -768,7 +776,8 @@ curl "https://localhost:5104/api/notifications/admin/queue?pageSize=20&status=0&
       "message": "Test message",
       "queueStatus": 2,
       "retryCount": 0,
-      "createdAt": "2025-11-07T10:00:00Z"
+      "created": "2025-11-07T10:00:00Z",
+      "isArchived": false
     }
   ],
   "pageNumber": 1,
@@ -780,6 +789,37 @@ curl "https://localhost:5104/api/notifications/admin/queue?pageSize=20&status=0&
 ```
 
 **See:** [NOTIFICATION_MANUAL_TESTING_GUIDE.md](NOTIFICATION_MANUAL_TESTING_GUIDE.md) for complete documentation
+
+### Toggle Queue Item Archived Status (Service/SuperAdmin)
+
+**PATCH** `/api/v1/notifications/queue/{id}/toggle-archive`
+
+Archive or unarchive a notification queue item. No request body — flips `IsArchived` on the queue item identified by `{id}`. Combine with the `isArchived` filter on `GET /api/v1/notifications/queue` above to view archived items.
+
+```bash
+curl -X PATCH "https://localhost:5104/api/v1/notifications/queue/123/toggle-archive" \
+  -H "Authorization: Bearer GLOBAL_SUPERADMIN_JWT_TOKEN"
+```
+
+**Response:**
+
+```json
+{
+  "id": 123,
+  "tenantId": "ihsandev",
+  "userId": 2,
+  "deliveryType": 3,
+  "priority": 1,
+  "title": "Test notification",
+  "message": "Test message",
+  "queueStatus": 2,
+  "retryCount": 0,
+  "created": "2025-11-07T10:00:00Z",
+  "isArchived": true
+}
+```
+
+**Error Response:** `404 Not Found` if no queue item exists with that `id`.
 
 ---
 
@@ -1007,8 +1047,8 @@ Used for **SuperAdmin endpoints** and as the default validation:
 
 **Used By:**
 
-- Queue management endpoints (`/api/notifications/admin/*`)
-- Send notification endpoint (`/api/notifications/send`) - marked with `BypassTenantAttribute`
+- Queue management endpoints (`/api/v1/notifications/status/*`, `/api/v1/notifications/queue`, `/api/v1/notifications/queue/{id}/toggle-archive`)
+- Send notification endpoint (`/api/v1/notifications/send`) - marked with `BypassTenantAttribute`
 - SignalR hub when no `tenantId` is provided
 - All endpoints when `JwtMode = "Shared"`
 
@@ -1049,7 +1089,7 @@ const connection = new signalR.HubConnectionBuilder()
 #### Send Endpoint Flow
 
 ```
-1. Request arrives at /api/notifications/send
+1. Request arrives at /api/v1/notifications/send
 2. BypassTenantAttribute skips TenantMiddleware
 3. JWT validated using global secret from appsettings.json
 4. Endpoint validates: if userId provided, tenantId must also be provided
@@ -1106,14 +1146,14 @@ adminGroup.MapGet("/queue", GetQueueItemsHandler)
 
 **User Role:**
 
-- Send notifications for their tenant
+- **Cannot** call `/send` — that endpoint requires `Service` or `SuperAdmin` (see below)
 - View own notifications
 - Mark notifications as read
 - Connect to SignalR hub with tenant context
 
 **Service Role:**
 
-- Send notifications on behalf of system services
+- Send notifications (`POST /send`, `RequireRole("Service", "SuperAdmin")`) on behalf of system services
 - Access tenant-specific endpoints programmatically
 - Service-to-service communication
 
@@ -1284,7 +1324,7 @@ const connection = new signalR.HubConnectionBuilder()
 **Via Header:**
 
 ```http
-POST /api/notifications/send HTTP/1.1
+POST /api/v1/notifications/send HTTP/1.1
 x-tenant-id: ihsandev
 Authorization: Bearer eyJhbGci...
 ```
@@ -1320,67 +1360,72 @@ Each tenant has:
 
 ### NotificationProcessor
 
-**Purpose:** Process notification queue and deliver via SignalR/Firebase
+**Purpose:** Process notification queue and deliver via SignalR/Firebase. Runs as a `BackgroundService` (`Notification.API/BackgroundServices/NotificationProcessor.cs`), registered via `AddHostedService<NotificationProcessor>()` in `Program.cs`.
 
 **Configuration:**
 
 ```json
 {
   "NotificationProcessing": {
-    "ProcessingIntervalSeconds": 5,
+    "ProcessingIntervalSeconds": 2,
+    "MinBatchSize": 50,
+    "MaxBatchSize": 500,
+    "DynamicBatchSizing": true,
     "MaxRetryAttempts": 3,
-    "MaxParallelTenants": 10
+    "RetryDelaySeconds": 30
   }
 }
 ```
 
+**Note:** There is no `MaxParallelTenants` (or any similar) configuration key read anywhere in this service — a prior version of this doc listed one, but it was never implemented. `ProcessQueueAsync` groups the fetched batch by tenant and processes **every** tenant group in the batch concurrently via `Task.WhenAll`, with no configured concurrency cap.
+
 **Flow:**
 
-1. Every 5 seconds, fetch pending/failed items (max 50)
-2. Group by delivery type (SignalR, Firebase, Both)
-3. Send via SignalR to appropriate groups
-4. Send via Firebase (if enabled)
-5. Persist to tenant database
-6. Update queue status to `Sent` or `Failed`
-7. Retry failed items (max 3 attempts)
+1. Every `ProcessingIntervalSeconds` (default 2s), fetch pending items — batch size is dynamic, scaling from `MinBatchSize` (50) to `MaxBatchSize` (500) based on current queue depth
+2. Group the batch by tenant and process each tenant group concurrently (`Task.WhenAll`, no cap)
+3. Within a tenant group, for each item: persist to tenant database, then send via SignalR (if `DeliveryType` is `SignalR` or `Both`) and/or Firebase (if `DeliveryType` is `Firebase` or `Both`)
+4. Update queue status to `Sent` on success, or increment `RetryCount` and schedule a retry (or mark `Failed`) on failure
+5. Batch-save all changes for the tenant group in one `SaveChangesAsync` call
 
 **Performance Optimizations:**
 
 - ✅ **Dynamic Batch Sizing:** Adjusts 50-500 based on queue depth
-- ✅ **Parallel Tenant Processing:** Up to 10 tenants processed simultaneously
+- ✅ **Parallel Tenant Processing:** All tenant groups within a batch processed concurrently (no configured cap — see note above)
 - ✅ **Parallel Global Operations:** 10-50x faster for global notifications
 - ✅ **Parallel Firebase Batches:** 3-5x faster batch processing
 - ✅ **Priority Queue:** 80% Immediate, 20% Waitable (prevents starvation)
 - ✅ **Exponential Backoff:** Prevents retry storms
 
-**Retry Logic:**
+**Retry Logic** (`RetryDelaySeconds` default 30, doubling per attempt: `delay = RetryDelaySeconds * 2^(RetryCount - 1)`):
 
-- **Attempt 1:** Immediate
-- **Attempt 2:** After 5 seconds
-- **Attempt 3:** After 10 seconds
-- **After 3:** Mark as `Failed`
+- **Initial attempt:** As soon as the item is picked up by the processor (no delay)
+- **Retry 1:** After 30 seconds (if the initial attempt fails)
+- **Retry 2:** After 60 seconds (if retry 1 fails)
+- **After `MaxRetryAttempts` (default 3) failures:** Marked as `Failed` — with the default of 3, the item is marked `Failed` as soon as `RetryCount` reaches 3, so the formula's 120s third delay is never actually applied
 
 ### CleanupService
 
-**Purpose:** Remove expired notifications
+**CleanupService no longer exists as a running `BackgroundService`.** It was migrated to a Hangfire recurring job — `NotificationCleanupJob` (`Notification.API/Jobs/NotificationCleanupJob.cs`), registered via `AddNotificationHangfire(...)` and scheduled hourly (`Cron.Hourly`, UTC) by `HangfireExtensions.RegisterNotificationRecurringJobs()` in `Program.cs`. Any lingering `CleanupService` class in the codebase, if present, is dead code — it is never registered with `AddHostedService`.
+
+**Purpose:** Mark expired notifications and delete old processed items from the global queue.
 
 **Configuration:**
 
 ```json
 {
   "NotificationProcessing": {
-    "CleanupIntervalHours": 1,
     "ExpiredNotificationRetentionDays": 7
   }
 }
 ```
 
-**Flow:**
+**Note:** `CleanupIntervalHours` is not read by `NotificationCleanupJob` — the hourly cadence comes from the hardcoded `Cron.Hourly` schedule registered in `HangfireExtensions.RegisterNotificationRecurringJobs()`, not from configuration.
 
-1. Every hour, scan global queue
-2. Find items with `Status = Failed` or `Expired`
-3. Older than 7 days
-4. Delete from database
+**Flow** (`NotificationCleanupJob.RunAsync`, runs hourly):
+
+1. Mark items as `Expired` (`QueueStatus = 4`) where `ExpiresAt < now` and `QueueStatus = 0` (Pending)
+2. Batch-delete (1,000 rows at a time) items where `LastModified` is older than `ExpiredNotificationRetentionDays` (default 7) **and** `QueueStatus` is `Sent`, `Failed`, or `Expired` (`QueueStatus IN (2, 3, 4)`) — not just `Failed`/`Expired`
+3. Log per-status queue counts once cleanup completes
 
 ---
 
@@ -1388,48 +1433,57 @@ Each tenant has:
 
 ### Global Queue Database
 
-**Table:** `NotificationQueue`
+**Table:** `NotificationQueue` (backing entity: `NotificationQueueItem`, `Notification.Domain/Entities/`)
 
-| Column          | Type         | Description                                          |
-| --------------- | ------------ | ---------------------------------------------------- |
-| `Id`            | int          | Primary key                                          |
-| `TenantId`      | string       | Tenant identifier (nullable)                         |
-| `UserId`        | int          | User identifier (nullable)                           |
-| `Title`         | string(200)  | Notification title                                   |
-| `Message`       | string(1000) | Notification message                                 |
-| `Data`          | string       | JSON metadata (nullable)                             |
-| `DeliveryType`  | int          | 0=SignalR, 1=Firebase, 2=Both                        |
-| `Priority`      | int          | 0=Immediate, 1=Waitable                              |
-| `Status`        | int          | 0=Pending, 1=Processing, 2=Sent, 3=Failed, 4=Expired |
-| `RetryCount`    | int          | Number of delivery attempts                          |
-| `CreatedAt`     | datetime     | Queue creation timestamp                             |
-| `LastAttemptAt` | datetime     | Last delivery attempt (nullable)                     |
+| Column           | Type         | Description                                                                                                                                                                            |
+| ---------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Id`             | int          | Primary key                                                                                                                                                                            |
+| `TenantId`       | string(100)  | Tenant identifier (nullable)                                                                                                                                                            |
+| `UserId`         | int          | User identifier (nullable — null = broadcast)                                                                                                                                          |
+| `Title`          | string(500)  | Notification title                                                                                                                                                                      |
+| `Message`        | string(2000) | Notification message (nullable)                                                                                                                                                        |
+| `Data`           | jsonb        | JSON metadata (nullable)                                                                                                                                                                |
+| `DeliveryType`   | int          | 1=SignalR, 2=Firebase, 3=Both                                                                                                                                                           |
+| `Priority`       | int          | 0=Waitable, 1=Immediate                                                                                                                                                                 |
+| `QueueStatus`    | int          | 0=Pending, 1=Processing, 2=Sent, 3=Failed, 4=Expired (**note:** the column is `QueueStatus`, not `Status` — `Status` is an unrelated inherited active/inactive bool every entity has) |
+| `RetryCount`     | int          | Number of delivery attempts                                                                                                                                                             |
+| `NextRetryAt`    | datetime     | Next retry timestamp for exponential backoff (nullable — null = ready to process now)                                                                                                  |
+| `ProcessedAt`    | datetime     | Timestamp when the item was processed (nullable)                                                                                                                                        |
+| `ExpiresAt`      | datetime     | Expiration time for the notification                                                                                                                                                    |
+| `Error`          | string(2000) | Error message if delivery failed (nullable)                                                                                                                                             |
+| `NotificationId` | int          | Reference to the persisted `Notification` row in the tenant DB (nullable)                                                                                                               |
+| `Created`        | datetime     | Queue creation timestamp (inherited from `BaseEntity`)                                                                                                                                  |
+| `IsArchived`     | bool         | Archived status, toggled via `PATCH .../queue/{id}/toggle-archive` (inherited)                                                                                                          |
 
-**Indexes:**
+**Indexes** (`NotificationDbContext.OnModelCreating`):
 
-- `IX_NotificationQueue_Status_Priority` (Status, Priority)
-- `IX_NotificationQueue_TenantId` (TenantId)
-- `IX_NotificationQueue_UserId` (UserId)
+- `IX_NotificationQueue_Processing` (QueueStatus, ExpiresAt, NextRetryAt, Priority, Created) — filtered to `QueueStatus = 0` (Pending); backs the processor's pending-item fetch
+- `IX_NotificationQueue_Cleanup` (QueueStatus, LastModified) — filtered to `QueueStatus IN (2, 3, 4)` (Sent, Failed, Expired); backs `NotificationCleanupJob`'s batch delete
+- `IX_NotificationQueue_Expiration` (ExpiresAt, QueueStatus) — filtered to `QueueStatus = 0` (Pending)
+- `IX_NotificationQueue_Tenant` (TenantId, QueueStatus, Created)
+- `IX_NotificationQueue_User` (UserId, QueueStatus, Created)
 
 ### Tenant Notification Database
 
-**Table:** `Notifications` (per tenant)
+**Table:** `Notifications` (per tenant, backing entity: `Notification.Domain.Entities.Notification`)
 
-| Column      | Type         | Description                     |
-| ----------- | ------------ | ------------------------------- |
-| `Id`        | int          | Primary key                     |
-| `UserId`    | int          | User identifier                 |
-| `Title`     | string(200)  | Notification title              |
-| `Message`   | string(1000) | Notification message            |
-| `Data`      | string       | JSON metadata (nullable)        |
-| `IsRead`    | bool         | Read status                     |
-| `ReadAt`    | datetime     | Read timestamp (nullable)       |
-| `CreatedAt` | datetime     | Notification creation timestamp |
+| Column        | Type         | Description                                                          |
+| ------------- | ------------ | --------------------------------------------------------------------- |
+| `Id`          | int          | Primary key                                                          |
+| `UserId`      | int          | User identifier (nullable — null = all users in tenant)              |
+| `Title`       | string(500)  | Notification title                                                   |
+| `Message`     | string(2000) | Notification message (nullable)                                     |
+| `Data`        | jsonb        | JSON metadata (nullable)                                             |
+| `IsRead`      | bool         | Read status                                                          |
+| `ReadAt`      | datetime     | Read timestamp (nullable)                                            |
+| `QueueItemId` | int          | Reference back to the originating `NotificationQueueItem` (nullable) |
+| `Created`     | datetime     | Notification creation timestamp (inherited from `BaseEntity`)        |
 
-**Indexes:**
+**Indexes** (`TenantNotificationDbContext.OnModelCreating`):
 
-- `IX_Notifications_UserId_CreatedAt` (UserId, CreatedAt DESC)
-- `IX_Notifications_IsRead` (IsRead)
+- `IX_Notifications_UserId` (UserId)
+- `IX_Notifications_UserId_IsRead` (UserId, IsRead)
+- `IX_Notifications_Created` (Created)
 
 ---
 
@@ -1652,7 +1706,7 @@ await client.StartAsync();
 
 ```bash
 # Correct request with tenant-specific JWT
-curl "https://localhost:5104/api/notifications/user/1" \
+curl "https://localhost:5104/api/v1/notifications/user" \
   -H "Authorization: Bearer TENANT_SPECIFIC_TOKEN" \
   -H "x-tenant-id: ihsandev"
 ```
@@ -1674,7 +1728,7 @@ curl "https://localhost:5104/api/notifications/user/1" \
 
 ```bash
 # Correct request with global JWT
-curl "https://localhost:5104/api/notifications/admin/queue" \
+curl "https://localhost:5104/api/v1/notifications/queue" \
   -H "Authorization: Bearer GLOBAL_SUPERADMIN_TOKEN"
   # NO x-tenant-id header
 ```

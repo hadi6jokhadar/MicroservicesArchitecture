@@ -1,6 +1,6 @@
 # Roles and Claims Management Guide
 
-**Last Updated:** January 27, 2026  
+**Last Updated:** August 13, 2026  
 **Status:** ✅ Production Ready  
 **Replaces:** DYNAMIC_ROLES_AND_CLAIMS_MIGRATION_SUMMARY.md, ROLE_CLAIM_ENDPOINTS_WITH_REDIS_SUMMARY.md
 
@@ -132,12 +132,15 @@ Roles/Claims (tenant-scoped example, anashid only):
 | ------ | ------------------------------ | --------------------- | ----------- |
 | GET    | `/api/v1/admin/roles`             | List all roles        | 30 min      |
 | GET    | `/api/v1/admin/roles/{id}`        | Get role by ID        | 30 min      |
-| POST   | `/api/v1/admin/roles`             | Create new role       | Invalidates |
+| POST   | `/api/v1/admin/roles`             | Create new role†      | Invalidates |
 | PUT    | `/api/v1/admin/roles/{id}`        | Update role\*         | Invalidates |
 | DELETE | `/api/v1/admin/roles/{id}`        | Delete role\*         | Invalidates |
 | POST   | `/api/v1/admin/roles/{id}/claims` | Assign claims to role | Invalidates |
+| POST   | `/api/v1/admin/roles/user/{id}`   | Assign roles to user‡ | N/A         |
 
-\*System roles cannot be renamed or deleted
+\*System roles cannot be renamed or deleted  
+†Returns **409 Conflict** (`ConflictException` / `LocalizationKeys.Exceptions.RoleAlreadyExists`) if a role with the same `Name` already exists — see `CreateRoleCommandHandler.cs`.  
+‡`POST /api/v1/admin/roles/user/{id}` (`AssignRolesToUserHandler` in `RoleApiHandlers.cs`, backed by `AssignRolesToUserCommand(int UserId, List<int> RoleIds)`) **replaces ALL of the user's existing roles** with the given `RoleIds` — it is not additive. Passing an empty list removes every role from the user. It has no cache entries of its own to invalidate (role/user cache is keyed by role, not by user-role assignment). Granting the `SuperAdmin` role to a user this way requires the caller to already be SuperAdmin — see "SuperAdmin Role / Claim Escalation Protection" below.
 
 ### Claim Management
 
@@ -145,11 +148,12 @@ Roles/Claims (tenant-scoped example, anashid only):
 | ------ | ------------------------ | ---------------- | ----------- |
 | GET    | `/api/v1/admin/claims`      | List all claims  | 30 min      |
 | GET    | `/api/v1/admin/claims/{id}` | Get claim by ID  | 30 min      |
-| POST   | `/api/v1/admin/claims`      | Create new claim | Invalidates |
+| POST   | `/api/v1/admin/claims`      | Create new claim†| Invalidates |
 | PUT    | `/api/v1/admin/claims/{id}` | Update claim     | Invalidates |
 | DELETE | `/api/v1/admin/claims/{id}` | Delete claim\*    | Invalidates |
 
-\*System claims (`IsSystemClaim=true`, seeded by `SystemPermissionCatalog`) cannot be renamed (`ClaimType`/`ClaimValue`) or deleted — see "System Role / System Claim Protection" below.
+\*System claims (`IsSystemClaim=true`, seeded by `SystemPermissionCatalog`) cannot be renamed (`ClaimType`/`ClaimValue`) or deleted — see "System Role / System Claim Protection" below.  
+†Returns **409 Conflict** (`ConflictException` / `LocalizationKeys.Exceptions.ClaimAlreadyExists`) if a claim with the same `ClaimValue` already exists — see `CreateClaimCommandHandler.cs`.
 
 **Authorization:** All endpoints require Admin or SuperAdmin role  
 **Multi-Tenancy:** All endpoints support optional `x-tenant-id` header
@@ -210,6 +214,20 @@ Authorization: Bearer <admin_jwt>
 }
 ```
 
+### Assign Roles to User (Replaces All Existing Roles)
+
+```bash
+POST /api/v1/admin/roles/user/5
+Authorization: Bearer <admin_jwt>
+x-tenant-id: tenant123  # Optional
+
+{
+  "roleIds": [2, 4]
+}
+```
+
+This **replaces** user 5's entire role set with `[2, 4]` — it is not additive; passing `"roleIds": []` removes every role from the user. Assigning role ID `1` (`SuperAdmin`) requires the caller to already have the SuperAdmin role, or the request fails with **403 Forbidden** (see "SuperAdmin Role / Claim Escalation Protection" below).
+
 ### Get All Roles (Cached Response)
 
 ```bash
@@ -232,7 +250,8 @@ Authorization: Bearer <admin_jwt>
         "name": "Delete Actions",
         "claimType": "permission",
         "claimValue": "actions.delete",
-        "isSuperAdminOnly": true
+        "isSuperAdminOnly": true,
+        "isSystemClaim": true
       }
     ]
   },
@@ -339,45 +358,81 @@ await _cacheService.RemoveAsync($"admin:roles:name_{role.NormalizedName}", ct);
 ### 1. Per-Tenant Database Seeding
 
 ```csharp
-// DatabaseSeederMiddleware.cs
+// DatabaseSeederMiddleware.cs — runs once per tenant/database per application lifetime.
+// Uses a HashSet + SemaphoreSlim double-checked lock (not ConcurrentDictionary) so the
+// expensive seeding work itself only ever runs once per tenant, even under concurrent
+// first requests.
 public class DatabaseSeederMiddleware
 {
-    private static readonly ConcurrentDictionary<string, bool> _seededTenants = new();
+    private static readonly HashSet<string> _seededTenants = new();
+    private static readonly SemaphoreSlim _seedingLock = new(1, 1);
 
-    public async Task InvokeAsync(HttpContext context, RequestDelegate next)
+    public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
     {
-        var tenantId = GetTenantId(context);
+        if (ShouldSkipSeeding(context.Request.Path)) { await _next(context); return; }
 
-        if (!_seededTenants.GetOrAdd(tenantId, false))
+        // Tenant key comes from ITenantContext, not a raw header read
+        var tenantKey = tenantContext.IsMultiTenantMode && tenantContext.HasTenant
+            ? tenantContext.CurrentTenant?.TenantId ?? "default"
+            : "default";
+
+        if (!_seededTenants.Contains(tenantKey))
         {
-            await _seeder.SeedAsync(cancellationToken);
-            _seededTenants[tenantId] = true;
+            await _seedingLock.WaitAsync();
+            try
+            {
+                if (!_seededTenants.Contains(tenantKey)) // double-check inside the lock
+                {
+                    var seeder = context.RequestServices.GetRequiredService<DatabaseSeeder>();
+                    await seeder.SeedDefaultRolesAndClaimsAsync(context.RequestAborted);
+                    _seededTenants.Add(tenantKey);
+                }
+            }
+            finally
+            {
+                _seedingLock.Release();
+            }
         }
 
-        await next(context);
+        await _next(context);
     }
 }
 ```
 
-### 2. Idempotent Seeding
+### 2. Catalog-Driven Seeding
 
 ```csharp
-// DatabaseSeeder.cs - Safe to run multiple times
-public async Task SeedAsync(CancellationToken ct)
+// DatabaseSeeder.cs — SeedDefaultRolesAndClaimsAsync, called by DatabaseSeederMiddleware.
+// Not a single "if any roles exist, return" short-circuit — every role/claim/assignment is
+// checked and seeded independently (per-entry idempotency), driven by SystemPermissionCatalog
+// rather than a hardcoded roles array. See "Default Data (Seeded Per-Tenant)" above for the
+// catalog model itself.
+public async Task SeedDefaultRolesAndClaimsAsync(CancellationToken cancellationToken = default)
 {
-    // Check if roles already exist
-    var existingRoles = await _roleRepository.GetAllAsync(ct);
-    if (existingRoles.Any()) return; // Already seeded
+    await SeedDefaultRolesAsync(cancellationToken);          // 1. Roles from SystemPermissionCatalog.AllRoles
+    await SeedDefaultClaimsAsync(cancellationToken);          // 2. Claims from SystemPermissionCatalog.AllClaims
+    await AssignDefaultClaimsToRolesAsync(cancellationToken); // 3. Additive-only role→claim bundling
+    await CreateSuperAdminUserAsync(cancellationToken);       // 4. SuperAdmin user (fails fast if SeedData:SuperAdminPassword is unset/placeholder)
+}
 
-    // Create system roles
-    var roles = new[] { "SuperAdmin", "Admin", "User" };
-    foreach (var roleName in roles)
+private async Task SeedDefaultRolesAsync(CancellationToken cancellationToken)
+{
+    foreach (var roleDef in SystemPermissionCatalog.AllRoles)
     {
-        await _roleRepository.AddAsync(new Role
+        if (!AppliesToCurrentTenant(roleDef.TenantIds)) continue; // skip tenant-scoped entries for other tenants
+
+        var existingRole = await _roleRepository.GetByNameAsync(roleDef.Name, cancellationToken);
+        if (existingRole == null)
         {
-            Name = roleName,
-            IsSystemRole = true
-        }, ct);
+            await _roleRepository.CreateAsync(new Role
+            {
+                Name = roleDef.Name,
+                NormalizedName = roleDef.Name.ToUpperInvariant(),
+                Description = roleDef.Description,
+                IsSystemRole = true,
+                Status = true
+            }, cancellationToken);
+        }
     }
 }
 ```
@@ -408,7 +463,9 @@ var userClaims = await _claimRepository.GetUserClaimsAsync(user.Id);
 var claims = new List<JwtClaim>
 {
     new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-    new(ClaimTypes.Email, user.Email ?? string.Empty)
+    new(ClaimTypes.Email, user.Email ?? string.Empty),
+    new(ClaimTypes.GivenName, user.FirstName),
+    new(ClaimTypes.Surname, user.LastName)
 };
 
 // Add all roles as separate claims
@@ -421,6 +478,13 @@ foreach (var role in userRoles)
 foreach (var claim in userClaims)
 {
     claims.Add(new JwtClaim(claim.ClaimType, claim.ClaimValue));
+}
+
+// Add tenant_id claim when a tenant context is present — this is what
+// JwtTenantVerificationMiddleware cross-checks against the x-tenant-id header
+if (_tenantContext.HasTenant && _tenantContext.CurrentTenant != null)
+{
+    claims.Add(new JwtClaim("tenant_id", _tenantContext.CurrentTenant.TenantId));
 }
 ```
 
@@ -462,6 +526,33 @@ if (claim.IsSystemClaim)
 ```
 
 A system claim can still be freely assigned/unassigned to any role — only delete/rename are blocked.
+
+### SuperAdmin Role / Claim Escalation Protection
+
+A separate, distinct protection layer from the one above — this one returns **403 Forbidden** (`ForbiddenException`), not 400, and exists to stop a non-SuperAdmin Admin from escalating themselves (or anyone else) to SuperAdmin, or from tampering with a claim reserved for SuperAdmin only. Every string is a `LocalizationKeys.Exceptions.*` constant: `SuperAdminRoleProtected` for the role case, `SuperAdminClaimProtected` for the claim case.
+
+**Role case** — blocks any non-SuperAdmin caller from modifying the literal `"SuperAdmin"` role, or from granting it to a user:
+
+```csharp
+// UpdateRoleCommandHandler.cs / DeleteRoleCommandHandler.cs / AssignClaimsToRoleCommandHandler.cs
+if (role.Name.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase) && !_currentUserService.IsSuperAdmin)
+    throw new ForbiddenException(LocalizationKeys.Exceptions.SuperAdminRoleProtected);
+
+// AssignRolesToUserCommandHandler.cs — checked per role in the incoming RoleIds list,
+// so a plain Admin can't self-escalate via POST /api/v1/admin/roles/user/{id}
+if (role.Name.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase) && !_currentUserService.IsSuperAdmin)
+    throw new ForbiddenException(LocalizationKeys.Exceptions.SuperAdminRoleProtected);
+```
+
+**Claim case** — blocks any non-SuperAdmin caller from updating or deleting a claim flagged `IsSuperAdminOnly=true`:
+
+```csharp
+// UpdateClaimCommandHandler.cs / DeleteClaimCommandHandler.cs
+if (claim.IsSuperAdminOnly && !_currentUserService.IsSuperAdmin)
+    throw new ForbiddenException(LocalizationKeys.Exceptions.SuperAdminClaimProtected);
+```
+
+This check runs independently of — and typically before — the `IsSystemRole`/`IsSystemClaim` (400) checks above, so a request can fail with 403 here without ever reaching the 400 logic. `IsSuperAdminOnly` and `IsSystemClaim` are separate flags on `Claim`: a claim can be one, both, or neither.
 
 ### Authorization
 
@@ -557,7 +648,8 @@ POST /api/admin/users
           "id": 1,
           "name": "Delete Actions",
           "claimType": "permission",
-          "claimValue": "actions.delete"
+          "claimValue": "actions.delete",
+          "isSystemClaim": true
         }
       ]
     }
@@ -592,29 +684,35 @@ Identity.Application/Commands/Admin/Role/
 ├── CreateRoleCommand.cs
 ├── UpdateRoleCommand.cs
 ├── DeleteRoleCommand.cs
-└── AssignClaimsToRoleCommand.cs
+├── AssignClaimsToRoleCommand.cs
+└── AssignRolesToUserCommand.cs
 
 Identity.Application/Commands/Admin/Claim/
 ├── CreateClaimCommand.cs
 ├── UpdateClaimCommand.cs
 └── DeleteClaimCommand.cs
 
-Identity.Application/Queries/
-├── GetRolesQuery.cs
-└── GetClaimsQuery.cs
+Identity.Application/Queries/Role/
+└── GetRolesQuery.cs         # Also declares GetRoleByIdQuery
+
+Identity.Application/Queries/Claim/
+└── GetClaimsQuery.cs        # Also declares GetClaimByIdQuery
 
 Identity.Application/Handlers/Admin/Role/
 ├── CreateRoleCommandHandler.cs
 ├── UpdateRoleCommandHandler.cs
 ├── DeleteRoleCommandHandler.cs
 ├── AssignClaimsToRoleCommandHandler.cs
-└── GetRolesQueryHandler.cs
+└── GetRolesQueryHandler.cs  # Also declares GetRoleByIdQueryHandler
 
 Identity.Application/Handlers/Admin/Claim/
 ├── CreateClaimCommandHandler.cs
 ├── UpdateClaimCommandHandler.cs
 ├── DeleteClaimCommandHandler.cs
-└── GetClaimsQueryHandler.cs
+└── GetClaimsQueryHandler.cs # Also declares GetClaimByIdQueryHandler
+
+Identity.Application/Handlers/Admin/
+└── AssignRolesToUserCommandHandler.cs  # Not under Handlers/Admin/Role/ — lives one level up
 ```
 
 ### Infrastructure Layer
@@ -647,7 +745,7 @@ Identity.API/Extensions/
 
 ### Test Coverage
 
-✅ 27 integration tests for role/claim endpoints  
+✅ 45 integration tests for role/claim endpoints  
 ✅ Cache hit/miss scenarios  
 ✅ System role protection  
 ✅ Multi-tenancy isolation  
@@ -761,6 +859,7 @@ SELECT * FROM Roles WHERE IsSystemRole = true;
 - **January 2026**: Added role/claim management endpoints with Redis caching
 - **January 12, 2026**: SuperAdmin auto-creation, entity reload fixes, 142 tests passing
 - **January 27, 2026**: Documentation consolidated into this guide
+- **August 13, 2026**: Accuracy pass — documented `POST /api/v1/admin/roles/user/{id}`, the separate 403 SuperAdmin escalation-protection layer, 409 duplicate-name handling, `isSystemClaim` in response examples, the real catalog-driven seeding implementation, corrected test count (45) and `Files Structure` paths
 
 **Next Steps:**
 

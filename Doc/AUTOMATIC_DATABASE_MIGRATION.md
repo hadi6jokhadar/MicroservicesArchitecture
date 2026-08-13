@@ -30,6 +30,7 @@ The system uses a **three-layer migration approach**: global DBs are migrated at
 - Only active when **both** `MultiTenancy:Enabled` and `Redis:Enabled` are `true` for that service — falls back silently to Layer 2 otherwise (e.g. local dev with in-memory cache).
 - Register with: `services.AddTenantProvisioningListener<TContext>(configuration)` (`IhsanDev.Shared.Infrastructure/Extensions/TenantProvisioningExtensions.cs`) — call it right after `AddDatabaseContext<TContext>` in `Program.cs`. No middleware/pipeline changes needed.
 - To add tenant seed data for a service, define a `public async Task SeedAsync()` method directly on that service's `DbContext` — it is picked up automatically here (and by `InitializeDatabaseAsync` for the global DB) via reflection; no registration needed.
+- **Resilient resubscription (August 2026):** the initial `SubscribeAsync` call to `tenant:provisioned` is wrapped in `SubscribeWithRetryAsync` — an exponential-backoff retry loop (2s initial delay, doubling up to a 30s cap, retried indefinitely) rather than a single subscribe attempt. Previously, a subscribe failure at startup (Redis unreachable at that exact moment) either crashed the host outright or left the listener permanently dead until a manual restart of the service. Now a transient Redis hiccup (down, slow/flaky during startup, auth handshake race) self-heals within seconds/minutes — the listener keeps retrying in the background and starts working the moment Redis becomes reachable, with every request in the meantime still correctly falling back to Layer 2. This mirrors the identical fix applied to `NasheedTenantConfigUpdatedListenerService` (`tenant:updated`) — see `Doc/MULTI_TENANCY_GUIDE.md` → "Live Config-Change Push for Local-Snapshot Consumers".
 
 ### `UseDefaultDatabaseMigration` — Safety Net Only
 
@@ -726,6 +727,7 @@ Now Orders service automatically creates tenant databases too — and picks up b
 **`TenantProvisioningListenerService<TContext>`** (`IhsanDev.Shared.Infrastructure.Services.Tenant`)
 
 - `BackgroundService` — subscribes to `tenant:provisioned` for the lifetime of the process
+- Subscribes via `SubscribeWithRetryAsync` (added August 2026): an exponential-backoff loop — 2s initial delay, doubling up to a 30s cap — that retries the initial `SubscribeAsync` call indefinitely until it succeeds or the host stops, instead of a single subscribe attempt. A failed subscribe is logged and does not crash the host; every tenant simply falls back to Layer 2 until the retry succeeds
 - On each message: resolves tenant config, sets `ITenantContext`, calls `IDatabaseMigrationService.EnsureDatabaseExistsAsync`, invokes `SeedAsync()` via reflection if the DbContext defines one, then calls `DatabaseMigrationMiddleware<TContext>.MarkAsMigrated`
 - Failures are logged and swallowed — Layer 2 (that tenant's first request) or this service's own next startup warm-up (`TenantWarmupExtensions`) still catches it
 

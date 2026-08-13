@@ -265,7 +265,7 @@ public class TenantInfo
 public class TenantConfiguration
 {
     public JwtSettings? Jwt { get; set; }
-    public DatabaseSettings? Database { get; set; }  // ← Tenant-specific DB!
+    public DatabaseSettings? DatabaseSettings { get; set; }  // ← Tenant-specific DB!
     public CorsSettings? Cors { get; set; }
 }
 
@@ -293,7 +293,7 @@ public async Task<IActionResult> Login([FromBody] LoginRequest request)
         return Unauthorized("Tenant not found or inactive");
 
     // 3. Create DbContext with tenant-specific connection string
-    var dbContext = CreateTenantDbContext(tenantConfig.Configuration.Database.ConnectionString);
+    var dbContext = CreateTenantDbContext(tenantConfig.Configuration.DatabaseSettings.ConnectionString);
 
     // 4. Validate user credentials in TENANT'S database
     var user = await dbContext.Users
@@ -640,8 +640,9 @@ public class IdentityDbContext : BaseDbContext
         ICurrentUserService? currentUserService = null,
         ITenantContext? tenantContext = null,
         IConfiguration? configuration = null,
-        ILogger<IdentityDbContext>? logger = null)
-        : base(options, currentUserService)
+        ILogger<IdentityDbContext>? logger = null,
+        IAuditService? auditService = null)
+        : base(options, currentUserService, auditService)
     {
         _tenantContext = tenantContext;
         _configuration = configuration;
@@ -659,37 +660,72 @@ public class IdentityDbContext : BaseDbContext
 
         string? connectionString = null;
         string? provider = null;
+        var multiTenancyEnabled = _configuration?.GetValue<bool>("MultiTenancy:Enabled", false) ?? false;
 
-        // Check if multi-tenancy is enabled and tenant has custom database settings
-        if (_tenantContext?.HasTenant == true &&
-            _tenantContext.CurrentTenant?.Configuration?.Database != null)
+        if (multiTenancyEnabled)
         {
-            var tenantDb = _tenantContext.CurrentTenant.Configuration.Database;
-
-            if (!string.IsNullOrWhiteSpace(tenantDb.ConnectionString))
+            // When multi-tenancy is enabled, x-tenant-id is now optional.
+            // Fall back to the global database if there's no tenant context or the
+            // tenant has no database config of its own.
+            if (_tenantContext?.HasTenant != true ||
+                _tenantContext.CurrentTenant?.Configuration?.DatabaseSettings == null)
             {
-                connectionString = tenantDb.ConnectionString;
+                _logger?.LogDebug("No tenant context or tenant database config - using global database from appsettings.json");
+
+                if (_configuration == null)
+                    throw new InvalidOperationException("Configuration is not available");
+
+                connectionString = _configuration["DatabaseSettings:ConnectionString"];
+                provider = _configuration["DatabaseSettings:Provider"] ?? "PostgreSql";
+
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    throw new InvalidOperationException(
+                        "Database connection string is not configured in appsettings.json");
+                }
+            }
+            else
+            {
+                // Tenant HAS database config configured — a missing connection string here
+                // is a configuration error, not a case for silently falling back to global.
+                var tenantDb = _tenantContext.CurrentTenant.Configuration.DatabaseSettings;
+
+                if (string.IsNullOrWhiteSpace(tenantDb.ConnectionString))
+                {
+                    throw new InvalidOperationException(
+                        $"Tenant '{_tenantContext.CurrentTenant.TenantId}' does not have a database connection string configured.");
+                }
+
                 provider = tenantDb.Provider ?? "PostgreSql";
+
+                // Cap the Npgsql pool size on this tenant's connection string — without this,
+                // N tenants x M service instances multiplies into an ungoverned connection count.
+                var maxPoolSizePerTenant = _configuration?.GetValue("DatabaseSettings:MaxPoolSizePerTenant", 20) ?? 20;
+                connectionString = provider == "PostgreSql"
+                    ? NpgsqlConnectionStringHelper.WithBoundedPoolSize(tenantDb.ConnectionString, maxPoolSizePerTenant)
+                    : tenantDb.ConnectionString;
 
                 _logger?.LogInformation(
                     "Using tenant-specific database connection for tenant: {TenantId}",
                     _tenantContext.CurrentTenant.TenantId);
             }
         }
-
-        // Fallback to appsettings.json if no tenant-specific database
-        if (string.IsNullOrWhiteSpace(connectionString) && _configuration != null)
+        else
         {
+            // Multi-tenancy disabled — always use appsettings.json
+            if (_configuration == null)
+                throw new InvalidOperationException("Configuration is not available");
+
             connectionString = _configuration["DatabaseSettings:ConnectionString"];
             provider = _configuration["DatabaseSettings:Provider"] ?? "PostgreSql";
 
-            _logger?.LogDebug("Using default database connection from appsettings.json");
-        }
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "Database connection string is not configured in appsettings.json");
+            }
 
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw new InvalidOperationException(
-                "Database connection string is not configured");
+            _logger?.LogDebug("Using default database connection from appsettings.json");
         }
 
         // Configure database provider
@@ -704,7 +740,10 @@ public class IdentityDbContext : BaseDbContext
                 break;
 
             case "Sqlite":
-                optionsBuilder.UseSqlite(connectionString);
+                optionsBuilder.UseSqlite(connectionString, sqliteOptions =>
+                {
+                    sqliteOptions.MigrationsAssembly(typeof(IdentityDbContext).Assembly.GetName().Name);
+                });
                 break;
 
             default:
@@ -719,10 +758,11 @@ public class IdentityDbContext : BaseDbContext
 **Key Features:**
 
 ✅ **Automatic Tenant Detection**: Checks `ITenantContext.HasTenant` to determine if tenant database should be used  
-✅ **Graceful Fallback**: Uses appsettings.json if tenant doesn't have custom database settings  
+✅ **Explicit Fallback**: Uses appsettings.json only when there's no tenant context or the tenant genuinely has no database config — a tenant that *does* have database config but is missing its connection string throws `InvalidOperationException` instead of silently falling back  
+✅ **Bounded Per-Tenant Pool**: The tenant branch caps the Npgsql connection pool via `NpgsqlConnectionStringHelper.WithBoundedPoolSize` (see "Connection Pool Management" below)  
 ✅ **Multi-Provider Support**: Supports PostgreSQL and SQLite  
 ✅ **Logging**: Logs which database connection is being used for debugging  
-✅ **Error Handling**: Clear error messages if configuration is missing
+✅ **Error Handling**: Throws `InvalidOperationException`/`NotSupportedException` with clear messages instead of failing silently
 
 ### **Service Registration (IMPLEMENTED)**
 
@@ -731,50 +771,96 @@ public class IdentityDbContext : BaseDbContext
 ```csharp
 public static IServiceCollection AddDatabaseContext<TContext>(
     this IServiceCollection services,
-    IConfiguration configuration) where TContext : DbContext
+    IConfiguration configuration,
+    string? migrationAssembly = null) where TContext : DbContext
 {
-    var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled");
+    // Register DatabaseSettings as IOptions<DatabaseSettings>
+    services.Configure<DatabaseSettings>(
+        configuration.GetSection(DatabaseSettings.SectionName));
+
+    var multiTenancyEnabled = configuration.GetValue<bool>("MultiTenancy:Enabled", false);
 
     if (multiTenancyEnabled)
     {
-        // Multi-tenancy mode: Register DbContext with minimal config
-        // Connection will be resolved dynamically in OnConfiguring
-        services.AddDbContext<TContext>(options =>
+        // Multi-tenancy mode: Don't configure the provider here — let OnConfiguring handle it.
+        // This ensures optionsBuilder.IsConfigured stays false so the DbContext can dynamically
+        // choose the connection based on tenant context, per request.
+        services.AddDbContext<TContext>((serviceProvider, options) =>
         {
-            // Minimal configuration - actual connection determined at runtime
-        });
+            // intentionally empty
+        }, ServiceLifetime.Scoped);
     }
     else
     {
-        // Single-tenant mode: Use static connection from appsettings.json
-        var connectionString = configuration["DatabaseSettings:ConnectionString"]
-            ?? throw new InvalidOperationException("Database connection string is not configured");
-
-        var provider = configuration["DatabaseSettings:Provider"] ?? "PostgreSql";
-
-        services.AddDbContext<TContext>(options =>
+        // Single-tenant mode: configure DbContext at startup with a static connection string
+        services.AddDbContext<TContext>((serviceProvider, options) =>
         {
-            switch (provider)
+            var dbSettings = serviceProvider
+                .GetRequiredService<IOptions<DatabaseSettings>>()
+                .Value;
+
+            if (string.IsNullOrWhiteSpace(dbSettings.ConnectionString))
             {
-                case "PostgreSql":
-                    options.UseNpgsql(connectionString, npgsqlOptions =>
-                    {
-                        npgsqlOptions.MigrationsAssembly(typeof(TContext).Assembly.GetName().Name);
-                        npgsqlOptions.EnableRetryOnFailure(maxRetryCount: 3);
-                    });
-                    break;
-
-                case "Sqlite":
-                    options.UseSqlite(connectionString);
-                    break;
-
-                default:
-                    throw new NotSupportedException($"Database provider '{provider}' is not supported");
+                throw new InvalidOperationException(
+                    $"Connection string is not configured in {DatabaseSettings.SectionName}");
             }
+
+            ConfigureDbContext(options, dbSettings, migrationAssembly, serviceProvider);
         });
     }
 
     return services;
+}
+
+private static void ConfigureDbContext(
+    DbContextOptionsBuilder options,
+    DatabaseSettings settings,
+    string? migrationAssembly,
+    IServiceProvider serviceProvider)
+{
+    if (settings.EnableSensitiveDataLogging) options.EnableSensitiveDataLogging();
+    if (settings.EnableDetailedErrors) options.EnableDetailedErrors();
+
+    // Provider-specific configuration — settings.Provider is a DatabaseProvider enum
+    // (PostgreSql | Sqlite), not a raw string; bound from appsettings.json automatically.
+    switch (settings.Provider)
+    {
+        case DatabaseProvider.PostgreSql:
+            // Treat all DateTimes from PostgreSQL as UTC
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
+
+            options.UseNpgsql(settings.ConnectionString, npgsqlOptions =>
+            {
+                if (!string.IsNullOrEmpty(migrationAssembly))
+                    npgsqlOptions.MigrationsAssembly(migrationAssembly);
+
+                npgsqlOptions.CommandTimeout(settings.CommandTimeout);
+                npgsqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: settings.MaxRetryCount,
+                    maxRetryDelay: TimeSpan.FromSeconds(settings.MaxRetryDelay),
+                    errorCodesToAdd: null);
+
+                // Modern PostgreSQL features
+                npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+            });
+            break;
+
+        case DatabaseProvider.Sqlite:
+            options.UseSqlite(settings.ConnectionString, sqliteOptions =>
+            {
+                if (!string.IsNullOrEmpty(migrationAssembly))
+                    sqliteOptions.MigrationsAssembly(migrationAssembly);
+
+                sqliteOptions.CommandTimeout(settings.CommandTimeout);
+            });
+            break;
+
+        default:
+            throw new NotSupportedException($"Database provider '{settings.Provider}' is not supported");
+    }
+
+    var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+    if (loggerFactory != null) options.UseLoggerFactory(loggerFactory);
 }
 ```
 
@@ -782,7 +868,9 @@ public static IServiceCollection AddDatabaseContext<TContext>(
 
 ```csharp
 // Register database with multi-tenancy support
-builder.Services.AddDatabaseContext<IdentityDbContext>(builder.Configuration);
+builder.Services.AddDatabaseContext<IdentityDbContext>(
+    builder.Configuration,
+    typeof(IdentityDbContext).Assembly.GetName().Name);
 ```
 
 **Key Features:**
@@ -790,7 +878,7 @@ builder.Services.AddDatabaseContext<IdentityDbContext>(builder.Configuration);
 ✅ **Configuration-Driven**: Checks `MultiTenancy:Enabled` flag from appsettings.json  
 ✅ **Two Modes**: Supports both single-tenant and multi-tenant deployments  
 ✅ **Lazy Resolution**: In multi-tenant mode, connection resolved per-request in OnConfiguring  
-✅ **Static Configuration**: In single-tenant mode, connection set once at startup
+✅ **Static Configuration**: In single-tenant mode, connection configured once at startup via `IOptions<DatabaseSettings>`, with configurable command timeout/retry (`CommandTimeout`, `MaxRetryCount`, `MaxRetryDelay`), split-query behavior (`UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)`), and UTC-only `DateTime` handling (`Npgsql.EnableLegacyTimestampBehavior = false`)
 
 ### **Configuration Setup**
 
@@ -1136,7 +1224,7 @@ public async Task MigrateAllTenantsAsync()
 
     foreach (var tenant in tenants)
     {
-        var connectionString = tenant.Configuration.Database.ConnectionString;
+        var connectionString = tenant.Configuration.DatabaseSettings.ConnectionString;
         var dbContext = CreateDbContext(connectionString);
 
         await dbContext.Database.MigrateAsync();  // Run migrations

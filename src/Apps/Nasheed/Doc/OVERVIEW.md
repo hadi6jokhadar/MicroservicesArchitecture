@@ -4,7 +4,7 @@
 **Port:** 5009 (`http://localhost:5009`)  
 **Path:** `src/Apps/Nasheed/`  
 **Category:** `src/Apps/` — domain app that consumes platform Services  
-**Last Updated:** May 7, 2026  
+**Last Updated:** August 13, 2026  
 **Status:** ✅ Implemented
 
 ---
@@ -74,12 +74,17 @@ App starts
   → NasheedTenantLoaderService (IHostedService)
       → reads MultiTenancy:TenantId from config
       → calls ITenantConfigurationProvider.GetTenantConfigurationAsync (retries up to 12×, 5s delay)
-      → on success: INasheedTenantCache.SetTenant() + runs DB migration
-      → on repeated failure: logs error and returns (worker remains blocked waiting for tenant cache)
+      → on success: INasheedTenantCache.SetTenant() + runs DB migration (MigrateWithRecoveryAsync)
+      → on repeated failure (all 12 fast retries exhausted): logs an error, then keeps retrying
+        indefinitely in the background every 1 minute (RetryTenantLoadInBackgroundAsync) —
+        StartAsync itself returns, but the worker stays blocked only until this background retry
+        eventually succeeds, not forever
   → NasheedIngestionWorker (BackgroundService)
       → awaits INasheedTenantCache.WaitUntilReadyAsync() before starting poll loop
   → HTTP requests served normally (UseTenantResolution sets ITenantContext per request)
 ```
+
+See `Doc/INGESTION_PIPELINE.md` "Startup Sequence" for the full detail on the fast-retry vs. background-fallback split, and "Background Tenant Config Refresh" for how `INasheedTenantCache` stays fresh after the initial load (push via Redis Pub/Sub, plus a 5-minute poll fallback).
 
 ### 6. AI Processing via AI.API
 
@@ -101,7 +106,21 @@ Handlers that delete a single entity and immediately persist can still call `_re
 
 ---
 
-### 9. FileManager Calls Always Include Tenant Context
+### 9. Content-Editor Permission Claims (Admin + Narrower "Data Entry" Role)
+
+Most write endpoints are `AdminOnly` (`RequireRole("Admin","Superadmin","SuperAdmin")`). Three endpoints instead use a narrower content-editor policy that also admits a non-admin user holding a matching `Permission` claim — defined in `Nasheed.API/Program.cs`'s `AddAuthorization` block via `RequireAssertion(ctx => IsAdmin(ctx) || ctx.User.HasClaim("Permission", "..."))`:
+
+- **`SongsCreate`** (`POST /api/songs`) — claim `nasheed.songs.create`
+- **`SongsEdit`** (`PUT /api/songs/{id}`) — claim `nasheed.songs.edit`, plus an ownership check (a non-admin may only edit a song whose `CreatedBy` matches their own user id)
+- **`ArtistsCreate`** (`POST /api/artists`) — claim `nasheed.artists.create`
+
+Delete endpoints and artist update remain Admin-only — no claim grants delete or artist-edit, by design. The `NasheedDataEntry` role and its claims are seeded automatically (scoped to the `anashid` tenant only) via Identity's `SystemPermissionCatalog` — nothing to create by hand. See `Doc/API_ENDPOINTS.md` "Content-Editor Permission Claims" for the full mechanism and `Doc/SHARED_IDENTITY_SERVICE_GUIDE.md` "Permission Claims" for the platform-wide pattern.
+
+**`UpdateSongCommandHandler` lives in `Nasheed.Infrastructure/Handlers/UpdateSong/`, not `Nasheed.Application`** — it needs `ICurrentUserService` (only available via `IhsanDev.Shared.Infrastructure`, which `.Application` doesn't reference) for the ownership check above. `UpdateSongCommand`/its validator stay in `.Application`; `Program.cs` registers MediatR against both the `.Application` and `.Infrastructure` assemblies so this handler is still discovered. See `Dotnet.instructions.md` pitfall #37 for the general pattern.
+
+---
+
+### 10. FileManager Calls Always Include Tenant Context
 
 Nasheed file lifecycle operations call FileManager internal endpoints through `IFileManagerServiceClient`.
 
@@ -154,9 +173,9 @@ Request contract notes:
 
 | Technology          | Version | Usage               |
 | ------------------- | ------- | ------------------- |
-| .NET                | 9.0     | Runtime             |
-| EF Core             | 9.0     | ORM + migrations    |
-| Npgsql              | 9.0     | PostgreSQL driver   |
+| .NET                | 10      | Runtime             |
+| EF Core             | 10.0    | ORM + migrations    |
+| Npgsql              | 10.0    | PostgreSQL driver   |
 | MediatR             | 12.4    | CQRS                |
 | FluentValidation    | 12      | Input validation    |
 | StackExchange.Redis | 2.7     | Tenant config cache |

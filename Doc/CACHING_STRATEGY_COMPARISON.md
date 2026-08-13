@@ -1,6 +1,6 @@
 # Caching Strategy Comparison
 
-**Last Updated:** January 15, 2026  
+**Last Updated:** August 13, 2026  
 **Status:** ✅ Production Ready
 
 This guide compares the two supported caching modes—**Redis distributed cache** and the **in-memory fallback**—so you can pick the right configuration per environment.
@@ -84,10 +84,12 @@ This guide compares the two supported caching modes—**Redis distributed cache*
 3. **Warmup Strategy**
    - Preload critical tenants via `TenantConfigurationProvider` during deployment to avoid cold-start latency.
 4. **Fallback Behavior**
-   - **Not all services automatically fall back to MemoryCache.** Fallback behavior depends on each service's DI registration:
-     - **Translation & Notification**: register `AddDistributedMemoryCache()` when `Redis:Enabled = false` — automatic per-instance fallback.
-     - **Category, Identity, FileManager, Tenant, Nasheed**: require Redis and will fail to start or behave incorrectly without it — no automatic fallback.
-   - When Redis becomes unavailable at runtime (after startup), services that registered Redis will encounter cache misses and elevated Tenant Service calls; they will NOT silently switch to MemoryCache.
+   - **Almost every service automatically falls back to MemoryCache when `Redis:Enabled = false`.** Any service that calls `AddMultiTenancy(configuration)` (`IhsanDev.Shared.Infrastructure/Extensions/MultiTenancyExtensions.cs`) gets this for free — `AddMultiTenancy` unconditionally calls `services.AddCacheService(configuration)`, and `RedisCacheExtensions.AddCacheService` reads `Redis:Enabled` itself: `true` registers `AddRedisCache` (Redis-backed `ICacheService`), `false` registers `AddInMemoryCache` (`IMemoryCache`-backed `ICacheService`) — no code changes or extra registration needed either way.
+     - **Category, Identity, FileManager, Tenant, Nasheed**: all call `AddMultiTenancy`, so all get the same automatic Redis-or-in-memory fallback via `ICacheService` — confirmed directly in Category's and Nasheed's `Program.cs`. With Redis disabled, these services still start and serve requests correctly; they simply lose cross-instance cache sharing and any Redis-only feature (see below).
+     - **Translation & Notification**: in addition to `ICacheService` (via the same `AddMultiTenancy`/`AddCacheService` path), these two also separately register `AddDistributedMemoryCache()` when `Redis:Enabled = false`, because they use `IDistributedCache` directly in places `ICacheService` doesn't cover (e.g. Translation's `GetTranslationsQueryHandler`).
+   - **The one genuine Redis-only requirement is Translation's direct `IDistributedCache` usage.** `GetTranslationsQueryHandler` reads/writes `IDistributedCache` directly rather than going through `ICacheService`, and `ICacheService`'s own in-memory fallback path (`AddInMemoryCache`) only registers `IMemoryCache`, not `IDistributedCache` — so Translation.API's `Program.cs` explicitly calls `AddDistributedMemoryCache()` itself when Redis is disabled, to keep that handler working. No other service in this list has an equivalent hard dependency on Redis specifically; every one of Category/Identity/FileManager/Tenant/Nasheed reads and writes exclusively through `ICacheService`, which already abstracts the Redis-vs-memory choice away.
+   - Redis is still required for anything that is inherently cross-instance/pub-sub in nature regardless of `ICacheService` (SignalR backplane, `RemoveByPatternAsync` cross-instance cache invalidation, the Category outbox's Redis Pub/Sub delivery) — those genuinely need Redis running, but that's a feature requirement, not a startup/fallback failure.
+   - When Redis becomes unavailable at runtime (after startup) for a service that registered it, cache misses increase and calls to the owning service (e.g. Tenant Service) go up; `RedisCacheService` swallows connection errors defensively (see `WarmUpCacheAsync` in `RedisCacheExtensions.cs`), so the service keeps functioning in a degraded state rather than crashing.
    - Log warnings and alert DevOps; horizontal scaling will be limited until Redis recovers.
 
 ---

@@ -1,8 +1,15 @@
 # User Query Optimization - IQueryable Pattern
 
-**Date:** January 24, 2026  
+**Date:** January 24, 2026 (updated August 13, 2026)
 **Status:** ✅ **COMPLETE**  
 **Impact:** Database-side pagination for all user queries, including role filtering
+
+> **Audit note (August 2026):** `GetUsersCommandHandler` and `IUserRepository` have grown an
+> archived-users code path since this doc was first written (`request.IsArchived`, backed by
+> `GetUsersByRoleNameWithArchived`/`GetAllWithArchived`) and now wrap the whole handler body in a
+> try/catch that rethrows as `GeneralException`. The core IQueryable/pagination pattern described
+> below is unchanged and still accurate; the code samples in sections 1-3 have been updated to
+> match the current handler/repository so they compile against real source.
 
 ---
 
@@ -53,10 +60,11 @@ Optimized the `GetUsers` endpoint to use database-side pagination and filtering 
 Task<List<User>> GetUsersByRoleNameAsync(string roleName, CancellationToken cancellationToken = default);
 ```
 
-**After:**
+**After (current `IUserRepository.cs`):**
 
 ```csharp
 IQueryable<User> GetUsersByRoleName(string roleName);
+IQueryable<User> GetUsersByRoleNameWithArchived(string roleName);
 ```
 
 **Key Changes:**
@@ -65,6 +73,7 @@ IQueryable<User> GetUsersByRoleName(string roleName);
 - ✅ Synchronous method (no `async`)
 - ✅ Enables composition with additional LINQ queries
 - ✅ Deferred execution - query built but not executed until needed
+- ✅ A second overload, `GetUsersByRoleNameWithArchived`, was added later (no `!u.IsArchived` filter) so the handler can serve `request.IsArchived` — see the handler section below
 
 ---
 
@@ -87,7 +96,7 @@ public async Task<List<User>> GetUsersByRoleNameAsync(string roleName, Cancellat
 }
 ```
 
-**After:**
+**After (current `UserRepository.cs`):**
 
 ```csharp
 public IQueryable<User> GetUsersByRoleName(string roleName)
@@ -98,6 +107,16 @@ public IQueryable<User> GetUsersByRoleName(string roleName)
         .Where(u => !u.IsArchived)
         .Where(u => u.UserRoles.Any(ur => ur.Role.NormalizedName == normalizedRoleName || ur.Role.Name == roleName));
     // ✅ Returns queryable - deferred execution
+}
+
+// Archived-inclusive counterpart, added later so the handler can serve request.IsArchived == true
+// without duplicating the role-matching predicate — same query, minus the `!u.IsArchived` filter.
+public IQueryable<User> GetUsersByRoleNameWithArchived(string roleName)
+{
+    var normalizedRoleName = roleName.ToUpperInvariant();
+    return _dbSet
+        .AsNoTracking()
+        .Where(u => u.UserRoles.Any(ur => ur.Role.NormalizedName == normalizedRoleName || ur.Role.Name == roleName));
 }
 ```
 
@@ -141,58 +160,82 @@ public async Task<PaginatedList<UserDto>> Handle(GetUsersCommand request, Cancel
 }
 ```
 
-**After (Single Code Path):**
+**After (Single Code Path — current `GetUsersCommandHandler.cs`):**
 
 ```csharp
 public async Task<PaginatedList<UserDto>> Handle(GetUsersCommand request, CancellationToken cancellationToken)
 {
-    // ✅ Single path for all scenarios
-    bool includeRoles = _currentUserService.IsSuperAdmin || _currentUserService.HasRole("Admin");
-
-    // Start with base query (filtered by role if specified)
-    IQueryable<User> query = !string.IsNullOrWhiteSpace(request.RoleName)
-        ? _userRepository.GetUsersByRoleName(request.RoleName)
-        : _userRepository.GetAll();
-
-    // Apply search term filter
-    if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+    try
     {
-        var searchTerm = request.SearchTerm.ToLower();
-        query = query.Where(u =>
-            u.FirstName.ToLower().Contains(searchTerm) ||
-            u.LastName.ToLower().Contains(searchTerm) ||
-            (u.Email != null && u.Email.ToLower().Contains(searchTerm)));
-    }
+        // ✅ Single path for all scenarios
+        bool includeRoles = _currentUserService.IsSuperAdmin || _currentUserService.HasRole("Admin");
 
-    // Apply status filter
-    if (request.Status.HasValue)
+        // Start with base query (filtered by role if specified). Two axes now compose here:
+        // RoleName (which repository method) and IsArchived (archived-inclusive overload/GetAll variant).
+        IQueryable<User> query;
+        if (!string.IsNullOrWhiteSpace(request.RoleName))
+        {
+            query = request.IsArchived
+                ? _userRepository.GetUsersByRoleNameWithArchived(request.RoleName)
+                : _userRepository.GetUsersByRoleName(request.RoleName);
+        }
+        else
+        {
+            query = request.IsArchived
+                ? _userRepository.GetAllWithArchived()
+                : _userRepository.GetAll();
+        }
+
+        // Apply search term filter
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        {
+            var searchTerm = request.SearchTerm.ToLower();
+            query = query.Where(u =>
+                u.FirstName.ToLower().Contains(searchTerm) ||
+                u.LastName.ToLower().Contains(searchTerm) ||
+                (u.Email != null && u.Email.ToLower().Contains(searchTerm)));
+        }
+
+        // Apply status filter
+        if (request.Status.HasValue)
+        {
+            query = query.Where(u => u.Status == request.Status.Value);
+        }
+
+        // Belt-and-braces archived filter — re-asserted even though the branch above already
+        // picked an archived-aware or archived-excluding source query.
+        query = query.Where(u => u.IsArchived == request.IsArchived);
+
+        // Order by created date (newest first)
+        query = query.OrderByDescending(u => u.Created);
+
+        // Manual projection to DTO
+        var dtoQuery = query.Select(u => new UserDto { ... });
+
+        // ✅ Database-side pagination for all scenarios
+        var paginatedList = await dtoQuery.PaginatedListAsync(request.PageNumber, request.PageSize, cancellationToken);
+
+        // Enrich with profile pictures
+        await _profilePictureHelper.EnrichWithProfilePicturesAsync(paginatedList.Items, cancellationToken);
+
+        return paginatedList;
+    }
+    catch (Exception ex)
     {
-        query = query.Where(u => u.Status == request.Status.Value);
+        _logger.LogError(ex, "Failed to get users");
+        throw new GeneralException(LocalizationKeys.Exceptions.InternalServerError);
     }
-
-    // Order by created date (newest first)
-    query = query.OrderByDescending(u => u.Created);
-
-    // Manual projection to DTO
-    var dtoQuery = query.Select(u => new UserDto { ... });
-
-    // ✅ Database-side pagination for all scenarios
-    var paginatedList = await dtoQuery.PaginatedListAsync(request.PageNumber, request.PageSize, cancellationToken);
-
-    // Enrich with profile pictures
-    await _profilePictureHelper.EnrichWithProfilePicturesAsync(paginatedList.Items, cancellationToken);
-
-    return paginatedList;
 }
 ```
 
 **Key Changes:**
 
-- ✅ Eliminated dual code paths
+- ✅ Eliminated dual code paths (role vs. no-role)
 - ✅ All filtering happens on `IQueryable` (database-side)
 - ✅ All pagination happens via `PaginatedListAsync` (database-side)
 - ✅ Cleaner, more maintainable code
 - ✅ Consistent performance characteristics
+- ✅ Since this doc was first written, an `IsArchived` axis was added — the handler now also branches on it (`GetUsersByRoleNameWithArchived`/`GetAllWithArchived` vs. the originals), and the whole method is wrapped in a try/catch that logs via `ILogger<GetUsersCommandHandler>` and rethrows as `GeneralException(LocalizationKeys.Exceptions.InternalServerError)` so unexpected failures don't leak raw exception details to the client
 
 ---
 
