@@ -5,7 +5,7 @@
 //
 // Usage:
 //   node bulk-import-songs.mjs --source "/path/to/mp3s" --email admin@example.com --password '...' --tenant-id ihsandev [--concurrency 5] [--limit 5] [--csv ./import-results.csv]
-//   node bulk-import-songs.mjs --source "C:\Users\Hady Joukhadar\Music\رفع اناشيد" --email anashid@ihsandev.com --password @Test123 --tenant-id anashid --limit 1
+//   node bulk-import-songs.mjs --source "C:\Users\Hady Joukhadar\Music\كل الأناشيد" --email anashid@ihsandev.com --password @Test123 --tenant-id anashid --limit 100 --concurrency 5
 //
 // Requires Node 18+ (built-in fetch/FormData/Blob).
 

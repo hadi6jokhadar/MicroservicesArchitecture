@@ -276,8 +276,17 @@ services:
     deploy:
       resources:
         limits:
+          # 3072M (not the platform-default-ish 1024M other lightweight services use) — this
+          # container lazy-loads the local BAAI/bge-m3 sentence-transformers model on first
+          # embedding call for any tenant configured for local embeddings (Nasheed's
+          # nasheed:embedding:settings). That model + torch's CPU runtime needs ~2-2.5GB once
+          # loaded; at 1024M the container was OOM-killed mid-load every time, which surfaced
+          # as Nasheed's embedding ingestion jobs cycling Pending→Running→Pending forever
+          # (Polly circuit breaker opens on the connection-reset, and the worker's default
+          # retry classification treats that as retryable indefinitely). See Dotnet.instructions.md
+          # pitfall #44.
           cpus: "1.0"
-          memory: 1024M
+          memory: 3072M
     networks:
       - ihsandev-network
 

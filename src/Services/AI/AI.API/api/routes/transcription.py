@@ -9,7 +9,11 @@ from api.attributes import optional_tenant
 from api.dependencies import get_tenant_id, require_auth
 from core.ai.db_queries import get_settings_by_key
 from core.ai.file_context import file_manager_client
-from core.ai.multimodal_utils import fetch_file_bytes_with_fallback, resolve_mime_type
+from core.ai.multimodal_utils import (
+    fetch_file_bytes_with_fallback,
+    resolve_internal_url,
+    resolve_mime_type,
+)
 from core.ai.persistence import schedule_token_log_task
 from core.ai.schemas import (
     TranscriptionRequest,
@@ -61,7 +65,7 @@ async def transcribe_audio(
 
     file_meta = files_metadata[0]
     external_url = file_meta.get("external_url") or file_meta.get("externalUrl")
-    internal_url = file_meta.get("url")
+    internal_url = resolve_internal_url(file_meta)
     primary_url = external_url or internal_url
     if not primary_url:
         raise HTTPException(

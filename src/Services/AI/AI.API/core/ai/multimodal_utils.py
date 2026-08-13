@@ -27,7 +27,7 @@ _FILE_MANAGER_HOST = urlparse(settings.FileManagerSettings.BaseUrl).hostname
 _FILE_MANAGER_BASE_URL = settings.FileManagerSettings.BaseUrl.rstrip("/") if settings.FileManagerSettings.BaseUrl else None
 
 
-def _resolve_internal_url(meta: dict) -> Optional[str]:
+def resolve_internal_url(meta: dict) -> Optional[str]:
     """Build the fetch URL from FileManager's Docker-internal host + relative path
     instead of trusting FileManager's 'url' field, which is the public gateway
     hostname (RootStoragePath) — not actually Docker-internal — and can trip the
@@ -333,7 +333,7 @@ async def build_media_content_blocks(
         external_url: Optional[str] = (
             meta.get("external_url") or meta.get("externalUrl") or None
         )
-        internal_url: Optional[str] = _resolve_internal_url(meta)
+        internal_url: Optional[str] = resolve_internal_url(meta)
         primary_url = external_url or internal_url
         if not primary_url:
             continue
