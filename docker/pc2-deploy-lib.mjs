@@ -64,6 +64,12 @@ export function deployToPc2(repoRoot, services) {
     'git pull',
     `/usr/local/bin/docker compose pull ${target}`,
     `/usr/local/bin/docker compose up -d ${target}`,
+    // Every pull replaces the previous image under the same `:latest` tag, orphaning the old
+    // one — left unchecked this fills PC2's disk within days (found August 2026: 87 images /
+    // 20.5GB, 13.3GB of it dangling, which starved Docker Desktop's VM disk and crashed
+    // Postgres). `-a` is safe here: docker refuses to remove any image still referenced by a
+    // container, so only truly orphaned layers are pruned. See Doc/DOCKER_DEPLOYMENT_GUIDE.md.
+    '/usr/local/bin/docker image prune -a -f',
   ].join(' && ');
 
   console.log(`\nDeploying to PC2 (${PC2_SSH_HOST}): ${target || '(all services)'}\n`);
