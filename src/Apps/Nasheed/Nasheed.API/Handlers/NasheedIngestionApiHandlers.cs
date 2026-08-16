@@ -35,6 +35,18 @@ public static class NasheedIngestionApiHandlers
         return Results.Ok(result);
     }
 
+    public static async Task<IResult> RetryAllFailed(IMediator mediator, CancellationToken ct)
+    {
+        var result = await mediator.Send(new RetryAllFailedIngestionJobsCommand(), ct);
+        return Results.Ok(result);
+    }
+
+    public static async Task<IResult> RemoveAllFailed(IMediator mediator, CancellationToken ct)
+    {
+        var result = await mediator.Send(new RemoveAllFailedIngestionJobsCommand(), ct);
+        return Results.Ok(result);
+    }
+
     public static async Task<IResult> Reindex(int songId, IMediator mediator, CancellationToken ct)
     {
         var result = await mediator.Send(new ReindexSongCommand(songId), ct);

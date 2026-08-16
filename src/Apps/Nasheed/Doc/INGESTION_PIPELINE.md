@@ -1,6 +1,6 @@
 # Nasheed Service — Ingestion Pipeline
 
-**Last Updated:** August 13, 2026
+**Last Updated:** August 16, 2026
 
 ---
 
@@ -188,6 +188,14 @@ It currently does not append mood tags or vocal style.
 - `Failed/Pending → Pending`: `ResetForRetry()` clears `LastError` and `NextRetryAt`
 - `Any → HardDeleted`: row is physically deleted from `SongIngestionJobs`
 
+### Song State Follows the `FullPipeline` Job
+
+Because `FullPipeline` is the job type that drives a song's own lifecycle (`SongState`), `NasheedIngestionWorker.ProcessJobAsync`'s outer `catch` block also updates the `Song` whenever a `FullPipeline` job's `JobStatus` lands on `Failed` (retries exhausted, or a non-retryable failure) — `Song.SongState = Failed`, persisted right there in the same catch block. Until this was fixed, a permanently-failed `FullPipeline` job left the song stuck showing `InQueue` forever with no visible indication that processing had stopped.
+
+On a subsequent successful run — whether an automatic retry or a fresh job from a manual retry — `RunFullPipelineAsync` always sets `Song.SongState = Done` on success (unconditionally, regardless of the song's prior state), so `Failed → Done` on a successful retry already works correctly once the interim `Failed` state above is set.
+
+`MetadataExtraction`/`LyricsVerification` job failures do **not** touch `SongState` — see "Job Types" above, both are effectively dead code paths (no handler ever creates them); only `FullPipeline` and `EmbeddingGeneration` jobs are created today, and `EmbeddingGeneration` only affects `SearchIndexStatus`, never `SongState`.
+
 ---
 
 ## Retry Logic
@@ -197,7 +205,9 @@ It currently does not append mood tags or vocal style.
 - The worker only picks up `Pending` jobs where `NextRetryAt` is null or in the past
 - Non-retryable failures are marked `Failed` immediately and are not auto-retried
 - A failed job with `RetryCount >= MaxRetries` stays in `Failed` indefinitely
-- Manual retry: `POST /api/ingestion/{id}/retry` calls `ResetForRetry()` and does not reset `RetryCount`
+- Manual retry: `POST /api/ingestion/{id}/retry` (`RetryIngestionJobCommandHandler`) calls `ResetForRetry()` and does not reset `RetryCount`. Before resetting, it now calls `HasActiveJobAsync(job.SongId, job.JobType, excludeJobId: job.Id)` and throws a 409 (`exception_ingestion_job_already_active`) if another `Pending`/`Running` job of the same `(SongId, JobType)` already exists — prevents two full-pipeline runs for the same song racing against the DB's partial unique index. If the job is `FullPipeline`, it also sets `Song.SongState = InQueue` after the reset, mirroring `RetrySongAnalysisCommandHandler`.
+- Bulk retry: `POST /api/ingestion/failed/retry-all` (`RetryAllFailedIngestionJobsCommandHandler`) loads every non-archived `Failed` job (`ISongIngestionJobRepository.GetByStatusAsync`) and resets each one the same way — skipping (not erroring) any job whose `(SongId, JobType)` already has another active job, since a song can carry more than one historical `Failed` row for the same job type and an earlier row in the same batch may have already been reset. Returns `{ retriedCount, skippedCount }`.
+- Bulk remove: `DELETE /api/ingestion/failed` (`RemoveAllFailedIngestionJobsCommandHandler`) loads every non-archived `Failed` job and hard-deletes each one. Returns `{ removedCount }`.
 
 ---
 

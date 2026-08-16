@@ -112,6 +112,16 @@ public static class NasheedEndpoints
             .WithName("GetIngestionJobList")
             .Produces<PaginatedList<IngestionJobDto>>();
 
+        ingestion.MapPost("/failed/retry-all", NasheedIngestionApiHandlers.RetryAllFailed)
+            .WithName("RetryAllFailedIngestionJobs")
+            .Produces<RetryAllFailedIngestionJobsResultDto>()
+            .RequireAuthorization("AdminOnly");
+
+        ingestion.MapDelete("/failed", NasheedIngestionApiHandlers.RemoveAllFailed)
+            .WithName("RemoveAllFailedIngestionJobs")
+            .Produces<RemoveAllFailedIngestionJobsResultDto>()
+            .RequireAuthorization("AdminOnly");
+
         ingestion.MapPost("/{id:int}/retry", NasheedIngestionApiHandlers.Retry)
             .WithName("RetryIngestionJob")
             .Produces<IngestionJobDto>()

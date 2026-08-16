@@ -126,6 +126,8 @@ Get a single song by ID.
 
 Get paginated list of songs with optional filters.
 
+`textFilter` matches against song title, artist name, and song ID (exact match, only when the value parses as an integer) — any match returns the song.
+
 `lyricsVerified` (bool?) filters by the `LyricsVerified` flag when provided (`true`/`false`); omit to return songs regardless of verification status.
 
 **Response:** `200 OK` → `PaginatedList<SongDto>`
@@ -228,7 +230,7 @@ Get semantically similar songs using cosine similarity on embeddings.
 
 Get a single ingestion job by ID.
 
-**Response:** `200 OK` → `IngestionJobDto` | `404 Not Found`
+**Response:** `200 OK` → `IngestionJobDto` (with `songTitle` resolved) | `404 Not Found`
 
 ---
 
@@ -240,11 +242,27 @@ Get paginated ingestion job list with optional filters.
 
 ---
 
+### `POST /api/ingestion/failed/retry-all`
+
+**AdminOnly.** Bulk-retries every non-archived job currently `Failed` (system-wide, not scoped to the current page/filter). For each: skips it (counted as skipped) if another `Pending`/`Running` job of the same `(SongId, JobType)` already exists — e.g. an earlier job in the same batch already reset for the same song — otherwise calls `ResetForRetry()` and, for `FullPipeline` jobs, also sets the song's `SongState` back to `InQueue`.
+
+**Response:** `200 OK` → `{ "retriedCount": number, "skippedCount": number }`
+
+---
+
+### `DELETE /api/ingestion/failed`
+
+**AdminOnly.** Bulk hard-deletes every non-archived job currently `Failed` (system-wide).
+
+**Response:** `200 OK` → `{ "removedCount": number }`
+
+---
+
 ### `POST /api/ingestion/{id}/retry`
 
-**AdminOnly.** Reset a job to `Pending` so the worker can pick it up again.
+**AdminOnly.** Reset a job to `Pending` so the worker can pick it up again. If the job is `FullPipeline`, also sets the song's `SongState` back to `InQueue`.
 
-**Response:** `200 OK` → `IngestionJobDto`
+**Response:** `200 OK` → `IngestionJobDto` | `404 Not Found` | `409 Conflict` (another `Pending`/`Running` job of the same type already exists for this song — prevents duplicate full-pipeline runs)
 
 > `RetryCount` is not reset by retry; `ResetForRetry()` clears `LastError` and `NextRetryAt`.
 
@@ -395,10 +413,13 @@ Log a play event for a user.
 
 ### `IngestionJobDto`
 
+`songTitle` is only resolved by `GET /api/ingestion/{id}` (a single extra `ISongRepository.GetByIdAsync` lookup) — the paginated list endpoint leaves it `null` to avoid an N+1 lookup per row.
+
 ```json
 {
   "id": 1,
   "songId": 1,
+  "songTitle": "string",
   "fileId": 456,
   "jobType": "FullPipeline",
   "jobStatus": "Completed",

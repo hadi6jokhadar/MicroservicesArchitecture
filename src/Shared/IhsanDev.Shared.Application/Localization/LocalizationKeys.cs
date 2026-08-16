@@ -58,6 +58,7 @@ public static class LocalizationKeys
         public const string SongNotFound = "exception_song_not_found";
         public const string ArtistNotFound = "exception_artist_not_found";
         public const string IngestionJobNotFound = "exception_ingestion_job_not_found";
+        public const string IngestionJobAlreadyActive = "exception_ingestion_job_already_active";
         public const string SongArtistChangeNotSupported = "exception_song_artist_change_not_supported";
         public const string SongNotIndexed = "exception_song_not_indexed";
 

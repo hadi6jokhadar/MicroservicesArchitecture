@@ -22,7 +22,7 @@ public class GetIngestionJobListQueryHandler : IRequestHandler<GetIngestionJobLi
 
         return new PaginatedList<IngestionJobDto>
         {
-            Items = items.Select(IngestionJobDto.MapFrom).ToList(),
+            Items = items.Select(job => IngestionJobDto.MapFrom(job)).ToList(),
             TotalCount = total,
             PageNumber = request.PageNumber,
             PageSize = request.PageSize

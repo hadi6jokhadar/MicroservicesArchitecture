@@ -8,6 +8,7 @@ namespace Nasheed.Application.DTOs;
 public class IngestionJobDto : BaseDto
 {
     public int SongId { get; set; }
+    public string? SongTitle { get; set; }
     public int FileId { get; set; }
     public IngestionJobType JobType { get; set; }
     public IngestionJobStatus JobStatus { get; set; }
@@ -19,10 +20,11 @@ public class IngestionJobDto : BaseDto
     public string? CompletedAt { get; set; }
     public string? RemovedAt { get; set; }
 
-    public static IngestionJobDto MapFrom(SongIngestionJobEntity entity) => new()
+    public static IngestionJobDto MapFrom(SongIngestionJobEntity entity, string? songTitle = null) => new()
     {
         Id = entity.Id,
         SongId = entity.SongId,
+        SongTitle = songTitle,
         FileId = entity.FileId,
         JobType = entity.JobType,
         JobStatus = entity.JobStatus,

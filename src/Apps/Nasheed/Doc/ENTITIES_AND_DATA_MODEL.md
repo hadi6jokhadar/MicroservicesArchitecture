@@ -1,6 +1,6 @@
 # Nasheed Service — Entities and Data Model
 
-**Last Updated:** August 13, 2026
+**Last Updated:** August 16, 2026
 
 ---
 
@@ -17,6 +17,8 @@ Tracks the lifecycle of a song through processing.
 | `Pending`  | 2   | Ingestion in progress             |
 | `Done`     | 3   | Fully processed and indexed       |
 | `Failed`   | 4   | Ingestion failed (may be retried) |
+
+`Failed` is set by `NasheedIngestionWorker.ProcessJobAsync` when a `FullPipeline` job's `JobStatus` reaches `Failed` (retries exhausted or non-retryable error) — see `Doc/INGESTION_PIPELINE.md` "Song State Follows the `FullPipeline` Job". A subsequent successful `FullPipeline` run always sets `Done`, regardless of the song's prior state.
 
 ### `SearchIndexStatus`
 

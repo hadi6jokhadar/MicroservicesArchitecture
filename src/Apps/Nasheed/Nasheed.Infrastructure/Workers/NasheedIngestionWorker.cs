@@ -117,9 +117,10 @@ public class NasheedIngestionWorker : BackgroundService
         await jobRepo.UpdateAsync(job, cancellationToken);
         await BroadcastProgressAsync(notificationClient, job, songTitle: null, cancellationToken);
 
+        SongEntity? song = null;
         try
         {
-            var song = await songRepo.GetByIdAsync(job.SongId, cancellationToken);
+            song = await songRepo.GetByIdAsync(job.SongId, cancellationToken);
             if (song == null)
             {
                 job.MarkFailed("Song not found.", null, retryable: false);
@@ -162,6 +163,20 @@ public class NasheedIngestionWorker : BackgroundService
             var errorMessage = ex.Message.Length > 2000 ? ex.Message[..2000] : ex.Message;
             job.MarkFailed(errorMessage, nextRetry, retryable);
             await jobRepo.UpdateAsync(job, cancellationToken);
+
+            // The FullPipeline job drives the Song's own lifecycle (Uploaded/InQueue -> Done),
+            // so once it has exhausted retries (MarkFailed left it at Failed, not back at Pending
+            // for another automatic attempt), the Song must surface that too — otherwise it stays
+            // stuck at InQueue forever with no indication processing ever stopped. A subsequent
+            // manual retry (RetrySongAnalysisCommandHandler / RetryIngestionJobCommandHandler)
+            // already moves the Song back to InQueue, and a successful run always sets it to Done
+            // (see RunFullPipelineAsync), so this only needs to cover the terminal-failure edge.
+            if (song is not null && job.JobType == IngestionJobType.FullPipeline && job.JobStatus == IngestionJobStatus.Failed)
+            {
+                song.SetState(SongState.Failed);
+                await songRepo.UpdateAsync(song, cancellationToken);
+            }
+
             await BroadcastProgressAsync(notificationClient, job, songTitle: null, cancellationToken);
         }
     }

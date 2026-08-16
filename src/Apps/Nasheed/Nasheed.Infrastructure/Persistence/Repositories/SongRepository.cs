@@ -36,7 +36,12 @@ public class SongRepository : Repository<SongEntity>, ISongRepository
         if (!string.IsNullOrWhiteSpace(textFilter))
         {
             var escaped = textFilter.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
-            query = query.Where(e => EF.Functions.Like(e.Title, $"%{escaped}%", "\\"));
+            var pattern = $"%{escaped}%";
+            var isIdMatch = int.TryParse(textFilter, out var idFilter);
+            query = query.Where(e =>
+                EF.Functions.Like(e.Title, pattern, "\\") ||
+                (e.Artist != null && EF.Functions.Like(e.Artist.Name, pattern, "\\")) ||
+                (isIdMatch && e.Id == idFilter));
         }
 
         if (artistId.HasValue)

@@ -32,6 +32,7 @@
   "exception_song_not_found": "الأغنية غير موجودة",
   "exception_artist_not_found": "الفنان غير موجود",
   "exception_ingestion_job_not_found": "مهمة الاستيعاب غير موجودة",
+  "exception_ingestion_job_already_active": "توجد بالفعل مهمة استيعاب نشطة من نفس النوع لهذه الأغنية. انتظر حتى تنتهي قبل إعادة المحاولة.",
   "exception_song_artist_change_not_supported": "تغيير الفنان على أغنية موجودة غير مدعوم. أرشف الأغنية وأنشئ واحدة جديدة.",
   "exception_song_not_indexed": "لم يتم فهرسة الأغنية بعد. البحث غير متاح لهذه الأغنية.",
   "exception_token_tenant_header_missing": "رمز المصادقة الخاص بك مرتبط بمستأجر، ولكن لم يتم توفير رأس المستأجر.",

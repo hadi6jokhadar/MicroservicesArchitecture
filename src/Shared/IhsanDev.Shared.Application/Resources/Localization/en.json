@@ -32,6 +32,7 @@
   "exception_song_not_found": "Song not found",
   "exception_artist_not_found": "Artist not found",
   "exception_ingestion_job_not_found": "Ingestion job not found",
+  "exception_ingestion_job_already_active": "An active ingestion job of the same type already exists for this song. Wait for it to finish before retrying.",
   "exception_song_artist_change_not_supported": "Changing the artist on an existing song is not supported. Archive the song and create a new one.",
   "exception_song_not_indexed": "Song has not been indexed yet. Search is unavailable for this song.",
   "exception_token_tenant_header_missing": "Your authentication token is associated with a tenant, but no tenant header was provided.",
