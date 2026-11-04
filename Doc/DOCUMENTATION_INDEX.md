@@ -15,7 +15,7 @@ The `src/` directory has two distinct sub-folders:
 | Folder          | Role                                                                   | Current projects                                             |
 | --------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `src/Services/` | Core platform microservices. Foundational — other Apps depend on them. | Identity, Tenant, FileManager, Notification, Translation, Category, AI, Backup |
-| `src/Apps/`     | Domain-specific application projects that consume platform Services.   | Nasheed, PolySnap                                             |
+| `src/Apps/`     | Domain-specific application projects that consume platform Services.   | Nasheed, PolySnap, BannersOfSham (docs only, not scaffolded)  |
 
 **Every project in `src/Apps/` must have its own `Doc/` folder** with at minimum: `DOCUMENTATION_INDEX.md`, `OVERVIEW.md`, `ENTITIES_AND_DATA_MODEL.md`, `API_ENDPOINTS.md`. See `NEW_SERVICE_INTEGRATION_GUIDE.md` for the full required file list.
 
@@ -164,6 +164,13 @@ Files are organized by category. Each entry includes:
 > Located at `src/Apps/PolySnap/` — a domain app, proof-of-concept spatial boundary engine backend. Port **5011**, Database Strategy **B (Per-Tenant DB)**.
 > **Backend implementation detail lives in `src/Apps/PolySnap/Doc/POLYSNAP_SERVICE_GUIDE.md`** — currently a CRUD-only scaffold (`SnapRequestEntity`); PostGIS/OSM snapping logic is planned for a later phase.
 > **For the product idea, architecture decisions, tech stack, and cross-stack roadmap, see the root-level `Doc/POLYSNAP_PROJECT_OVERVIEW.md`** (covers both this backend and the `polysnap-admin` frontend feature).
+
+---
+
+## ⚔️ Banners of Sham (`src/Apps/BannersOfSham/`)
+
+> Backend game server for the Banners of Sham mobile strategy game. **Not scaffolded yet** — planned port **5012**, fixed tenant `BannersOfSham`, Strategy **B (Per-Tenant DB)**.
+> **Backend docs live in `src/Apps/BannersOfSham/Doc/OVERVIEW.md`** (platform reuse, architecture decisions, open items). The main game doc (vision, Unity client, roadmap) is `Unity/BannersOfSham/Doc/OVERVIEW.md` at the monorepo root.
 
 ---
 
