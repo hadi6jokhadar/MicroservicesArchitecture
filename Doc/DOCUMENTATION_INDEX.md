@@ -170,7 +170,7 @@ Files are organized by category. Each entry includes:
 ## ⚔️ Banners of Sham (`src/Apps/BannersOfSham/`)
 
 > Backend game server for the Banners of Sham mobile strategy game. **Not scaffolded yet** — planned port **5012**, fixed tenant `BannersOfSham`, Strategy **B (Per-Tenant DB)**.
-> **Backend docs live in `src/Apps/BannersOfSham/Doc/OVERVIEW.md`** (platform reuse, architecture decisions, open items). The main game doc (vision, Unity client, roadmap) is `Unity/BannersOfSham/Doc/OVERVIEW.md` at the monorepo root.
+> **Backend docs live in `src/Apps/BannersOfSham/Doc/OVERVIEW.md`** (platform reuse, architecture decisions, open items) **and `src/Apps/BannersOfSham/Doc/DATA_PACK_AND_LOCALIZATION.md`** (how the game data and text reach the backend and the client: the versioned data pack, golden tests from the Python simulators, translation keys; the plan for the game-logic phase). The main game doc (vision, Unity client, roadmap) is `Unity/BannersOfSham/Doc/OVERVIEW.md` at the monorepo root.
 
 ---
 
